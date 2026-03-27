@@ -2108,8 +2108,8 @@ function calcEtapa(etapas) {
 const bpStats=bp=>{let u=0;bp.categorias.forEach(c=>c.items.forEach(i=>{if(i.seleccionado)u+=i.puntos*i.cantidad;}));return{used:u,rem:bp.totalDisponibles-u};};
 
 function loadData(){
-  // Solo usar localStorage como fallback temporal — Supabase siempre sobreescribe después
-  try{const s=localStorage.getItem(STORAGE_KEY);if(s)return migrateBanners(JSON.parse(s));}catch{}
+  // No usar localStorage — Supabase es la única fuente de verdad
+  // localStorage solo se usa como cache temporal mientras carga Supabase
   const brands={};
   Object.entries(BRAND_DEFAULTS).forEach(([id,b])=>{
     brands[id]={
@@ -2124,10 +2124,9 @@ function loadData(){
   return{brands,theme:"light"};
 }
 function saveData(d){
-  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch{}
-  // Sync to Supabase debounced
+  // Guardar en Supabase inmediatamente (debounced 800ms)
   if(_sbTimer) clearTimeout(_sbTimer);
-  _sbTimer = setTimeout(()=>saveToSupabase(d), 1500);
+  _sbTimer = setTimeout(()=>saveToSupabase(d), 800);
 }
 
 let S=loadData();
