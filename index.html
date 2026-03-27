@@ -4,110 +4,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Polen Studio</title>
 <link href="./Polen Studio_files/css2" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-// ── SUPABASE CONFIG ──
-const SUPABASE_URL = 'https://abfgnaavzqvfhmyyfvpn.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_KO-VfFgz6IyXKVtjPSR2ug_yJAkTU6M';
-const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// ── AUTH STATE ──
-let _currentUser = null;
-let _authReady = false;
-
-// ── ALLOWED DOMAINS ──
-const ALLOWED_DOMAINS = ['pausa.com.ec', 'polensystem.com'];
-
-function isAllowedEmail(email) {
-  if (!email) return false;
-  const domain = email.split('@')[1];
-  return ALLOWED_DOMAINS.includes(domain);
-}
-
-// ── LOGIN SCREEN ──
-function showLoginScreen(errorMsg) {
-  document.getElementById('root').style.display = 'none';
-  let existing = document.getElementById('auth-screen');
-  if (existing) existing.remove();
-
-  const logoSrc = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><circle cx="40" cy="40" r="38" fill="#0071e3"/><text x="40" y="52" text-anchor="middle" font-size="36" fill="white" font-family="system-ui">🌸</text></svg>`);
-
-  const html = `
-  <div id="auth-screen" style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#f5f5f7;font-family:'Geist',system-ui,sans-serif">
-    <div style="background:#fff;border-radius:28px;padding:48px 40px;max-width:380px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,.12);text-align:center">
-      <div style="width:64px;height:64px;border-radius:18px;background:#0071e3;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px">🌸</div>
-      <div style="font-size:22px;font-weight:700;color:#1d1d1f;margin-bottom:6px">Polen Studio</div>
-      <div style="font-size:14px;color:#6e6e73;margin-bottom:32px">Sistema de gestión de marcas</div>
-      ${errorMsg ? `<div style="background:#fff2f2;border:1px solid #ffcdd2;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#c62828">${errorMsg}</div>` : ''}
-      <button onclick="signInWithGoogle()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 20px;border-radius:12px;border:1.5px solid rgba(0,0,0,.12);background:#fff;cursor:pointer;font-size:15px;font-weight:500;color:#1d1d1f;transition:all .15s" onmouseover="this.style.background='#f5f5f7'" onmouseout="this.style.background='#fff'">
-        <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-        Entrar con Google
-      </button>
-      <div style="margin-top:20px;font-size:12px;color:#aeaeb2">Solo para el equipo Polen · @pausa.com.ec · @polensystem.com</div>
-    </div>
-  </div>`;
-
-  document.body.insertAdjacentHTML('beforeend', html);
-}
-
-async function signInWithGoogle() {
-  const btn = document.querySelector('#auth-screen button');
-  if (btn) { btn.textContent = 'Conectando...'; btn.disabled = true; }
-  const { error } = await _sb.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: window.location.href }
-  });
-  if (error) showLoginScreen('Error al conectar con Google. Intenta de nuevo.');
-}
-
-async function signOut() {
-  await _sb.auth.signOut();
-  showLoginScreen();
-}
-
-// ── HANDLE TOKEN FROM URL HASH ──
-async function handleHashToken() {
-  const hash = window.location.hash;
-  if (hash && hash.includes('access_token')) {
-    try {
-      const params = new URLSearchParams(hash.substring(1));
-      const access_token = params.get('access_token');
-      const refresh_token = params.get('refresh_token');
-      if (access_token) {
-        await _sb.auth.setSession({ access_token, refresh_token });
-        window.history.replaceState(null, '', window.location.pathname);
-      }
-    } catch(e) { console.warn('Hash token error', e); }
-  }
-}
-
-// ── AUTH LISTENER ──
-_sb.auth.onAuthStateChange(async (event, session) => {
-  _authReady = true;
-  if (session && session.user) {
-    const email = session.user.email;
-    if (!isAllowedEmail(email)) {
-      await _sb.auth.signOut();
-      showLoginScreen(`Acceso denegado. Solo se permite el equipo Polen (${ALLOWED_DOMAINS.join(', ')})`);
-      return;
-    }
-    _currentUser = session.user;
-    const authScreen = document.getElementById('auth-screen');
-    if (authScreen) authScreen.remove();
-    document.getElementById('root').style.display = '';
-    await loadDataFromSupabase();
-  } else {
-    await handleHashToken();
-    const { data } = await _sb.auth.getSession();
-    if (!data.session) {
-      _currentUser = null;
-      showLoginScreen();
-    }
-  }
-});
-</script>
 <style>
-#root{display:none}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#f5f5f7;--surface:#fff;--surface-2:#f5f5f7;--surface-3:#e8e8ed;
@@ -2179,9 +2076,8 @@ function calcEtapa(etapas) {
 const bpStats=bp=>{let u=0;bp.categorias.forEach(c=>c.items.forEach(i=>{if(i.seleccionado)u+=i.puntos*i.cantidad;}));return{used:u,rem:bp.totalDisponibles-u};};
 
 function loadData(){
-  // Return current S if already loaded, else default state
-  // Real loading happens async via loadDataFromSupabase()
   try{const s=localStorage.getItem(STORAGE_KEY);if(s)return migrateBanners(JSON.parse(s));}catch{}
+  // Build initial state from BRAND_DEFAULTS
   const brands={};
   Object.entries(BRAND_DEFAULTS).forEach(([id,b])=>{
     brands[id]={
@@ -2195,52 +2091,7 @@ function loadData(){
   });
   return{brands,theme:"light"};
 }
-
-// ── SUPABASE LOAD ──
-async function loadDataFromSupabase(){
-  if(!_currentUser) return;
-  try{
-    const {data,error} = await _sb
-      .from('polen_data')
-      .select('data')
-      .eq('user_id', _currentUser.id)
-      .single();
-    if(error && error.code !== 'PGRST116') throw error;
-    if(data && data.data){
-      S = migrateBanners(data.data);
-      // also cache locally
-      try{localStorage.setItem(STORAGE_KEY, JSON.stringify(S));}catch{}
-      document.documentElement.setAttribute("data-theme", S.theme||"light");
-      render();
-      setTimeout(()=>{applyCardAnimations();initProgressBars();},100);
-    }
-  }catch(e){
-    console.warn('Supabase load error, using local data', e);
-  }
-}
-
-// ── SUPABASE SAVE (debounced) ──
-let _saveTimer = null;
-function saveData(d){
-  // Always save locally as backup
-  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch{}
-  // Debounce Supabase save by 1.5s
-  if(_saveTimer) clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(()=>_saveToSupabase(d), 1500);
-}
-
-async function _saveToSupabase(d){
-  if(!_currentUser) return;
-  try{
-    await _sb.from('polen_data').upsert({
-      user_id: _currentUser.id,
-      data: d,
-      updated_at: new Date().toISOString()
-    }, {onConflict: 'user_id'});
-  }catch(e){
-    console.warn('Supabase save error', e);
-  }
-}
+function saveData(d){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch{}}
 
 let S=loadData();
 // Check month rollover on startup (called after REAL_FINANCIALS is defined)
@@ -13013,24 +12864,49 @@ document.addEventListener("DOMContentLoaded",()=>{
   purgeExpiredTrash();
   document.documentElement.setAttribute("data-theme",S.theme);
   render();
-  // V8 post-render hooks
   setTimeout(() => { applyCardAnimations(); initProgressBars(); }, 100);
 
-  // Add sign out button to nav after render
-  setTimeout(()=>{
-    const nav = document.querySelector('.nav');
-    if(nav && _currentUser && !document.getElementById('signout-btn')){
-      const email = _currentUser.email || '';
-      const name = email.split('@')[0];
-      const btn = document.createElement('button');
-      btn.id = 'signout-btn';
-      btn.title = 'Cerrar sesión';
-      btn.innerHTML = `<span style="font-size:12px;color:#6e6e73;margin-right:6px">${name}</span><span style="font-size:13px">↩</span>`;
-      btn.style.cssText = 'display:flex;align-items:center;padding:6px 10px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#f5f5f7;cursor:pointer;font-family:inherit';
-      btn.onclick = signOut;
-      nav.appendChild(btn);
+  // ── PIN OVERLAY ──
+  if(sessionStorage.getItem('polen_pin_ok') !== '1') {
+    var ov = document.createElement('div');
+    ov.id = 'pin-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#f5f5f7;font-family:system-ui,sans-serif';
+    ov.innerHTML = '<div style="background:#fff;border-radius:28px;padding:52px 40px;max-width:360px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,.12);text-align:center"><div style="font-size:44px;font-weight:800;color:#1d1d1f;letter-spacing:-2px;margin-bottom:2px">Polen</div><div style="font-size:16px;font-weight:600;color:#3a3a3c;margin-bottom:6px">Creative Studio</div><div style="font-size:13px;color:#6e6e73;margin-bottom:32px">Sistema de gestión de marcas</div><div id="pdots" style="display:flex;justify-content:center;gap:14px;margin-bottom:24px"><div class="pd" style="width:14px;height:14px;border-radius:50%;background:#e0e0e5;transition:background .15s"></div><div class="pd" style="width:14px;height:14px;border-radius:50%;background:#e0e0e5;transition:background .15s"></div><div class="pd" style="width:14px;height:14px;border-radius:50%;background:#e0e0e5;transition:background .15s"></div><div class="pd" style="width:14px;height:14px;border-radius:50%;background:#e0e0e5;transition:background .15s"></div></div><div id="pin-err" style="color:#ff3b30;font-size:13px;min-height:20px;margin-bottom:12px"></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;margin:0 auto" id="pin-grid"></div><div style="margin-top:24px;font-size:12px;color:#c7c7cc">Solo para el equipo Polen</div></div>';
+    document.body.appendChild(ov);
+
+    var pv = '';
+    var grid = document.getElementById('pin-grid');
+    [1,2,3,4,5,6,7,8,9,'',0,'⌫'].forEach(function(n) {
+      var btn = document.createElement('button');
+      btn.textContent = n === '' ? '' : String(n);
+      btn.style.cssText = 'padding:18px 0;border-radius:14px;border:none;background:' + (n===''?'transparent':'#f5f5f7') + ';font-size:22px;font-weight:500;color:#1d1d1f;cursor:' + (n===''?'default':'pointer') + ';font-family:inherit';
+      if(n !== '') {
+        btn.onclick = function() { pressPIN(String(n)); };
+      }
+      grid.appendChild(btn);
+    });
+
+    function pressPIN(val) {
+      if(val === '⌫') { pv = pv.slice(0,-1); }
+      else if(pv.length < 4) { pv += val; }
+      document.querySelectorAll('.pd').forEach(function(d,i){ d.style.background = i < pv.length ? '#1d1d1f' : '#e0e0e5'; });
+      if(pv.length === 4) {
+        if(pv === '1707') {
+          sessionStorage.setItem('polen_pin_ok','1');
+          document.getElementById('pin-ov').remove();
+        } else {
+          pv = '';
+          document.getElementById('pin-err').textContent = 'PIN incorrecto. Intenta de nuevo.';
+          document.querySelectorAll('.pd').forEach(function(d){ d.style.background='#e0e0e5'; });
+        }
+      }
     }
-  }, 300);
+
+    document.addEventListener('keydown', function(e) {
+      if(e.key>='0' && e.key<='9') pressPIN(e.key);
+      if(e.key==='Backspace') pressPIN('⌫');
+    });
+  }
 });
 </script>
 
