@@ -12895,21 +12895,15 @@ document.addEventListener("DOMContentLoaded",()=>{
 
   confirmCb = null;
   confirmMsg = "Esta acción no se puede deshacer.";
-  checkHash();
-  applyMonthOverrides();
-  checkMonthRollover();
-  purgeExpiredTrash();
-  document.documentElement.setAttribute("data-theme",S.theme);
-  render();
-  setTimeout(() => { applyCardAnimations(); initProgressBars(); }, 100);
 
-  // ── SIEMPRE sincronizar desde Supabase al cargar ──
-  if(localStorage.getItem('polen_pin_ok') === '1') {
-    syncFromSupabase();
-  }
-
-  // ── PIN OVERLAY ──
+  // ── PIN CHECK ──
   if(localStorage.getItem('polen_pin_ok') !== '1') {
+    // Sin PIN — mostrar pantalla de PIN primero, luego cargar
+    checkHash(); applyMonthOverrides(); checkMonthRollover(); purgeExpiredTrash();
+    document.documentElement.setAttribute("data-theme",S.theme);
+    render();
+    setTimeout(() => { applyCardAnimations(); initProgressBars(); }, 100);
+
     var ov = document.createElement('div');
     ov.id = 'pin-ov';
     ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#f5f5f7;font-family:system-ui,sans-serif';
@@ -12922,9 +12916,7 @@ document.addEventListener("DOMContentLoaded",()=>{
       var btn = document.createElement('button');
       btn.textContent = n === '' ? '' : String(n);
       btn.style.cssText = 'padding:18px 0;border-radius:14px;border:none;background:' + (n===''?'transparent':'#f5f5f7') + ';font-size:22px;font-weight:500;color:#1d1d1f;cursor:' + (n===''?'default':'pointer') + ';font-family:inherit';
-      if(n !== '') {
-        btn.onclick = function() { pressPIN(String(n)); };
-      }
+      if(n !== '') btn.onclick = function() { pressPIN(String(n)); };
       grid.appendChild(btn);
     });
 
@@ -12944,10 +12936,18 @@ document.addEventListener("DOMContentLoaded",()=>{
         }
       }
     }
-
     document.addEventListener('keydown', function(e) {
       if(e.key>='0' && e.key<='9') pressPIN(e.key);
       if(e.key==='Backspace') pressPIN('⌫');
+    });
+
+  } else {
+    // Ya tiene PIN — cargar Supabase PRIMERO, luego renderizar
+    syncFromSupabase().then(function() {
+      checkHash(); applyMonthOverrides(); checkMonthRollover(); purgeExpiredTrash();
+      document.documentElement.setAttribute("data-theme", S.theme);
+      render();
+      setTimeout(() => { applyCardAnimations(); initProgressBars(); }, 100);
     });
   }
 });
