@@ -65,6 +65,22 @@ async function signOut() {
   showLoginScreen();
 }
 
+// ── HANDLE TOKEN FROM URL HASH ──
+async function handleHashToken() {
+  const hash = window.location.hash;
+  if (hash && hash.includes('access_token')) {
+    try {
+      const params = new URLSearchParams(hash.substring(1));
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+      if (access_token) {
+        await _sb.auth.setSession({ access_token, refresh_token });
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    } catch(e) { console.warn('Hash token error', e); }
+  }
+}
+
 // ── AUTH LISTENER ──
 _sb.auth.onAuthStateChange(async (event, session) => {
   _authReady = true;
@@ -79,11 +95,14 @@ _sb.auth.onAuthStateChange(async (event, session) => {
     const authScreen = document.getElementById('auth-screen');
     if (authScreen) authScreen.remove();
     document.getElementById('root').style.display = '';
-    // Load data from Supabase
     await loadDataFromSupabase();
   } else {
-    _currentUser = null;
-    showLoginScreen();
+    await handleHashToken();
+    const { data } = await _sb.auth.getSession();
+    if (!data.session) {
+      _currentUser = null;
+      showLoginScreen();
+    }
   }
 });
 </script>
