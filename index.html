@@ -11,7 +11,7 @@ const _SB_KEY = 'sb_publishable_KO-VfFgz6IyXKVtjPSR2ug_yJAkTU6M';
 const _sb = supabase.createClient(_SB_URL, _SB_KEY);
 const _SHARED_ID = 'polen-team-data'; // Un solo registro compartido para todo el equipo
 
-// Cargar datos desde Supabase — siempre prioriza la nube
+// Cargar datos desde Supabase — SIEMPRE borra local y carga de la nube
 async function syncFromSupabase() {
   try {
     const {data, error} = await _sb.from('polen_shared').select('data').eq('id', _SHARED_ID).single();
@@ -19,7 +19,8 @@ async function syncFromSupabase() {
     const remote = migrateBanners(data.data);
     if(remote) {
       S = remote;
-      try{localStorage.setItem(STORAGE_KEY, JSON.stringify(S));}catch{}
+      // Limpiar localStorage para que nunca interfiera
+      try{localStorage.removeItem(STORAGE_KEY);}catch{}
       document.documentElement.setAttribute("data-theme", S.theme||"light");
       render();
       setTimeout(()=>{applyCardAnimations();initProgressBars();},100);
