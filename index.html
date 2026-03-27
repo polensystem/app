@@ -19,13 +19,15 @@ async function syncFromSupabase() {
     const remote = migrateBanners(data.data);
     if(remote) {
       S = remote;
-      // Limpiar localStorage para que nunca interfiera
       try{localStorage.removeItem(STORAGE_KEY);}catch{}
       document.documentElement.setAttribute("data-theme", S.theme||"light");
       render();
       setTimeout(()=>{applyCardAnimations();initProgressBars();},100);
     }
   } catch(e){ console.warn('Supabase sync error', e); }
+  // Quitar loading si existe
+  var ld = document.getElementById('sb-loading');
+  if(ld) ld.remove();
 }
 
 // Guardar a Supabase (debounced)
@@ -12942,13 +12944,14 @@ document.addEventListener("DOMContentLoaded",()=>{
     });
 
   } else {
-    // Ya tiene PIN — cargar Supabase PRIMERO, luego renderizar
-    syncFromSupabase().then(function() {
-      checkHash(); applyMonthOverrides(); checkMonthRollover(); purgeExpiredTrash();
-      document.documentElement.setAttribute("data-theme", S.theme);
-      render();
-      setTimeout(() => { applyCardAnimations(); initProgressBars(); }, 100);
-    });
+    // Ya tiene PIN — mostrar loading y cargar de Supabase
+    var ld = document.createElement('div');
+    ld.id = 'sb-loading';
+    ld.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#f5f5f7;font-family:system-ui,sans-serif';
+    ld.innerHTML = '<div style="text-align:center"><div style="font-size:32px;font-weight:800;color:#1d1d1f;letter-spacing:-1px;margin-bottom:12px">Polen</div><div style="font-size:13px;color:#6e6e73">Cargando...</div></div>';
+    document.body.appendChild(ld);
+    checkHash(); applyMonthOverrides(); checkMonthRollover(); purgeExpiredTrash();
+    syncFromSupabase();
   }
 });
 </script>
