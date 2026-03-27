@@ -12902,6 +12902,11 @@ document.addEventListener("DOMContentLoaded",()=>{
   render();
   setTimeout(() => { applyCardAnimations(); initProgressBars(); }, 100);
 
+  // ── SIEMPRE sincronizar desde Supabase al cargar ──
+  if(sessionStorage.getItem('polen_pin_ok') === '1') {
+    syncFromSupabase();
+  }
+
   // ── PIN OVERLAY ──
   if(sessionStorage.getItem('polen_pin_ok') !== '1') {
     var ov = document.createElement('div');
