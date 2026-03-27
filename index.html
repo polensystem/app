@@ -2108,6 +2108,7 @@ function calcEtapa(etapas) {
 const bpStats=bp=>{let u=0;bp.categorias.forEach(c=>c.items.forEach(i=>{if(i.seleccionado)u+=i.puntos*i.cantidad;}));return{used:u,rem:bp.totalDisponibles-u};};
 
 function loadData(){
+  // Solo usar localStorage como fallback temporal — Supabase siempre sobreescribe después
   try{const s=localStorage.getItem(STORAGE_KEY);if(s)return migrateBanners(JSON.parse(s));}catch{}
   const brands={};
   Object.entries(BRAND_DEFAULTS).forEach(([id,b])=>{
@@ -12903,12 +12904,12 @@ document.addEventListener("DOMContentLoaded",()=>{
   setTimeout(() => { applyCardAnimations(); initProgressBars(); }, 100);
 
   // ── SIEMPRE sincronizar desde Supabase al cargar ──
-  if(sessionStorage.getItem('polen_pin_ok') === '1') {
+  if(localStorage.getItem('polen_pin_ok') === '1') {
     syncFromSupabase();
   }
 
   // ── PIN OVERLAY ──
-  if(sessionStorage.getItem('polen_pin_ok') !== '1') {
+  if(localStorage.getItem('polen_pin_ok') !== '1') {
     var ov = document.createElement('div');
     ov.id = 'pin-ov';
     ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#f5f5f7;font-family:system-ui,sans-serif';
@@ -12933,7 +12934,7 @@ document.addEventListener("DOMContentLoaded",()=>{
       document.querySelectorAll('.pd').forEach(function(d,i){ d.style.background = i < pv.length ? '#1d1d1f' : '#e0e0e5'; });
       if(pv.length === 4) {
         if(pv === '1707') {
-          sessionStorage.setItem('polen_pin_ok','1');
+          localStorage.setItem('polen_pin_ok','1');
           document.getElementById('pin-ov').remove();
           syncFromSupabase();
         } else {
