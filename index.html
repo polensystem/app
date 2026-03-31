@@ -12911,20 +12911,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const pinOk = localStorage.getItem('polen_pin_ok') === '1';
 
   function bootApp() {
-    // Siempre mostrar loading y cargar de Supabase
+    // Mostrar loading screen mientras Supabase responde
     var ld = document.createElement('div');
     ld.id = 'sb-loading';
     ld.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#f5f5f7;font-family:system-ui,sans-serif';
     ld.innerHTML = '<div style="text-align:center"><div style="font-size:44px;font-weight:800;color:#1d1d1f;letter-spacing:-2px;margin-bottom:8px">Polen</div><div style="font-size:13px;color:#6e6e73">Cargando tu sistema...</div></div>';
     document.body.appendChild(ld);
 
-    // Inicializar app con datos vacíos mientras carga
+    // Solo inicializar helpers — NO renderizar con datos vacíos
     checkHash(); applyMonthOverrides(); checkMonthRollover(); purgeExpiredTrash();
-    document.documentElement.setAttribute('data-theme', S.theme || 'light');
-    render();
-    setTimeout(() => { applyCardAnimations(); initProgressBars(); }, 100);
 
-    // Cargar de Supabase — esto sobreescribe todo con los datos reales
+    // Cargar de Supabase — loadFromSupabase hace el render() con datos reales
     loadFromSupabase();
   }
 
