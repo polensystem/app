@@ -1876,30 +1876,69 @@ async function loadFromSupabase() {
       .eq('id', RECORD_ID)
       .single();
 
-    if (error && error.code !== 'PGRST116') throw error;
+    // PGRST116 = row not found (expected on first use)
+    if (error && error.code !== 'PGRST116') {
+      console.error('Load error:', error);
+      // Show error details on loading screen
+      document.getElementById('loading-screen').innerHTML = `
+        <div class="loading-logo">Polen ✦</div>
+        <div style="color:var(--red);margin-top:1rem;font-size:0.85rem;max-width:400px;text-align:center;line-height:1.6">
+          ⚠️ Error al conectar con Supabase:<br>
+          <code style="font-size:0.75rem;background:rgba(255,0,0,0.1);padding:0.5rem;border-radius:6px;display:block;margin-top:0.5rem;word-break:break-all">
+            ${error.message || JSON.stringify(error)}
+          </code>
+          <br>
+          Verifica que la tabla <strong>polen_shared</strong> existe y tiene RLS desactivado (o políticas de acceso público).<br><br>
+          <button onclick="location.reload()" style="padding:0.5rem 1.2rem;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.85rem">🔄 Reintentar</button>
+        </div>`;
+      return false;
+    }
 
     if (!data || !data.data) {
-      // First time — create record with default data
+      // First use — create initial record
       appData = defaultData();
-      await sb.from('polen_shared').upsert({
+      const { error: insertErr } = await sb.from('polen_shared').upsert({
         id: RECORD_ID,
         data: appData,
         updated_at: new Date().toISOString()
-      });
+      }, { onConflict: 'id' });
+      if (insertErr) {
+        console.error('Insert error:', insertErr);
+        document.getElementById('loading-screen').innerHTML = `
+          <div class="loading-logo">Polen ✦</div>
+          <div style="color:var(--red);margin-top:1rem;font-size:0.85rem;max-width:400px;text-align:center;line-height:1.6">
+            ⚠️ No se pudo crear el registro inicial:<br>
+            <code style="font-size:0.75rem;background:rgba(255,0,0,0.1);padding:0.5rem;border-radius:6px;display:block;margin-top:0.5rem;word-break:break-all">
+              ${insertErr.message || JSON.stringify(insertErr)}
+            </code>
+            <br>Asegúrate de que la tabla tiene INSERT/UPDATE habilitado (desactiva RLS o agrega políticas públicas).<br><br>
+            <button onclick="location.reload()" style="padding:0.5rem 1.2rem;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.85rem">🔄 Reintentar</button>
+          </div>`;
+        return false;
+      }
     } else {
       appData = data.data;
-      // Merge missing keys with defaults
+      // Merge any missing keys with defaults
       const def = defaultData();
       if (!appData.bpCategories) appData.bpCategories = def.bpCategories;
       if (!appData.finances) appData.finances = def.finances;
       if (!appData.finances.costosFijos) appData.finances.costosFijos = def.finances.costosFijos;
       if (!appData.team) appData.team = def.team;
       if (!appData.domos) appData.domos = def.domos;
-      if (!appData.calendarUrl) appData.calendarUrl = '';
+      if (appData.calendarUrl === undefined) appData.calendarUrl = '';
+      if (!appData.brands) appData.brands = [];
+      if (!appData.template) appData.template = def.template;
     }
     return true;
   } catch(e) {
-    console.error('Supabase load error:', e);
+    console.error('Supabase exception:', e);
+    document.getElementById('loading-screen').innerHTML = `
+      <div class="loading-logo">Polen ✦</div>
+      <div style="color:var(--red);margin-top:1rem;font-size:0.85rem;max-width:400px;text-align:center;line-height:1.6">
+        ⚠️ Error de conexión: ${e.message || e}<br><br>
+        Verifica tu conexión a internet.<br><br>
+        <button onclick="location.reload()" style="padding:0.5rem 1.2rem;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.85rem">🔄 Reintentar</button>
+      </div>`;
     return false;
   }
 }
@@ -1907,18 +1946,33 @@ async function loadFromSupabase() {
 async function saveToSupabase() {
   try {
     document.getElementById('saving-indicator').classList.add('show');
-    await sb.from('polen_shared').upsert({
+    document.getElementById('sync-label').textContent = 'Guardando…';
+
+    // Try upsert
+    const { error } = await sb.from('polen_shared').upsert({
       id: RECORD_ID,
       data: appData,
       updated_at: new Date().toISOString()
-    });
+    }, { onConflict: 'id' });
+
+    if (error) {
+      console.error('Supabase upsert error:', error);
+      // Show detailed error
+      const msg = error.message || JSON.stringify(error);
+      toast('⚠️ Error al guardar: ' + msg, 'error');
+      document.getElementById('sync-label').textContent = '⚠️ Error';
+      document.getElementById('saving-indicator').classList.remove('show');
+      return;
+    }
+
     document.getElementById('sync-label').textContent = 'Sincronizado ✓';
     setTimeout(() => {
       document.getElementById('saving-indicator').classList.remove('show');
     }, 1200);
   } catch(e) {
-    console.error('Save error:', e);
-    toast('Error al guardar 😢', 'error');
+    console.error('Save exception:', e);
+    toast('⚠️ Error de red: ' + (e.message || e), 'error');
+    document.getElementById('sync-label').textContent = '⚠️ Sin conexión';
     document.getElementById('saving-indicator').classList.remove('show');
   }
 }
@@ -2362,8 +2416,13 @@ function closeModal(id) {
   document.getElementById(id)?.classList.add('hide');
 }
 
-function saveBrand() {
-  const id = document.getElementById('brand-edit-id').value || uid();
+async function saveBrand() {
+  const saveBtn = document.querySelector('#modal-new-brand .btn-primary');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Guardando…'; }
+
+  const editId = document.getElementById('brand-edit-id').value;
+  const id = editId || uid();
+
   const brand = {
     id,
     name:        document.getElementById('brand-name-input').value.trim(),
@@ -2379,38 +2438,74 @@ function saveBrand() {
     notes:       '',
     rondas:      [{ done: false, date: null }, { done: false, date: null }, { done: false, date: null }],
     tasks:       { aire: [], agua: [], tierra: [], fuego: [] },
-    etapas:      null, // null = use global template
+    etapas:      null,
     bp:          {}
   };
 
-  if (!brand.name) { toast('El nombre es obligatorio.','error'); return; }
+  if (!brand.name) {
+    toast('El nombre es obligatorio.', 'error');
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Guardar marca'; }
+    return;
+  }
 
-  if (document.getElementById('brand-edit-id').value) {
-    // Edit existing
+  if (!appData.brands) appData.brands = [];
+
+  if (editId) {
+    // Edit existing — preserve tasks, notes, rondas, bp, etc.
     const existing = appData.brands.find(b => b.id === id);
     if (existing) {
-      Object.assign(existing, { name: brand.name, industry: brand.industry, emoji: brand.emoji,
-        color: brand.color, stage: brand.stage, priority: brand.priority,
-        responsible: brand.responsible, deadline: brand.deadline, contract: brand.contract });
+      existing.name        = brand.name;
+      existing.industry    = brand.industry;
+      existing.emoji       = brand.emoji;
+      existing.color       = brand.color;
+      existing.stage       = brand.stage;
+      existing.priority    = brand.priority;
+      existing.responsible = brand.responsible;
+      existing.deadline    = brand.deadline;
+      existing.contract    = brand.contract;
     }
   } else {
-    // New: apply global template tasks
-    const tpl = appData.template.stages;
+    // New brand — apply global template
+    const tpl = appData.template?.stages || {};
     ['aire','agua','tierra','fuego'].forEach(block => {
       brand.tasks[block] = (tpl[block] || []).map(s => ({
         id: uid(), name: s.name, status: 'pendiente',
         type: s.isClient ? 'cliente' : 'interna',
-        deadline: '', isHito: s.isHito, notes: '', rounds: 0
+        deadline: '', isHito: s.isHito || false, notes: '', rounds: 0
       }));
     });
-    brand.etapas = JSON.parse(JSON.stringify(tpl));
+    brand.etapas = tpl ? JSON.parse(JSON.stringify(tpl)) : {};
     appData.brands.push(brand);
   }
 
-  scheduleSave();
+  // Save immediately and await result
+  try {
+    const { error } = await sb.from('polen_shared').upsert({
+      id: RECORD_ID,
+      data: appData,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+
+    if (error) {
+      console.error('Save brand error:', error);
+      toast('⚠️ No se pudo guardar en Supabase: ' + (error.message || JSON.stringify(error)), 'error');
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Guardar marca'; }
+      return;
+    }
+
+    document.getElementById('sync-label').textContent = 'Sincronizado ✓';
+  } catch(e) {
+    console.error('Save brand exception:', e);
+    toast('⚠️ Error de red: ' + (e.message || e), 'error');
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Guardar marca'; }
+    return;
+  }
+
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Guardar marca'; }
   closeModal('modal-new-brand');
   renderBrandsList();
-  toast(`Marca "${brand.name}" guardada ✓`);
+  if (currentPage === 'dashboard') renderDashboard();
+  toast(`✅ Marca "${brand.name}" guardada`);
 }
 
 function openEditBrand() {
@@ -2679,7 +2774,7 @@ function toggleTaskHito() {
   document.getElementById('task-hito-toggle').classList.toggle('on', taskHitoValue);
 }
 
-function saveTask() {
+async function saveTask() {
   const b = appData.brands.find(x => x.id === currentBrandId);
   if (!b) return;
   const editId = document.getElementById('task-edit-id').value;
@@ -2691,14 +2786,9 @@ function saveTask() {
   if (!b.tasks[block]) b.tasks[block] = [];
 
   if (editId) {
-    // Find and update in any block
-    let found = false;
     ['aire','agua','tierra','fuego'].forEach(blk => {
       const idx = (b.tasks[blk]||[]).findIndex(t => t.id === editId);
-      if (idx !== -1) {
-        b.tasks[blk].splice(idx, 1);
-        found = true;
-      }
+      if (idx !== -1) b.tasks[blk].splice(idx, 1);
     });
     b.tasks[block].push({
       id: editId, name,
@@ -2721,7 +2811,11 @@ function saveTask() {
     });
   }
 
-  scheduleSave();
+  const { error } = await sb.from('polen_shared').upsert({
+    id: RECORD_ID, data: appData, updated_at: new Date().toISOString()
+  }, { onConflict: 'id' });
+  if (error) { toast('⚠️ Error al guardar tarea: ' + error.message, 'error'); return; }
+
   closeModal('modal-add-task');
   renderKanban();
   toast('Tarea guardada ✓');
@@ -3145,7 +3239,7 @@ function renderDomos() {
     : '<div class="text-muted text-sm" style="grid-column:1/-1">No hay domos. Crea el primero con el botón +.</div>';
 }
 
-function saveDomo() {
+async function saveDomo() {
   const id = document.getElementById('domo-edit-id').value || uid();
   const domo = {
     id, name: document.getElementById('domo-name-input').value.trim(),
@@ -3156,7 +3250,13 @@ function saveDomo() {
   const idx = appData.domos.findIndex(d => d.id === id);
   if (idx !== -1) appData.domos[idx] = domo;
   else appData.domos.push(domo);
-  scheduleSave(); closeModal('modal-new-domo'); renderTeam();
+
+  const { error } = await sb.from('polen_shared').upsert({
+    id: RECORD_ID, data: appData, updated_at: new Date().toISOString()
+  }, { onConflict: 'id' });
+  if (error) { toast('⚠️ Error al guardar domo: ' + error.message, 'error'); return; }
+
+  closeModal('modal-new-domo'); renderTeam();
   toast('Domo guardado ✓');
 }
 
@@ -3598,7 +3698,16 @@ function toggleTheme() {
 }
 
 function showSyncStatus() {
-  toast('Sincronizado con Supabase ✓');
+  // Run a quick diagnostic
+  sb.from('polen_shared').select('id').eq('id', RECORD_ID).single()
+    .then(({ data, error }) => {
+      if (error) {
+        toast('⚠️ Supabase: ' + (error.message || JSON.stringify(error)), 'error');
+        console.error('Diagnostic error:', error);
+      } else {
+        toast('✅ Supabase conectado. Registro: ' + (data?.id || 'no encontrado'));
+      }
+    });
 }
 
 function openModal(id) {
