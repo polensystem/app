@@ -25,26 +25,39 @@ async function saveToSupabase(d) {
 
 // Cargar desde Supabase y re-renderizar
 async function loadFromSupabase() {
+  var ld = document.getElementById('sb-loading');
   try {
     const {data, error} = await _sb
       .from('polen_shared')
       .select('data')
       .eq('id', _SHARED_ID)
       .single();
-    if (error || !data || !data.data) return false;
+    if (error || !data || !data.data) {
+      if (ld) ld.remove();
+      // Si falla, renderizar con datos vacíos
+      render();
+      setTimeout(() => { applyCardAnimations(); initProgressBars(); }, 100);
+      return false;
+    }
     const remote = migrateBanners(data.data);
-    if (!remote) return false;
+    if (!remote) {
+      if (ld) ld.remove();
+      render();
+      return false;
+    }
+    // Actualizar S con datos de Supabase
     S = remote;
     document.documentElement.setAttribute('data-theme', S.theme || 'light');
+    if (ld) ld.remove();
     render();
     setTimeout(() => { applyCardAnimations(); initProgressBars(); }, 100);
     return true;
   } catch(e) {
     console.warn('SB load error', e);
-    return false;
-  } finally {
-    var ld = document.getElementById('sb-loading');
     if (ld) ld.remove();
+    render();
+    setTimeout(() => { applyCardAnimations(); initProgressBars(); }, 100);
+    return false;
   }
 }
 </script>
