@@ -1,348 +1,1071 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Test Supabase — Polen</title>
+<title>Polen PM</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0f0c1a; color: #f0ecff; font-family: system-ui, sans-serif; padding: 2rem; min-height: 100vh; }
-  h1 { font-size: 1.4rem; margin-bottom: 0.3rem; }
-  .sub { color: #7a7099; font-size: 0.82rem; margin-bottom: 2rem; }
 
-  .status-box {
-    background: #1a1630; border: 1px solid #2a2445;
-    border-radius: 10px; padding: 1rem 1.2rem;
-    font-size: 0.82rem; margin-bottom: 1.5rem;
-    min-height: 44px; display: flex; align-items: center; gap: 0.7rem;
-    flex-wrap: wrap;
-  }
-  .status-box.ok    { border-color: #5aaa3566; color: #5aaa35; }
-  .status-box.error { border-color: #ff5c7266; color: #ff5c72; }
-  .status-box.info  { border-color: #3b9edd66; color: #3b9edd; }
+/* ═══════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════ */
+:root {
+  --aire:   #3b9edd;
+  --agua:   #2dc3b3;
+  --tierra: #5aaa35;
+  --fuego:  #e8622a;
 
-  .card {
-    background: #1a1630; border: 1px solid #2a2445;
-    border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;
-  }
-  .card h2 { font-size: 1rem; margin-bottom: 1rem; color: #b8b0d8; }
+  --r: 16px;
+  --r-sm: 10px;
+  --transition: 0.22s ease;
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+}
 
-  label { font-size: 0.78rem; color: #7a7099; display: block; margin-bottom: 0.3rem; margin-top: 0.8rem; }
-  input[type=text], input[type=file] {
-    width: 100%; background: #0f0c1a; border: 1px solid #2a2445;
-    border-radius: 8px; padding: 0.6rem 0.8rem; color: #f0ecff;
-    font-size: 0.85rem; outline: none;
-  }
-  input[type=text]:focus { border-color: #b06aff; }
+[data-theme="dark"] {
+  --bg:       #0e0c18;
+  --bg-card:  #16132a;
+  --bg-card2: #1d1a30;
+  --border:   rgba(255,255,255,0.08);
+  --text:     #f0ecff;
+  --text2:    #9590b8;
+  --text3:    #5a5578;
+  --shadow:   0 4px 24px rgba(0,0,0,0.45);
+  --sidebar-bg: #100e1e;
+  --header-bg:  rgba(14,12,24,0.85);
+}
 
-  .btn {
-    padding: 0.6rem 1.3rem; border-radius: 8px; font-size: 0.85rem;
-    font-weight: 600; cursor: pointer; border: none; transition: all 0.15s;
-  }
-  .btn-primary { background: #7f5af0; color: #fff; margin-top: 1rem; }
-  .btn-primary:hover { background: #9b75ff; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.75rem; border-radius: 6px; }
-  .btn-test { background: #1e3a5f; color: #3b9edd; border: 1px solid #3b9edd44; }
-  .btn-test:hover { background: #254878; }
-  .btn-delete { background: #3a1a1a; color: #ff5c72; border: 1px solid #ff5c7244; }
-  .btn-delete:hover { background: #4a2222; }
+[data-theme="light"] {
+  --bg:       #f2f0f8;
+  --bg-card:  #ffffff;
+  --bg-card2: #f7f5ff;
+  --border:   rgba(0,0,0,0.07);
+  --text:     #1a1730;
+  --text2:    #5a5480;
+  --text3:    #9b96bc;
+  --shadow:   0 4px 24px rgba(0,0,0,0.09);
+  --sidebar-bg: #ebebf5;
+  --header-bg:  rgba(242,240,248,0.85);
+}
 
-  .members-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 1rem;
-  }
-  .member-card {
-    background: #0f0c1a; border: 1px solid #2a2445;
-    border-radius: 10px; padding: 1rem; text-align: center;
-  }
-  .member-photo {
-    width: 64px; height: 64px; border-radius: 50%; object-fit: cover;
-    margin: 0 auto 0.6rem; display: block;
-    border: 2px solid #2a2445; background: #2a2445;
-  }
-  .member-initials {
-    width: 64px; height: 64px; border-radius: 50%;
-    margin: 0 auto 0.6rem; display: flex; align-items: center; justify-content: center;
-    font-size: 1.4rem; font-weight: 700; background: #2a2445; color: #b06aff;
-  }
-  .member-name { font-size: 0.88rem; font-weight: 600; margin-bottom: 0.6rem; }
+/* ═══════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  .raw-box {
-    background: #0f0c1a; border: 1px solid #2a2445;
-    border-radius: 8px; padding: 0.8rem; font-size: 0.72rem; color: #7a7099;
-    font-family: monospace; max-height: 200px; overflow-y: auto;
-    white-space: pre-wrap; word-break: break-all; margin-top: 0.8rem;
-  }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  transition: background var(--transition), color var(--transition);
+}
 
-  .flex-gap { display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
-  .count-badge {
-    background: #2a2445; border-radius: 99px; padding: 0.2rem 0.7rem;
-    font-size: 0.75rem; color: #b8b0d8;
-  }
+/* ═══════════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════════ */
+.sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1rem;
+  gap: 0.3rem;
+  transition: width var(--transition), padding var(--transition), background var(--transition);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.sidebar.collapsed {
+  width: 60px;
+  padding: 1.5rem 0.6rem;
+}
+
+.sidebar-logo {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text);
+  padding: 0 0.4rem 1.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.sidebar-logo .logo-text {
+  transition: opacity var(--transition);
+}
+.sidebar.collapsed .logo-text { opacity: 0; width: 0; overflow: hidden; }
+
+.sidebar-toggle {
+  position: absolute;
+  top: 1.4rem;
+  right: -13px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem;
+  color: var(--text2);
+  box-shadow: var(--shadow);
+  transition: all var(--transition);
+  z-index: 20;
+}
+.sidebar-toggle:hover { background: var(--bg-card2); color: var(--text); }
+
+.nav-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text3);
+  padding: 0.9rem 0.5rem 0.3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity var(--transition);
+}
+.sidebar.collapsed .nav-label { opacity: 0; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.5rem;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  color: var(--text2);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all var(--transition);
+  white-space: nowrap;
+  overflow: hidden;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+.nav-item:hover { background: var(--bg-card); color: var(--text); }
+.nav-item.active { background: var(--bg-card2); color: var(--text); border: 1px solid var(--border); }
+.nav-item .nav-icon { font-size: 1.1rem; flex-shrink: 0; width: 22px; text-align: center; }
+.nav-item .nav-text { transition: opacity var(--transition); }
+.sidebar.collapsed .nav-text { opacity: 0; width: 0; overflow: hidden; }
+
+/* ═══════════════════════════════════════════
+   MAIN LAYOUT
+═══════════════════════════════════════════ */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ═══════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════ */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  background: var(--header-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 0.85rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  transition: background var(--transition);
+}
+
+.header-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+/* Theme toggle pill */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 0.25rem;
+  gap: 0.2rem;
+}
+.theme-btn {
+  padding: 0.3rem 0.75rem;
+  border-radius: 99px;
+  border: none;
+  background: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text3);
+  transition: all var(--transition);
+  font-family: var(--font);
+}
+.theme-btn.active {
+  background: var(--bg-card);
+  color: var(--text);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.15);
+}
+
+/* Add brand button */
+.btn-add {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 99px;
+  border: none;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font);
+}
+.btn-add:hover { opacity: 0.85; transform: translateY(-1px); }
+
+/* ═══════════════════════════════════════════
+   PAGE CONTENT
+═══════════════════════════════════════════ */
+.content {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  flex: 1;
+}
+
+/* ═══════════════════════════════════════════
+   CARDS
+═══════════════════════════════════════════ */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  transition: background var(--transition), border var(--transition), box-shadow var(--transition);
+}
+
+/* ── Big counter ─────────────── */
+.counter-main {
+  padding: 2rem 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.counter-main-left {}
+.counter-main-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text3);
+  margin-bottom: 0.4rem;
+}
+.counter-main-value {
+  font-size: 5rem;
+  font-weight: 800;
+  letter-spacing: -4px;
+  line-height: 1;
+  color: var(--text);
+}
+.counter-main-sub {
+  font-size: 0.82rem;
+  color: var(--text2);
+  margin-top: 0.5rem;
+}
+.counter-main-icon {
+  font-size: 4rem;
+  opacity: 0.12;
+}
+
+/* ── Stage counters ──────────── */
+.stage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.stage-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: 1.2rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.stage-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: var(--r) var(--r) 0 0;
+}
+.stage-card.aire::before   { background: var(--aire); }
+.stage-card.agua::before   { background: var(--agua); }
+.stage-card.tierra::before { background: var(--tierra); }
+.stage-card.fuego::before  { background: var(--fuego); }
+
+.stage-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.stage-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.stage-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.aire   .stage-dot { background: var(--aire); }
+.agua   .stage-dot { background: var(--agua); }
+.tierra .stage-dot { background: var(--tierra); }
+.fuego  .stage-dot { background: var(--fuego); }
+
+.stage-value {
+  font-size: 2.8rem;
+  font-weight: 800;
+  letter-spacing: -2px;
+  line-height: 1;
+}
+.aire   .stage-value { color: var(--aire); }
+.agua   .stage-value { color: var(--agua); }
+.tierra .stage-value { color: var(--tierra); }
+.fuego  .stage-value { color: var(--fuego); }
+
+.stage-sub {
+  font-size: 0.72rem;
+  color: var(--text3);
+}
+
+/* ── Brands grid ─────────────── */
+.brands-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text3);
+  margin-bottom: -0.5rem;
+}
+
+.brands-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.brand-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: all var(--transition);
+  position: relative;
+}
+.brand-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+  border-color: rgba(255,255,255,0.14);
+}
+
+.brand-card-img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  background: var(--bg-card2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  color: var(--text3);
+}
+.brand-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.brand-card-body {
+  padding: 1rem;
+}
+.brand-card-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+.brand-card-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 99px;
+}
+.stage-pill.aire   { background: rgba(59,158,221,0.15);  color: var(--aire); }
+.stage-pill.agua   { background: rgba(45,195,179,0.15);  color: var(--agua); }
+.stage-pill.tierra { background: rgba(90,170,53,0.15);   color: var(--tierra); }
+.stage-pill.fuego  { background: rgba(232,98,42,0.15);   color: var(--fuego); }
+
+.brand-card-footer {
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-delete {
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  transition: all var(--transition);
+  font-family: var(--font);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.btn-delete:hover { background: rgba(255,92,114,0.12); color: #ff5c72; }
+
+/* ── Empty state ─────────────── */
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 3rem;
+  color: var(--text3);
+  font-size: 0.85rem;
+}
+.empty-state-icon { font-size: 2.5rem; margin-bottom: 0.7rem; opacity: 0.5; }
+
+/* ═══════════════════════════════════════════
+   MODAL
+═══════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem;
+  animation: fadeIn 0.18s ease;
+}
+.modal-overlay.hidden { display: none; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+  padding: 2rem;
+  width: 100%;
+  max-width: 440px;
+  animation: slideUp 0.2s ease;
+}
+@keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.modal-title { font-size: 1.1rem; font-weight: 700; }
+.modal-close {
+  background: var(--bg-card2); border: 1px solid var(--border);
+  border-radius: 8px; width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 0.85rem; color: var(--text2);
+  transition: all var(--transition);
+}
+.modal-close:hover { color: var(--text); background: var(--bg); }
+
+.form-group { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
+.form-label { font-size: 0.75rem; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; }
+.form-input, .form-select {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 0.65rem 0.9rem;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.88rem;
+  outline: none;
+  transition: all var(--transition);
+  width: 100%;
+}
+.form-input:focus, .form-select:focus {
+  border-color: rgba(176,106,255,0.6);
+  box-shadow: 0 0 0 3px rgba(176,106,255,0.1);
+}
+.form-select option { background: var(--bg-card); }
+
+/* Image upload area */
+.img-upload-area {
+  border: 2px dashed var(--border);
+  border-radius: var(--r-sm);
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.img-upload-area:hover { border-color: rgba(176,106,255,0.5); background: rgba(176,106,255,0.04); }
+.img-upload-area input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.img-upload-icon { font-size: 1.8rem; margin-bottom: 0.4rem; opacity: 0.5; }
+.img-upload-text { font-size: 0.8rem; color: var(--text3); }
+.img-preview {
+  width: 100%; aspect-ratio: 16/9; object-fit: cover;
+  border-radius: 8px; display: none;
+}
+
+.modal-footer { display: flex; gap: 0.8rem; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.btn-cancel {
+  padding: 0.55rem 1.1rem; border-radius: 99px;
+  background: var(--bg-card2); border: 1px solid var(--border);
+  color: var(--text2); font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; transition: all var(--transition); font-family: var(--font);
+}
+.btn-cancel:hover { color: var(--text); }
+.btn-save {
+  padding: 0.55rem 1.3rem; border-radius: 99px;
+  background: var(--text); color: var(--bg);
+  border: none; font-size: 0.82rem; font-weight: 700;
+  cursor: pointer; transition: all var(--transition); font-family: var(--font);
+}
+.btn-save:hover { opacity: 0.85; }
+.btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ═══════════════════════════════════════════
+   STATUS BAR
+═══════════════════════════════════════════ */
+.status-bar {
+  position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 0.4rem 1.1rem;
+  font-size: 0.75rem;
+  color: var(--text2);
+  box-shadow: var(--shadow);
+  z-index: 50;
+  opacity: 0;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.status-bar.show { opacity: 1; }
+.status-bar.error { color: #ff5c72; border-color: rgba(255,92,114,0.3); }
+
+/* ═══════════════════════════════════════════
+   LOADING
+═══════════════════════════════════════════ */
+#loading-screen {
+  position: fixed; inset: 0; z-index: 999;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 1rem;
+  transition: opacity 0.4s ease;
+}
+#loading-screen.hide { opacity: 0; pointer-events: none; }
+.loading-logo {
+  font-size: 2rem; font-weight: 800; color: var(--text); letter-spacing: -1px;
+}
+.loading-spinner {
+  width: 32px; height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--text2);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-sub { font-size: 0.8rem; color: var(--text3); }
+
 </style>
 </head>
 <body>
 
-<h1>🧪 Test Supabase — Polen</h1>
-<div class="sub">Prueba de conexión, lectura y escritura en tiempo real</div>
-
-<!-- Status -->
-<div class="status-box info" id="status-box">⏳ Iniciando conexión con Supabase…</div>
-
-<!-- Actions -->
-<div class="flex-gap">
-  <button class="btn btn-sm btn-test" onclick="testConnection()">🔌 Test conexión</button>
-  <button class="btn btn-sm btn-test" onclick="loadData()">🔄 Recargar datos</button>
-  <button class="btn btn-sm btn-delete" onclick="clearAllMembers()">🗑️ Borrar todos</button>
+<!-- Loading -->
+<div id="loading-screen">
+  <div class="loading-logo">Polen ✦</div>
+  <div class="loading-spinner"></div>
+  <div class="loading-sub">Conectando con Supabase…</div>
 </div>
 
-<!-- Add member form -->
-<div class="card">
-  <h2>➕ Agregar miembro</h2>
-  <label>Nombre</label>
-  <input type="text" id="member-name" placeholder="Ej: Jesús García">
-  <label>Foto (opcional)</label>
-  <input type="file" id="member-photo" accept="image/*">
-  <br>
-  <button class="btn btn-primary" id="save-btn" onclick="addMember()">Guardar miembro</button>
-</div>
+<!-- Status bar -->
+<div class="status-bar" id="status-bar"></div>
 
-<!-- Members list -->
-<div class="card">
-  <h2 id="members-title">👥 Miembros <span class="count-badge" id="count-badge">0</span></h2>
-  <div class="members-grid" id="members-grid">
-    <div style="color:#7a7099;font-size:0.82rem">Cargando…</div>
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <button class="sidebar-toggle" id="sidebar-toggle" title="Colapsar">‹</button>
+  <div class="sidebar-logo">
+    <span>✦</span>
+    <span class="logo-text">Polen PM</span>
+  </div>
+
+  <div class="nav-label">Principal</div>
+  <button class="nav-item active">
+    <span class="nav-icon">🏠</span>
+    <span class="nav-text">Dashboard</span>
+  </button>
+
+  <div class="nav-label">Próximamente</div>
+  <button class="nav-item" style="opacity:0.4;cursor:default">
+    <span class="nav-icon">🏷️</span>
+    <span class="nav-text">Marcas</span>
+  </button>
+  <button class="nav-item" style="opacity:0.4;cursor:default">
+    <span class="nav-icon">👥</span>
+    <span class="nav-text">Equipo</span>
+  </button>
+  <button class="nav-item" style="opacity:0.4;cursor:default">
+    <span class="nav-icon">💰</span>
+    <span class="nav-text">Finanzas</span>
+  </button>
+</aside>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-title">Dashboard</div>
+    <div class="header-actions">
+
+      <!-- Theme toggle -->
+      <div class="theme-toggle">
+        <button class="theme-btn active" id="btn-dark" onclick="setTheme('dark')">🌙 Dark</button>
+        <button class="theme-btn" id="btn-light" onclick="setTheme('light')">☀️ Light</button>
+      </div>
+
+      <!-- Add brand -->
+      <button class="btn-add" onclick="openModal()">
+        <span style="font-size:1rem;line-height:1">+</span> Nueva marca
+      </button>
+
+    </div>
+  </header>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- Big counter -->
+    <div class="card counter-main">
+      <div class="counter-main-left">
+        <div class="counter-main-label">Marcas activas</div>
+        <div class="counter-main-value" id="total-count">0</div>
+        <div class="counter-main-sub" id="total-sub">Cargando proyectos…</div>
+      </div>
+      <div class="counter-main-icon">🏷️</div>
+    </div>
+
+    <!-- Stage counters -->
+    <div class="stage-grid">
+      <div class="stage-card aire">
+        <div class="stage-label"><span class="stage-dot"></span> Aire</div>
+        <div class="stage-value" id="count-aire">0</div>
+        <div class="stage-sub">Investigación y estrategia</div>
+      </div>
+      <div class="stage-card agua">
+        <div class="stage-label"><span class="stage-dot"></span> Agua</div>
+        <div class="stage-value" id="count-agua">0</div>
+        <div class="stage-sub">Identidad visual</div>
+      </div>
+      <div class="stage-card tierra">
+        <div class="stage-label"><span class="stage-dot"></span> Tierra</div>
+        <div class="stage-value" id="count-tierra">0</div>
+        <div class="stage-sub">Aplicaciones</div>
+      </div>
+      <div class="stage-card fuego">
+        <div class="stage-label"><span class="stage-dot"></span> Fuego</div>
+        <div class="stage-value" id="count-fuego">0</div>
+        <div class="stage-sub">Entrega y cierre</div>
+      </div>
+    </div>
+
+    <!-- Brands -->
+    <div class="brands-section-label">Todas las marcas</div>
+    <div class="brands-grid" id="brands-grid">
+      <!-- populated by JS -->
+    </div>
+
   </div>
 </div>
 
-<!-- Raw data -->
-<div class="card">
-  <h2>📦 Datos crudos de Supabase</h2>
-  <button class="btn btn-sm btn-test" onclick="showRaw()">Ver JSON completo</button>
-  <div class="raw-box" id="raw-box">Haz clic en "Ver JSON completo"</div>
+<!-- Modal: new brand -->
+<div class="modal-overlay hidden" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Nueva marca</div>
+      <div class="modal-close" onclick="closeModal()">✕</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Nombre de la marca</label>
+      <input class="form-input" id="input-name" type="text" placeholder="Ej: Studio Norte">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Etapa actual</label>
+      <select class="form-select" id="input-stage">
+        <option value="aire">🌬️ Aire — Investigación y estrategia</option>
+        <option value="agua">💧 Agua — Identidad visual</option>
+        <option value="tierra">🌱 Tierra — Aplicaciones</option>
+        <option value="fuego">🔥 Fuego — Entrega y cierre</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Logo / Imagen</label>
+      <div class="img-upload-area" id="upload-area">
+        <input type="file" id="input-image" accept="image/*" onchange="previewImage(event)">
+        <div id="upload-placeholder">
+          <div class="img-upload-icon">🖼️</div>
+          <div class="img-upload-text">Haz clic para subir una imagen JPG, PNG…</div>
+        </div>
+        <img class="img-preview" id="img-preview" alt="Preview">
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" id="btn-save" onclick="saveBrand()">Guardar</button>
+    </div>
+  </div>
 </div>
 
+<!-- ═══════════════ JS ═══════════════ -->
 <script>
+
+/* ─── Supabase ─────────────────────────────── */
 const { createClient } = supabase;
+const SB_URL  = 'https://abfgnaavzqvfhmyyfvpn.supabase.co';
+const SB_KEY  = 'sb_publishable_KO-VfFgz6IyXKVtjPSR2ug_yJAkTU6M';
+const REC_ID  = 'polen-team-data';
+const sb      = createClient(SB_URL, SB_KEY);
 
-const SUPA_URL = 'https://abfgnaavzqvfhmyyfvpn.supabase.co';
-const SUPA_KEY = 'sb_publishable_KO-VfFgz6IyXKVtjPSR2ug_yJAkTU6M';
-const RECORD_ID = 'polen-team-data';
+/* ─── State ────────────────────────────────── */
+let appData = { brands: [] };
 
-const sb = createClient(SUPA_URL, SUPA_KEY);
-
-let appData = { members: [] };
-
-// ── Helpers ──────────────────────────────────────────────
-function setStatus(msg, type = 'info') {
-  const el = document.getElementById('status-box');
-  el.textContent = msg;
-  el.className = 'status-box ' + type;
+/* ─── Helpers ──────────────────────────────── */
+function uid() {
+  return Math.random().toString(36).slice(2,10) + Date.now().toString(36);
 }
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+let statusTimer = null;
+function showStatus(msg, isError = false) {
+  const el = document.getElementById('status-bar');
+  el.textContent = msg;
+  el.className = 'status-bar show' + (isError ? ' error' : '');
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => el.classList.remove('show'), 3000);
 }
 
 function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
   });
 }
 
-// ── Supabase ──────────────────────────────────────────────
+/* ─── Supabase load ────────────────────────── */
 async function loadData() {
-  setStatus('⏳ Cargando desde Supabase…', 'info');
   try {
     const { data, error } = await sb
       .from('polen_shared')
       .select('data')
-      .eq('id', RECORD_ID)
+      .eq('id', REC_ID)
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      setStatus('❌ Error al leer: ' + error.message + ' (code: ' + error.code + ')', 'error');
+      showStatus('Error al cargar: ' + error.message, true);
       console.error(error);
+      appData = { brands: [] };
       return;
     }
 
     if (!data || !data.data) {
-      setStatus('⚠️ Registro no encontrado. Se creará uno nuevo al guardar.', 'info');
-      appData = { members: [] };
+      // Primera vez — seed con Ejemplo1
+      appData = {
+        brands: [{
+          id: uid(),
+          name: 'Ejemplo1',
+          stage: 'aire',
+          image: null,
+          createdAt: new Date().toISOString()
+        }]
+      };
+      await upsert();
     } else {
       appData = data.data;
-      if (!appData.members) appData.members = [];
-      setStatus('✅ Datos cargados. ' + appData.members.length + ' miembro(s) encontrado(s).', 'ok');
+      if (!appData.brands) appData.brands = [];
     }
-    renderMembers();
-  } catch (e) {
-    setStatus('❌ Excepción: ' + (e.message || String(e)), 'error');
-    console.error(e);
+  } catch(e) {
+    showStatus('Error de red: ' + (e.message || e), true);
+    appData = { brands: [] };
   }
 }
 
-async function saveData() {
+/* ─── Supabase save ────────────────────────── */
+async function upsert() {
   const { error } = await sb
     .from('polen_shared')
     .upsert(
-      { id: RECORD_ID, data: appData, updated_at: new Date().toISOString() },
+      { id: REC_ID, data: appData, updated_at: new Date().toISOString() },
       { onConflict: 'id' }
     );
-
   if (error) {
-    setStatus('❌ Error al guardar: ' + error.message + ' | hint: ' + (error.hint || '—') + ' | code: ' + error.code, 'error');
-    console.error('Upsert error:', error);
+    showStatus('Error al guardar: ' + error.message, true);
+    console.error(error);
     return false;
   }
   return true;
 }
 
-async function testConnection() {
-  setStatus('⏳ Testeando conexión…', 'info');
-  try {
-    const { data, error } = await sb
-      .from('polen_shared')
-      .select('id, updated_at')
-      .eq('id', RECORD_ID)
-      .single();
+/* ─── Render ───────────────────────────────── */
+function render() {
+  const brands = appData.brands || [];
 
-    if (error && error.code !== 'PGRST116') {
-      setStatus('❌ Test fallido: ' + error.message + ' (code: ' + error.code + ')', 'error');
-      document.getElementById('raw-box').textContent = JSON.stringify(error, null, 2);
-      return;
-    }
+  // Totals
+  document.getElementById('total-count').textContent = brands.length;
+  document.getElementById('total-sub').textContent =
+    brands.length === 0 ? 'Sin marcas aún. ¡Crea la primera!' :
+    brands.length === 1 ? '1 proyecto en curso' :
+    brands.length + ' proyectos en curso';
 
-    if (!data) {
-      setStatus('⚠️ Conexión OK pero el registro "' + RECORD_ID + '" no existe aún en la tabla.', 'info');
-    } else {
-      setStatus('✅ Conexión OK — registro encontrado. Última actualización: ' + (data.updated_at || '—'), 'ok');
-    }
-    document.getElementById('raw-box').textContent = JSON.stringify(data || { message: 'sin registro' }, null, 2);
-  } catch (e) {
-    setStatus('❌ Excepción de red: ' + (e.message || String(e)), 'error');
-    console.error(e);
+  // Stage counts
+  ['aire','agua','tierra','fuego'].forEach(s => {
+    document.getElementById('count-' + s).textContent =
+      brands.filter(b => b.stage === s).length;
+  });
+
+  // Brands grid
+  const grid = document.getElementById('brands-grid');
+  if (!brands.length) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">✦</div>
+        <div>No hay marcas todavía.<br>Haz clic en <strong>Nueva marca</strong> para empezar.</div>
+      </div>`;
+    return;
   }
+
+  const stageInfo = {
+    aire:   { label: 'Aire',   emoji: '🌬️' },
+    agua:   { label: 'Agua',   emoji: '💧' },
+    tierra: { label: 'Tierra', emoji: '🌱' },
+    fuego:  { label: 'Fuego',  emoji: '🔥' },
+  };
+
+  grid.innerHTML = brands.map(b => {
+    const si = stageInfo[b.stage] || stageInfo.aire;
+    const imgHtml = b.image
+      ? `<div class="brand-card-img"><img src="${b.image}" alt="${b.name}"></div>`
+      : `<div class="brand-card-img" style="height:120px">${b.name.charAt(0)}</div>`;
+    return `
+      <div class="brand-card">
+        ${imgHtml}
+        <div class="brand-card-body">
+          <div class="brand-card-name">${b.name}</div>
+          <span class="brand-card-stage stage-pill ${b.stage}">
+            ${si.emoji} ${si.label}
+          </span>
+        </div>
+        <div class="brand-card-footer">
+          <button class="btn-delete" onclick="deleteBrand('${b.id}')">
+            🗑 Eliminar
+          </button>
+        </div>
+      </div>`;
+  }).join('');
 }
 
-// ── Members ───────────────────────────────────────────────
-async function addMember() {
-  const nameInput = document.getElementById('member-name');
-  const photoInput = document.getElementById('member-photo');
-  const saveBtn = document.getElementById('save-btn');
+/* ─── Delete ───────────────────────────────── */
+async function deleteBrand(id) {
+  if (!confirm('¿Eliminar esta marca?')) return;
+  appData.brands = appData.brands.filter(b => b.id !== id);
+  render();
+  const ok = await upsert();
+  if (ok) showStatus('Marca eliminada ✓');
+}
 
-  const name = nameInput.value.trim();
+/* ─── Modal ────────────────────────────────── */
+function openModal() {
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  document.getElementById('input-name').value = '';
+  document.getElementById('input-stage').value = 'aire';
+  document.getElementById('input-image').value = '';
+  document.getElementById('img-preview').style.display = 'none';
+  document.getElementById('upload-placeholder').style.display = '';
+  document.getElementById('btn-save').disabled = false;
+  document.getElementById('btn-save').textContent = 'Guardar';
+  setTimeout(() => document.getElementById('input-name').focus(), 80);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+}
+
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+function previewImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = document.getElementById('img-preview');
+    img.src = ev.target.result;
+    img.style.display = 'block';
+    document.getElementById('upload-placeholder').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ─── Save brand ───────────────────────────── */
+async function saveBrand() {
+  const name = document.getElementById('input-name').value.trim();
   if (!name) {
-    setStatus('⚠️ El nombre es obligatorio.', 'error');
+    document.getElementById('input-name').focus();
+    showStatus('El nombre es obligatorio', true);
     return;
   }
 
-  saveBtn.disabled = true;
-  saveBtn.textContent = 'Guardando…';
-  setStatus('⏳ Guardando miembro…', 'info');
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
 
-  let photo = null;
-  if (photoInput.files && photoInput.files[0]) {
+  let image = null;
+  const fileInput = document.getElementById('input-image');
+  if (fileInput.files && fileInput.files[0]) {
     try {
-      photo = await fileToBase64(photoInput.files[0]);
-    } catch (e) {
-      setStatus('⚠️ Error al leer la foto: ' + e.message, 'error');
-      saveBtn.disabled = false;
-      saveBtn.textContent = 'Guardar miembro';
+      image = await fileToBase64(fileInput.files[0]);
+    } catch(e) {
+      showStatus('Error al procesar la imagen', true);
+      btn.disabled = false; btn.textContent = 'Guardar';
       return;
     }
   }
 
-  const newMember = { id: uid(), name, photo };
-  appData.members.push(newMember);
+  const brand = {
+    id: uid(),
+    name,
+    stage: document.getElementById('input-stage').value,
+    image,
+    createdAt: new Date().toISOString()
+  };
 
-  const ok = await saveData();
+  appData.brands.push(brand);
+  render();
 
-  saveBtn.disabled = false;
-  saveBtn.textContent = 'Guardar miembro';
-
+  const ok = await upsert();
   if (ok) {
-    setStatus('✅ Miembro "' + name + '" guardado correctamente.', 'ok');
-    nameInput.value = '';
-    photoInput.value = '';
-    renderMembers();
+    showStatus('Marca "' + name + '" guardada ✓');
+    closeModal();
   } else {
-    // Rollback local
-    appData.members = appData.members.filter(m => m.id !== newMember.id);
+    // Rollback
+    appData.brands = appData.brands.filter(b => b.id !== brand.id);
+    render();
+    btn.disabled = false;
+    btn.textContent = 'Guardar';
   }
 }
 
-async function deleteMember(id) {
-  appData.members = appData.members.filter(m => m.id !== id);
-  setStatus('⏳ Eliminando…', 'info');
-  const ok = await saveData();
-  if (ok) {
-    setStatus('✅ Miembro eliminado.', 'ok');
-    renderMembers();
-  }
+/* ─── Theme ────────────────────────────────── */
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+  document.getElementById('btn-light').classList.toggle('active', t === 'light');
+  localStorage.setItem('polen-theme', t);
 }
 
-async function clearAllMembers() {
-  if (!confirm('¿Borrar TODOS los miembros?')) return;
-  appData.members = [];
-  const ok = await saveData();
-  if (ok) {
-    setStatus('✅ Todos los miembros eliminados.', 'ok');
-    renderMembers();
-  }
-}
+/* ─── Sidebar toggle ───────────────────────── */
+const sidebar  = document.getElementById('sidebar');
+const sideBtn  = document.getElementById('sidebar-toggle');
+let collapsed  = false;
 
-function renderMembers() {
-  const grid = document.getElementById('members-grid');
-  const badge = document.getElementById('count-badge');
-  const members = appData.members || [];
-  badge.textContent = members.length;
+sideBtn.addEventListener('click', () => {
+  collapsed = !collapsed;
+  sidebar.classList.toggle('collapsed', collapsed);
+  sideBtn.textContent = collapsed ? '›' : '‹';
+});
 
-  if (!members.length) {
-    grid.innerHTML = '<div style="color:#7a7099;font-size:0.82rem;grid-column:1/-1">No hay miembros aún. Agrega el primero arriba.</div>';
-    return;
-  }
-
-  grid.innerHTML = members.map(m => `
-    <div class="member-card">
-      ${m.photo
-        ? `<img src="${m.photo}" class="member-photo" alt="${m.name}">`
-        : `<div class="member-initials">${m.name.charAt(0).toUpperCase()}</div>`
-      }
-      <div class="member-name">${m.name}</div>
-      <button class="btn btn-sm btn-delete" onclick="deleteMember('${m.id}')">Eliminar</button>
-    </div>
-  `).join('');
-}
-
-function showRaw() {
-  document.getElementById('raw-box').textContent = JSON.stringify(appData, null, 2);
-}
-
-// ── Realtime ──────────────────────────────────────────────
+/* ─── Realtime ─────────────────────────────── */
 function subscribeRealtime() {
-  sb.channel('test_realtime')
+  sb.channel('polen_dash')
     .on('postgres_changes', {
-      event: 'UPDATE', schema: 'public', table: 'polen_shared', filter: `id=eq.${RECORD_ID}`
-    }, (payload) => {
+      event: 'UPDATE', schema: 'public',
+      table: 'polen_shared', filter: `id=eq.${REC_ID}`
+    }, payload => {
       if (payload.new?.data) {
         appData = payload.new.data;
-        if (!appData.members) appData.members = [];
-        renderMembers();
-        setStatus('🔄 Datos actualizados en tiempo real (' + appData.members.length + ' miembros).', 'ok');
+        if (!appData.brands) appData.brands = [];
+        render();
+        showStatus('🔄 Datos actualizados en tiempo real');
       }
     })
-    .subscribe((status) => {
-      console.log('Realtime status:', status);
-    });
+    .subscribe();
 }
 
-// ── Boot ──────────────────────────────────────────────────
-loadData().then(() => subscribeRealtime());
+/* ─── Boot ─────────────────────────────────── */
+async function boot() {
+  // Restore theme
+  const savedTheme = localStorage.getItem('polen-theme') || 'dark';
+  setTheme(savedTheme);
+
+  await loadData();
+
+  // Hide loading
+  const ls = document.getElementById('loading-screen');
+  ls.classList.add('hide');
+  setTimeout(() => ls.style.display = 'none', 500);
+
+  render();
+  subscribeRealtime();
+}
+
+boot();
 </script>
 </body>
 </html>
