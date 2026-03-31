@@ -225,6 +225,25 @@ body {
   box-shadow: 0 1px 6px rgba(0,0,0,0.15);
 }
 
+/* Reload button */
+.btn-reload {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--bg-card2);
+  color: var(--text2);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font);
+}
+.btn-reload:hover { color: var(--text); background: var(--bg-card); }
+.btn-reload:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* Add brand button */
 .btn-add {
   display: flex;
@@ -676,6 +695,11 @@ body {
         <button class="theme-btn" id="btn-light" onclick="setTheme('light')">☀️ Light</button>
       </div>
 
+      <!-- Reload -->
+      <button class="btn-reload" id="btn-reload" onclick="reloadData()" title="Recargar datos desde Supabase">
+        ↻ Recargar
+      </button>
+
       <!-- Add brand -->
       <button class="btn-add" onclick="openModal()">
         <span style="font-size:1rem;line-height:1">+</span> Nueva marca
@@ -837,13 +861,25 @@ async function loadData() {
       };
       await upsert();
     } else {
-      appData = data.data;
-      if (!appData.brands) appData.brands = [];
+      // Fusionar con lo existente, garantizando que brands siempre exista
+      const raw = data.data;
+      appData = { ...raw, brands: Array.isArray(raw.brands) ? raw.brands : [] };
     }
+    showStatus('Datos cargados ✓');
   } catch(e) {
     showStatus('Error de red: ' + (e.message || e), true);
+    console.error(e);
     appData = { brands: [] };
   }
+}
+
+/* --- Reload (button) ---------------------------------- */
+async function reloadData() {
+  const btn = document.getElementById('btn-reload');
+  if (btn) { btn.textContent = '↻ Cargando…'; btn.disabled = true; }
+  await loadData();
+  render();
+  if (btn) { btn.textContent = '↻ Recargar'; btn.disabled = false; }
 }
 
 /* ─── Supabase save ────────────────────────── */
@@ -996,20 +1032,35 @@ async function saveBrand() {
     createdAt: new Date().toISOString()
   };
 
+  // Ensure brands array exists
+  if (!Array.isArray(appData.brands)) appData.brands = [];
   appData.brands.push(brand);
   render();
 
-  const ok = await upsert();
-  if (ok) {
-    showStatus('Marca "' + name + '" guardada ✓');
-    closeModal();
-  } else {
+  // Save directly and show any error on screen
+  const { error } = await sb
+    .from('polen_shared')
+    .upsert(
+      { id: REC_ID, data: appData, updated_at: new Date().toISOString() },
+      { onConflict: 'id' }
+    );
+
+  if (error) {
+    console.error('saveBrand error:', error);
+    // Show full error visibly
+    showStatus('Error: ' + (error.message || JSON.stringify(error)), true);
     // Rollback
     appData.brands = appData.brands.filter(b => b.id !== brand.id);
     render();
     btn.disabled = false;
     btn.textContent = 'Guardar';
+    return;
   }
+
+  showStatus('Marca "' + name + '" guardada ✓');
+  closeModal();
+  btn.disabled = false;
+  btn.textContent = 'Guardar';
 }
 
 /* ─── Theme ────────────────────────────────── */
