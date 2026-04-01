@@ -927,6 +927,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 #eq-all-grid .member-card:nth-child(3){animation-delay:0.1s;}
 #eq-all-grid .member-card:nth-child(4){animation-delay:0.15s;}
 @keyframes fadeInUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+.member-card:hover .member-card-actions{opacity:1!important;}
 </style>
 </head>
 <body>
@@ -1584,7 +1586,34 @@ async function loadData(){
 
     if(!data||!data.data){
       if(lsub) lsub.textContent = 'Primera vez — creando datos…';
-      appData={brands:[{id:uid(),name:'Ejemplo1',stage:'aire',industria:'',prioridad:'media',responsable:'',image:null,createdAt:new Date().toISOString(),cronograma:buildCronoFromTemplate(defaultTemplate(),new Date().toISOString().slice(0,10)),brandingPoints:buildBpFromTemplate(defaultTemplate())}],template:defaultTemplate(),members:[]};
+      const _tpl = defaultTemplate();
+      const _today = new Date().toISOString().slice(0,10);
+      const _m1id = uid();
+      const _m2id = uid();
+      const _b1id = uid();
+      const _b2id = uid();
+      appData={
+        template: _tpl,
+        members: [
+          {id:_m1id, nombre:'Ana García', apodo:'Anita', cargo:'Directora Creativa', area:'direccion', emoji:'⭐', color:'#6b5de8', status:'', photo:null},
+          {id:_m2id, nombre:'Carlos Ruiz', apodo:'Caro', cargo:'Diseñador', area:'diseno', emoji:'✏️', color:'#3a9ee8', status:'', photo:null},
+        ],
+        brands: [
+          {id:_b1id, name:'Studio Norte', stage:'agua', industria:'Consultoría', prioridad:'alta', color:'#e85d9e',
+           image:null, includeNaming:true, createdAt:new Date().toISOString(),
+           domo:{m1:_m1id, m2:_m2id, helpers:[]},
+           rondas:[{id:uid(),label:'R1',done:true},{id:uid(),label:'R2',done:false},{id:uid(),label:'R3',done:false}],
+           cronograma:buildCronoFromTemplate({..._tpl,includeNaming:true},_today),
+           brandingPoints:buildBpFromTemplate(_tpl)},
+          {id:_b2id, name:'Café Origen', stage:'aire', industria:'Restaurantes', prioridad:'media', color:'#e87f3a',
+           image:null, includeNaming:false, createdAt:new Date().toISOString(),
+           domo:{m1:_m2id, m2:_m1id, helpers:[]},
+           rondas:[{id:uid(),label:'R1',done:false},{id:uid(),label:'R2',done:false},{id:uid(),label:'R3',done:false}],
+           cronograma:buildCronoFromTemplate({..._tpl,includeNaming:false},_today),
+           brandingPoints:buildBpFromTemplate(_tpl)},
+        ],
+        domos:[], banners:[]
+      };
       await upsert();
     }else{
       const raw=data.data;
@@ -3698,6 +3727,11 @@ function renderMembersGrid(){
               onblur="this.style.background='transparent';this.style.border='1px solid transparent';quickSaveMemberStatus('${m.id}',this.value)">
           </div>
         </div>
+        <!-- Card actions -->
+        <div style="position:absolute;top:0.5rem;right:0.5rem;display:flex;gap:0.3rem;z-index:3;opacity:0;transition:opacity 0.15s" class="member-card-actions">
+          <button onclick="event.stopPropagation();currentMemberId='${m.id}';openEditMemberModal()" style="background:rgba(255,255,255,0.2);border:none;border-radius:6px;padding:0.2rem 0.4rem;font-size:0.7rem;color:#fff;cursor:pointer">✏️</button>
+          <button onclick="event.stopPropagation();currentMemberId='${m.id}';deleteMemberCurrent()" style="background:rgba(255,50,50,0.3);border:none;border-radius:6px;padding:0.2rem 0.4rem;font-size:0.7rem;color:#fff;cursor:pointer">🗑</button>
+        </div>
       </div>
       <!-- Tareas -->
       <div class="member-card-right">
@@ -3975,11 +4009,25 @@ async function quickSaveMemberStatus(id,val){
 async function deleteMemberCurrent(){
   if(!currentMemberId)return;
   const m=(appData.members||[]).find(x=>x.id===currentMemberId);
-  if(!confirm('¿Eliminar a "'+m?.nombre+'"?'))return;
+  if(!m)return;
+  // Pincode protection
+  const pin = prompt(`🔒 Ingresa el PIN para eliminar a "${m.apodo||m.nombre}":`);
+  if(pin===null) return; // cancelled
+  if(pin !== '1235'){
+    showStatus('PIN incorrecto ❌', true);
+    return;
+  }
   appData.members=appData.members.filter(x=>x.id!==currentMemberId);
+  // Also remove from any domos
+  (appData.brands||[]).forEach(b=>{
+    if(!b.domo)return;
+    if(b.domo.m1===currentMemberId) b.domo.m1='';
+    if(b.domo.m2===currentMemberId) b.domo.m2='';
+    b.domo.helpers=(b.domo.helpers||[]).filter(h=>h!==currentMemberId);
+  });
   currentMemberId=null;
   await upsert();
-  showStatus('Miembro eliminado');
+  showStatus('Miembro eliminado ✓');
   renderEquipo();
 }
 
