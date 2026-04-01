@@ -102,14 +102,16 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .tierra .stage-value{color:var(--tierra);}.fuego .stage-value{color:var(--fuego);}
 .stage-sub{font-size:0.72rem;color:var(--text3);}
 .brands-section-label{font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);}
-.brands-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:1rem;}
-.brand-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;transition:all var(--transition);cursor:pointer;}
-.brand-card:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,0.22);border-color:rgba(255,255,255,0.14);}
-.brand-card-img{width:100%;aspect-ratio:16/9;background:var(--bg-card2);display:flex;align-items:center;justify-content:center;font-size:2.8rem;color:var(--text3);overflow:hidden;}
-.brand-card-img img{width:100%;height:100%;object-fit:cover;}
-.brand-card-body{padding:1rem;}
-.brand-card-name{font-size:0.95rem;font-weight:700;margin-bottom:0.4rem;}
-.brand-card-meta{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.6rem;}
+.brands-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0.8rem;}
+.brand-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 6px rgba(0,0,0,0.06);overflow:hidden;transition:all var(--transition);cursor:pointer;}
+.brand-card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,0.14);border-color:rgba(255,255,255,0.16);}
+.brand-card-img{display:none;}
+.brand-card-body{padding:0.9rem 1rem 0.6rem;display:flex;align-items:center;gap:0.75rem;}
+.brand-card-logo{width:44px;height:44px;border-radius:12px;background:var(--bg-card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;overflow:hidden;}
+.brand-card-logo img{width:100%;height:100%;object-fit:cover;border-radius:9px;}
+.brand-card-info{flex:1;min-width:0;}
+.brand-card-name{font-size:0.88rem;font-weight:700;margin-bottom:0.25rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.brand-card-meta{display:flex;align-items:center;gap:0.35rem;flex-wrap:nowrap;}
 .stage-pill{display:inline-flex;align-items:center;gap:0.3rem;font-size:0.68rem;font-weight:600;padding:0.18rem 0.55rem;border-radius:99px;}
 .stage-pill.aire{background:rgba(59,158,221,0.15);color:var(--aire);}
 .stage-pill.agua{background:rgba(45,195,179,0.15);color:var(--agua);}
@@ -121,24 +123,45 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .prio-pill.baja{background:rgba(90,170,53,0.15);color:var(--tierra);}
 .brand-progress-bar{height:4px;background:var(--bg-card2);border-radius:99px;overflow:hidden;margin-bottom:0.5rem;}
 .brand-progress-fill{height:100%;border-radius:99px;transition:width 0.4s ease;}
-.brand-card-footer{padding:0.55rem 1rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
-.brand-card-footer-pct{font-size:0.7rem;color:var(--text3);font-weight:600;}
+.brand-card-footer{padding:0.3rem 0.85rem 0.55rem;display:flex;justify-content:space-between;align-items:center;}
+.brand-card-footer-pct{font-size:0.68rem;color:var(--text3);font-weight:600;}
 .btn-delete{background:none;border:none;color:var(--text3);font-size:0.72rem;cursor:pointer;padding:0.25rem 0.5rem;border-radius:6px;transition:all var(--transition);font-family:var(--font);}
 .btn-delete:hover{background:rgba(255,92,114,0.12);color:#ff5c72;}
 .empty-state{grid-column:1/-1;text-align:center;padding:3rem;color:var(--text3);font-size:0.85rem;}
 .empty-icon{font-size:2.5rem;margin-bottom:0.7rem;opacity:0.4;}
 
 /* ── BRAND PAGE ── */
-.brand-hero{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;}
-.brand-hero-banner{height:6px;}
-.brand-hero-body{padding:1.5rem 2rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;}
-.brand-hero-img{width:72px;height:72px;border-radius:var(--r-sm);object-fit:cover;background:var(--bg-card2);display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0;overflow:hidden;border:1px solid var(--border);}
+/* Brand hero v2 */
+.brand-hero-v2{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;}
+.brand-hero-top{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.4rem 1.8rem 1rem;flex-wrap:wrap;}
+.brand-hero-img{width:64px;height:64px;border-radius:var(--r-sm);object-fit:cover;background:var(--bg-card2);display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0;overflow:hidden;border:1px solid var(--border);}
 .brand-hero-img img{width:100%;height:100%;object-fit:cover;}
-.brand-hero-info{flex:1;min-width:0;}
-.brand-hero-name{font-size:1.6rem;font-weight:800;letter-spacing:-0.5px;margin-bottom:0.35rem;}
+.brand-hero-name{font-size:1.5rem;font-weight:800;letter-spacing:-0.5px;margin-bottom:0.3rem;}
 .brand-hero-meta{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;}
-.brand-hero-industry{font-size:0.8rem;color:var(--text3);}
-.brand-hero-actions{display:flex;align-items:center;gap:0.7rem;flex-wrap:wrap;}
+.brand-hero-actions{display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;flex-shrink:0;}
+
+/* Big progress section */
+.brand-progress-section{padding:0 1.8rem 1.5rem;}
+.brand-progress-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.7rem;}
+.brand-progress-label{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);}
+.brand-progress-pct{font-size:2rem;font-weight:800;letter-spacing:-1px;line-height:1;}
+.brand-big-bar-wrap{margin-bottom:1rem;}
+.brand-big-bar-track{height:14px;background:var(--bg-card2);border-radius:99px;overflow:hidden;display:flex;}
+.brand-big-seg{height:100%;transition:width 0.6s cubic-bezier(.4,0,.2,1);}
+.brand-stage-bars{display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;}
+.stage-sub-bar-wrap{display:flex;flex-direction:column;gap:4px;}
+.stage-sub-bar-label{display:flex;justify-content:space-between;align-items:center;}
+.stage-sub-bar-name{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;}
+.stage-sub-bar-pct{font-size:0.65rem;font-weight:700;}
+.stage-sub-bar{height:4px;background:var(--bg-card2);border-radius:99px;overflow:hidden;}
+.stage-sub-bar-fill{height:100%;border-radius:99px;transition:width 0.5s ease;}
+
+/* Keep old refs working */
+.brand-hero-banner{display:none;}
+.global-progress-wrap{display:none;}
+.global-progress-bar{display:none;}
+.global-progress-fill{display:none;}
+.global-progress-pct{display:none;}
 
 /* Global progress */
 .global-progress-wrap{display:flex;align-items:center;gap:1rem;margin-top:0.8rem;}
@@ -332,23 +355,38 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .shift-label{font-size:0.72rem;color:var(--text3);margin-left:0.2rem;}
 
 /* ══ TEAM MODULE ══ */
-.member-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1rem;}
-.member-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;transition:all var(--transition);cursor:pointer;}
-.member-card:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,0.22);border-color:rgba(255,255,255,0.14);}
-.member-card-top{padding:1.2rem 1.2rem 0.8rem;display:flex;flex-direction:column;align-items:center;text-align:center;gap:0.5rem;}
-.member-avatar{width:72px;height:72px;border-radius:50%;overflow:hidden;background:var(--bg-card2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:2.2rem;flex-shrink:0;}
+.member-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(650px,1fr));gap:0.8rem;}
+.member-card{background:var(--bg-card);border:1px solid var(--border);border-radius:18px;box-shadow:0 2px 12px rgba(0,0,0,0.08);overflow:hidden;transition:all var(--transition);cursor:pointer;display:flex;flex-direction:column;}
+.member-card:hover{box-shadow:0 8px 32px rgba(0,0,0,0.16);border-color:rgba(255,255,255,0.15);}
+
+/* Gradient hero section of card */
+.member-card-hero{position:relative;padding:1.8rem 1.4rem 1.6rem;display:flex;align-items:center;gap:1.1rem;overflow:hidden;border-bottom:1px solid rgba(255,255,255,0.12);}
+.member-card-hero::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.1) 0%,rgba(0,0,0,0.15) 100%);pointer-events:none;}
+.member-card-hero-content{position:relative;z-index:1;display:flex;align-items:center;gap:0.85rem;width:100%;}
+
+/* Domo badges row */
+.member-domo-badges{display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:center;margin-bottom:0.3rem;}
+.member-domo-badge{font-size:0.62rem;font-weight:700;padding:0.18rem 0.6rem;border-radius:99px;background:rgba(255,255,255,0.2);color:#fff;backdrop-filter:blur(4px);letter-spacing:0.5px;}
+
+.member-avatar{width:76px;height:76px;border-radius:50%;overflow:hidden;background:rgba(255,255,255,0.15);border:3px solid rgba(255,255,255,0.5);display:flex;align-items:center;justify-content:center;font-size:2.4rem;flex-shrink:0;box-shadow:0 6px 20px rgba(0,0,0,0.35);}
 .member-avatar img{width:100%;height:100%;object-fit:cover;}
-.member-nickname{font-size:1.1rem;font-weight:800;letter-spacing:-0.3px;}
-.member-fullname{font-size:0.75rem;color:var(--text3);}
-.member-cargo{font-size:0.75rem;color:var(--text2);background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.18rem 0.6rem;}
-.member-area-pill{font-size:0.68rem;font-weight:600;padding:0.15rem 0.55rem;border-radius:99px;background:rgba(59,158,221,0.12);color:var(--aire);}
-.member-status{width:100%;padding:0.5rem 1.2rem;font-size:0.78rem;color:var(--text2);background:none;border:none;border-top:1px solid var(--border);text-align:center;cursor:text;font-family:var(--font);outline:none;transition:background var(--transition);}
-.member-status:focus{background:var(--bg-card2);}
-.member-hitos-preview{padding:0.6rem 1rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:0.3rem;min-height:60px;}
-.hito-preview-row{display:flex;align-items:center;gap:0.5rem;font-size:0.72rem;padding:0.25rem 0.4rem;border-radius:6px;}
-.hito-preview-row.hito-oficial{background:rgba(245,197,66,0.08);color:var(--text2);}
-.hito-preview-row.hito-revision{background:rgba(59,158,221,0.08);color:var(--aire);}
-.hito-preview-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.member-nickname{font-size:1.45rem;font-weight:800;letter-spacing:-0.5px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,0.4);}
+.member-fullname{font-size:0.75rem;color:rgba(255,255,255,0.75);}
+.member-cargo{font-size:0.72rem;font-weight:600;padding:0.2rem 0.65rem;border-radius:99px;background:rgba(255,255,255,0.18);color:#fff;backdrop-filter:blur(4px);}
+
+/* Status input below hero */
+.member-card-right{display:flex;flex-direction:column;}
+
+.member-status{width:100%;font-size:0.8rem;color:var(--text2);background:none;border:none;text-align:center;cursor:text;font-family:var(--font);outline:none;transition:all var(--transition);}
+.member-status::placeholder{color:var(--text3);}
+.member-status:focus{color:var(--text);}
+
+/* Hitos preview */
+.member-hitos-preview{padding:1rem 0.9rem 0.8rem;display:flex;flex-direction:column;gap:0.5rem;height:300px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.hito-preview-row{display:flex;align-items:center;gap:0.5rem;font-size:0.72rem;padding:0.28rem 0.5rem;border-radius:6px;}
+.hito-preview-row.hito-oficial{background:rgba(245,197,66,0.1);color:var(--text);}
+.hito-preview-row.hito-revision{background:rgba(59,158,221,0.1);color:var(--aire);}
+.hito-preview-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 .hito-preview-dot.oficial{background:#f5c542;}
 .hito-preview-dot.revision{background:var(--aire);}
 
@@ -554,6 +592,331 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .act-check:hover{border-color:var(--text3);}
 .act-check.progress{background:rgba(59,158,221,0.3);border-color:var(--aire);color:var(--aire);}
 .act-check.checked{background:var(--tierra);border-color:var(--tierra);}
+
+/* ══════════════════════════════════
+   EQUIPO — UNIFIED LAYOUT (reference-exact)
+══════════════════════════════════ */
+
+/* Page override — no padding, full height flex */
+#page-equipo{display:none;}
+#page-equipo.active{display:flex!important;flex-direction:column;overflow:hidden;padding:0;}
+#page-equipo .content{display:none;}
+
+/* Topbar */
+.equipo-topbar{
+  display:flex;align-items:center;gap:0.75rem;
+  padding:0.75rem 1.2rem;
+  background:var(--bg-card);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+  flex-wrap:wrap;
+}
+
+/* Member dropdown pill */
+.member-selector-wrap{position:relative;flex-shrink:0;}
+.member-selector-btn{
+  display:inline-flex;align-items:center;gap:0.5rem;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:99px;
+  padding:0.5rem 1rem;
+  font-size:0.85rem;font-weight:600;color:var(--text);
+  cursor:pointer;font-family:var(--font);
+  box-shadow:0 1px 4px rgba(0,0,0,0.08);
+  transition:box-shadow var(--transition);
+}
+.member-selector-btn:hover{box-shadow:0 2px 8px rgba(0,0,0,0.14);}
+.member-count-badge{font-size:0.82rem;color:var(--text3);}
+.member-dropdown{
+  position:absolute;top:calc(100% + 6px);left:0;z-index:200;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  box-shadow:0 12px 40px rgba(0,0,0,0.18);
+  min-width:240px;overflow:hidden;
+  display:none;
+}
+.member-dropdown.open{display:block;}
+.member-dropdown-item{
+  display:flex;align-items:center;gap:0.7rem;
+  padding:0.65rem 1.1rem;
+  font-size:0.85rem;cursor:pointer;
+  transition:background var(--transition);color:var(--text);
+  border-radius:0;
+}
+.member-dropdown-item:first-child{border-radius:14px 14px 0 0;}
+.member-dropdown-item:last-child{border-radius:0 0 14px 14px;}
+.member-dropdown-item:hover{background:var(--bg-card2);}
+.member-dropdown-item.active{color:var(--aire);font-weight:700;background:var(--bg-card2);}
+
+/* View tabs — pill group */
+.equipo-view-tabs{display:flex;gap:0;background:none;}
+.eq-tab-btn{
+  padding:0.45rem 1rem;
+  border-radius:99px;border:1px solid var(--border);
+  background:var(--bg-card);
+  font-size:0.8rem;font-weight:500;color:var(--text2);
+  cursor:pointer;font-family:var(--font);
+  transition:all var(--transition);
+  margin-right:0.35rem;
+  white-space:nowrap;
+}
+.eq-tab-btn.active{
+  background:#1d6bf3;color:#fff;border-color:#1d6bf3;
+  font-weight:600;
+  box-shadow:0 2px 8px rgba(29,107,243,0.25);
+}
+.eq-tab-btn:hover:not(.active){color:var(--text);background:var(--bg-card2);}
+
+/* Body: mini card left + content right */
+.equipo-body{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;}
+
+/* Member banner — horizontal strip at top */
+.equipo-mini-card-wrap{
+  flex-shrink:0;
+  padding:0;
+  border-bottom:1px solid var(--border);
+}
+.equipo-mini-card{display:flex;align-items:center;gap:1.2rem;padding:0.85rem 1.4rem;position:relative;overflow:hidden;}
+.equipo-mini-card::before{content:'';position:absolute;inset:0;opacity:0.92;}
+.equipo-mini-card-hero{display:flex;align-items:center;gap:1rem;flex:1;position:relative;z-index:1;}
+.equipo-mini-card-hero .m-domo-badges{display:flex;gap:0.35rem;flex-wrap:wrap;margin-left:0.3rem;}
+.equipo-mini-card-hero .m-domo-badge{
+  font-size:0.62rem;font-weight:700;
+  padding:0.18rem 0.55rem;border-radius:99px;
+  background:rgba(255,255,255,0.25);color:#fff;
+  backdrop-filter:blur(4px);
+}
+.equipo-mini-avatar{
+  width:52px;height:52px;border-radius:50%;
+  overflow:hidden;flex-shrink:0;
+  background:rgba(255,255,255,0.2);
+  border:2px solid rgba(255,255,255,0.5);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.6rem;
+  box-shadow:0 2px 12px rgba(0,0,0,0.2);
+}
+.equipo-mini-avatar img{width:100%;height:100%;object-fit:cover;}
+.equipo-mini-name{font-size:1rem;font-weight:800;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.2);}
+.equipo-mini-cargo{font-size:0.72rem;color:rgba(255,255,255,0.78);}
+
+/* Bar + status inline */
+.equipo-mini-right{display:flex;align-items:center;gap:1.2rem;position:relative;z-index:1;flex-shrink:0;}
+.equipo-mini-bar-wrap{display:flex;align-items:center;gap:0.7rem;}
+.equipo-mini-bar-label{font-size:0.7rem;color:rgba(255,255,255,0.7);white-space:nowrap;}
+.equipo-mini-bar{width:100px;height:4px;background:rgba(255,255,255,0.2);border-radius:99px;overflow:hidden;}
+.equipo-mini-bar-fill{height:100%;border-radius:99px;background:#ef4444;transition:width 0.4s;}
+.equipo-mini-pct{font-size:0.78rem;font-weight:700;color:#ef4444;white-space:nowrap;}
+.equipo-mini-status input{
+  background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);
+  border-radius:99px;outline:none;
+  font-size:0.76rem;color:rgba(255,255,255,0.9);font-family:var(--font);
+  padding:0.3rem 0.8rem;width:160px;
+  transition:all var(--transition);
+}
+.equipo-mini-status input::placeholder{color:rgba(255,255,255,0.5);font-style:italic;}
+.equipo-mini-status input:focus{background:rgba(255,255,255,0.22);border-color:rgba(255,255,255,0.4);}
+
+/* Content area */
+.equipo-content-area{flex:1;overflow-y:auto;background:var(--bg);}
+#eq-panel-grid{padding:1.2rem 1.4rem;}
+#eq-panel-week.active{display:flex;flex-direction:column;}
+#eq-panel-month{padding:1.2rem 1.4rem;}
+#eq-panel-domos{padding:1.2rem 1.4rem;}
+.eq-panel{display:none!important;}
+.eq-panel.active{display:block!important;}
+#eq-panel-week.active{display:flex!important;flex-direction:column;}
+
+/* ── Cards view ── */
+.eq-hito-card{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:1rem 1.2rem;
+  margin-bottom:0.6rem;
+  display:flex;align-items:center;gap:1rem;
+  box-shadow:0 1px 4px rgba(0,0,0,0.05);
+  transition:box-shadow var(--transition);
+}
+.eq-hito-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.1);}
+.eq-hito-brand-img{
+  width:44px;height:44px;border-radius:12px;
+  background:var(--bg-card2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.5rem;flex-shrink:0;overflow:hidden;
+}
+.eq-hito-brand-img img{width:100%;height:100%;object-fit:cover;border-radius:10px;}
+.eq-hito-info{flex:1;min-width:0;}
+.eq-hito-brand-name{font-size:0.95rem;font-weight:700;margin-bottom:0.18rem;color:var(--text);}
+.eq-hito-date{font-size:0.78rem;color:var(--text2);}
+.eq-hito-rev{font-size:0.76rem;color:#e8622a;font-weight:600;margin-top:0.12rem;}
+
+/* ── Week view ── */
+.eq-week-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0.8rem 1rem;
+  border-bottom:1px solid var(--border);
+  margin-bottom:0;
+  background:var(--bg);
+}
+.eq-week-title{font-size:0.95rem;font-weight:700;text-align:center;}
+.eq-week-sub{font-size:0.74rem;color:var(--text3);text-align:center;margin-top:0.1rem;}
+.eq-nav-btn{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:10px;width:36px;height:36px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:1rem;color:var(--text2);
+  transition:all var(--transition);
+}
+.eq-nav-btn:hover{color:var(--text);background:var(--bg-card2);}
+.eq-week-grid{display:grid;gap:0;}
+/* column widths set dynamically by JS */
+.eq-week-day{
+  background:transparent;
+  border:none;
+  border-right:1px solid var(--border);
+  padding:0.8rem 0.8rem;
+  min-height:120px;
+  transition:all 0.2s ease;
+  overflow:hidden;
+}
+.eq-week-day:last-child{border-right:none;}
+.eq-week-day.today{background:rgba(59,158,221,0.03);}
+.eq-week-day.empty-day{opacity:0.55;}
+.eq-week-day-label{
+  font-size:0.75rem;font-weight:700;letter-spacing:0.3px;
+  color:var(--text);margin-bottom:0.1rem;
+}
+.eq-week-day.today .eq-week-day-label{color:var(--aire);}
+.eq-week-day-num{
+  font-size:0.78rem;color:var(--text3);
+  margin-bottom:0.6rem;display:flex;align-items:center;gap:0.4rem;
+}
+.today-pill{background:var(--aire);color:#fff;border-radius:99px;padding:0.05rem 0.45rem;font-size:0.58rem;font-weight:700;}
+.eq-week-empty{font-size:0.72rem;color:var(--text3);font-style:italic;margin-top:0.2rem;}
+
+
+/* Brand color picker */
+.brand-color-swatch{
+  width:28px;height:28px;border-radius:50%;cursor:pointer;
+  border:3px solid transparent;transition:all 0.15s;flex-shrink:0;
+}
+.brand-color-swatch.selected{border-color:var(--text);transform:scale(1.15);}
+.brand-color-swatch:hover{transform:scale(1.1);}
+
+/* ── Calendar events — NO CSS variables, styles injected inline by JS ── */
+.eq-event{border-radius:7px;padding:0.35rem 0.6rem;margin-bottom:0.35rem;font-size:0.7rem;line-height:1.5;}
+.eq-event-type{display:none;}
+.eq-event-brand{font-weight:700;font-size:0.72rem;display:flex;align-items:center;gap:0.3rem;}
+.eq-event-act{font-size:0.67rem;margin-top:1px;}
+
+
+/* ── Month view ── */
+.eq-month-section{margin-bottom:0;border-bottom:1px solid var(--border);}
+.eq-month-section-header{display:none;}
+.eq-month-section-title{display:none;}
+.eq-month-section-sub{display:none;}
+.eq-month-week-grid{display:grid;gap:0;}
+.eq-month-day{
+  background:transparent;
+  border:none;
+  border-right:1px solid var(--border);
+  padding:0.6rem 0.8rem;
+  min-height:90px;
+}
+.eq-month-day:last-child{border-right:none;}
+.eq-month-day.today{background:rgba(59,158,221,0.03);}
+.eq-month-day-label{
+  font-size:0.72rem;font-weight:600;color:var(--text2);
+  margin-bottom:0.35rem;
+}
+.eq-month-day.today .eq-month-day-label{color:var(--aire);}
+
+/* ── Domos view ── */
+#eq-domos-content{display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start;}
+.eq-domo-col{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:16px;padding:0;
+  width:320px;flex:0 0 320px;overflow:hidden;
+}
+.eq-domo-col-header{
+  padding:1rem 1.1rem 0.8rem;
+  margin-bottom:0;
+}
+.eq-domo-col-header-row{display:flex;align-items:center;gap:0.7rem;margin-bottom:0.3rem;}
+.eq-domo-col-logo{width:36px;height:36px;border-radius:10px;background:var(--bg-card2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
+.eq-domo-col-name{font-size:0.95rem;font-weight:700;color:var(--text);}
+.eq-domo-col-role{font-size:0.76rem;font-weight:700;margin-top:0.1rem;}
+.eq-domo-partner-row{display:flex;align-items:center;justify-content:flex-end;}
+.eq-domo-partner-chip{display:flex;align-items:center;gap:0.4rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.25rem 0.65rem;font-size:0.74rem;color:var(--text2);}
+.eq-domo-brands-list{padding:0.5rem 0.7rem 0.7rem;}
+.eq-domo-brand-item{
+  display:flex;align-items:center;gap:0.7rem;
+  background:var(--bg-card2);border:1px solid var(--border);
+  border-radius:10px;padding:0.55rem 0.7rem;
+  margin-bottom:0.4rem;
+}
+.eq-domo-brand-logo{
+  width:34px;height:34px;border-radius:9px;
+  background:var(--bg-card);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;flex-shrink:0;overflow:hidden;
+}
+.eq-domo-brand-logo img{width:100%;height:100%;object-fit:cover;border-radius:8px;}
+.eq-domo-brand-info{flex:1;min-width:0;}
+.eq-domo-brand-name{font-size:0.8rem;font-weight:600;color:var(--text);margin-bottom:4px;}
+.eq-domo-bar-row{display:flex;align-items:center;gap:0.5rem;}
+.eq-domo-brand-bar{flex:1;height:3px;background:var(--border);border-radius:99px;overflow:hidden;}
+.eq-domo-brand-fill{height:100%;border-radius:99px;transition:width 0.4s;}
+.eq-domo-brand-pct{font-size:0.68rem;color:var(--text3);flex-shrink:0;}
+.eq-domo-brand-date{font-size:0.68rem;color:var(--text3);flex-shrink:0;}
+
+
+/* Breadcrumb */
+.eq-breadcrumb{display:flex;align-items:center;gap:0.6rem;margin-right:0.5rem;}
+.eq-back-btn{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--bg-card2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:0.9rem;color:var(--text2);
+  transition:all var(--transition);font-family:var(--font);
+}
+.eq-back-btn:hover{background:var(--bg-card);color:var(--text);}
+.eq-breadcrumb-path{display:flex;align-items:center;gap:0.35rem;font-size:0.82rem;}
+.eq-breadcrumb-parent{color:var(--text3);cursor:pointer;transition:color var(--transition);}
+.eq-breadcrumb-parent:hover{color:var(--text);}
+.eq-breadcrumb-sep{color:var(--text3);}
+.eq-breadcrumb-current{color:var(--text);font-weight:600;}
+
+/* Global breadcrumb (discrete) */
+.global-breadcrumb{font-size:0.65rem;color:var(--text3);display:flex;align-items:center;gap:0.3rem;line-height:1;}
+.global-breadcrumb .bc-crumb{cursor:pointer;transition:color var(--transition);}
+.global-breadcrumb .bc-crumb:hover{color:var(--text2);}
+.global-breadcrumb .bc-sep{opacity:0.5;}
+.global-breadcrumb .bc-current{color:var(--text3);font-weight:500;}
+
+/* Dashboard dark hero card */
+[data-theme="light"] #dash-stats-grid > div:first-child{background:#1e1e2e!important;}
+
+/* ── BANNERS ── */
+.dash-banner-slide{
+  position:absolute;inset:0;
+  border-radius:18px;overflow:hidden;
+  display:flex;align-items:center;padding:2rem 2.5rem;
+  opacity:0;transition:opacity 0.6s ease;pointer-events:none;
+  min-height:130px;
+}
+.dash-banner-slide.active{opacity:1;pointer-events:all;}
+.dash-banner-glass{
+  position:absolute;inset:0;
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+}
+.dash-banner-content{position:relative;z-index:2;max-width:70%;}
+.dash-banner-title{font-size:1.35rem;font-weight:800;letter-spacing:-0.3px;line-height:1.2;margin-bottom:0.3rem;}
+.dash-banner-sub{font-size:0.85rem;opacity:0.8;}
+.dash-banner-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.4);cursor:pointer;transition:all 0.2s;}
+.dash-banner-dot.active{background:#fff;width:20px;border-radius:99px;}
 </style>
 </head>
 <body>
@@ -574,22 +937,30 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
   <button class="nav-item active" id="nav-dashboard" onclick="goTo('dashboard')">
     <span class="nav-icon">🏠</span><span class="nav-text">Dashboard</span>
   </button>
-  <div class="nav-label">Configuración</div>
-  <button class="nav-item" id="nav-template" onclick="goTo('template')">
-    <span class="nav-icon">📋</span><span class="nav-text">Template</span>
-  </button>
-  <div class="nav-label">Gestión</div>
   <button class="nav-item" id="nav-equipo" onclick="goTo('equipo')">
     <span class="nav-icon">👥</span><span class="nav-text">Equipo</span>
   </button>
-  <div class="nav-label">Próximamente</div>
-  <button class="nav-item" style="opacity:0.35;cursor:default"><span class="nav-icon">💰</span><span class="nav-text">Finanzas</span></button>
+  <!-- Configuración toggle -->
+  <button class="nav-item" onclick="toggleConfigNav()" id="nav-config-toggle" style="justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:0.7rem">
+      <span class="nav-icon">⚙️</span><span class="nav-text">Configuración</span>
+    </div>
+    <span class="nav-text" id="nav-config-arrow" style="font-size:0.65rem;color:var(--text3)">▶</span>
+  </button>
+  <div id="nav-config-children" style="display:none;padding-left:0.5rem">
+    <button class="nav-item" id="nav-template" onclick="goTo('template')">
+      <span class="nav-icon">📋</span><span class="nav-text">Template</span>
+    </button>
+  </div>
 </aside>
 
 <!-- MAIN -->
 <div class="main">
   <header class="header">
-    <div class="header-title" id="header-title">Dashboard</div>
+    <div style="display:flex;flex-direction:column;gap:0.15rem;min-width:0">
+      <div class="global-breadcrumb" id="global-breadcrumb" style="display:none"></div>
+      <div class="header-title" id="header-title">Dashboard</div>
+    </div>
     <div class="header-actions">
       <div class="theme-toggle">
         <button class="theme-btn active" id="btn-dark" onclick="setTheme('dark')">🌙 Dark</button>
@@ -604,20 +975,57 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
   <!-- PAGE: DASHBOARD -->
   <div class="page active" id="page-dashboard">
     <div class="content">
-      <div class="card counter-main">
-        <div>
-          <div class="counter-main-label">Marcas activas</div>
-          <div class="counter-main-value" id="total-count">0</div>
-          <div class="counter-main-sub" id="total-sub">Cargando…</div>
+      <!-- Dashboard top stats -->
+      <!-- ── BANNER CARRUSEL ── -->
+      <div id="dash-banner-wrap" style="position:relative;border-radius:18px;overflow:hidden;margin-bottom:0rem">
+        <!-- Slides container -->
+        <div id="dash-banner-slides" style="position:relative;min-height:130px"></div>
+        <!-- Dots navigation -->
+        <div id="dash-banner-dots" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:5"></div>
+        <!-- Controls -->
+        <div style="position:absolute;top:10px;right:12px;display:flex;gap:6px;z-index:5">
+          <button onclick="openBannerEditor(null)" title="Agregar banner" style="background:rgba(0,0,0,0.35);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;padding:0.3rem 0.6rem;font-size:0.72rem;cursor:pointer;font-family:var(--font)">+ Banner</button>
+          <button onclick="openBannerEditor('current')" title="Editar banner actual" style="background:rgba(0,0,0,0.35);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;padding:0.3rem 0.6rem;font-size:0.72rem;cursor:pointer;font-family:var(--font)">✏️</button>
+          <button onclick="deleteBannerCurrent()" title="Eliminar banner actual" style="background:rgba(200,50,50,0.4);backdrop-filter:blur(8px);border:1px solid rgba(255,100,100,0.3);color:#fff;border-radius:8px;padding:0.3rem 0.6rem;font-size:0.72rem;cursor:pointer;font-family:var(--font)">🗑</button>
         </div>
-        <div class="counter-main-icon">🏷️</div>
       </div>
-      <div class="stage-grid">
-        <div class="stage-card aire"><div class="stage-label"><span class="stage-dot"></span>Aire</div><div class="stage-value" id="count-aire">0</div><div class="stage-sub">Investigación y estrategia</div></div>
-        <div class="stage-card agua"><div class="stage-label"><span class="stage-dot"></span>Agua</div><div class="stage-value" id="count-agua">0</div><div class="stage-sub">Identidad visual</div></div>
-        <div class="stage-card tierra"><div class="stage-label"><span class="stage-dot"></span>Tierra</div><div class="stage-value" id="count-tierra">0</div><div class="stage-sub">Aplicaciones</div></div>
-        <div class="stage-card fuego"><div class="stage-label"><span class="stage-dot"></span>Fuego</div><div class="stage-value" id="count-fuego">0</div><div class="stage-sub">Entrega y cierre</div></div>
+
+      <div id="dash-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;align-items:stretch">
+        <!-- Marcas activas (dark card) -->
+        <div style="background:#1a1a2e;border-radius:16px;padding:1.3rem 1.5rem;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 4px 20px rgba(0,0,0,0.25)">
+          <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:rgba(255,255,255,0.4)">🏷️ Marcas activas</div>
+          <div>
+            <div style="font-size:3.5rem;font-weight:800;letter-spacing:-3px;line-height:1;color:#fff" id="total-count">0</div>
+            <div style="font-size:0.72rem;color:rgba(255,255,255,0.4);margin-top:0.3rem" id="total-sub">Cargando…</div>
+          </div>
+        </div>
+        <!-- Prioridad alta -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.3rem 1.5rem;display:flex;flex-direction:column;justify-content:space-between;box-shadow:var(--shadow)">
+          <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">🔴 Prioridad alta</div>
+          <div>
+            <div style="font-size:3.5rem;font-weight:800;color:#e85d5d;line-height:1" id="dash-alta">0</div>
+            <div style="font-size:0.72rem;color:var(--text3);margin-top:0.3rem" id="dash-alta-sub">marcas urgentes</div>
+          </div>
+        </div>
+        <!-- Listas para cerrar -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.3rem 1.5rem;display:flex;flex-direction:column;justify-content:space-between;box-shadow:var(--shadow)">
+          <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">✅ Listas para cerrar</div>
+          <div>
+            <div style="font-size:3.5rem;font-weight:800;color:#5db85d;line-height:1" id="dash-ready">0</div>
+            <div style="font-size:0.72rem;color:var(--text3);margin-top:0.3rem">con progreso ≥ 90%</div>
+          </div>
+        </div>
+        <!-- En pausa -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.3rem 1.5rem;display:flex;flex-direction:column;justify-content:space-between;box-shadow:var(--shadow)">
+          <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">⏸️ En pausa</div>
+          <div>
+            <div style="font-size:3.5rem;font-weight:800;color:var(--text3);line-height:1" id="dash-paused">0</div>
+            <div style="font-size:0.72rem;color:var(--text3);margin-top:0.3rem">proyectos detenidos</div>
+          </div>
+        </div>
       </div>
+      <!-- Stage breakdown -->
+      <div id="stage-grid-v2" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;align-items:start"></div>
       <div class="brands-section-label">Todas las marcas</div>
       <div class="brands-grid" id="brands-grid"></div>
     </div>
@@ -627,35 +1035,41 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
   <div class="page" id="page-brand">
     <div class="content">
       <!-- Hero -->
-      <div class="brand-hero">
-        <div class="brand-hero-banner" id="brand-hero-banner"></div>
-        <div class="brand-hero-body">
-          <div class="brand-hero-img" id="brand-hero-img"></div>
-          <div class="brand-hero-info">
-            <div class="brand-hero-name" id="brand-hero-name">—</div>
-            <div class="brand-hero-meta" id="brand-hero-meta"></div>
-            <div class="global-progress-wrap" style="flex-direction:column;gap:0.5rem">
-              <div style="display:flex;align-items:center;justify-content:space-between">
-                <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Progreso general</span>
-                <span class="global-progress-pct" id="brand-global-pct">0%</span>
-              </div>
-              <!-- Segmented multicolor bar -->
-              <div style="height:8px;background:var(--bg-card2);border-radius:99px;overflow:hidden;display:flex;gap:1px" id="brand-segmented-bar">
-                <div id="seg-aire"   style="height:100%;background:var(--aire);transition:width 0.5s ease;border-radius:99px 0 0 99px;width:0%"></div>
-                <div id="seg-agua"   style="height:100%;background:var(--agua);transition:width 0.5s ease;width:0%"></div>
-                <div id="seg-tierra" style="height:100%;background:var(--tierra);transition:width 0.5s ease;width:0%"></div>
-                <div id="seg-fuego"  style="height:100%;background:var(--fuego);transition:width 0.5s ease;border-radius:0 99px 99px 0;width:0%"></div>
-              </div>
-              <!-- Per-stage progress -->
-              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem" id="brand-stage-bars"></div>
+      <div class="brand-hero-v2" id="brand-hero-wrap">
+        <!-- Top row: info + actions -->
+        <div class="brand-hero-top">
+          <div style="display:flex;align-items:center;gap:1rem;flex:1;min-width:0">
+            <div class="brand-hero-img" id="brand-hero-img"></div>
+            <div style="flex:1;min-width:0">
+              <div class="brand-hero-name" id="brand-hero-name">—</div>
+              <div class="brand-hero-meta" id="brand-hero-meta"></div>
             </div>
           </div>
           <div class="brand-hero-actions">
             <button class="btn-back" onclick="goTo('dashboard')">← Volver</button>
             <button class="btn-ghost" onclick="openEditBrandModal()" style="font-size:0.78rem;padding:0.4rem 0.8rem">✏️ Editar</button>
             <button class="btn-ghost" onclick="openDomoModal(currentBrandId)" style="font-size:0.78rem;padding:0.4rem 0.8rem">🔗 Domo</button>
-            <button class="btn-ghost" onclick="deleteBrandCurrent()" style="font-size:0.78rem;padding:0.4rem 0.8rem;color:#ff5c72;border-color:rgba(255,92,114,0.3)">🗑 Eliminar</button>
+            <button class="btn-ghost" onclick="deleteBrandCurrent()" style="font-size:0.78rem;padding:0.4rem 0.8rem;color:#ff5c72;border-color:rgba(255,92,114,0.3)">🗑</button>
           </div>
+        </div>
+
+        <!-- Big progress section -->
+        <div class="brand-progress-section">
+          <div class="brand-progress-header">
+            <span class="brand-progress-label">PROGRESO GENERAL</span>
+            <span class="brand-progress-pct" id="brand-global-pct">0%</span>
+          </div>
+          <!-- Big multicolor gradient bar -->
+          <div class="brand-big-bar-wrap">
+            <div class="brand-big-bar-track">
+              <div id="seg-aire"   class="brand-big-seg" style="background:var(--aire);width:0%"></div>
+              <div id="seg-agua"   class="brand-big-seg" style="background:var(--agua);width:0%"></div>
+              <div id="seg-tierra" class="brand-big-seg" style="background:var(--tierra);width:0%"></div>
+              <div id="seg-fuego"  class="brand-big-seg" style="background:var(--fuego);width:0%"></div>
+            </div>
+          </div>
+          <!-- Per-stage mini bars -->
+          <div class="brand-stage-bars" id="brand-stage-bars"></div>
         </div>
       </div>
 
@@ -839,115 +1253,100 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 
 
 
-  <!-- PAGE: EQUIPO -->
+  <!-- PAGE: EQUIPO (unified — no separate member page) -->
   <div class="page" id="page-equipo">
-    <div class="content">
-      <!-- Members grid -->
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
-        <div>
-          <div style="font-size:1.5rem;font-weight:800;letter-spacing:-0.5px">👥 Equipo</div>
-          <div style="font-size:0.8rem;color:var(--text3);margin-top:0.2rem">Miembros del estudio y Domos</div>
+    <!-- Top bar: dropdown + tabs + action -->
+    <div class="equipo-topbar">
+      <!-- Member selector dropdown -->
+      <div class="member-selector-wrap" id="member-selector-wrap">
+        <button class="member-selector-btn" id="member-selector-btn" onclick="toggleMemberDropdown()">
+          <span id="member-selector-icon">👥</span>
+          <span id="member-selector-label">Todos los integrantes</span>
+          <span style="color:var(--text3);margin-left:0.3rem">▾</span>
+        </button>
+        <span class="member-count-badge" id="member-count-badge"></span>
+        <!-- Dropdown list -->
+        <div class="member-dropdown" id="member-dropdown">
+          <div class="member-dropdown-item active" onclick="selectMember(null)">
+            <span>👥</span> Todos los integrantes
+          </div>
+          <div id="member-dropdown-list"></div>
         </div>
-        <button class="btn-add" style="background:var(--agua)" onclick="openMemberModal()">+ Nuevo miembro</button>
       </div>
-      <div class="team-grid" id="team-grid"></div>
 
-      <!-- Domos section -->
-      <div class="domos-section">
-        <div style="font-size:1.1rem;font-weight:700;margin-bottom:1rem">🏠 Domos activos</div>
-        <div class="domos-grid" id="domos-grid"></div>
+      <!-- View tabs -->
+      <div class="equipo-view-tabs" id="equipo-view-tabs">
+        <button class="eq-tab-btn active" id="eqtab-grid-btn" onclick="switchEquipoTab('grid')">📋 Tareas</button>
+        <button class="eq-tab-btn" id="eqtab-week-btn" onclick="switchEquipoTab('week')">📅 Semana</button>
+        <button class="eq-tab-btn" id="eqtab-month-btn" onclick="switchEquipoTab('month')">🗓 Mes</button>
+        <button class="eq-tab-btn" id="eqtab-domos-btn" onclick="switchEquipoTab('domos')">🏠 Domos</button>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;gap:0.6rem;margin-left:auto;flex-shrink:0">
+        <button class="btn-add" style="background:var(--agua);font-size:0.8rem;padding:0.45rem 1rem" onclick="openMemberModal()">+ Miembro</button>
+      </div>
+    </div>
+
+    <!-- Main area: mini card (when member selected) + content -->
+    <div class="equipo-body">
+      <!-- Left: mini profile card (hidden when no member selected) -->
+      <div class="equipo-mini-card-wrap" id="equipo-mini-card-wrap" style="display:none">
+        <div class="equipo-mini-card" id="equipo-mini-card">
+          <!-- filled by JS -->
+        </div>
+      </div>
+
+      <!-- Right: content area -->
+      <div class="equipo-content-area" id="equipo-content-area">
+        <!-- Tab: Grid / Cards -->
+        <div class="eq-panel active" id="eq-panel-grid">
+          <!-- When no member: show all cards grid -->
+          <div id="eq-all-grid" class="team-grid"></div>
+          <!-- When member selected: show hitos cards -->
+          <div id="eq-member-cards" style="display:none">
+            <input class="member-status-input" id="eq-status-input"
+              placeholder="Estado emocional…"
+              onblur="quickSaveMemberStatus(currentMemberId, this.value)"
+              onkeydown="if(event.key==='Enter')this.blur()"
+              style="width:100%;background:none;border:none;outline:none;font-size:1rem;color:var(--text3);padding:0.5rem 0 1rem;font-family:var(--font)">
+            <div id="eq-hitos-list"></div>
+          </div>
+        </div>
+
+        <!-- Tab: Week -->
+        <div class="eq-panel" id="eq-panel-week">
+          <div class="eq-week-header">
+            <button class="eq-nav-btn" onclick="eqShiftWeek(-1)">←</button>
+            <div style="text-align:center">
+              <div class="eq-week-title" id="eq-week-title">Semana</div>
+              <div class="eq-week-sub" id="eq-week-sub"></div>
+            </div>
+            <button class="eq-nav-btn" onclick="eqShiftWeek(1)">→</button>
+          </div>
+          <div class="eq-week-grid" id="eq-week-grid"></div>
+        </div>
+
+        <!-- Tab: Month (multi-week view) -->
+        <div class="eq-panel" id="eq-panel-month">
+          <div id="eq-month-content"></div>
+        </div>
+
+        <!-- Tab: Domos -->
+        <div class="eq-panel" id="eq-panel-domos">
+          <div id="eq-domos-content" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start"></div>
+          <div class="domos-section" style="margin-top:1.5rem" id="eq-all-domos-wrap">
+            <div style="font-size:1rem;font-weight:700;margin-bottom:1rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;font-size:0.72rem">🏠 Todos los domos activos</div>
+            <div id="domos-grid"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- PAGE: MEMBER PROFILE -->
-  <div class="page" id="page-member">
-    <div class="content">
-      <!-- Hero -->
-      <div class="member-hero">
-        <div class="member-hero-avatar" id="mprofile-avatar"></div>
-        <div class="member-hero-info">
-          <div class="member-hero-apodo" id="mprofile-apodo">—</div>
-          <div class="member-hero-name" id="mprofile-name"></div>
-          <div class="member-hero-meta" id="mprofile-meta"></div>
-          <input class="member-hero-status" id="mprofile-status" placeholder="¿Cómo estás hoy?" onblur="saveMemberStatus()">
-        </div>
-        <div style="display:flex;gap:0.7rem;flex-wrap:wrap;align-items:flex-start">
-          <button class="btn-back" onclick="goTo('equipo')">← Equipo</button>
-          <button class="btn-ghost" onclick="openEditMemberModal()" style="font-size:0.78rem;padding:0.4rem 0.8rem">✏️ Editar</button>
-          <button class="btn-ghost" onclick="deleteMemberCurrent()" style="font-size:0.78rem;padding:0.4rem 0.8rem;color:#ff5c72;border-color:rgba(255,92,114,0.3)">🗑</button>
-        </div>
-      </div>
+  <!-- page-member kept as alias (redirects to equipo) -->
+  <div class="page" id="page-member" style="display:none!important"></div>
 
-      <!-- Profile Tabs -->
-      <div class="tabs-bar">
-        <button class="tab-btn active" id="mtab-list-btn" onclick="switchMemberTab('list')">📋 Hitos</button>
-        <button class="tab-btn" id="mtab-week-btn" onclick="switchMemberTab('week')">📅 Semana</button>
-        <button class="tab-btn" id="mtab-month-btn" onclick="switchMemberTab('month')">🗓 Mes</button>
-        <button class="tab-btn" id="mtab-domos-btn" onclick="switchMemberTab('domos')">🏠 Domos</button>
-      </div>
-
-      <!-- Tab: List -->
-      <div class="tab-panel active" id="mtab-list">
-        <div class="section-card">
-          <div class="section-head">
-            <div class="section-head-left">
-              <div class="section-head-title">📋 Todos los hitos — orden cronológico</div>
-              <div class="section-head-sub">⭐ Hito oficial &nbsp;·&nbsp; <span style="color:var(--agua)">●</span> Revisión interna (2d antes)</div>
-            </div>
-          </div>
-          <div id="mlist-content"></div>
-        </div>
-      </div>
-
-      <!-- Tab: Week -->
-      <div class="tab-panel" id="mtab-week">
-        <div class="section-card">
-          <div class="section-head">
-            <div class="section-head-left">
-              <div class="section-head-title">📅 Vista semanal</div>
-            </div>
-            <div class="week-nav" style="margin:0">
-              <button class="week-nav-btn" onclick="shiftWeek(-1)">‹</button>
-              <span class="week-label" id="week-range-label"></span>
-              <button class="week-nav-btn" onclick="shiftWeek(1)">›</button>
-            </div>
-          </div>
-          <div class="section-body">
-            <div class="week-grid" id="mweek-content"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab: Month -->
-      <div class="tab-panel" id="mtab-month">
-        <div class="section-card">
-          <div class="section-head">
-            <div class="section-head-left">
-              <div class="section-head-title" id="month-title">🗓 Mes</div>
-            </div>
-            <div style="display:flex;gap:0.5rem">
-              <button class="week-nav-btn" onclick="shiftMonth(-1)">‹</button>
-              <button class="week-nav-btn" onclick="shiftMonth(1)">›</button>
-            </div>
-          </div>
-          <div class="section-body">
-            <div class="month-grid" id="mmonth-content"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab: Domos -->
-      <div class="tab-panel" id="mtab-domos">
-        <div class="section-card">
-          <div class="section-head">
-            <div class="section-head-title">🏠 Domos de este miembro</div>
-          </div>
-          <div class="section-body" id="mdomos-content"></div>
-        </div>
-      </div>
-    </div>
-  </div>
 </div><!-- /main -->
 
 <!-- MODAL: Nueva / Editar marca -->
@@ -981,6 +1380,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
         <select class="form-select" id="input-prioridad">
           <option value="alta">🔴 Alta</option><option value="media">🟡 Media</option><option value="baja">🟢 Baja</option>
         </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">🎨 Color de la marca</label>
+        <div id="brand-color-picker" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.4rem"></div>
+        <input type="hidden" id="input-brand-color" value="">
       </div>
       <div style="grid-column:1/-1">
         <label class="form-label" style="margin-bottom:0.5rem">🏠 Domo — Miembros principales</label>
@@ -1176,6 +1580,10 @@ async function loadData(){
       appData={...raw,brands:Array.isArray(raw.brands)?raw.brands:[],members:Array.isArray(raw.members)?raw.members:[]};
       if(!appData.template) appData.template=defaultTemplate();
       if(!appData.domos) appData.domos=[];
+      if(!Array.isArray(appData.banners)) appData.banners=[];
+      // Auto-assign colors to brands missing one
+      const _autoColors=['#e85d5d','#e87f3a','#e8c23a','#5db85d','#3a9ee8','#6b5de8','#c45de8','#e85d9e','#5de8d0','#5d8ce8','#e8825d','#a0e85d'];
+      (appData.brands||[]).forEach((b,i)=>{ if(!b.color) b.color=_autoColors[i%_autoColors.length]; });
     }
     showStatus('Datos cargados ✓');
   }catch(e){
@@ -1276,6 +1684,7 @@ function buildBpFromTemplate(tpl){
 
 /* ═══ NAV ═══ */
 function goTo(page,brandId=null){
+  if(page==='member') page='equipo'; // unified
   currentPage=page;
   if(brandId)currentBrandId=brandId;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -1286,15 +1695,263 @@ function goTo(page,brandId=null){
   document.getElementById('header-title').textContent=titles[page]||page;
   document.getElementById('btn-nueva-marca').style.display=page==='dashboard'?'':'none';
   document.getElementById('btn-nuevo-miembro').style.display=page==='equipo'?'':'none';
+  updateGlobalBreadcrumb(page);
   renderCurrentPage();
+}
+
+
+
+/* ═══ BANNER SYSTEM ═══ */
+const BANNER_COLORS = [
+  {bg:'linear-gradient(135deg,#1d6bf3,#0a3fa8)',label:'Azul Polen'},
+  {bg:'linear-gradient(135deg,#6b5de8,#3d1fa8)',label:'Morado'},
+  {bg:'linear-gradient(135deg,#e85d9e,#a81f5d)',label:'Rosa'},
+  {bg:'linear-gradient(135deg,#e87f3a,#a84a1a)',label:'Naranja'},
+  {bg:'linear-gradient(135deg,#5db85d,#1a6b1a)',label:'Verde'},
+  {bg:'linear-gradient(135deg,#1a1a2e,#0d0d1a)',label:'Oscuro'},
+  {bg:'linear-gradient(135deg,#3a9ee8,#1a6aaa)',label:'Celeste'},
+  {bg:'linear-gradient(135deg,#e8c23a,#a87a1a)',label:'Dorado'},
+];
+
+let _bannerIdx = 0;
+let _bannerTimer = null;
+let _bannerImageB64 = null;
+let _bannerMode = 'color';
+let _bannerSelectedColor = BANNER_COLORS[0].bg;
+let _bannerTextColor = '#ffffff';
+let _editingBannerId = null;
+
+function ensureBanners(){
+  if(!Array.isArray(appData.banners) || !appData.banners.length){
+    appData.banners = [{
+      id: uid(),
+      text: '¡Bienvenidos a Polen PM! ✦',
+      subtext: 'Tu espacio de gestión creativa',
+      bg: BANNER_COLORS[0].bg,
+      image: null,
+      textColor: '#ffffff',
+    }];
+  }
+}
+
+function renderBanners(){
+  ensureBanners();
+  const banners = appData.banners;
+  const wrap = document.getElementById('dash-banner-wrap');
+  const slidesEl = document.getElementById('dash-banner-slides');
+  const dotsEl = document.getElementById('dash-banner-dots');
+  if(!slidesEl || !dotsEl) return;
+
+  // Set height
+  wrap.style.minHeight = '130px';
+
+  // Render slides
+  slidesEl.style.position = 'relative';
+  slidesEl.style.minHeight = '130px';
+  slidesEl.innerHTML = banners.map((b,i) => {
+    const isImg = b.image;
+    const bgStyle = isImg
+      ? `background:url('${b.image}') center/cover no-repeat`
+      : `background:${b.bg}`;
+    return `<div class="dash-banner-slide ${i===_bannerIdx?'active':''}" style="${bgStyle}">
+      ${!isImg ? `<div class="dash-banner-glass" style="background:linear-gradient(135deg,rgba(0,0,0,0.15),rgba(0,0,0,0.05))"></div>` : ''}
+      <div class="dash-banner-content">
+        <div class="dash-banner-title" style="color:${b.textColor||'#fff'}">${b.text||''}</div>
+        ${b.subtext ? `<div class="dash-banner-sub" style="color:${b.textColor||'#fff'}">${b.subtext}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Render dots
+  dotsEl.style.display = banners.length > 1 ? 'flex' : 'none';
+  dotsEl.innerHTML = banners.map((b,i) =>
+    `<div class="dash-banner-dot ${i===_bannerIdx?'active':''}" onclick="goToBanner(${i})"></div>`
+  ).join('');
+
+  // Auto-slide
+  clearInterval(_bannerTimer);
+  if(banners.length > 1){
+    _bannerTimer = setInterval(()=>{
+      _bannerIdx = (_bannerIdx + 1) % banners.length;
+      renderBanners();
+    }, 10000);
+  }
+}
+
+function goToBanner(idx){
+  _bannerIdx = idx;
+  clearInterval(_bannerTimer);
+  renderBanners();
+}
+
+function openBannerEditor(mode){
+  ensureBanners();
+  const banners = appData.banners;
+  _bannerImageB64 = null;
+  document.getElementById('banner-img-preview').style.display = 'none';
+
+  if(mode === 'current'){
+    // Edit current banner
+    const b = banners[_bannerIdx];
+    if(!b) return;
+    _editingBannerId = b.id;
+    document.getElementById('banner-modal-title').textContent = '✏️ Editar banner';
+    document.getElementById('banner-text').value = b.text || '';
+    document.getElementById('banner-subtext').value = b.subtext || '';
+    _bannerTextColor = b.textColor || '#ffffff';
+    if(b.image){
+      setBannerMode('image');
+      _bannerImageB64 = b.image;
+      document.getElementById('banner-img-thumb').src = b.image;
+      document.getElementById('banner-img-preview').style.display = 'block';
+    } else {
+      setBannerMode('color');
+      _bannerSelectedColor = b.bg;
+    }
+  } else {
+    // New banner
+    _editingBannerId = null;
+    document.getElementById('banner-modal-title').textContent = '✨ Nuevo banner';
+    document.getElementById('banner-text').value = '';
+    document.getElementById('banner-subtext').value = '';
+    _bannerSelectedColor = BANNER_COLORS[0].bg;
+    _bannerTextColor = '#ffffff';
+    setBannerMode('color');
+  }
+
+  renderBannerSwatches();
+  document.getElementById('modal-banner').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('banner-text').focus(), 80);
+}
+
+function closeBannerModal(){
+  document.getElementById('modal-banner').classList.add('hidden');
+}
+
+function setBannerMode(mode){
+  _bannerMode = mode;
+  const colorBtn = document.getElementById('banner-mode-color');
+  const imageBtn = document.getElementById('banner-mode-image');
+  const colorSec = document.getElementById('banner-color-section');
+  const imageSec = document.getElementById('banner-image-section');
+  const isColor = mode === 'color';
+  colorBtn.style.border = isColor ? '2px solid var(--aire)' : '1px solid var(--border)';
+  colorBtn.style.color = isColor ? 'var(--aire)' : 'var(--text2)';
+  imageBtn.style.border = !isColor ? '2px solid var(--aire)' : '1px solid var(--border)';
+  imageBtn.style.color = !isColor ? 'var(--aire)' : 'var(--text2)';
+  colorSec.style.display = isColor ? '' : 'none';
+  imageSec.style.display = !isColor ? '' : 'none';
+}
+
+function setBannerTextColor(col){
+  _bannerTextColor = col;
+}
+
+function renderBannerSwatches(){
+  const wrap = document.getElementById('banner-color-swatches');
+  if(!wrap) return;
+  wrap.innerHTML = BANNER_COLORS.map(bc => `
+    <div onclick="selectBannerColor('${bc.bg.replace(/'/g,'')}')"
+      title="${bc.label}"
+      style="width:30px;height:30px;border-radius:50%;background:${bc.bg};cursor:pointer;
+             border:3px solid ${bc.bg===_bannerSelectedColor?'var(--text)':'transparent'};
+             transition:all 0.15s;flex-shrink:0">
+    </div>`).join('');
+}
+
+function selectBannerColor(bg){
+  _bannerSelectedColor = bg;
+  renderBannerSwatches();
+}
+
+function previewBannerImage(e){
+  const f = e.target.files[0];
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    _bannerImageB64 = ev.target.result;
+    document.getElementById('banner-img-thumb').src = _bannerImageB64;
+    document.getElementById('banner-img-preview').style.display = 'block';
+  };
+  r.readAsDataURL(f);
+}
+
+async function saveBanner(){
+  const text = document.getElementById('banner-text').value.trim();
+  if(!text){ showStatus('El texto es obligatorio', true); return; }
+  const subtext = document.getElementById('banner-subtext').value.trim();
+  const isImage = _bannerMode === 'image' && _bannerImageB64;
+
+  const bannerData = {
+    id: _editingBannerId || uid(),
+    text,
+    subtext,
+    bg: _bannerSelectedColor,
+    image: isImage ? _bannerImageB64 : null,
+    textColor: _bannerTextColor,
+  };
+
+  ensureBanners();
+  if(_editingBannerId){
+    const idx = appData.banners.findIndex(b=>b.id===_editingBannerId);
+    if(idx>=0) appData.banners[idx] = bannerData;
+  } else {
+    appData.banners.push(bannerData);
+    _bannerIdx = appData.banners.length - 1;
+  }
+
+  closeBannerModal();
+  await upsert();
+  showStatus('Banner guardado ✓');
+  renderBanners();
+}
+
+async function deleteBannerCurrent(){
+  ensureBanners();
+  if(appData.banners.length <= 1){
+    showStatus('Debe haber al menos un banner', true);
+    return;
+  }
+  if(!confirm('¿Eliminar este banner?')) return;
+  appData.banners.splice(_bannerIdx, 1);
+  _bannerIdx = Math.max(0, _bannerIdx - 1);
+  await upsert();
+  showStatus('Banner eliminado');
+  renderBanners();
+}
+
+
+function toggleConfigNav(){
+  const children = document.getElementById('nav-config-children');
+  const arrow = document.getElementById('nav-config-arrow');
+  if(!children) return;
+  const isOpen = children.style.display !== 'none';
+  children.style.display = isOpen ? 'none' : 'block';
+  if(arrow) arrow.textContent = isOpen ? '▶' : '▼';
+}
+
+function updateGlobalBreadcrumb(page, extra){
+  const bc = document.getElementById('global-breadcrumb');
+  if(!bc) return;
+  const crumbs = {
+    dashboard: [],
+    template:  [{label:'Dashboard', page:'dashboard'}],
+    equipo:    [{label:'Dashboard', page:'dashboard'}],
+    brand:     [{label:'Dashboard', page:'dashboard'}, {label:'Marcas', page:'dashboard'}],
+  };
+  const trail = crumbs[page] || [{label:'Dashboard', page:'dashboard'}];
+  if(!trail.length){ bc.style.display='none'; return; }
+  bc.style.display='flex';
+  bc.innerHTML = trail.map(cr=>
+    `<span class="bc-crumb" onclick="goTo('${cr.page}')">${cr.label}</span><span class="bc-sep">/</span>`
+  ).join('') + (extra ? `<span class="bc-current">${extra}</span>` : '');
 }
 
 function renderCurrentPage(){
   if(currentPage==='dashboard')renderDashboard();
   if(currentPage==='brand')renderBrandPage();
   if(currentPage==='template')renderTemplate();
-  if(currentPage==='equipo')renderEquipo();
-  if(currentPage==='member')renderMemberPage();
+  if(currentPage==='equipo'||currentPage==='member'){currentPage='equipo';renderEquipo();}
   if(currentPage==='equipo')renderTeamPage();
   if(currentPage==='member')renderMemberProfile();
 }
@@ -1311,11 +1968,101 @@ function stageColor(stage){
   return{aire:'var(--aire)',agua:'var(--agua)',tierra:'var(--tierra)',fuego:'var(--fuego)'}[stage]||'var(--text3)';
 }
 
+
+function renderStageCards(brands){
+  const stages=[
+    {id:'aire',  label:'Aire',  emoji:'🌬️', sub:'Investigación y estrategia', col:'var(--aire)',  bg:'rgba(59,158,221,0.07)'},
+    {id:'agua',  label:'Agua',  emoji:'💧', sub:'Identidad visual',           col:'var(--agua)',  bg:'rgba(45,195,179,0.07)'},
+    {id:'tierra',label:'Tierra',emoji:'🌱', sub:'Aplicaciones',               col:'var(--tierra)',bg:'rgba(90,170,53,0.07)'},
+    {id:'fuego', label:'Fuego', emoji:'🔥', sub:'Entrega y cierre',           col:'var(--fuego)', bg:'rgba(232,98,42,0.07)'},
+  ];
+  const total = brands.length || 1;
+  const grid = document.getElementById('stage-grid-v2');
+  if(!grid) return;
+  
+  // Preserve open state
+  const openStates = {};
+  grid.querySelectorAll('.stage-card-v2').forEach(el=>{
+    openStates[el.dataset.stage] = el.dataset.open === 'true';
+  });
+
+  grid.innerHTML = stages.map(st=>{
+    const stageBrands = brands.filter(b=>b.stage===st.id);
+    const count = stageBrands.length;
+    const pct = Math.round(count/total*100);
+    const isOpen = openStates[st.id] !== undefined ? openStates[st.id] : false;
+    const avgProg = count ? Math.round(stageBrands.reduce((s,b)=>s+brandProgress(b),0)/count) : 0;
+
+    const brandRows = stageBrands.map(b=>{
+      const p = brandProgress(b);
+      const col = getBrandColor(b);
+      return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.3rem 0;cursor:pointer" onclick="openBrand('${b.id}')">
+        <span style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></span>
+        <span style="flex:1;font-size:0.78rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</span>
+        <span style="font-size:0.72rem;color:var(--text3);font-weight:600;flex-shrink:0">${p}%</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="stage-card-v2" data-stage="${st.id}" data-open="${isOpen}" style="background:${st.bg};border:1px solid color-mix(in srgb,${st.col} 20%,var(--border));border-radius:16px;padding:1.1rem 1.2rem;transition:all var(--transition)">
+      <!-- Header -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.6rem">
+        <div>
+          <div style="font-size:2rem;font-weight:800;color:${st.col};line-height:1">${count}</div>
+          <div style="font-size:0.82rem;font-weight:600;color:var(--text);margin-top:0.15rem">${st.emoji} ${st.label}</div>
+        </div>
+        <button onclick="toggleStageCard('${st.id}')" style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.7rem;color:var(--text2);transition:all var(--transition);flex-shrink:0">${isOpen?'▲':'▲'}</button>
+      </div>
+      <!-- Progress bar -->
+      <div style="height:4px;background:rgba(0,0,0,0.08);border-radius:99px;overflow:hidden;margin-bottom:0.55rem">
+        <div style="height:100%;width:${avgProg}%;background:${st.col};border-radius:99px;transition:width 0.4s"></div>
+      </div>
+      <!-- Summary row -->
+      <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--text3);margin-bottom:${isOpen&&count?'0.8rem':'0'}">
+        <span>del total</span>
+        <span style="font-weight:700;color:${st.col}">${pct}%</span>
+      </div>
+      <!-- Brand list (collapsible) -->
+      ${count?`<div class="stage-brand-list" style="display:${isOpen?'block':'none'};border-top:1px solid rgba(0,0,0,0.06);padding-top:0.5rem">${brandRows}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function toggleStageCard(stageId){
+  const el = document.querySelector(`.stage-card-v2[data-stage="${stageId}"]`);
+  if(!el) return;
+  const isOpen = el.dataset.open === 'true';
+  el.dataset.open = !isOpen;
+  const list = el.querySelector('.stage-brand-list');
+  if(list) list.style.display = isOpen ? 'none' : 'block';
+  const btn = el.querySelector('button');
+  if(btn) btn.textContent = isOpen ? '▲' : '▼';
+  // Update summary margin
+  const summary = el.querySelectorAll('[style*="margin-bottom"]')[2];
+  // re-render is cleaner
+  const brands = appData.brands || [];
+  renderStageCards(brands);
+}
+
 function renderDashboard(){
   const brands=appData.brands||[];
+  renderBanners();
   document.getElementById('total-count').textContent=brands.length;
   document.getElementById('total-sub').textContent=brands.length===0?'Sin marcas. ¡Crea la primera!':brands.length===1?'1 proyecto en curso':brands.length+' proyectos en curso';
-  ['aire','agua','tierra','fuego'].forEach(s=>document.getElementById('count-'+s).textContent=brands.filter(b=>b.stage===s).length);
+
+  // ── New stat cards ──
+  const alta = brands.filter(b=>b.prioridad==='alta').length;
+  const ready = brands.filter(b=>brandProgress(b)>=90).length;
+  const paused = brands.filter(b=>b.paused).length;
+  const el_alta = document.getElementById('dash-alta');
+  const el_alta_sub = document.getElementById('dash-alta-sub');
+  const el_ready = document.getElementById('dash-ready');
+  const el_paused = document.getElementById('dash-paused');
+  if(el_alta) el_alta.textContent = alta;
+  if(el_alta_sub) el_alta_sub.textContent = alta===1?'marca urgente':'marcas urgentes';
+  if(el_ready) el_ready.textContent = ready;
+  if(el_paused) el_paused.textContent = paused;
+
+  renderStageCards(brands);
   const grid=document.getElementById('brands-grid');
   if(!brands.length){grid.innerHTML='<div class="empty-state"><div class="empty-icon">✦</div><div>No hay marcas todavía.<br>Haz clic en <strong>+ Nueva marca</strong> para empezar.</div></div>';return;}
   const si={aire:{l:'Aire',e:'🌬️'},agua:{l:'Agua',e:'💧'},tierra:{l:'Tierra',e:'🌱'},fuego:{l:'Fuego',e:'🔥'}};
@@ -1323,20 +2070,22 @@ function renderDashboard(){
   grid.innerHTML=brands.map(b=>{
     const s=si[b.stage]||si.aire;
     const pct=brandProgress(b);
+    const brandCol = getBrandColor(b);
+    const logoHTML = b.image ? `<img src="${b.image}" alt="${b.name}">` : b.name.charAt(0);
     return`<div class="brand-card" onclick="openBrand('${b.id}')">
-      <div class="brand-card-img">${b.image?`<img src="${b.image}" alt="${b.name}">`:'<span>'+b.name.charAt(0)+'</span>'}</div>
       <div class="brand-card-body">
-        <div class="brand-card-name">${b.name}</div>
-        <div class="brand-card-meta">
-          <span class="stage-pill ${b.stage}">${s.e} ${s.l}</span>
-          <span class="prio-pill ${b.prioridad||'media'}">${pi[b.prioridad||'media']}</span>
+        <div class="brand-card-logo">${logoHTML}</div>
+        <div class="brand-card-info">
+          <div class="brand-card-name">${b.name}</div>
+          <div class="brand-card-meta">
+            <span class="stage-pill ${b.stage}" style="font-size:0.62rem;padding:0.1rem 0.45rem">${s.e} ${s.l}</span>
+            <span class="prio-pill ${b.prioridad||'media'}" style="font-size:0.6rem;padding:0.1rem 0.4rem">${pi[b.prioridad||'media']}</span>
+            <span style="font-size:0.68rem;color:var(--text3);font-weight:600;margin-left:auto">${pct}%</span>
+          </div>
         </div>
-        <div class="brand-progress-bar"><div class="brand-progress-fill" style="width:${pct}%;background:${stageColor(b.stage)}"></div></div>
+        <button class="btn-delete" onclick="event.stopPropagation();deleteBrand('${b.id}')" style="opacity:0;transition:opacity 0.15s;font-size:0.75rem;background:none;border:none;cursor:pointer;padding:0.2rem;color:var(--text3);flex-shrink:0" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">🗑</button>
       </div>
-      <div class="brand-card-footer">
-        <span class="brand-card-footer-pct">${pct}% completado</span>
-        <button class="btn-delete" onclick="event.stopPropagation();deleteBrand('${b.id}')">🗑</button>
-      </div>
+      <div style="height:3px;background:${brandCol};width:100%"></div>
     </div>`;
   }).join('');
 }
@@ -1475,10 +2224,14 @@ async function renderBrandPage(){
   if(needsSave){ await upsert(); showStatus('Datos del proyecto actualizados ✓'); }
 
   document.getElementById('header-title').textContent=brand.name;
+  updateGlobalBreadcrumb('brand', brand.name);
 
-  // Hero banner color
-  document.getElementById('brand-hero-banner').style.background=stageColor(brand.stage);
-  // (segmented bar used instead of single fill)
+  // Hero: set gradient on the new v2 wrap based on stage
+  const heroWrap = document.getElementById('brand-hero-wrap');
+  const brandCol = getBrandColor(brand);
+  if(heroWrap){
+    heroWrap.style.borderTop = '4px solid ' + brandCol;
+  }
 
   // Image
   const imgEl=document.getElementById('brand-hero-img');
@@ -1790,6 +2543,43 @@ async function addBrandBpItem(brandId,ci){
 }
 
 /* ═══ MODAL: Nueva/Editar marca ═══ */
+
+const BRAND_COLORS = [
+  '#e85d5d','#e87f3a','#e8c23a','#5db85d','#3a9ee8','#6b5de8',
+  '#c45de8','#e85d9e','#5de8d0','#e8e85d','#5d8ce8','#e8825d',
+];
+
+function renderBrandColorPicker(selectedColor){
+  const container = document.getElementById('brand-color-picker');
+  if(!container) return;
+  const defaultColor = selectedColor || BRAND_COLORS[0];
+  if(!selectedColor) document.getElementById('input-brand-color').value = defaultColor;
+  container.innerHTML = BRAND_COLORS.map(col => `
+    <div class="brand-color-swatch ${col===defaultColor?'selected':''}"
+      style="background:${col}"
+      onclick="selectBrandColor('${col}')"
+      title="${col}"></div>
+  `).join('');
+}
+
+function selectBrandColor(color){
+  document.getElementById('input-brand-color').value = color;
+  document.querySelectorAll('.brand-color-swatch').forEach(s=>{
+    s.classList.toggle('selected', s.style.background===color||s.getAttribute('onclick').includes(color));
+  });
+}
+
+function getBrandColor(brand){
+  return brand?.color || BRAND_COLORS[(appData.brands||[]).indexOf(brand) % BRAND_COLORS.length] || '#3a9ee8';
+}
+
+function hexToRgba(hex, alpha){
+  const r=parseInt(hex.slice(1,3),16);
+  const g=parseInt(hex.slice(3,5),16);
+  const b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 function openModal(){
   editingBrandId=null;
   document.getElementById('modal-brand-title').textContent='Nueva marca';
@@ -1818,6 +2608,7 @@ function openModal(){
   document.getElementById('input-bp-total').value = appData.template?.brandingPoints?.total || 15;
   document.getElementById('modal-bp-row').style.display = '';
   document.getElementById('modal-naming-row').style.display = '';
+  renderBrandColorPicker('');
   updateModalPreview();
   document.getElementById('modal-overlay').classList.remove('hidden');
   setTimeout(()=>document.getElementById('input-name').focus(),80);
@@ -1842,6 +2633,7 @@ function openEditBrandModal(){
   document.getElementById('modal-bp-row').style.display='none';
   const e=document.getElementById('modal-err');e.style.display='none';e.textContent='';
   fillDomoSelects('input-domo-m1','input-domo-m2',brand.domo?.m1||'',brand.domo?.m2||'');
+  renderBrandColorPicker(brand.color||'');
   document.getElementById('modal-overlay').classList.remove('hidden');
   setTimeout(()=>document.getElementById('input-name').focus(),80);
 }
@@ -1909,6 +2701,7 @@ async function saveBrand(){
       brand.industria=document.getElementById('input-industria').value.trim();
       brand.stage=document.getElementById('input-stage').value;
       brand.prioridad=document.getElementById('input-prioridad').value;
+      brand.color=document.getElementById('input-brand-color').value||brand.color||BRAND_COLORS[0];
       if(!brand.domo)brand.domo={m1:'',m2:'',helpers:[]};
       brand.domo.m1=document.getElementById('input-domo-m1').value;
       brand.domo.m2=document.getElementById('input-domo-m2').value;
@@ -1926,6 +2719,7 @@ async function saveBrand(){
       industria:document.getElementById('input-industria').value.trim(),
       stage:document.getElementById('input-stage').value,
       prioridad:document.getElementById('input-prioridad').value,
+      color:document.getElementById('input-brand-color').value||BRAND_COLORS[0],
       domo:{m1:document.getElementById('input-domo-m1').value,m2:document.getElementById('input-domo-m2').value,helpers:[]},
       image,
       includeNaming,
@@ -2332,10 +3126,6 @@ function renderMemberWeek(){
   }).join('');
 }
 
-function shiftWeek(delta){
-  weekOffset += delta;
-  renderMemberWeek();
-}
 
 /* ── Member tab month ── */
 function renderMemberMonth(){
@@ -2379,10 +3169,6 @@ function renderMemberMonth(){
   document.getElementById('mmonth-content').innerHTML = html;
 }
 
-function shiftMonth(delta){
-  monthOffset += delta;
-  renderMemberMonth();
-}
 
 /* ── Member tab domos ── */
 function renderMemberDomos(){
@@ -2413,12 +3199,6 @@ function renderMemberDomos(){
 }
 
 /* ── Switch member tab ── */
-function switchMemberTab(tab){
-  ['list','week','month','domos'].forEach(t=>{
-    document.getElementById('mtab-'+t).classList.toggle('active',t===tab);
-    document.getElementById('mtab-'+t+'-btn').classList.toggle('active',t===tab);
-  });
-}
 
 /* ── Member modal ── */
 let memberPhotoB64 = null;
@@ -2463,6 +3243,129 @@ let profileWeekOffset = 0;
 let profileMonthOffset = 0;
 
 /* ── Ensure members/domos arrays in appData ── */
+
+const MEMBER_COLORS = [
+  '#e85d5d','#e87f3a','#f5c542','#5db85d','#3a9ee8','#6b5de8',
+  '#c45de8','#e85d9e','#5de8d0','#5d8ce8','#e8825d','#a0e85d',
+];
+
+function openMemberModal(){
+  editingMemberId = null;
+  memberPhotoB64 = null;
+  memberEmojiVal = '👤';
+  document.getElementById('modal-member-title').textContent = '➕ Nuevo miembro';
+  document.getElementById('btn-save-member').textContent = 'Guardar miembro';
+  document.getElementById('m-nombre').value = '';
+  document.getElementById('m-cargo').value = '';
+  document.getElementById('m-apodo').value = '';
+  document.getElementById('m-disponibilidad').value = '';
+  document.getElementById('m-avatar-preview').innerHTML = '👤';
+  document.getElementById('modal-member-err').textContent = '';
+  renderMemberEmojiGrid();
+  renderMemberAreaGrid('');
+  renderMemberColorPicker('');
+  document.getElementById('modal-member').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('m-nombre').focus(), 80);
+}
+
+function openEditMemberModal(){
+  const m = (appData.members||[]).find(x=>x.id===currentMemberId);
+  if(!m) return;
+  editingMemberId = m.id;
+  memberPhotoB64 = m.photo || null;
+  memberEmojiVal = m.emoji || '👤';
+  document.getElementById('modal-member-title').textContent = '✏️ Editar miembro';
+  document.getElementById('btn-save-member').textContent = 'Guardar cambios';
+  document.getElementById('m-nombre').value = m.nombre || '';
+  document.getElementById('m-cargo').value = m.cargo || '';
+  document.getElementById('m-apodo').value = m.apodo || '';
+  document.getElementById('m-disponibilidad').value = m.disponibilidad || '';
+  document.getElementById('m-avatar-preview').innerHTML = m.photo
+    ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+    : (m.emoji || '👤');
+  document.getElementById('modal-member-err').textContent = '';
+  renderMemberEmojiGrid(m.emoji);
+  renderMemberAreaGrid(m.area || '');
+  renderMemberColorPicker(m.color || '');
+  document.getElementById('modal-member').classList.remove('hidden');
+}
+
+function closeMemberModal(){
+  document.getElementById('modal-member').classList.add('hidden');
+}
+
+function clearMemberPhoto(){
+  memberPhotoB64 = null;
+  document.getElementById('m-avatar-preview').innerHTML = memberEmojiVal || '👤';
+}
+
+function previewMemberPhoto(e){
+  onMemberPhotoChange(e);
+}
+
+function renderMemberEmojiGrid(selected){
+  const grid = document.getElementById('emoji-grid');
+  if(!grid) return;
+  grid.innerHTML = EMOJIS.map(em=>`
+    <button onclick="setMemberEmoji('${em}')" style="font-size:1.4rem;background:${em===(selected||memberEmojiVal)?'var(--bg-card2)':'none'};border:2px solid ${em===(selected||memberEmojiVal)?'var(--aire)':'transparent'};border-radius:10px;padding:0.3rem;cursor:pointer;transition:all 0.15s">${em}</button>
+  `).join('');
+}
+
+function renderMemberAreaGrid(selected){
+  const grid = document.getElementById('area-grid');
+  if(!grid) return;
+  grid.innerHTML = AREAS.map(a=>`
+    <label style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;border:1.5px solid ${a.id===selected?'var(--aire)':'var(--border)'};border-radius:10px;cursor:pointer;background:${a.id===selected?'var(--bg-card2)':'none'};transition:all 0.15s">
+      <input type="radio" name="m-area" value="${a.id}" ${a.id===selected?'checked':''} style="display:none" onchange="document.querySelectorAll('.area-opt').forEach(x=>x.style.borderColor='var(--border)');this.closest('label').style.borderColor='var(--aire)'">
+      <span style="font-size:1rem">${a.emoji}</span>
+      <span style="font-size:0.82rem;font-weight:600">${a.label}</span>
+    </label>
+  `).join('');
+}
+
+function renderMemberColorPicker(selected){
+  const wrap = document.getElementById('member-color-picker');
+  if(!wrap) return;
+  const def = selected || MEMBER_COLORS[0];
+  if(!selected) document.getElementById('input-member-color').value = def;
+  wrap.innerHTML = MEMBER_COLORS.map(col=>`
+    <div onclick="selectMemberColor('${col}')" title="${col}" style="width:26px;height:26px;border-radius:50%;background:${col};cursor:pointer;border:3px solid ${col===def?'var(--text)':'transparent'};transition:all 0.15s;flex-shrink:0"></div>
+  `).join('');
+}
+
+function selectMemberColor(color){
+  document.getElementById('input-member-color').value = color;
+  renderMemberColorPicker(color);
+}
+
+async function saveMember(){
+  const nombre = document.getElementById('m-nombre').value.trim();
+  if(!nombre){ document.getElementById('modal-member-err').textContent='El nombre es obligatorio'; return; }
+  const areaRadio = document.querySelector('input[name="m-area"]:checked');
+  const memberColor = document.getElementById('input-member-color')?.value || MEMBER_COLORS[0];
+  const memberData = {
+    nombre,
+    cargo: document.getElementById('m-cargo').value.trim(),
+    apodo: document.getElementById('m-apodo').value.trim(),
+    disponibilidad: document.getElementById('m-disponibilidad').value.trim(),
+    emoji: memberEmojiVal || '👤',
+    photo: memberPhotoB64 || null,
+    area: areaRadio ? areaRadio.value : '',
+    color: memberColor,
+  };
+  if(editingMemberId){
+    const idx = appData.members.findIndex(x=>x.id===editingMemberId);
+    if(idx>=0) appData.members[idx] = {...appData.members[idx], ...memberData};
+  } else {
+    appData.members.push({id:uid(), status:'', ...memberData});
+  }
+  closeMemberModal();
+  await upsert();
+  showStatus(editingMemberId?'Miembro actualizado ✓':'Miembro creado ✓');
+  renderEquipo();
+}
+
+
 function ensureTeamData() {
   if (!Array.isArray(appData.members)) appData.members = [];
   // domos live inside each brand as brand.domo = {m1, m2, helpers:[]}
@@ -2541,80 +3444,8 @@ function getMemberDomos(memberId) {
 }
 
 /* ══ RENDER EQUIPO PAGE ══ */
-function renderEquipo() {
-  ensureTeamData();
-  renderMembersGrid();
-  renderDomosTab();
-  // Also populate "+ Nuevo miembro" button
-  const btn=document.getElementById('btn-nuevo-miembro');
-  if(btn)btn.style.display='';
-}
 
-function renderMembersGrid() {
-  const grid = document.getElementById('team-grid');
-  const members = appData.members || [];
-  if (!members.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><div>No hay miembros aún.<br>Haz clic en <strong>+ Nuevo miembro</strong> para empezar.</div></div>';
-    return;
-  }
-  grid.innerHTML = members.map(m => {
-    const hitos = getMemberHitos(m.id);
-    const today = new Date(); today.setHours(0,0,0,0);
-    const upcoming = hitos.filter(h => h.dateObj >= today).slice(0, 3);
-    const area = AREAS.find(a => a.id === m.area);
-    const avatarHTML = m.photo
-      ? `<img src="${m.photo}" alt="${m.nombre}">`
-      : (m.emoji || '👤');
 
-    return `<div class="member-card" onclick="openMemberProfile('${m.id}')">
-      <div class="member-card-top">
-        <div class="member-avatar">${avatarHTML}</div>
-        <div class="member-nickname">${m.apodo || m.nombre}</div>
-        <div class="member-fullname">${m.apodo ? m.nombre : ''}</div>
-        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:center">
-          ${m.cargo ? `<span class="member-cargo">${m.cargo}</span>` : ''}
-          ${area ? `<span class="member-area-pill">${area.emoji} ${area.label}</span>` : ''}
-        </div>
-      </div>
-      <input class="member-status" value="${m.status||''}" placeholder="Estado…"
-        onclick="event.stopPropagation()"
-        onblur="quickSaveMemberStatus('${m.id}',this.value)"
-        onkeydown="if(event.key==='Enter'){event.stopPropagation();this.blur();}">
-      <div class="member-hitos-preview">
-        ${upcoming.length ? upcoming.map(h => `
-          <div class="hito-preview-row hito-${h.type}">
-            <span class="hito-preview-dot ${h.type}"></span>
-            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.name}</span>
-            <span style="flex-shrink:0;color:var(--text3)">${fmtDateDisplay(h.date)}</span>
-          </div>`).join('') : '<div style="font-size:0.72rem;color:var(--text3);text-align:center;padding:0.5rem 0">Sin hitos próximos ✓</div>'}
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function renderDomosTab() {
-  const el = document.getElementById('domos-grid');
-  const brands = (appData.brands || []).filter(b => b.domo && (b.domo.m1 || b.domo.m2));
-  if (!brands.length) {
-    el.innerHTML = '<div style="color:var(--text3);font-size:0.84rem;padding:1rem">Ninguna marca tiene domo configurado aún. Ve a una marca y configura su domo.</div>';
-    return;
-  }
-  el.innerHTML = brands.map(brand => {
-    const domo = brand.domo;
-    const m1 = appData.members.find(m => m.id === domo.m1);
-    const m2 = appData.members.find(m => m.id === domo.m2);
-    const helpers = (domo.helpers||[]).map(hid => appData.members.find(m=>m.id===hid)).filter(Boolean);
-    return `<div class="domo-row">
-      <div class="domo-brand-name">${brand.name}</div>
-      <div class="domo-members-wrap">
-        ${m1 ? memberChip(m1,'principal') : '<span style="color:var(--text3);font-size:0.78rem">Sin M1</span>'}
-        ${m2 ? memberChip(m2,'principal') : '<span style="color:var(--text3);font-size:0.78rem">Sin M2</span>'}
-        ${helpers.map(h => memberChip(h,'astronauta')).join('')}
-        <button class="btn-ghost" style="font-size:0.72rem;padding:0.25rem 0.6rem" onclick="openDomoModal('${brand.id}')">✏️ Editar</button>
-      </div>
-    </div>`;
-  }).join('');
-}
 
 function memberChip(m, role) {
   return `<span class="domo-member-chip">
@@ -2625,387 +3456,514 @@ function memberChip(m, role) {
 }
 
 /* ══ MEMBER PROFILE PAGE ══ */
-function openMemberProfile(id) {
+
+function renderEquipo(){
+  ensureTeamData();
+  renderEquipoDropdown();
+  if(currentMemberId){
+    renderEquipoMiniCard(currentMemberId);
+    document.getElementById('equipo-mini-card-wrap').style.display='';
+
+    // Update global breadcrumb
+    const m2 = (appData.members||[]).find(x=>x.id===currentMemberId);
+    if(m2) updateGlobalBreadcrumb('equipo', m2.apodo||m2.nombre);
+  } else {
+    document.getElementById('equipo-mini-card-wrap').style.display='none';
+
+    updateGlobalBreadcrumb('equipo');
+  }
+  const tab = window._eqTab||'grid';
+  switchEquipoTab(tab, true);
+}
+
+function renderEquipoDropdown(){
+  const members = appData.members||[];
+  const badge = document.getElementById('member-count-badge');
+  if(badge) badge.textContent = members.length + (members.length===1?' persona':' personas');
+  const list = document.getElementById('member-dropdown-list');
+  if(!list) return;
+  list.innerHTML = members.map(m=>`
+    <div class="member-dropdown-item ${m.id===currentMemberId?'active':''}" onclick="selectMember('${m.id}')">
+      <span>${m.emoji||m.photo?'📷':'👤'}</span>
+      <span style="flex:1">${m.apodo||m.nombre}</span>
+      ${m.id===currentMemberId?'<span class="check">✓</span>':''}
+    </div>`).join('');
+  // Update selector button label
+  const btn = document.getElementById('member-selector-label');
+  const icon = document.getElementById('member-selector-icon');
+  if(currentMemberId){
+    const m = members.find(x=>x.id===currentMemberId);
+    if(m && btn){ btn.textContent = m.apodo||m.nombre; }
+    if(m && icon){ icon.textContent = m.emoji||'👤'; }
+  } else {
+    if(btn) btn.textContent='Todos los integrantes';
+    if(icon) icon.textContent='👥';
+  }
+}
+
+function toggleMemberDropdown(){
+  const dd = document.getElementById('member-dropdown');
+  if(dd) dd.classList.toggle('open');
+  document.addEventListener('click', function handler(e){
+    if(!e.target.closest('#member-selector-wrap')){
+      dd && dd.classList.remove('open');
+      document.removeEventListener('click', handler);
+    }
+  });
+}
+
+function selectMember(id){
   currentMemberId = id;
-  profileWeekOffset = 0;
-  profileMonthOffset = 0;
-  goTo('member');
+  const dd = document.getElementById('member-dropdown');
+  if(dd) dd.classList.remove('open');
+  renderEquipo();
 }
 
-function renderMemberPage() {
-  const m = appData.members.find(x => x.id === currentMemberId);
-  if (!m) { goTo('equipo'); return; }
-  document.getElementById('header-title').textContent = m.apodo || m.nombre;
+// Gradient palette (matches member cards)
+const MEM_GRADIENTS = [
+  'linear-gradient(135deg,#3b82f6,#1d4ed8)',
+  'linear-gradient(135deg,#06b6d4,#0891b2)',
+  'linear-gradient(135deg,#8b5cf6,#6d28d9)',
+  'linear-gradient(135deg,#ec4899,#be185d)',
+  'linear-gradient(135deg,#f59e0b,#d97706)',
+  'linear-gradient(135deg,#10b981,#059669)',
+  'linear-gradient(135deg,#6366f1,#4338ca)',
+  'linear-gradient(135deg,#ef4444,#dc2626)',
+];
 
-  // Avatar
-  const avatarEl = document.getElementById('profile-avatar');
-  avatarEl.innerHTML = m.photo ? `<img src="${m.photo}" alt="${m.nombre}">` : (m.emoji || '👤');
-
-  document.getElementById('profile-nickname').textContent = m.apodo || m.nombre;
-  document.getElementById('profile-fullname').textContent = m.apodo ? m.nombre : '';
-  document.getElementById('profile-status').value = m.status || '';
-
-  const area = AREAS.find(a => a.id === m.area);
-  document.getElementById('profile-meta').innerHTML = `
-    ${m.cargo ? `<span class="member-cargo">${m.cargo}</span>` : ''}
-    ${area ? `<span class="member-area-pill">${area.emoji} ${area.label}</span>` : ''}
-    ${m.disponibilidad ? `<span style="font-size:0.75rem;color:var(--text3)">${m.disponibilidad}</span>` : ''}
-  `;
-
-  renderProfileHitosList(m);
-  renderProfileWeek(m);
-  renderProfileMonth(m);
-  renderProfileDomos(m);
+function getMemberGradient(memberId){
+  const m = (appData.members||[]).find(x=>x.id===memberId);
+  if(m?.color){
+    // Build a gradient from the member's chosen color
+    const col = m.color;
+    const r=parseInt(col.slice(1,3),16), g=parseInt(col.slice(3,5),16), b=parseInt(col.slice(5,7),16);
+    // Darken by 25% for gradient end
+    const dr=Math.round(r*0.7), dg=Math.round(g*0.7), db=Math.round(b*0.7);
+    return `linear-gradient(135deg,rgb(${r},${g},${b}),rgb(${dr},${dg},${db}))`;
+  }
+  const idx = (appData.members||[]).findIndex(m=>m.id===memberId);
+  return MEM_GRADIENTS[Math.max(0,idx) % MEM_GRADIENTS.length];
 }
 
-/* ── List view ── */
-function renderProfileHitosList(m) {
-  const hitos = getMemberHitos(m.id);
-  const today = new Date(); today.setHours(0,0,0,0);
-  const upcoming = hitos.filter(h => h.dateObj >= today);
-  const el = document.getElementById('profile-hitos-list');
-  if (!upcoming.length) {
-    el.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--text3);font-size:0.84rem">Sin hitos próximos 🎉</div>';
+function renderEquipoMiniCard(memberId){
+  const m = (appData.members||[]).find(x=>x.id===memberId);
+  if(!m) return;
+  const grad = getMemberGradient(memberId);
+  const myBrands = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id||(b.domo.helpers||[]).includes(m.id)));
+  const totalActs = myBrands.reduce((s,b)=>{
+    return s + Object.values(b.cronograma||{}).flat().length;
+  },0);
+  const doneActs = myBrands.reduce((s,b)=>{
+    return s + Object.values(b.cronograma||{}).flat().filter(a=>a.status==='completada').length;
+  },0);
+  const pct = totalActs ? Math.round(doneActs/totalActs*100) : 0;
+  const domos = myBrands.map(b=>b.name);
+  const avatarHTML = m.photo ? `<img src="${m.photo}" alt="">` : (m.emoji||'👤');
+  const card = document.getElementById('equipo-mini-card');
+  if(!card) return;
+  card.style.background = grad;
+  card.innerHTML = `
+    <div class="equipo-mini-card-hero">
+      <div class="equipo-mini-avatar">${avatarHTML}</div>
+      <div>
+        <div class="equipo-mini-name">${m.apodo||m.nombre}</div>
+        <div class="equipo-mini-cargo">${m.cargo||''}</div>
+        <div class="m-domo-badges" style="margin-top:0.3rem">${domos.slice(0,3).map(n=>`<span class="m-domo-badge">${n}</span>`).join('')}${domos.length>3?`<span class="m-domo-badge">+${domos.length-3}</span>`:''}</div>
+      </div>
+    </div>
+    <div class="equipo-mini-right">
+      <div class="equipo-mini-bar-wrap">
+        <span class="equipo-mini-bar-label">${myBrands.length} marca${myBrands.length!==1?'s':''}</span>
+        <div class="equipo-mini-bar"><div class="equipo-mini-bar-fill" style="width:${pct}%"></div></div>
+        <span class="equipo-mini-pct">${pct}%</span>
+      </div>
+      <div class="equipo-mini-status">
+        <input placeholder="Estado emocional…" value="${m.status||''}"
+          onblur="quickSaveMemberStatus('${m.id}',this.value)"
+          onkeydown="if(event.key==='Enter')this.blur()">
+      </div>
+      <div style="display:flex;gap:0.5rem;position:relative;z-index:1">
+        <button onclick="openEditMemberModal()" style="background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:0.3rem 0.6rem;font-size:0.75rem;color:#fff;cursor:pointer;font-family:var(--font)">✏️</button>
+        <button onclick="deleteMemberCurrent()" style="background:rgba(255,92,114,0.25);border:1px solid rgba(255,92,114,0.3);border-radius:8px;padding:0.3rem 0.6rem;font-size:0.75rem;color:#ff5c72;cursor:pointer;font-family:var(--font)">🗑</button>
+      </div>
+    </div>`;
+}
+
+function switchEquipoTab(tab, skipRender){
+  window._eqTab = tab;
+  ['grid','week','month','domos'].forEach(t=>{
+    const panel = document.getElementById('eq-panel-'+t);
+    const btn = document.getElementById('eqtab-'+t+'-btn');
+    if(panel){
+      if(t===tab){ panel.classList.add('active'); }
+      else { panel.classList.remove('active'); }
+    }
+    if(btn){
+      if(t===tab){ btn.classList.add('active'); }
+      else { btn.classList.remove('active'); }
+    }
+  });
+  renderEquipoTabContent(tab);
+}
+
+function renderEquipoTabContent(tab){
+  if(tab==='grid') renderEqGrid();
+  if(tab==='week') renderEqWeek();
+  if(tab==='month') renderEqMonth();
+  if(tab==='domos') renderEqDomos();
+}
+
+/* ── Cards/Grid view ── */
+function renderEqGrid(){
+  if(!currentMemberId){
+    // Show all member cards
+    document.getElementById('eq-all-grid').style.display='';
+    document.getElementById('eq-member-cards').style.display='none';
+    renderMembersGrid();
+  } else {
+    document.getElementById('eq-all-grid').style.display='none';
+    document.getElementById('eq-member-cards').style.display='';
+    const m = (appData.members||[]).find(x=>x.id===currentMemberId);
+    if(!m) return;
+    const statusInput = document.getElementById('eq-status-input');
+    if(statusInput){ statusInput.value = m.status||''; statusInput.dataset.memberId=m.id; }
+    const hitos = getMemberHitos(currentMemberId);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const upcoming = hitos.filter(h=>h.dateObj>=today).sort((a,b)=>a.dateObj-b.dateObj);
+    const el = document.getElementById('eq-hitos-list');
+    if(!upcoming.length){
+      el.innerHTML='<div style="padding:2rem;text-align:center;color:var(--text3)">Sin hitos próximos 🎉</div>';
+      return;
+    }
+    el.innerHTML = upcoming.map(h=>{
+      const brand = (appData.brands||[]).find(b=>b.id===h.brandId);
+      const logoHTML = brand?.image ? `<img src="${brand.image}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">` : (brand?.name?.charAt(0)||'?');
+      const revHTML = h.revDate ? `<div class="eq-hito-rev">🔍 ${fmtDateDisplay(h.revDate)} · Rev. Interna · ${h.name}</div>` : '';
+      return `<div class="eq-hito-card">
+        <div class="eq-hito-brand-img">${logoHTML}</div>
+        <div class="eq-hito-info">
+          <div class="eq-hito-brand-name">${brand?.name||'—'}</div>
+          <div class="eq-hito-date">⭐ ${fmtDateDisplay(h.date)} · ${h.name}</div>
+          ${revHTML}
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function renderMembersGrid(){
+  const grid = document.getElementById('eq-all-grid') || document.getElementById('team-grid');
+  if(!grid) return;
+  const members = appData.members||[];
+  if(!members.length){
+    grid.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><div>No hay miembros. Haz clic en <strong>+ Miembro</strong>.</div></div>';
     return;
   }
-  el.innerHTML = upcoming.map(h => `
-    <div class="hito-list-row">
-      <span class="hito-list-date">${fmtDateDisplay(h.date)}</span>
-      <span class="hito-chip ${h.type}" style="margin:0 0.4rem;flex-shrink:0">${h.type==='oficial'?'⭐ Hito':'🔍 Rev.'}</span>
-      <div style="flex:1;min-width:0">
-        <div class="hito-list-name">${h.name}</div>
-        <div class="hito-list-brand">📌 ${h.brandName}</div>
+  grid.innerHTML = members.map((m,idx)=>{
+    const hitos = getMemberHitos(m.id);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const upcoming = hitos.filter(h=>h.dateObj>=today).slice(0,3);
+    const area = AREAS.find(a=>a.id===m.area);
+    const avatarHTML = m.photo ? `<img src="${m.photo}" alt="">` : (m.emoji||'👤');
+    const gradient = getMemberGradient(m.id);
+    const myDomos = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id||(b.domo.helpers||[]).includes(m.id))).map(b=>b.name);
+    return `<div class="member-card" onclick="selectMember('${m.id}');switchEquipoTab('grid')">
+      <!-- Hero (foto + nombre + estado) -->
+      <div class="member-card-hero" style="background:${gradient}">
+        <div class="member-card-hero-content">
+          <div class="member-avatar">${avatarHTML}</div>
+          <div style="min-width:0;flex:1">
+            <div class="member-nickname">${m.apodo||m.nombre}</div>
+            ${m.cargo?`<div style="font-size:0.68rem;color:rgba(255,255,255,0.75);margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.cargo}</div>`:''}
+            <input class="member-status" value="${m.status||''}" placeholder="Estado emocional…"
+              onclick="event.stopPropagation()"
+              onblur="quickSaveMemberStatus('${m.id}',this.value)"
+              onkeydown="if(event.key==='Enter'){event.stopPropagation();this.blur()}"
+              style="margin-top:0.4rem;width:100%;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:0.25rem 0.5rem;font-size:0.7rem;color:#fff;font-family:var(--font);outline:none;"
+              onfocus="this.style.background='rgba(255,255,255,0.18)';this.style.border='1px solid rgba(255,255,255,0.3)'"
+              onblur="this.style.background='transparent';this.style.border='1px solid transparent';quickSaveMemberStatus('${m.id}',this.value)">
+          </div>
+        </div>
       </div>
-      <span class="act-status ${h.status==='completada'?'completada':h.status==='en progreso'?'progreso':'pendiente'}"
-        style="flex-shrink:0">${h.status==='completada'?'✓':h.status==='en progreso'?'En prog.':'Pendiente'}</span>
-    </div>`).join('');
+      <!-- Tareas -->
+      <div class="member-card-right">
+        <div class="member-hitos-preview">
+          ${upcoming.length?upcoming.map(h=>`
+            <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.55rem 0.7rem;border-left:3px solid ${h.type==='revision'?'var(--fuego)':'#f5c542'}">
+              <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;flex-wrap:nowrap;overflow:hidden">
+                <span style="font-size:0.68rem;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;flex-shrink:1">${(appData.brands||[]).find(b=>b.id===h.brandId)?.name||'—'}</span>
+                ${(()=>{const br=(appData.brands||[]).find(b=>b.id===h.brandId);if(!br?.domo)return'';const partnerId=br.domo.m1===m.id?br.domo.m2:br.domo.m1;const partner=(appData.members||[]).find(x=>x.id===partnerId);return partner?`<span style="font-size:0.62rem;background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.05rem 0.45rem;color:var(--text2)">${partner.emoji||'👤'} ${partner.apodo||partner.nombre}</span>`:'';})()}
+                <span style="margin-left:auto;font-size:0.65rem;font-weight:700;color:${h.type==='revision'?'var(--fuego)':'#c4980a'};background:${h.type==='revision'?'rgba(232,98,42,0.1)':'rgba(245,197,66,0.12)'};border-radius:6px;padding:0.1rem 0.4rem">${h.type==='revision'?'🔍':'⭐'} ${fmtDateDisplay(h.date)}</span>
+              </div>
+              <div style="font-size:0.73rem;color:var(--text2);line-height:1.35">${h.name.replace('🔍 Rev. interna: ','')}</div>
+            </div>`).join(''):'<div style="font-size:0.7rem;color:var(--text3);padding:0.3rem 0">Sin hitos ✓</div>'}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 /* ── Week view ── */
-function getWeekStart(offset) {
-  const now = new Date();
-  const day = now.getDay();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - (day===0?6:day-1) + offset*7);
-  monday.setHours(0,0,0,0);
-  return monday;
-}
+let _eqWeekOffset = 0;
+function eqShiftWeek(d){ _eqWeekOffset+=d; renderEqWeek(); }
 
-function navWeek(dir) { profileWeekOffset += dir; renderProfileWeek(appData.members.find(m=>m.id===currentMemberId)); }
-function navMonth(dir) { profileMonthOffset += dir; renderProfileMonth(appData.members.find(m=>m.id===currentMemberId)); }
-
-function renderProfileWeek(m) {
-  const hitos = getMemberHitos(m.id);
-  const monday = getWeekStart(profileWeekOffset);
-  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
-  const days = ['Lun','Mar','Mié','Jue','Vie'];
+function renderEqWeek(){
   const today = new Date(); today.setHours(0,0,0,0);
+  const dow = today.getDay(); // 0=sun
+  const monday = new Date(today); monday.setDate(today.getDate() - (dow===0?6:dow-1) + _eqWeekOffset*7);
+  const friday = new Date(monday); friday.setDate(monday.getDate()+4);
+  const weekNames = ['Esta semana','Próxima semana','En 2 semanas','En 3 semanas'];
+  const weekLabel = _eqWeekOffset===0?weekNames[0]:_eqWeekOffset===1?weekNames[1]:_eqWeekOffset===2?weekNames[2]:_eqWeekOffset===3?weekNames[3]:(_eqWeekOffset>0?`En ${_eqWeekOffset} semanas`:`Hace ${Math.abs(_eqWeekOffset)} semanas`);
+  const fmt = d=>{const ms=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return `${d.getDate()} ${ms[d.getMonth()]}`;};
+  const titleEl = document.getElementById('eq-week-title');
+  const subEl = document.getElementById('eq-week-sub');
+  if(titleEl) titleEl.textContent = weekLabel;
+  if(subEl) subEl.textContent = `${fmt(monday)} — ${fmt(friday)}`;
 
-  document.getElementById('week-label').textContent =
-    fmtDateDisplay(fmtDate(monday)) + ' – ' + fmtDateDisplay(fmtDate(new Date(monday.getTime()+4*86400000)));
+  const membersToShow = currentMemberId ? [(appData.members||[]).find(m=>m.id===currentMemberId)].filter(Boolean) : (appData.members||[]);
+  const allHitos = membersToShow.flatMap(m=>getMemberHitos(m.id).map(h=>({...h,member:m})));
+  // getMemberHitos already returns separate oficial + revision objects with correct date
 
-  document.getElementById('week-grid').innerHTML = days.map((day,i) => {
-    const d = new Date(monday); d.setDate(monday.getDate()+i);
-    const dStr = fmtDate(d);
-    const isToday = d.getTime()===today.getTime();
-    const dayHitos = hitos.filter(h=>h.date===dStr);
-    return `<div class="week-day ${isToday?'today':''}">
-      <div class="week-day-label">${day} ${d.getDate()}</div>
-      ${dayHitos.map(h=>`<div class="hito-chip ${h.type}" title="${h.brandName}">${h.name.slice(0,28)}</div>`).join('')}
+  const dayNames=['Lun','Mar','Mié','Jue','Vie'];
+  const grid = document.getElementById('eq-week-grid');
+  if(!grid) return;
+  const dayCounts = Array.from({length:5},(_,i)=>{
+    const day=new Date(monday); day.setDate(monday.getDate()+i);
+    return allHitos.filter(h=>h.date===fmtDate(day)).length;
+  });
+  const hasAny = dayCounts.some(n=>n>0);
+  const cols = dayCounts.map(n=> hasAny ? (n>0?'2fr':'1fr') : '1fr').join(' ');
+  grid.style.gridTemplateColumns = cols;
+  grid.innerHTML = Array.from({length:5},(_,i)=>{
+    const day = new Date(monday); day.setDate(monday.getDate()+i);
+    const dayStr = fmtDate(day);
+    const isToday = dayStr===fmtDate(today);
+    const dayEvs = allHitos.filter(h=>h.date===dayStr);
+    return `<div class="eq-week-day ${isToday?'today':''} ${!dayEvs.length&&!isToday?'empty-day':''}">
+      <div class="eq-week-day-label">${dayNames[i]}</div>
+      <div class="eq-week-day-num">${fmt(day)}${isToday?'<span class="today-pill">HOY</span>':''}</div>
+      ${dayEvs.length ? dayEvs.map(h=>{
+        const brand=(appData.brands||[]).find(b=>b.id===h.brandId);
+        const col=getBrandColor(brand);
+        const r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),bv=parseInt(col.slice(5,7),16);
+        if(h.type==='revision'){
+          return `<div class="eq-event" style="background:repeating-linear-gradient(-45deg,rgba(${r},${g},${bv},0.07) 0,rgba(${r},${g},${bv},0.07) 5px,rgba(${r},${g},${bv},0.02) 5px,rgba(${r},${g},${bv},0.02) 10px);border:1.5px dashed rgba(${r},${g},${bv},0.45);border-left:4px solid rgb(${r},${g},${bv});border-radius:0 7px 7px 0">
+            <div class="eq-event-brand" style="color:var(--text);font-weight:700">🔍 ${brand?.name||''}</div>
+            <div class="eq-event-act" style="color:var(--text2)">${h.name.replace('🔍 Rev. interna: ','')}</div>
+          </div>`;
+        } else {
+          return `<div class="eq-event" style="background:rgba(${r},${g},${bv},0.2);border-left:4px solid rgb(${r},${g},${bv})">
+            <div class="eq-event-brand" style="color:var(--text)">⭐ ${brand?.name||''}</div>
+            <div class="eq-event-act" style="color:var(--text3)">${h.name}</div>
+          </div>`;
+        }
+      }).join('') : `<div class="eq-week-empty">Sin eventos</div>`}
     </div>`;
   }).join('');
 }
 
-/* ── Month view ── */
-function renderProfileMonth(m) {
-  const hitos = getMemberHitos(m.id);
+/* ── Month view (grouped by week) ── */
+let _eqMonthOffset = 0;
+function eqShiftMonth(d){ _eqMonthOffset+=d; renderEqMonth(); }
+
+function renderEqMonth(){
   const today = new Date(); today.setHours(0,0,0,0);
-  const refDate = new Date(today.getFullYear(), today.getMonth()+profileMonthOffset, 1);
-  const year = refDate.getFullYear(); const month = refDate.getMonth();
-  const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  document.getElementById('month-label').textContent = MONTHS[month]+' '+year;
+  const membersToShow = currentMemberId ? [(appData.members||[]).find(m=>m.id===currentMemberId)].filter(Boolean) : (appData.members||[]);
+  const allHitos = membersToShow.flatMap(m=>getMemberHitos(m.id).map(h=>({...h,member:m})));
+  const fmt = d=>{const ms=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return `${d.getDate()} ${ms[d.getMonth()]}`;};
+  const fmtFull = d=>{const ds=['L','M','X','J','V'];const ms=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return `${ds[d.getDay()===0?6:d.getDay()-1]} ${d.getDate()} ${ms[d.getMonth()]}`;};
 
-  const firstDay = new Date(year,month,1);
-  const lastDay = new Date(year,month+1,0);
-  let startDow = firstDay.getDay(); if(startDow===0)startDow=7; startDow--;
+  // Get monday of NEXT week (skip current — already in week view)
+  const dow = today.getDay();
+  const nextMonday = new Date(today); 
+  nextMonday.setDate(today.getDate()-(dow===0?6:dow-1)+7+_eqMonthOffset*7);
 
-  const dayNames=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
-  let html = dayNames.map(d=>`<div class="month-header-day">${d}</div>`).join('');
-
-  // Pad before
-  for(let i=0;i<startDow;i++){
-    const pd=new Date(year,month,1-startDow+i);
-    html+=`<div class="month-cell other-month"><div class="month-cell-num">${pd.getDate()}</div></div>`;
-  }
-  // Days
-  for(let d=1;d<=lastDay.getDate();d++){
-    const cellDate=new Date(year,month,d);cellDate.setHours(0,0,0,0);
-    const dStr=fmtDate(cellDate);
-    const isToday=cellDate.getTime()===today.getTime();
-    const dayHitos=hitos.filter(h=>h.date===dStr);
-    html+=`<div class="month-cell ${isToday?'today':''}">
-      <div class="month-cell-num">${d}</div>
-      ${dayHitos.map(h=>`<div class="hito-chip ${h.type}" title="${h.name} — ${h.brandName}">${h.name.slice(0,14)}</div>`).join('')}
+  const weekLabels=['Próxima semana','En 2 semanas','En 3 semanas','En 4 semanas'];
+  const el = document.getElementById('eq-month-content');
+  if(!el) return;
+  // Also include current week at top with same styling
+  const currentMonday = new Date(today); 
+  currentMonday.setDate(today.getDate()-(dow===0?6:dow-1)+_eqMonthOffset*7);
+  const allWeeks = [
+    {monday: currentMonday, label: 'Esta semana'},
+    ...Array.from({length:4},(_,wi)=>{
+      const m=new Date(nextMonday); m.setDate(nextMonday.getDate()+wi*7);
+      return {monday:m, label:weekLabels[wi]};
+    })
+  ];
+  el.innerHTML = allWeeks.map(({monday: wMonday, label})=>{
+    const wFriday = new Date(wMonday); wFriday.setDate(wMonday.getDate()+4);
+    const days = Array.from({length:5},(_,di)=>{
+      const day = new Date(wMonday); day.setDate(wMonday.getDate()+di);
+      const dayStr = fmtDate(day);
+      const isToday = dayStr===fmtDate(today);
+      const dayHitos = allHitos.filter(h=>h.date===dayStr);
+      return `<div class="eq-month-day ${isToday?'today':''}">
+        <div class="eq-month-day-label">${isToday?`<span style="font-weight:800;color:var(--aire)">${fmtFull(day)}</span>&nbsp;<span style="background:var(--aire);color:#fff;border-radius:99px;padding:0 0.4rem;font-size:0.58rem;font-weight:700">HOY</span>`:fmtFull(day)}</div>
+        ${dayHitos.map(h=>{
+          const isRev = h.revDate===dayStr && h.date!==dayStr;
+          const brand = (appData.brands||[]).find(b=>b.id===h.brandId);
+          const evColor2 = getBrandColor(brand);
+          const r2=parseInt(evColor2.slice(1,3),16), g2=parseInt(evColor2.slice(3,5),16), b2=parseInt(evColor2.slice(5,7),16);
+          if(h.type==='revision'){
+            return `<div class="eq-event" style="background:repeating-linear-gradient(-45deg,rgba(${r2},${g2},${b2},0.07) 0px,rgba(${r2},${g2},${b2},0.07) 5px,rgba(${r2},${g2},${b2},0.02) 5px,rgba(${r2},${g2},${b2},0.02) 10px);border:1.5px dashed rgba(${r2},${g2},${b2},0.45);border-left:4px solid rgb(${r2},${g2},${b2});border-radius:0 7px 7px 0">
+              <div class="eq-event-brand" style="color:var(--text);font-weight:700">🔍 ${brand?.name||''}</div>
+              <div class="eq-event-act" style="color:var(--text2)">${h.name}</div>
+            </div>`;
+          } else {
+            return `<div class="eq-event" style="background:rgba(${r2},${g2},${b2},0.2);border-left:4px solid rgb(${r2},${g2},${b2})">
+              <div class="eq-event-brand" style="color:var(--text)">⭐ ${brand?.name||''}</div>
+              <div class="eq-event-act" style="color:var(--text3)">${h.name}</div>
+            </div>`;
+          }
+        }).join('')}
+      </div>`;
+    }).join('');
+    return `<div class="eq-month-section">
+      <div class="eq-month-section-header">
+        <span class="eq-month-section-title">${fmt(wMonday)} — ${fmt(wFriday)}</span>
+      </div>
+      <div class="eq-month-week-grid" style="grid-template-columns:repeat(5,1fr)">${days}</div>
     </div>`;
-  }
-  // Pad after
-  const total=startDow+lastDay.getDate();
-  const remaining=(7-total%7)%7;
-  for(let i=1;i<=remaining;i++){
-    html+=`<div class="month-cell other-month"><div class="month-cell-num">${i}</div></div>`;
-  }
-
-  document.getElementById('month-grid').innerHTML = html;
+  }).join('');
 }
 
 /* ── Domos view ── */
-function renderProfileDomos(m) {
-  const domoBrands = getMemberDomos(m.id);
-  const el = document.getElementById('profile-domos-list');
-  if (!domoBrands.length) {
-    el.innerHTML = '<div style="color:var(--text3);font-size:0.84rem">Este miembro no está en ningún domo aún.</div>';
-    return;
+function renderEqDomos(){
+  const domosEl = document.getElementById('eq-domos-content');
+  const allDomosWrap = document.getElementById('eq-all-domos-wrap');
+  if(!domosEl) return;
+
+  if(currentMemberId){
+    if(allDomosWrap) allDomosWrap.style.display='none';
+    const m = (appData.members||[]).find(x=>x.id===currentMemberId);
+    if(!m){ domosEl.innerHTML=''; return; }
+    const myBrands = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id||(b.domo.helpers||[]).includes(m.id)));
+    if(!myBrands.length){
+      domosEl.innerHTML='<div style="color:var(--text3);padding:2rem">No pertenece a ningún domo aún.</div>';
+      return;
+    }
+    // Header tints for domo columns
+    const domoTints = [
+      {bg:'rgba(59,130,246,0.07)',color:'#1d6bf3'},
+      {bg:'rgba(245,197,66,0.1)',color:'#b8870a'},
+      {bg:'rgba(139,92,246,0.08)',color:'#7c3aed'},
+      {bg:'rgba(16,185,129,0.08)',color:'#059669'},
+    ];
+    const barColors=['#3b82f6','#ec4899','#8b5cf6','#f59e0b','#10b981','#06b6d4','#ef4444','#6366f1'];
+
+    domosEl.innerHTML = myBrands.map((brand,bi)=>{
+      const domo = brand.domo;
+      const iM1 = domo.m1===m.id, iM2 = domo.m2===m.id;
+      const role = iM1||iM2 ? 'Redactor/a' : 'Astronauta'; // TODO: use actual role from member area
+      const actualRole = iM1||iM2 ? (m.cargo||'Principal') : 'Astronauta';
+      const partnerId = iM1?domo.m2:iM2?domo.m1:null;
+      const partner = (appData.members||[]).find(x=>x.id===partnerId);
+      const tint = domoTints[bi%domoTints.length];
+      const barColor = barColors[bi%barColors.length];
+
+      // All brands in this domo where member participates = just this brand
+      const totalActs = Object.values(brand.cronograma||{}).flat().length;
+      const doneActs = Object.values(brand.cronograma||{}).flat().filter(a=>a.status==='completada').length;
+      const pct = totalActs?Math.round(doneActs/totalActs*100):0;
+      const hitos = getMemberHitos(m.id).filter(h=>h.brandId===brand.id);
+      const nextHito = hitos.filter(h=>h.type==='oficial').sort((a,b)=>a.dateObj-b.dateObj)[0];
+
+      const logoHTML = brand.image?`<img src="${brand.image}">`:brand.name.charAt(0);
+
+      return `<div class="eq-domo-col">
+        <div class="eq-domo-col-header" style="background:${tint.bg}">
+          <div class="eq-domo-col-header-row">
+            <div class="eq-domo-col-logo" style="background:${tint.bg}">🏠</div>
+            <div>
+              <div class="eq-domo-col-name">${brand.name}</div>
+              <div class="eq-domo-col-role" style="color:${tint.color}">${actualRole}</div>
+            </div>
+            ${partner?`<div class="eq-domo-partner-row" style="margin-left:auto">
+              <div class="eq-domo-partner-chip">
+                <span style="font-size:0.9rem">${partner.emoji||'👤'}</span>
+                <div>
+                  <div style="font-weight:600;font-size:0.74rem">${partner.apodo||partner.nombre}</div>
+                  <div style="font-size:0.65rem;color:var(--text3)">${partner.cargo||'—'}</div>
+                </div>
+              </div>
+            </div>`:''}
+          </div>
+        </div>
+        <div class="eq-domo-brands-list">
+          <div class="eq-domo-brand-item">
+            <div class="eq-domo-brand-logo">${logoHTML}</div>
+            <div class="eq-domo-brand-info">
+              <div class="eq-domo-brand-name">${brand.name}</div>
+              <div class="eq-domo-bar-row">
+                <div class="eq-domo-brand-bar"><div class="eq-domo-brand-fill" style="width:${pct}%;background:${barColor}"></div></div>
+                <span class="eq-domo-brand-pct">${pct}%</span>
+              </div>
+            </div>
+            ${nextHito?`<div class="eq-domo-brand-date">⭐ ${fmtDateDisplay(nextHito.date)}</div>`:''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    if(allDomosWrap) allDomosWrap.style.display='';
+    domosEl.innerHTML='';
+    renderDomosTab();
   }
-  el.innerHTML = domoBrands.map(brand => {
-    const domo = brand.domo;
-    const m1 = appData.members.find(x=>x.id===domo.m1);
-    const m2 = appData.members.find(x=>x.id===domo.m2);
-    const helpers = (domo.helpers||[]).map(hid=>appData.members.find(x=>x.id===hid)).filter(Boolean);
-    const myRole = domo.m1===m.id||domo.m2===m.id ? 'principal' : 'astronauta';
-    return `<div class="domo-card-profile">
-      <div class="domo-card-brand">📌 ${brand.name} <span class="domo-role-badge ${myRole}" style="margin-left:0.4rem">${myRole==='principal'?'Principal':'Astronauta'}</span></div>
-      <div class="domo-card-members">
-        ${m1?`<span>${m1.emoji||'👤'} ${m1.apodo||m1.nombre}</span>`:''}
-        ${m1&&m2?`<span style="color:var(--text3)">+</span>`:''}
-        ${m2?`<span>${m2.emoji||'👤'} ${m2.apodo||m2.nombre}</span>`:''}
-        ${helpers.length?`<span style="color:var(--text3)">· Astronautas: ${helpers.map(h=>h.apodo||h.nombre).join(', ')}</span>`:''}
+}
+
+function renderDomosTab(){
+  const el = document.getElementById('domos-grid');
+  if(!el) return;
+  const brands = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1||b.domo.m2));
+  if(!brands.length){el.innerHTML='<div style="color:var(--text3);font-size:0.84rem;padding:1rem">Ninguna marca tiene domo aún.</div>';return;}
+  el.innerHTML = brands.map(brand=>{
+    const domo=brand.domo;
+    const m1=(appData.members||[]).find(m=>m.id===domo.m1);
+    const m2=(appData.members||[]).find(m=>m.id===domo.m2);
+    const helpers=(domo.helpers||[]).map(hid=>(appData.members||[]).find(m=>m.id===hid)).filter(Boolean);
+    return `<div class="domo-row">
+      <div class="domo-brand-name">${brand.name}</div>
+      <div class="domo-members-wrap">
+        ${m1?memberChip(m1,'principal'):'<span style="color:var(--text3);font-size:0.78rem">Sin M1</span>'}
+        ${m2?memberChip(m2,'principal'):'<span style="color:var(--text3);font-size:0.78rem">Sin M2</span>'}
+        ${helpers.map(h=>memberChip(h,'astronauta')).join('')}
+        <button class="btn-ghost" style="font-size:0.72rem;padding:0.25rem 0.6rem" onclick="openDomoModal('${brand.id}')">✏️ Editar</button>
       </div>
     </div>`;
   }).join('');
 }
 
-/* ── Tab switching ── */
-function switchEqTab(tab) {
-  ['members','domos'].forEach(t=>{
-    document.getElementById('eq-tab-'+t).classList.toggle('active',t===tab);
-    document.getElementById('eq-tab-'+t+'-btn').classList.toggle('active',t===tab);
-  });
-  if(tab==='domos') renderDomosTab();
+function openMemberProfile(id){ selectMember(id); }
+function renderMemberPage(){ renderEquipo(); }
+function switchMemberTab(t){ switchEquipoTab(t); }
+function shiftWeek(d){ eqShiftWeek(d); }
+function shiftMonth(d){ eqShiftMonth(d); }
+
+async function saveMemberStatus(){
+  const el=document.getElementById('mprofile-status');
+  if(!el) return;
+  const m=(appData.members||[]).find(x=>x.id===currentMemberId);
+  if(m){ m.status=el.value; await upsert(); }
 }
 
-function switchProfileTab(tab) {
-  ['list','week','month','domos'].forEach(t=>{
-    document.getElementById('ptab-'+t).classList.toggle('active',t===tab);
-    document.getElementById('ptab-'+t+'-btn').classList.toggle('active',t===tab);
-  });
-  const m = appData.members.find(x=>x.id===currentMemberId);
+async function quickSaveMemberStatus(id,val){
+  const m=(appData.members||[]).find(x=>x.id===id);
   if(!m) return;
-  if(tab==='week') renderProfileWeek(m);
-  if(tab==='month') renderProfileMonth(m);
-  if(tab==='domos') renderProfileDomos(m);
-}
-
-/* ══ STATUS SAVE ══ */
-async function saveMemberStatus() {
-  const m = appData.members.find(x=>x.id===currentMemberId);
-  if(!m) return;
-  m.status = document.getElementById('profile-status').value;
-  await upsert(); showStatus('Estado actualizado ✓');
-}
-
-async function quickSaveMemberStatus(id, val) {
-  const m = appData.members.find(x=>x.id===id);
-  if(!m) return;
-  m.status = val;
+  m.status=val;
+  renderEquipoMiniCard(id);
   await upsert();
 }
 
-/* ══ MEMBER MODAL ══ */
-function buildMemberModal() {
-  // Emoji grid
-  document.getElementById('emoji-grid').innerHTML = EMOJIS.map(e=>
-    `<div class="emoji-opt ${memberSelectedEmoji===e?'selected':''}" onclick="selectEmoji('${e}')">${e}</div>`
-  ).join('');
-  // Area grid
-  document.getElementById('area-grid').innerHTML = AREAS.map(a=>
-    `<div class="area-opt ${memberSelectedArea===a.id?'selected':''}" onclick="selectArea('${a.id}')">
-      <input type="radio" name="m-area" value="${a.id}" ${memberSelectedArea===a.id?'checked':''} style="accent-color:var(--aire)">
-      <span>${a.emoji} ${a.label}</span>
-    </div>`
-  ).join('');
-}
-
-function openMemberModal() {
-  editingMemberId = null;
-  memberSelectedEmoji = '👤';
-  memberSelectedArea = '';
-  memberPhotoData = null;
-  document.getElementById('m-nombre').value = '';
-  document.getElementById('m-cargo').value = '';
-  document.getElementById('m-apodo').value = '';
-  document.getElementById('m-disponibilidad').value = 'Disponible';
-  document.getElementById('m-avatar-preview').innerHTML = '👤';
-  document.getElementById('modal-member-title').textContent = '➕ Nuevo miembro';
-  document.getElementById('btn-save-member').textContent = 'Guardar miembro';
-  const err = document.getElementById('modal-member-err'); err.style.display='none'; err.textContent='';
-  buildMemberModal();
-  document.getElementById('modal-member').classList.remove('hidden');
-  setTimeout(()=>document.getElementById('m-nombre').focus(),80);
-}
-
-function openEditMemberModal() {
-  const m = appData.members.find(x=>x.id===currentMemberId);
-  if(!m) return;
-  editingMemberId = m.id;
-  memberSelectedEmoji = m.emoji || '👤';
-  memberSelectedArea = m.area || '';
-  memberPhotoData = m.photo || null;
-  document.getElementById('m-nombre').value = m.nombre || '';
-  document.getElementById('m-cargo').value = m.cargo || '';
-  document.getElementById('m-apodo').value = m.apodo || '';
-  document.getElementById('m-disponibilidad').value = m.disponibilidad || '';
-  document.getElementById('m-avatar-preview').innerHTML = m.photo ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : (m.emoji||'👤');
-  document.getElementById('modal-member-title').textContent = '✏️ Editar miembro';
-  document.getElementById('btn-save-member').textContent = 'Guardar cambios';
-  const err = document.getElementById('modal-member-err'); err.style.display='none';
-  buildMemberModal();
-  document.getElementById('modal-member').classList.remove('hidden');
-}
-
-function closeMemberModal() { document.getElementById('modal-member').classList.add('hidden'); }
-
-function selectEmoji(e) {
-  memberSelectedEmoji = e; memberPhotoData = null;
-  document.getElementById('m-avatar-preview').innerHTML = e;
-  buildMemberModal();
-}
-
-function selectArea(id) {
-  memberSelectedArea = id;
-  buildMemberModal();
-}
-
-function previewMemberPhoto(ev) {
-  const f = ev.target.files[0]; if(!f) return;
-  const r = new FileReader();
-  r.onload = ev2 => {
-    memberPhotoData = ev2.target.result;
-    document.getElementById('m-avatar-preview').innerHTML = `<img src="${memberPhotoData}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-  };
-  r.readAsDataURL(f);
-}
-
-function clearMemberPhoto() {
-  memberPhotoData = null;
-  document.getElementById('m-avatar-preview').innerHTML = memberSelectedEmoji || '👤';
-  document.getElementById('m-foto').value = '';
-}
-
-async function saveMember() {
-  const nombre = document.getElementById('m-nombre').value.trim();
-  if(!nombre) { showStatus('El nombre es obligatorio',true); return; }
-  const btn = document.getElementById('btn-save-member');
-  btn.disabled=true; btn.textContent='Guardando…';
-
-  ensureTeamData();
-
-  const memberData = {
-    nombre,
-    cargo:         document.getElementById('m-cargo').value.trim(),
-    apodo:         document.getElementById('m-apodo').value.trim(),
-    disponibilidad:document.getElementById('m-disponibilidad').value.trim(),
-    emoji:         memberPhotoData ? '' : (memberSelectedEmoji||'👤'),
-    photo:         memberPhotoData || null,
-    area:          memberSelectedArea,
-    status:        '',
-  };
-
-  if(editingMemberId) {
-    const idx = appData.members.findIndex(m=>m.id===editingMemberId);
-    if(idx!==-1) {
-      memberData.id = editingMemberId;
-      memberData.status = appData.members[idx].status || '';
-      appData.members[idx] = memberData;
-    }
-  } else {
-    memberData.id = uid();
-    appData.members.push(memberData);
-  }
-
-  const {error} = await sb.from('polen_shared').upsert({id:REC_ID,data:appData,updated_at:new Date().toISOString()},{onConflict:'id'});
-  btn.disabled=false; btn.textContent=editingMemberId?'Guardar cambios':'Guardar miembro';
-
-  if(error) {
-    const err=document.getElementById('modal-member-err');
-    err.textContent='⚠️ '+error.message; err.style.display='block'; return;
-  }
-  showStatus((editingMemberId?'Miembro actualizado':'Miembro creado')+' ✓');
-  closeMemberModal();
-  if(currentPage==='equipo') renderEquipo();
-  if(currentPage==='member') renderMemberPage();
-}
-
-async function deleteMemberCurrent() {
-  const m = appData.members.find(x=>x.id===currentMemberId);
-  if(!confirm('¿Eliminar a '+( m?.apodo||m?.nombre)+'?')) return;
-  appData.members = appData.members.filter(x=>x.id!==currentMemberId);
-  currentMemberId = null;
-  await upsert(); showStatus('Miembro eliminado');
-  goTo('equipo');
-}
-
-/* ══ DOMO MODAL (from brand page) ══ */
-let domoModalBrandId = null;
-
-function openDomoModal(brandId) {
-  domoModalBrandId = brandId;
-  const brand = appData.brands.find(b=>b.id===brandId);
-  if(!brand) return;
-  document.getElementById('domo-modal-brand-name').textContent = '📌 Marca: '+brand.name;
-
-  // Fill member selects
-  const members = appData.members||[];
-  const opts = '<option value="">— Seleccionar —</option>'+members.map(m=>`<option value="${m.id}">${m.apodo||m.nombre}</option>`).join('');
-  document.getElementById('domo-m1').innerHTML = opts;
-  document.getElementById('domo-m2').innerHTML = opts;
-
-  const domo = brand.domo || {};
-  document.getElementById('domo-m1').value = domo.m1 || '';
-  document.getElementById('domo-m2').value = domo.m2 || '';
-
-  // Helpers
-  const helpersWrap = document.getElementById('domo-helpers-wrap-modal') || document.getElementById('domo-helpers-wrap');
-  helpersWrap.innerHTML = '';
-  (domo.helpers||[]).forEach(hid => addDomoAstronautRow(hid));
-
-  document.getElementById('modal-domo').classList.remove('hidden');
-}
-
-function addDomoAstronaut() { addDomoAstronautRow(''); }
-
-function addDomoAstronautRow(selectedId) {
-  const members = appData.members||[];
-  const opts = '<option value="">— Seleccionar —</option>'+members.map(m=>`<option value="${m.id}" ${m.id===selectedId?'selected':''}>${m.apodo||m.nombre}</option>`).join('');
-  const row = document.createElement('div');
-  row.style.cssText = 'display:flex;gap:0.5rem;align-items:center';
-  row.innerHTML = `<select class="form-select domo-helper-sel" style="flex:1">${opts}</select>
-    <button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:1rem;padding:0.2rem">×</button>`;
-  (document.getElementById('domo-helpers-wrap-modal') || document.getElementById('domo-helpers-wrap')).appendChild(row);
-}
-
-async function saveDomo() {
-  const brand = appData.brands.find(b=>b.id===domoModalBrandId);
-  if(!brand) return;
-  const m1 = document.getElementById('domo-m1').value;
-  const m2 = document.getElementById('domo-m2').value;
-  const helpers = [...document.querySelectorAll('.domo-helper-sel')].map(s=>s.value).filter(v=>v&&v!==m1&&v!==m2);
-  brand.domo = {m1, m2, helpers};
-  document.getElementById('modal-domo').classList.add('hidden');
+async function deleteMemberCurrent(){
+  if(!currentMemberId)return;
+  const m=(appData.members||[]).find(x=>x.id===currentMemberId);
+  if(!confirm('¿Eliminar a "'+m?.nombre+'"?'))return;
+  appData.members=appData.members.filter(x=>x.id!==currentMemberId);
+  currentMemberId=null;
   await upsert();
-  showStatus('Domo guardado ✓');
-  if(currentPage==='brand') renderBrandPage();
-  if(currentPage==='equipo') renderEquipo();
-  if(currentPage==='member') renderMemberPage();
+  showStatus('Miembro eliminado');
+  renderEquipo();
 }
 
 /* ═══ BOOT ═══ */
@@ -3103,10 +4061,16 @@ boot();
       </div>
       <div class="emoji-grid" id="emoji-grid"></div>
     </div>
+    <!-- Color del miembro -->
+    <div class="form-group" style="margin-bottom:1rem">
+      <label class="form-label">🎨 Color identificador</label>
+      <div id="member-color-picker" style="display:flex;gap:0.45rem;flex-wrap:wrap;margin-top:0.4rem"></div>
+      <input type="hidden" id="input-member-color" value="">
+    </div>
     <!-- Área -->
     <div class="form-group" style="margin-bottom:1rem">
       <label class="form-label">Área</label>
-      <div class="area-grid" id="area-grid"></div>
+      <div class="area-grid" id="area-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:0.3rem"></div>
     </div>
     <div class="modal-err" id="modal-member-err"></div>
     <div class="modal-footer">
@@ -3146,5 +4110,56 @@ boot();
   </div>
 </div>
 
+
+<!-- MODAL: Banner editor -->
+<div class="modal-overlay hidden" id="modal-banner">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-title" id="banner-modal-title">✨ Nuevo banner</div>
+      <div class="modal-close" onclick="closeBannerModal()">✕</div>
+    </div>
+    <div class="form-group" style="margin-bottom:1rem">
+      <label class="form-label">Texto principal</label>
+      <input class="form-input" id="banner-text" placeholder="Ej: ¡Bienvenidos a la nueva semana! 🚀" style="font-size:0.95rem">
+    </div>
+    <div class="form-group" style="margin-bottom:1rem">
+      <label class="form-label">Subtexto (opcional)</label>
+      <input class="form-input" id="banner-subtext" placeholder="Un mensaje corto para el equipo…">
+    </div>
+    <div class="form-group" style="margin-bottom:1rem">
+      <label class="form-label">Fondo</label>
+      <div style="display:flex;gap:0.6rem;margin-bottom:0.7rem">
+        <button onclick="setBannerMode('color')" id="banner-mode-color" style="flex:1;padding:0.4rem;border-radius:8px;border:2px solid var(--aire);background:var(--bg-card2);font-size:0.78rem;cursor:pointer;font-family:var(--font);font-weight:600;color:var(--aire)">🎨 Color</button>
+        <button onclick="setBannerMode('image')" id="banner-mode-image" style="flex:1;padding:0.4rem;border-radius:8px;border:1px solid var(--border);background:none;font-size:0.78rem;cursor:pointer;font-family:var(--font);font-weight:600;color:var(--text2)">🖼️ Imagen</button>
+      </div>
+      <!-- Color picker -->
+      <div id="banner-color-section">
+        <div id="banner-color-swatches" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem"></div>
+      </div>
+      <!-- Image upload -->
+      <div id="banner-image-section" style="display:none">
+        <label style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.8rem;border:1px dashed var(--border);border-radius:10px;cursor:pointer;font-size:0.8rem;color:var(--text3)">
+          📸 Subir imagen (JPG/PNG)
+          <input type="file" id="banner-img-input" accept="image/*" style="display:none" onchange="previewBannerImage(event)">
+        </label>
+        <div id="banner-img-preview" style="margin-top:0.5rem;display:none">
+          <img id="banner-img-thumb" style="width:100%;height:70px;object-fit:cover;border-radius:10px;border:1px solid var(--border)">
+        </div>
+      </div>
+    </div>
+    <!-- Text color -->
+    <div class="form-group" style="margin-bottom:1rem">
+      <label class="form-label">Color del texto</label>
+      <div style="display:flex;gap:0.5rem">
+        <button onclick="setBannerTextColor('#ffffff')" style="flex:1;padding:0.4rem;border-radius:8px;border:2px solid var(--border);background:#333;color:#fff;font-size:0.78rem;cursor:pointer;font-family:var(--font)">Blanco</button>
+        <button onclick="setBannerTextColor('#1a1730')" style="flex:1;padding:0.4rem;border-radius:8px;border:2px solid var(--border);background:#fff;color:#1a1730;font-size:0.78rem;cursor:pointer;font-family:var(--font)">Oscuro</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeBannerModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveBanner()">Guardar banner</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
