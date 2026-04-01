@@ -1438,15 +1438,36 @@ async function addRonda(){
   showStatus('Ronda añadida ✓');
 }
 
-function renderBrandPage(){
+async function renderBrandPage(){
   const brand=appData.brands.find(b=>b.id===currentBrandId);
   if(!brand){goTo('dashboard');return;}
+
+  // Auto-fix: if brand is missing cronograma or brandingPoints, inject from template
+  let needsSave = false;
+  if(!brand.cronograma || Object.values(brand.cronograma).every(arr=>!arr||arr.length===0)){
+    const tpl = appData.template || defaultTemplate();
+    const start = brand.createdAt ? brand.createdAt.slice(0,10) : new Date().toISOString().slice(0,10);
+    const tplWithNaming = {...tpl, includeNaming: brand.includeNaming !== false};
+    brand.cronograma = buildCronoFromTemplate(tplWithNaming, start);
+    needsSave = true;
+  }
+  if(!brand.brandingPoints || !brand.brandingPoints.categories || brand.brandingPoints.categories.length===0){
+    const tpl = appData.template || defaultTemplate();
+    const bpTotal = brand.brandingPoints?.total || tpl.brandingPoints.total;
+    brand.brandingPoints = buildBpFromTemplate({...tpl, brandingPoints:{...tpl.brandingPoints, total: bpTotal}});
+    needsSave = true;
+  }
+  if(!brand.rondas || brand.rondas.length===0){
+    brand.rondas = [{id:uid(),label:'R1',done:false},{id:uid(),label:'R2',done:false},{id:uid(),label:'R3',done:false}];
+    needsSave = true;
+  }
+  if(needsSave){ await upsert(); showStatus('Datos del proyecto actualizados ✓'); }
+
   document.getElementById('header-title').textContent=brand.name;
 
   // Hero banner color
   document.getElementById('brand-hero-banner').style.background=stageColor(brand.stage);
-  // Hero progress fill
-  document.getElementById('brand-global-fill').style.background=stageColor(brand.stage);
+  // (segmented bar used instead of single fill)
 
   // Image
   const imgEl=document.getElementById('brand-hero-img');
