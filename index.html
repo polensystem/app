@@ -929,6 +929,64 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 @keyframes fadeInUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 
 .member-card:hover .member-card-actions{opacity:1!important;}
+
+/* ── Domos system ── */
+.domo-brand-pill{
+  display:inline-flex;align-items:center;gap:0.4rem;
+  padding:0.3rem 0.7rem;border-radius:99px;
+  border:1px solid var(--border);background:var(--bg-card);
+  font-size:0.75rem;font-weight:600;color:var(--text);
+  cursor:grab;user-select:none;transition:all 0.15s;
+  white-space:nowrap;
+}
+.domo-brand-pill:hover{box-shadow:0 2px 8px rgba(0,0,0,0.15);transform:translateY(-1px);}
+.domo-brand-pill.dragging{opacity:0.4;}
+.domo-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:16px;overflow:hidden;
+  width:340px;flex-shrink:0;
+  transition:all 0.2s;
+}
+.domo-card.drag-over{border-color:var(--aire);box-shadow:0 0 0 3px rgba(59,158,221,0.15);}
+.domo-card-header{padding:1rem 1.1rem 0.8rem;border-bottom:1px solid var(--border);}
+.domo-card-name-input{
+  font-size:0.95rem;font-weight:700;color:var(--text);
+  background:none;border:none;outline:none;
+  font-family:var(--font);width:100%;
+  border-bottom:1.5px solid transparent;
+  transition:border-color 0.15s;padding-bottom:1px;
+}
+.domo-card-name-input:focus{border-bottom-color:var(--aire);}
+.domo-members-row{display:flex;gap:0.5rem;margin-top:0.6rem;flex-wrap:wrap;}
+.domo-member-chip{
+  display:inline-flex;align-items:center;gap:0.35rem;
+  padding:0.2rem 0.55rem;border-radius:99px;
+  font-size:0.72rem;font-weight:600;
+  border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);
+}
+.domo-member-chip.principal{background:var(--bg-card2);border-color:var(--aire);color:var(--text);}
+.domo-member-chip.helper{opacity:0.7;font-size:0.68rem;}
+.domo-brands-list{padding:0.7rem 0.9rem;min-height:60px;display:flex;flex-direction:column;gap:0.5rem;}
+.domo-brand-row{
+  display:flex;align-items:center;gap:0.7rem;
+  padding:0.5rem 0.6rem;border-radius:10px;
+  background:var(--bg-card2);border:1px solid var(--border);
+  cursor:grab;transition:all 0.15s;
+}
+.domo-brand-row:hover{box-shadow:0 2px 8px rgba(0,0,0,0.12);}
+.domo-brand-row.dragging{opacity:0.4;}
+.domo-drop-hint{
+  font-size:0.72rem;color:var(--text3);text-align:center;
+  padding:0.8rem;border:1.5px dashed var(--border);
+  border-radius:8px;margin-top:0.3rem;
+}
+.domo-brand-logo-sm{
+  width:28px;height:28px;border-radius:7px;
+  background:var(--bg-card);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.85rem;overflow:hidden;flex-shrink:0;
+}
+.domo-brand-logo-sm img{width:100%;height:100%;object-fit:cover;border-radius:6px;}
 </style>
 </head>
 <body>
@@ -1152,14 +1210,24 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
             <button class="btn-solid" style="font-size:0.78rem;padding:0.4rem 0.9rem" onclick="saveBrandDomo()">Guardar domo</button>
           </div>
           <div class="section-body">
-            <div style="margin-bottom:1rem">
-              <label class="form-label">Integrantes principales (máx. 2)</label>
-              <div id="domo-principals-wrap" style="display:flex;flex-direction:column;gap:0.4rem;margin-top:0.5rem">
-                <select class="form-select" id="domo-p1"><option value="">— Sin asignar —</option></select>
-                <select class="form-select" id="domo-p2"><option value="">— Sin asignar —</option></select>
+            <!-- Principals: side by side visual cards -->
+            <div style="margin-bottom:1.2rem">
+              <label class="form-label" style="margin-bottom:0.7rem">Integrantes principales (máx. 2)</label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
+                <div id="domo-p1-card" style="border:1.5px solid var(--border);border-radius:14px;padding:1rem;display:flex;flex-direction:column;gap:0.6rem;transition:border-color 0.2s">
+                  <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Principal 1</div>
+                  <select class="form-select" id="domo-p1" onchange="renderDomoPrincipalCards()" style="font-size:0.82rem"><option value="">— Sin asignar —</option></select>
+                  <div id="domo-p1-preview"></div>
+                </div>
+                <div id="domo-p2-card" style="border:1.5px solid var(--border);border-radius:14px;padding:1rem;display:flex;flex-direction:column;gap:0.6rem;transition:border-color 0.2s">
+                  <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Principal 2</div>
+                  <select class="form-select" id="domo-p2" onchange="renderDomoPrincipalCards()" style="font-size:0.82rem"><option value="">— Sin asignar —</option></select>
+                  <div id="domo-p2-preview"></div>
+                </div>
               </div>
             </div>
-            <div style="margin-top:0.5rem">
+            <!-- Astronautas toggle -->
+            <div>
               <button onclick="toggleAstronautasSection()" style="display:flex;align-items:center;gap:0.5rem;background:none;border:1px solid var(--border);border-radius:99px;padding:0.35rem 0.9rem;font-size:0.78rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all var(--transition)" id="astronautas-toggle-btn">
                 <span id="astronautas-toggle-arrow">▶</span> 🚀 Astronautas (opcionales)
               </button>
@@ -1168,7 +1236,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
                 <select class="form-select" id="domo-h2"><option value="">— Sin asignar —</option></select>
               </div>
             </div>
-            <div id="domo-preview" style="margin-top:1.2rem"></div>
           </div>
         </div>
       </div>
@@ -1347,10 +1414,32 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 
         <!-- Tab: Domos -->
         <div class="eq-panel" id="eq-panel-domos">
-          <div id="eq-domos-content" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start"></div>
-          <div class="domos-section" style="margin-top:1.5rem" id="eq-all-domos-wrap">
-            <div style="font-size:1rem;font-weight:700;margin-bottom:1rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;font-size:0.72rem">🏠 Todos los domos activos</div>
-            <div id="domos-grid"></div>
+          <div id="domos-view" style="padding:1.2rem 1.4rem">
+            <!-- All brands bar -->
+            <div style="margin-bottom:1.2rem">
+              <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.6rem" id="domos-brands-bar-label">MARCAS ACTIVAS — ARRASTRA A LOS DOMOS PARA ASIGNAR</div>
+              <div id="domos-brands-bar" style="display:flex;flex-wrap:wrap;gap:0.5rem;padding:0.7rem 0.9rem;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;min-height:44px"></div>
+            </div>
+            <!-- Sin domo drop zone -->
+            <div id="domos-unassigned-zone" style="margin-bottom:1.2rem;border:1.5px dashed var(--border);border-radius:12px;padding:0.8rem 1rem;min-height:60px;transition:all 0.2s"
+              ondragover="event.preventDefault();this.style.borderColor='var(--aire)'"
+              ondragleave="this.style.borderColor='var(--border)'"
+              ondrop="dropToDomo(event,'unassigned')">
+              <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.5rem" id="domos-unassigned-label">SIN DOMO (0) — ARRASTRA AQUÍ PARA DESASIGNAR</div>
+              <div id="domos-unassigned-list" style="display:flex;flex-wrap:wrap;gap:0.5rem"></div>
+            </div>
+            <!-- Domos header -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
+              <div style="display:flex;align-items:center;gap:0.7rem">
+                <span style="font-size:1.1rem;font-weight:800;color:var(--text)">🏠 Domos creativos</span>
+                <span style="font-size:0.78rem;color:var(--text3)">Arrastra marcas entre domos</span>
+              </div>
+              <div style="display:flex;gap:0.6rem">
+                <button onclick="createDomo()" style="background:var(--aire);color:#fff;border:none;border-radius:10px;padding:0.45rem 1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:var(--font)">+ Nuevo domo</button>
+              </div>
+            </div>
+            <!-- Domos grid -->
+            <div id="domos-main-grid" style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start"></div>
           </div>
         </div>
       </div>
@@ -1621,6 +1710,7 @@ async function loadData(){
       if(!appData.template) appData.template=defaultTemplate();
       if(!appData.domos) appData.domos=[];
       if(!Array.isArray(appData.banners)) appData.banners=[];
+      if(!appData.domoNames) appData.domoNames={};
       // Auto-assign colors to brands missing one
       const _autoColors=['#e85d5d','#e87f3a','#e8c23a','#5db85d','#3a9ee8','#6b5de8','#c45de8','#e85d9e','#5de8d0','#5d8ce8','#e8825d','#a0e85d'];
       (appData.brands||[]).forEach((b,i)=>{ if(!b.color) b.color=_autoColors[i%_autoColors.length]; });
@@ -2447,6 +2537,33 @@ async function cycleStatus(brandId,stage,actId){
 
 
 /* ── Brand Domo management ── */
+
+function renderDomoPrincipalCards(){
+  ['p1','p2'].forEach(key=>{
+    const sel = document.getElementById(`domo-${key}`);
+    const preview = document.getElementById(`domo-${key}-preview`);
+    const card = document.getElementById(`domo-${key}-card`);
+    if(!sel||!preview) return;
+    const memberId = sel.value;
+    const m = (appData.members||[]).find(x=>x.id===memberId);
+    if(m){
+      const grad = getMemberGradient(m.id);
+      const avatarHTML = m.photo?`<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:m.emoji||'👤';
+      preview.innerHTML = `<div style="display:flex;align-items:center;gap:0.7rem;background:${grad};border-radius:10px;padding:0.6rem 0.8rem">
+        <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;overflow:hidden">${avatarHTML}</div>
+        <div>
+          <div style="font-size:0.82rem;font-weight:700;color:#fff">${m.apodo||m.nombre}</div>
+          <div style="font-size:0.68rem;color:rgba(255,255,255,0.75)">${m.cargo||''}</div>
+        </div>
+      </div>`;
+      if(card) card.style.borderColor = 'var(--aire)';
+    } else {
+      preview.innerHTML = '';
+      if(card) card.style.borderColor = 'var(--border)';
+    }
+  });
+}
+
 function renderBrandDomo(){
   const brand = appData.brands.find(b=>b.id===currentBrandId);
   if(!brand) return;
@@ -2465,10 +2582,11 @@ function renderBrandDomo(){
   // Set current values
   const p = domo.principales||[];
   const h = domo.astronautas||[];
-  if(document.getElementById('domo-p1')) document.getElementById('domo-p1').value = p[0]||'';
-  if(document.getElementById('domo-p2')) document.getElementById('domo-p2').value = p[1]||'';
-  if(document.getElementById('domo-h1')) document.getElementById('domo-h1').value = h[0]||'';
-  if(document.getElementById('domo-h2')) document.getElementById('domo-h2').value = h[1]||'';
+  if(document.getElementById('domo-p1')) document.getElementById('domo-p1').value = p[0]||domo.m1||'';
+  if(document.getElementById('domo-p2')) document.getElementById('domo-p2').value = p[1]||domo.m2||'';
+  if(document.getElementById('domo-h1')) document.getElementById('domo-h1').value = (h[0]||(domo.helpers||[])[0])||'';
+  if(document.getElementById('domo-h2')) document.getElementById('domo-h2').value = (h[1]||(domo.helpers||[])[1])||'';
+  renderDomoPrincipalCards();
 
   // Preview
   const preview = document.getElementById('domo-preview');
@@ -2490,8 +2608,10 @@ async function saveBrandDomo(){
   const h1 = document.getElementById('domo-h1')?.value||'';
   const h2 = document.getElementById('domo-h2')?.value||'';
   brand.domo = {
+    m1: p1, m2: p2,
+    helpers: [h1,h2].filter(Boolean),
     principales: [p1,p2].filter(Boolean),
-    astronautas:   [h1,h2].filter(Boolean)
+    astronautas: [h1,h2].filter(Boolean)
   };
   await upsert();
   showStatus('Domo guardado ✓');
@@ -3880,88 +4000,204 @@ function renderEqMonth(){
 }
 
 /* ── Domos view ── */
+let _dragBrandId = null;
+let _dragFromDomoKey = null; // 'unassigned' or domo key (m1+m2)
+
+function getDomoKey(m1, m2){
+  return [m1,m2].filter(Boolean).sort().join('_');
+}
+
+function getDomoName(key){
+  if(!appData.domoNames) appData.domoNames = {};
+  return appData.domoNames[key] || null;
+}
+
+function setDomoName(key, name){
+  if(!appData.domoNames) appData.domoNames = {};
+  appData.domoNames[key] = name;
+}
+
 function renderEqDomos(){
-  const domosEl = document.getElementById('eq-domos-content');
-  const allDomosWrap = document.getElementById('eq-all-domos-wrap');
-  if(!domosEl) return;
+  const wrap = document.getElementById('domos-view');
+  if(!wrap) return;
 
-  if(currentMemberId){
-    if(allDomosWrap) allDomosWrap.style.display='none';
-    const m = (appData.members||[]).find(x=>x.id===currentMemberId);
-    if(!m){ domosEl.innerHTML=''; return; }
-    const myBrands = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id||(b.domo.helpers||[]).includes(m.id)));
-    if(!myBrands.length){
-      domosEl.innerHTML='<div style="color:var(--text3);padding:2rem">No pertenece a ningún domo aún.</div>';
-      return;
-    }
-    // Header tints for domo columns
-    const domoTints = [
-      {bg:'rgba(59,130,246,0.07)',color:'#1d6bf3'},
-      {bg:'rgba(245,197,66,0.1)',color:'#b8870a'},
-      {bg:'rgba(139,92,246,0.08)',color:'#7c3aed'},
-      {bg:'rgba(16,185,129,0.08)',color:'#059669'},
-    ];
-    const barColors=['#3b82f6','#ec4899','#8b5cf6','#f59e0b','#10b981','#06b6d4','#ef4444','#6366f1'];
+  const brands = appData.brands||[];
+  const members = appData.members||[];
 
-    domosEl.innerHTML = myBrands.map((brand,bi)=>{
-      const domo = brand.domo;
-      const iM1 = domo.m1===m.id, iM2 = domo.m2===m.id;
-      const role = iM1||iM2 ? 'Redactor/a' : 'Astronauta'; // TODO: use actual role from member area
-      const actualRole = iM1||iM2 ? (m.cargo||'Principal') : 'Astronauta';
-      const partnerId = iM1?domo.m2:iM2?domo.m1:null;
-      const partner = (appData.members||[]).find(x=>x.id===partnerId);
-      const tint = domoTints[bi%domoTints.length];
-      const barColor = barColors[bi%barColors.length];
+  // ── Brands bar (all active brands) ──
+  const bar = document.getElementById('domos-brands-bar');
+  const barLabel = document.getElementById('domos-brands-bar-label');
+  if(bar){
+    const assigned = brands.filter(b=>b.domo&&(b.domo.m1||b.domo.m2)).length;
+    if(barLabel) barLabel.textContent = `MARCAS ACTIVAS — ${assigned}/${brands.length} ASIGNADAS`;
+    bar.innerHTML = brands.map(b=>{
+      const col = getBrandColor(b);
+      const hasDomo = b.domo&&(b.domo.m1||b.domo.m2);
+      return `<span class="domo-brand-pill" style="border-color:${col};${hasDomo?'opacity:0.5':''}" 
+        draggable="true"
+        ondragstart="startDragBrand(event,'${b.id}','bar')"
+        title="${b.name}">
+        <span style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></span>
+        ${b.name}
+      </span>`;
+    }).join('');
+  }
 
-      // All brands in this domo where member participates = just this brand
-      const totalActs = Object.values(brand.cronograma||{}).flat().length;
-      const doneActs = Object.values(brand.cronograma||{}).flat().filter(a=>a.status==='completada').length;
-      const pct = totalActs?Math.round(doneActs/totalActs*100):0;
-      const hitos = getMemberHitos(m.id).filter(h=>h.brandId===brand.id);
-      const nextHito = hitos.filter(h=>h.type==='oficial').sort((a,b)=>a.dateObj-b.dateObj)[0];
+  // ── Unassigned zone ──
+  const unassignedList = document.getElementById('domos-unassigned-list');
+  const unassignedLabel = document.getElementById('domos-unassigned-label');
+  const unassigned = brands.filter(b=>!b.domo||(!b.domo.m1&&!b.domo.m2));
+  if(unassignedList){
+    if(unassignedLabel) unassignedLabel.textContent = `SIN DOMO (${unassigned.length}) — ARRASTRA AQUÍ PARA DESASIGNAR`;
+    unassignedList.innerHTML = unassigned.map(b=>{
+      const col = getBrandColor(b);
+      return `<span class="domo-brand-pill" style="border-color:${col}"
+        draggable="true"
+        ondragstart="startDragBrand(event,'${b.id}','unassigned')">
+        <span style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></span>
+        ${b.name}
+      </span>`;
+    }).join('') || '<span style="font-size:0.72rem;color:var(--text3)">Todas las marcas están en un domo ✓</span>';
+  }
 
-      const logoHTML = brand.image?`<img src="${brand.image}">`:brand.name.charAt(0);
+  // ── Build domos from brand domo assignments ──
+  const domoMap = {}; // key → {m1,m2,brands:[]}
+  brands.forEach(b=>{
+    if(!b.domo||(!b.domo.m1&&!b.domo.m2)) return;
+    const key = getDomoKey(b.domo.m1, b.domo.m2);
+    if(!domoMap[key]) domoMap[key] = {m1:b.domo.m1, m2:b.domo.m2, brands:[]};
+    domoMap[key].brands.push(b);
+  });
 
-      return `<div class="eq-domo-col">
-        <div class="eq-domo-col-header" style="background:${tint.bg}">
-          <div class="eq-domo-col-header-row">
-            <div class="eq-domo-col-logo" style="background:${tint.bg}">🏠</div>
-            <div>
-              <div class="eq-domo-col-name">${brand.name}</div>
-              <div class="eq-domo-col-role" style="color:${tint.color}">${actualRole}</div>
+  // ── Render domo cards ──
+  const grid = document.getElementById('domos-main-grid');
+  if(!grid) return;
+  const domoKeys = Object.keys(domoMap);
+
+  grid.innerHTML = domoKeys.map((key,di)=>{
+    const domo = domoMap[key];
+    const m1 = members.find(x=>x.id===domo.m1);
+    const m2 = members.find(x=>x.id===domo.m2);
+    const domoNum = di+1;
+    const name = getDomoName(key) || `Domo ${domoNum}`;
+
+    const membersHTML = [m1,m2].filter(Boolean).map(m=>`
+      <span class="domo-member-chip principal">
+        ${m.emoji||'👤'} ${m.apodo||m.nombre}
+        <span style="font-size:0.62rem;color:var(--text3);font-weight:400">${m.cargo||''}</span>
+      </span>`).join('');
+
+    const brandsHTML = domo.brands.map(b=>{
+      const col = getBrandColor(b);
+      const pct = brandProgress(b);
+      const logo = b.image?`<img src="${b.image}">`:(b.name.charAt(0));
+      const nextHito = getMemberHitos(domo.m1||domo.m2).filter(h=>h.brandId===b.id&&h.type==='oficial').sort((a,bh)=>a.dateObj-bh.dateObj)[0];
+      return `<div class="domo-brand-row"
+        draggable="true"
+        ondragstart="startDragBrand(event,'${b.id}','${key}')"
+        onclick="openBrand('${b.id}')">
+        <div class="domo-brand-logo-sm" style="border-color:${col}">${logo}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.8rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
+          <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.2rem">
+            <div style="flex:1;height:3px;background:var(--bg-card);border-radius:99px;overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
             </div>
-            ${partner?`<div class="eq-domo-partner-row" style="margin-left:auto">
-              <div class="eq-domo-partner-chip">
-                <span style="font-size:0.9rem">${partner.emoji||'👤'}</span>
-                <div>
-                  <div style="font-weight:600;font-size:0.74rem">${partner.apodo||partner.nombre}</div>
-                  <div style="font-size:0.65rem;color:var(--text3)">${partner.cargo||'—'}</div>
-                </div>
-              </div>
-            </div>`:''}
+            <span style="font-size:0.65rem;color:var(--text3);flex-shrink:0">${pct}%</span>
           </div>
         </div>
-        <div class="eq-domo-brands-list">
-          <div class="eq-domo-brand-item">
-            <div class="eq-domo-brand-logo">${logoHTML}</div>
-            <div class="eq-domo-brand-info">
-              <div class="eq-domo-brand-name">${brand.name}</div>
-              <div class="eq-domo-bar-row">
-                <div class="eq-domo-brand-bar"><div class="eq-domo-brand-fill" style="width:${pct}%;background:${barColor}"></div></div>
-                <span class="eq-domo-brand-pct">${pct}%</span>
-              </div>
-            </div>
-            ${nextHito?`<div class="eq-domo-brand-date">⭐ ${fmtDateDisplay(nextHito.date)}</div>`:''}
-          </div>
-        </div>
+        ${nextHito?`<span style="font-size:0.65rem;color:#c4980a;background:rgba(245,197,66,0.1);border-radius:6px;padding:0.1rem 0.35rem;flex-shrink:0">⭐ ${fmtDateDisplay(nextHito.date)}</span>`:''}
       </div>`;
     }).join('');
-  } else {
-    if(allDomosWrap) allDomosWrap.style.display='';
-    domosEl.innerHTML='';
-    renderDomosTab();
+
+    return `<div class="domo-card" id="domo-card-${key}"
+      ondragover="event.preventDefault();document.getElementById('domo-card-${key}').classList.add('drag-over')"
+      ondragleave="document.getElementById('domo-card-${key}').classList.remove('drag-over')"
+      ondrop="dropToDomo(event,'${key}')">
+      <div class="domo-card-header">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <input class="domo-card-name-input" value="${name}"
+            onblur="saveDomoDomeName('${key}',this.value)"
+            onkeydown="if(event.key==='Enter')this.blur()">
+          <span style="font-size:0.72rem;color:var(--text3)">${domo.brands.length} marca${domo.brands.length!==1?'s':''}</span>
+        </div>
+        <div class="domo-members-row">${membersHTML}</div>
+      </div>
+      <div class="domo-brands-list">
+        ${brandsHTML}
+        <div class="domo-drop-hint">+ Arrastra una marca aquí</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  if(!domoKeys.length){
+    grid.innerHTML = '<div style="font-size:0.82rem;color:var(--text3);padding:1rem">No hay domos aún. Asigna responsables a las marcas para crear domos automáticamente.</div>';
   }
 }
+
+function startDragBrand(event, brandId, fromKey){
+  _dragBrandId = brandId;
+  _dragFromDomoKey = fromKey;
+  event.dataTransfer.effectAllowed = 'move';
+  setTimeout(()=>{
+    document.querySelectorAll(`[ondragstart*="${brandId}"]`).forEach(el=>el.classList.add('dragging'));
+  }, 0);
+}
+
+async function dropToDomo(event, toKey){
+  event.preventDefault();
+  document.querySelectorAll('.domo-card').forEach(el=>el.classList.remove('drag-over'));
+  document.getElementById('domos-unassigned-zone')?.style.setProperty('border-color','var(--border)');
+  if(!_dragBrandId) return;
+
+  const brand = (appData.brands||[]).find(b=>b.id===_dragBrandId);
+  if(!brand) return;
+
+  if(toKey === 'unassigned'){
+    // Remove domo assignment
+    brand.domo = {m1:'', m2:'', helpers:[]};
+  } else {
+    // Assign to this domo's m1/m2
+    const [id1, id2] = toKey.split('_');
+    if(!brand.domo) brand.domo = {helpers:[]};
+    brand.domo.m1 = id1||'';
+    brand.domo.m2 = id2||'';
+    if(!brand.domo.helpers) brand.domo.helpers = [];
+  }
+
+  _dragBrandId = null;
+  _dragFromDomoKey = null;
+  await upsert();
+  showStatus('Domo actualizado ✓');
+  renderEqDomos();
+}
+
+async function createDomo(){
+  // Open a mini picker to choose 2 members
+  const members = appData.members||[];
+  if(members.length < 1){ showStatus('Necesitas al menos un miembro', true); return; }
+  const options = members.map(m=>`${m.emoji||'👤'} ${m.apodo||m.nombre} (${m.cargo||'—'})`).join('\n');
+  const pick1 = prompt(`Elige el miembro principal 1 (escribe el número):\n${members.map((m,i)=>`${i+1}. ${m.apodo||m.nombre}`).join('\n')}`);
+  if(!pick1) return;
+  const pick2 = prompt(`Elige el miembro principal 2 (escribe el número):\n${members.map((m,i)=>`${i+1}. ${m.apodo||m.nombre}`).join('\n')}`);
+  if(!pick2) return;
+  const m1 = members[parseInt(pick1)-1];
+  const m2 = members[parseInt(pick2)-1];
+  if(!m1||!m2||m1.id===m2.id){ showStatus('Selección inválida', true); return; }
+  // Domo exists implicitly — just name it
+  const key = getDomoKey(m1.id, m2.id);
+  const name = prompt(`Nombre del domo:`, `Domo ${m1.apodo||m1.nombre} + ${m2.apodo||m2.nombre}`);
+  if(name) setDomoName(key, name);
+  await upsert();
+  showStatus(`Domo "${name||'nuevo'}" listo. Ahora arrastra marcas.`);
+  renderEqDomos();
+}
+
+async function saveDomoDomeName(key, name){
+  setDomoName(key, name.trim());
+  await upsert();
+}
+
 
 function renderDomosTab(){
   const el = document.getElementById('domos-grid');
