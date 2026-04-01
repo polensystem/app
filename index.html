@@ -2023,21 +2023,12 @@ function subscribeRealtime(){
 ═══════════════════════════════════════════════════ */
 
 /* ── Helpers ── */
-let currentMemberId = null;
-let weekOffset = 0;
-let monthOffset = 0;
+// state vars defined in TEAM MODULE below
 
-const AREAS = [
-  {emoji:'⭐', name:'Dirección'},
-  {emoji:'🎯', name:'Head of Brands'},
-  {emoji:'✒️', name:'Diseño'},
-  {emoji:'✍️', name:'Redacción'},
-  {emoji:'💼', name:'Comercial'},
-  {emoji:'📦', name:'Administración'},
-];
 
-function getAreaEmoji(areaName){
-  const a = AREAS.find(x=>x.name===areaName);
+// AREAS defined below in TEAM MODULE
+function getAreaEmoji(areaId){
+  const a = (typeof AREAS !== 'undefined') ? AREAS.find(x=>x.id===areaId||x.label===areaId) : null;
   return a ? a.emoji : '👤';
 }
 
