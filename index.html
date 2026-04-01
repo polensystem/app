@@ -397,7 +397,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .domo-card-members{display:flex;align-items:center;gap:0.5rem;font-size:0.78rem;color:var(--text2);}
 .domo-role-badge{font-size:0.64rem;font-weight:700;padding:0.12rem 0.45rem;border-radius:99px;}
 .domo-role-badge.principal{background:rgba(245,197,66,0.15);color:#c4980a;}
-.domo-role-badge.ayudante{background:rgba(122,112,153,0.15);color:var(--text3);}
+.domo-role-badge.astronauta{background:rgba(122,112,153,0.15);color:var(--text3);}
 
 /* List hito rows */
 .hito-list-row{display:flex;align-items:center;gap:0.8rem;padding:0.65rem 1rem;border-bottom:1px solid var(--border2);transition:background var(--transition);}
@@ -504,7 +504,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .domo-members-row{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.4rem;}
 .domo-member-chip{display:flex;align-items:center;gap:0.3rem;background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.2rem 0.6rem;font-size:0.72rem;}
 .domo-member-chip.principal{border-color:var(--aire);color:var(--aire);}
-.domo-member-chip.ayudante{color:var(--text3);}
+.domo-member-chip.astronauta{color:var(--text3);}
 
 /* ── DOMOS SECTION (team page) ── */
 .domos-section{margin-top:2rem;}
@@ -516,6 +516,38 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .domo-full-member{display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;}
 .domo-role-badge{font-size:0.62rem;font-weight:700;padding:0.1rem 0.4rem;border-radius:99px;background:var(--bg-card2);color:var(--text3);}
 .domo-role-badge.principal{background:rgba(59,158,221,0.15);color:var(--aire);}
+
+/* ── BP EDITABLE ── */
+.bp-cat-name-input{background:none;border:none;outline:none;font-size:0.88rem;font-weight:700;color:var(--text);cursor:text;padding:0;font-family:var(--font);}
+.bp-cat-name-input:focus{border-bottom:1px solid var(--border);}
+.bp-item-name-input{flex:1;background:none;border:none;outline:none;font-size:0.83rem;color:var(--text);font-family:var(--font);cursor:text;padding:0;}
+.tpl-bp-item-wrap{border-bottom:1px solid var(--border2);}
+.tpl-bp-item-wrap:last-child{border-bottom:none;}
+.tpl-bp-item{display:flex;align-items:center;gap:0.65rem;padding:0.55rem 1rem;transition:background var(--transition);}
+.tpl-bp-item:hover{background:var(--glass);}
+.bp-item-notes-row{padding:0 1rem 0.6rem 3.2rem;}
+.bp-item-notes-input{width:100%;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem;color:var(--text2);font-family:var(--font);font-size:0.76rem;resize:none;outline:none;transition:all var(--transition);line-height:1.5;}
+.bp-item-notes-input:focus{border-color:var(--agua);color:var(--text);}
+.bp-item-notes-input::placeholder{color:var(--text3);}
+
+/* ── RONDAS ── */
+.ronda-chip{display:inline-flex;align-items:center;gap:0.5rem;padding:0.4rem 0.9rem;border-radius:99px;border:2px solid var(--border);background:var(--bg-card2);cursor:pointer;transition:all var(--transition);user-select:none;font-size:0.84rem;font-weight:600;}
+.ronda-chip:hover{border-color:var(--text3);}
+.ronda-chip.done{background:rgba(90,170,53,0.15);border-color:var(--tierra);color:var(--tierra);text-decoration:line-through;opacity:0.8;}
+.ronda-chip .ronda-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.9rem;padding:0;line-height:1;margin-left:0.2rem;transition:color var(--transition);}
+.ronda-chip .ronda-del:hover{color:#ff5c72;}
+
+/* ── STAGE SUB BARS ── */
+.stage-sub-bar-wrap{display:flex;flex-direction:column;gap:3px;}
+.stage-sub-bar-label{display:flex;justify-content:space-between;align-items:center;}
+.stage-sub-bar-name{font-size:0.62rem;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;}
+.stage-sub-bar-pct{font-size:0.62rem;font-weight:700;}
+.stage-sub-bar{height:3px;background:var(--bg-card2);border-radius:99px;overflow:hidden;}
+.stage-sub-bar-fill{height:100%;border-radius:99px;transition:width 0.5s ease;}
+
+/* ── CLICKABLE ACTIVITY NAME ── */
+.act-item-name{flex:1;font-size:0.84rem;cursor:pointer;}
+.act-item-name:hover{color:var(--text);}
 </style>
 </head>
 <body>
@@ -596,9 +628,20 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
           <div class="brand-hero-info">
             <div class="brand-hero-name" id="brand-hero-name">—</div>
             <div class="brand-hero-meta" id="brand-hero-meta"></div>
-            <div class="global-progress-wrap">
-              <div class="global-progress-bar"><div class="global-progress-fill" id="brand-global-fill" style="width:0%"></div></div>
-              <div class="global-progress-pct" id="brand-global-pct">0%</div>
+            <div class="global-progress-wrap" style="flex-direction:column;gap:0.5rem">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Progreso general</span>
+                <span class="global-progress-pct" id="brand-global-pct">0%</span>
+              </div>
+              <!-- Segmented multicolor bar -->
+              <div style="height:8px;background:var(--bg-card2);border-radius:99px;overflow:hidden;display:flex;gap:1px" id="brand-segmented-bar">
+                <div id="seg-aire"   style="height:100%;background:var(--aire);transition:width 0.5s ease;border-radius:99px 0 0 99px;width:0%"></div>
+                <div id="seg-agua"   style="height:100%;background:var(--agua);transition:width 0.5s ease;width:0%"></div>
+                <div id="seg-tierra" style="height:100%;background:var(--tierra);transition:width 0.5s ease;width:0%"></div>
+                <div id="seg-fuego"  style="height:100%;background:var(--fuego);transition:width 0.5s ease;border-radius:0 99px 99px 0;width:0%"></div>
+              </div>
+              <!-- Per-stage progress -->
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem" id="brand-stage-bars"></div>
             </div>
           </div>
           <div class="brand-hero-actions">
@@ -613,6 +656,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
       <!-- Tabs -->
       <div class="tabs-bar">
         <button class="tab-btn active" id="tab-crono-btn" onclick="switchTab('crono')">📅 Cronograma</button>
+        <button class="tab-btn" id="tab-rondas-btn" onclick="switchTab('rondas')">🔄 Rondas</button>
         <button class="tab-btn" id="tab-bp-btn" onclick="switchTab('bp')">⭐ Branding Points</button>
         <button class="tab-btn" id="tab-domo-btn" onclick="switchTab('domo')">🏠 Domo</button>
       </div>
@@ -621,6 +665,22 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
       <div class="tab-panel active" id="tab-crono">
         <div id="brand-crono-stages"></div>
         <div class="crono-summary-row" id="brand-crono-summary"></div>
+      </div>
+
+      <!-- Tab: Rondas -->
+      <div class="tab-panel" id="tab-rondas">
+        <div class="section-card">
+          <div class="section-head">
+            <div class="section-head-left">
+              <div class="section-head-title">🔄 Rondas de cambios</div>
+              <div class="section-head-sub">Marca cada ronda conforme avanza el proyecto</div>
+            </div>
+            <button class="btn-ghost" style="font-size:0.78rem;padding:0.38rem 0.8rem" onclick="addRonda()">+ Agregar ronda</button>
+          </div>
+          <div class="section-body">
+            <div id="rondas-list" style="display:flex;flex-wrap:wrap;gap:0.6rem"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Tab: Branding Points -->
@@ -667,9 +727,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
                 <select class="form-select" id="domo-p2"><option value="">— Sin asignar —</option></select>
               </div>
             </div>
-            <div>
-              <label class="form-label">Ayudantes (opcionales)</label>
-              <div id="domo-helpers-wrap" style="display:flex;flex-direction:column;gap:0.4rem;margin-top:0.5rem">
+            <div style="margin-top:0.5rem">
+              <button onclick="toggleAstronautasSection()" style="display:flex;align-items:center;gap:0.5rem;background:none;border:1px solid var(--border);border-radius:99px;padding:0.35rem 0.9rem;font-size:0.78rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all var(--transition)" id="astronautas-toggle-btn">
+                <span id="astronautas-toggle-arrow">▶</span> 🚀 Astronautas (opcionales)
+              </button>
+              <div id="domo-helpers-wrap" style="display:none;flex-direction:column;gap:0.4rem;margin-top:0.6rem">
                 <select class="form-select" id="domo-h1"><option value="">— Sin asignar —</option></select>
                 <select class="form-select" id="domo-h2"><option value="">— Sin asignar —</option></select>
               </div>
@@ -1284,6 +1346,93 @@ const SC={
   fuego:{emoji:'🔥',label:'Fuego',color:'var(--fuego)'},
 };
 
+function renderSegmentedProgress(brand){
+  const stages=['aire','agua','tierra','fuego'];
+  const SC2={aire:{color:'var(--aire)',emoji:'🌬️',label:'Aire'},agua:{color:'var(--agua)',emoji:'💧',label:'Agua'},tierra:{color:'var(--tierra)',emoji:'🌱',label:'Tierra'},fuego:{color:'var(--fuego)',emoji:'🔥',label:'Fuego'}};
+  
+  let totalActs=0, totalDone=0;
+  const stagePcts={};
+  const stageCounts={};
+  
+  stages.forEach(s=>{
+    const acts=brand.cronograma?.[s]||[];
+    const done=acts.filter(a=>a.status==='completada').length;
+    stagePcts[s]=acts.length?Math.round(done/acts.length*100):0;
+    stageCounts[s]={total:acts.length,done};
+    totalActs+=acts.length;
+    totalDone+=done;
+  });
+  
+  const overall=totalActs?Math.round(totalDone/totalActs*100):0;
+  document.getElementById('brand-global-pct').textContent=overall+'%';
+  
+  // Each segment width = (stage tasks / total tasks) * overall_fill_%
+  stages.forEach(s=>{
+    const seg=document.getElementById('seg-'+s);
+    if(!seg)return;
+    const stageWeight=totalActs?stageCounts[s].total/totalActs*100:25;
+    const stageFill=stageWeight*(stagePcts[s]/100);
+    seg.style.width=stageFill+'%';
+  });
+  
+  // Per-stage mini bars
+  const stageBarsEl=document.getElementById('brand-stage-bars');
+  if(stageBarsEl){
+    stageBarsEl.innerHTML=stages.map(s=>{
+      const sc=SC2[s];
+      const pct=stagePcts[s];
+      return`<div class="stage-sub-bar-wrap">
+        <div class="stage-sub-bar-label">
+          <span class="stage-sub-bar-name" style="color:${sc.color}">${sc.emoji} ${sc.label}</span>
+          <span class="stage-sub-bar-pct" style="color:${sc.color}">${pct}%</span>
+        </div>
+        <div class="stage-sub-bar"><div class="stage-sub-bar-fill" style="width:${pct}%;background:${sc.color}"></div></div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function renderRondas(brand){
+  if(!brand.rondas) brand.rondas=[{id:uid(),label:'R1',done:false},{id:uid(),label:'R2',done:false},{id:uid(),label:'R3',done:false}];
+  const el=document.getElementById('rondas-list');
+  if(!el)return;
+  el.innerHTML=brand.rondas.map((r,i)=>`
+    <div class="ronda-chip ${r.done?'done':''}" onclick="toggleRonda('${brand.id}','${r.id}')">
+      <span>${r.done?'✓':''} ${r.label}</span>
+      <button class="ronda-del" onclick="event.stopPropagation();deleteRonda('${brand.id}','${r.id}')" title="Eliminar ronda">×</button>
+    </div>`).join('');
+}
+
+async function toggleRonda(brandId,rondaId){
+  const brand=appData.brands.find(b=>b.id===brandId);
+  if(!brand||!brand.rondas)return;
+  const r=brand.rondas.find(x=>x.id===rondaId);
+  if(!r)return;
+  r.done=!r.done;
+  renderRondas(brand);
+  await upsert();
+}
+
+async function deleteRonda(brandId,rondaId){
+  const brand=appData.brands.find(b=>b.id===brandId);
+  if(!brand||!brand.rondas)return;
+  brand.rondas=brand.rondas.filter(x=>x.id!==rondaId);
+  renderRondas(brand);
+  await upsert();
+  showStatus('Ronda eliminada');
+}
+
+async function addRonda(){
+  const brand=appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand)return;
+  if(!brand.rondas)brand.rondas=[];
+  const n=brand.rondas.length+1;
+  brand.rondas.push({id:uid(),label:'R'+n,done:false});
+  renderRondas(brand);
+  await upsert();
+  showStatus('Ronda añadida ✓');
+}
+
 function renderBrandPage(){
   const brand=appData.brands.find(b=>b.id===currentBrandId);
   if(!brand){goTo('dashboard');return;}
@@ -1317,21 +1466,25 @@ function renderBrandPage(){
     ${domoDisplay}
   `;
 
-  // Progress
-  const pct=brandProgress(brand);
-  document.getElementById('brand-global-fill').style.width=pct+'%';
-  document.getElementById('brand-global-pct').textContent=pct+'%';
+  // Segmented progress bar
+  renderSegmentedProgress(brand);
 
   renderBrandCrono(brand);
   renderBrandBp(brand);
 }
 
 function switchTab(tab){
-  ['crono','bp','domo'].forEach(t=>{
-    document.getElementById('tab-'+t).classList.toggle('active',t===tab);
-    document.getElementById('tab-'+t+'-btn').classList.toggle('active',t===tab);
+  ['crono','rondas','bp','domo'].forEach(t=>{
+    const panel=document.getElementById('tab-'+t);
+    const btn=document.getElementById('tab-'+t+'-btn');
+    if(panel)panel.classList.toggle('active',t===tab);
+    if(btn)btn.classList.toggle('active',t===tab);
   });
   if(tab==='domo') renderBrandDomo();
+  if(tab==='rondas'){
+    const brand=appData.brands.find(b=>b.id===currentBrandId);
+    if(brand)renderRondas(brand);
+  }
 }
 
 /* ── Cronograma (brand) ── */
@@ -1374,7 +1527,9 @@ function renderBrandCrono(brand){
       ${acts.map(a=>`
         <div class="act-item ${a.isHito?'hito':''} ${a.status==='completada'?'done':''}">
           <span class="act-hito-star ${a.isHito?'on':''}">⭐</span>
-          <span class="act-item-name ${a.isHito?'hito-name':''} ${a.status==='completada'?'done-name':''}">${a.name}</span>
+          <span class="act-item-name ${a.isHito?'hito-name':''} ${a.status==='completada'?'done-name':''}"
+            onclick="cycleStatus('${brand.id}','${stage}','${a.id}')"
+            title="Click para cambiar estado">${a.name}</span>
           <span class="act-days-badge">${a.days}d</span>
           <span class="act-date" title="Fecha inicio — click para editar" onclick="editDate(event,'${brand.id}','${stage}','${a.id}','startDate')">📅 ${fmtDateDisplay(a.startDate)}</span>
           <span style="font-size:0.68rem;color:var(--text3)">→</span>
@@ -1450,9 +1605,10 @@ async function cycleStatus(brandId,stage,actId){
   if(!act)return;
   const states=['pendiente','en progreso','completada'];
   act.status=states[(states.indexOf(act.status)+1)%states.length];
-  renderBrandPage();
+  renderBrandCrono(brand);
+  renderSegmentedProgress(brand);
   await upsert();
-  showStatus('Actividad actualizada ✓');
+  showStatus(act.status==='completada'?'✓ Completada':'Actualizada');
 }
 
 
@@ -1460,7 +1616,7 @@ async function cycleStatus(brandId,stage,actId){
 function renderBrandDomo(){
   const brand = appData.brands.find(b=>b.id===currentBrandId);
   if(!brand) return;
-  const domo = brand.domo || {principales:[],ayudantes:[]};
+  const domo = brand.domo || {principales:[],astronautas:[]};
   const members = appData.members||[];
 
   // Populate selects
@@ -1474,7 +1630,7 @@ function renderBrandDomo(){
 
   // Set current values
   const p = domo.principales||[];
-  const h = domo.ayudantes||[];
+  const h = domo.astronautas||[];
   if(document.getElementById('domo-p1')) document.getElementById('domo-p1').value = p[0]||'';
   if(document.getElementById('domo-p2')) document.getElementById('domo-p2').value = p[1]||'';
   if(document.getElementById('domo-h1')) document.getElementById('domo-h1').value = h[0]||'';
@@ -1488,7 +1644,7 @@ function renderBrandDomo(){
   preview.innerHTML = `<div style="font-size:0.75rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:0.5rem">Domo actual</div>
     <div class="domo-members-row">
       ${p.filter(Boolean).map(id=>{const m=members.find(x=>x.id===id);return m?`<span class="domo-member-chip principal">${m.emoji||'👤'} ${m.apodo||m.nombre}</span>`:''}).join('')}
-      ${h.filter(Boolean).map(id=>{const m=members.find(x=>x.id===id);return m?`<span class="domo-member-chip ayudante">${m.emoji||'👤'} ${m.apodo||m.nombre}</span>`:''}).join('')}
+      ${h.filter(Boolean).map(id=>{const m=members.find(x=>x.id===id);return m?`<span class="domo-member-chip astronauta">${m.emoji||'👤'} ${m.apodo||m.nombre}</span>`:''}).join('')}
     </div>`;
 }
 
@@ -1501,7 +1657,7 @@ async function saveBrandDomo(){
   const h2 = document.getElementById('domo-h2')?.value||'';
   brand.domo = {
     principales: [p1,p2].filter(Boolean),
-    ayudantes:   [h1,h2].filter(Boolean)
+    astronautas:   [h1,h2].filter(Boolean)
   };
   await upsert();
   showStatus('Domo guardado ✓');
@@ -1838,6 +1994,36 @@ function tplDeleteAct(stage,id){appData.template.cronograma[stage]=appData.templ
 function tplAddAct(stage){const name=prompt('Nombre de la actividad:');if(!name||!name.trim())return;appData.template.cronograma[stage].push({id:uid(),name:name.trim(),days:1,isHito:false,isNaming:false});renderTplStage(stage);renderTplSummary();}
 function onNamingToggle(){appData.template.includeNaming=document.getElementById('tpl-naming').checked;['aire','agua','tierra','fuego'].forEach(s=>renderTplStage(s));renderTplSummary();}
 
+
+function tplRenameCat(ci, val){
+  if(!val.trim()) return;
+  appData.template.brandingPoints.categories[ci].name = val.trim();
+  // Don't re-render (would reset input focus) — just mark dirty
+  scheduleTplSave();
+}
+function tplRenameItem(ci, ii, val){
+  appData.template.brandingPoints.categories[ci].items[ii].name = val.trim()||'Sin nombre';
+  scheduleTplSave();
+}
+function tplUpdateItemNotes(ci, ii, val){
+  appData.template.brandingPoints.categories[ci].items[ii].notes = val;
+  scheduleTplSave();
+}
+function tplToggleItemNotes(ci, ii){
+  const item = appData.template.brandingPoints.categories[ci].items[ii];
+  item.notesOpen = !item.notesOpen;
+  renderTplBpCats();
+}
+
+let _tplSaveTimer = null;
+function scheduleTplSave(){
+  clearTimeout(_tplSaveTimer);
+  _tplSaveTimer = setTimeout(async ()=>{
+    await upsert();
+    showStatus('Template guardado ✓');
+  }, 800);
+}
+
 function renderTplBpCats(){
   const bp=appData.template.brandingPoints;
   const total=bp.total||0;
@@ -1849,26 +2035,43 @@ function renderTplBpCats(){
   document.getElementById('bp-bar').style.width=total>0?Math.min(100,used/total*100)+'%':'0%';
   document.getElementById('bp-cats').innerHTML=bp.categories.map((cat,ci)=>`
     <div class="bp-cat">
-      <div class="bp-cat-head" onclick="tplToggleBpCat(${ci})">
-        <div><span class="bp-cat-name">${cat.name}</span><span class="bp-cat-meta">${cat.items.filter(i=>i.selected).length} sel. · ${cat.items.filter(i=>i.selected).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0)} pts</span></div>
-        <span style="font-size:0.75rem;color:var(--text3)">${cat.open!==false?'▲':'▼'}</span>
+      <div class="bp-cat-head">
+        <div style="display:flex;align-items:center;gap:0.5rem;flex:1" onclick="tplToggleBpCat(${ci})">
+          <input class="bp-cat-name-input" value="${cat.name}"
+            onclick="event.stopPropagation()"
+            onchange="tplRenameCat(${ci},this.value)"
+            style="background:none;border:none;outline:none;font-size:0.88rem;font-weight:700;color:var(--text);cursor:text;padding:0;width:auto;min-width:60px;max-width:180px;font-family:var(--font)">
+          <span class="bp-cat-meta">${cat.items.filter(i=>i.selected).length} sel. · ${cat.items.filter(i=>i.selected).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0)} pts</span>
+        </div>
+        <span style="font-size:0.75rem;color:var(--text3);cursor:pointer" onclick="tplToggleBpCat(${ci})">${cat.open!==false?'▲':'▼'}</span>
       </div>
       <div class="bp-cat-body ${cat.open===false?'hidden':''}">
         ${cat.items.map((item,ii)=>`
-          <div class="tpl-bp-item">
-            <span style="color:var(--text3);font-size:0.78rem;cursor:grab;opacity:0.4;flex-shrink:0">⠿</span>
-            <input type="checkbox" ${item.selected?'checked':''} style="width:15px;height:15px;accent-color:var(--agua);cursor:pointer;flex-shrink:0"
-              onchange="tplToggleBpItem(${ci},${ii},this.checked)">
-            <span class="tpl-bp-item-name" style="${item.selected?'':'color:var(--text3)'}">${item.name}</span>
-            <div class="bp-pts-wrap">
-              <span class="bp-pts-lbl">PTS</span>
-              <input class="bp-pts-input" type="number" min="0" value="${item.pts||0}" onchange="tplUpdateBpPts(${ci},${ii},this.value)">
+          <div class="tpl-bp-item-wrap">
+            <div class="tpl-bp-item">
+              <span style="color:var(--text3);font-size:0.78rem;cursor:grab;opacity:0.4;flex-shrink:0">⠿</span>
+              <input type="checkbox" ${item.selected?'checked':''} style="width:15px;height:15px;accent-color:var(--agua);cursor:pointer;flex-shrink:0"
+                onchange="tplToggleBpItem(${ci},${ii},this.checked)">
+              <input class="bp-item-name-input" value="${item.name}"
+                onchange="tplRenameItem(${ci},${ii},this.value)"
+                style="flex:1;background:none;border:none;outline:none;font-size:0.83rem;color:${item.selected?'var(--text)':'var(--text3)'};font-family:var(--font);cursor:text;padding:0;border-bottom:1px dashed transparent;"
+                onfocus="this.style.borderBottomColor='var(--border)'"
+                onblur="this.style.borderBottomColor='transparent'">
+              <div class="bp-pts-wrap">
+                <span class="bp-pts-lbl">PTS</span>
+                <input class="bp-pts-input" type="number" min="0" value="${item.pts||0}" onchange="tplUpdateBpPts(${ci},${ii},this.value)">
+              </div>
+              <div class="bp-pts-wrap">
+                <span class="bp-pts-lbl">CANT.</span>
+                <input class="bp-pts-input" type="number" min="1" value="${item.qty||1}" style="color:var(--agua)" onchange="tplUpdateBpQty(${ci},${ii},this.value)">
+              </div>
+              <button class="bp-notes-toggle" onclick="tplToggleItemNotes(${ci},${ii})" title="Notas del entregable" style="background:none;border:none;cursor:pointer;font-size:0.85rem;opacity:${item.notes?1:0.35};padding:0.1rem 0.3rem;border-radius:4px;transition:all 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=${item.notes?1:0.35}">📝</button>
+              <button class="tpl-bp-item-del" onclick="tplDeleteBpItem(${ci},${ii})">×</button>
             </div>
-            <div class="bp-pts-wrap">
-              <span class="bp-pts-lbl">CANT.</span>
-              <input class="bp-pts-input" type="number" min="1" value="${item.qty||1}" style="color:var(--agua)" onchange="tplUpdateBpQty(${ci},${ii},this.value)">
-            </div>
-            <button class="tpl-bp-item-del" onclick="tplDeleteBpItem(${ci},${ii})">×</button>
+            ${item.notesOpen||item.notes?`<div class="bp-item-notes-row">
+              <textarea class="bp-item-notes-input" placeholder="Notas: medidas, materiales, especificaciones del cliente…" rows="2"
+                onchange="tplUpdateItemNotes(${ci},${ii},this.value)">${item.notes||''}</textarea>
+            </div>`:''}
           </div>`).join('')}
         <div class="bp-add-row"><button class="btn-add-item" onclick="tplAddBpItem(${ci})">+ Agregar entregable</button></div>
       </div>
@@ -1941,103 +2144,21 @@ function getAreaEmoji(areaId){
 }
 
 /* ── Get all hitos for a member (from their domos) ── */
-function getMemberHitos(memberId){
-  const member = (appData.members||[]).find(m=>m.id===memberId);
-  if(!member) return [];
-  // Find all brands where this member is in domo
-  const brandIds = getBrandIdsForMember(memberId);
-  const events = [];
-  const today = new Date(); today.setHours(0,0,0,0);
-
-  (appData.brands||[]).filter(b=>brandIds.includes(b.id)).forEach(brand=>{
-    if(!brand.cronograma) return;
-    Object.values(brand.cronograma).flat().forEach(act=>{
-      if(!act.isHito || !act.endDate) return;
-      const d = new Date(act.endDate); d.setHours(0,0,0,0);
-      if(d < today && act.status==='completada') return; // skip completed past
-      // Official hito
-      events.push({
-        type:'hito', name:act.name, brandName:brand.name,
-        date:act.endDate, status:act.status
-      });
-      // Internal review = 2 workdays before endDate
-      const revDate = subtractWorkdays(act.endDate, 2);
-      events.push({
-        type:'revision', name:'Rev. interna: '+act.name, brandName:brand.name,
-        date:revDate, status:act.status
-      });
-    });
-  });
-  return events.sort((a,b)=>a.date.localeCompare(b.date));
-}
 
 function getBrandIdsForMember(memberId){
   const ids = [];
   (appData.brands||[]).forEach(b=>{
     const domo = b.domo;
     if(!domo) return;
-    const all = [...(domo.principales||[]), ...(domo.ayudantes||[])];
+    const all = [...(domo.principales||[]), ...(domo.astronautas||[])];
     if(all.includes(memberId)) ids.push(b.id);
   });
   return ids;
 }
 
-function subtractWorkdays(dateStr, days){
-  let d = new Date(dateStr); let removed = 0;
-  while(removed < days){
-    d.setDate(d.getDate()-1);
-    if(!isWeekend(d)) removed++;
-  }
-  return fmtDate(d);
-}
-
-/* ── Render team page ── */
 function renderTeamPage(){
   renderMembersGrid();
   renderDomosGrid();
-}
-
-function renderMembersGrid(){
-  const members = appData.members || [];
-  const grid = document.getElementById('team-grid');
-  if(!members.length){
-    grid.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">👥</div><div>Sin miembros. Crea el primero con "+ Nuevo miembro".</div></div>';
-    return;
-  }
-  grid.innerHTML = members.map(m=>{
-    const hitos = getMemberHitos(m.id).filter(h=>{
-      const d = new Date(h.date); d.setHours(0,0,0,0);
-      return d >= new Date(new Date().setHours(0,0,0,0));
-    }).slice(0,3);
-    const avatarHtml = m.photo
-      ? `<img src="${m.photo}" alt="${m.nombre}">`
-      : (m.emoji||'👤');
-    return `<div class="member-card" onclick="openMemberProfile('${m.id}')">
-      <div class="member-card-top">
-        <div class="member-avatar">${avatarHtml}</div>
-        <div class="member-card-info">
-          <div class="member-apodo">${m.apodo||m.nombre}</div>
-          <div class="member-name-small">${m.apodo?m.nombre:''}</div>
-          <div class="member-cargo">${m.cargo||''}</div>
-          ${m.area?`<div class="member-area-pill">${getAreaEmoji(m.area)} ${m.area}</div>`:''}
-        </div>
-      </div>
-      <div class="member-status-wrap">
-        <input class="member-status" value="${m.status||''}" placeholder="Estado…"
-          onclick="event.stopPropagation()"
-          onblur="quickSaveStatus('${m.id}',this.value)"
-          placeholder="¿Cómo estás hoy?">
-      </div>
-      ${hitos.length?`<div class="member-hitos-preview">
-        ${hitos.map(h=>`
-          <div class="member-hito-item">
-            <span class="hito-dot ${h.type}"></span>
-            <span class="hito-name">${h.name}</span>
-            <span class="hito-date">${fmtDateDisplay(h.date)}</span>
-          </div>`).join('')}
-      </div>`:''}
-    </div>`;
-  }).join('');
 }
 
 async function quickSaveStatus(memberId, val){
@@ -2058,7 +2179,7 @@ function renderDomosGrid(){
   grid.innerHTML = brandsWithDomo.map(b=>{
     const domo = b.domo;
     const principals = (domo.principales||[]).map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
-    const helpers = (domo.ayudantes||[]).map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
+    const helpers = (domo.astronautas||[]).map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
     return `<div class="domo-full-card">
       <div class="domo-full-title">🏷️ ${b.name}</div>
       <div class="domo-full-brand">${b.industria||''} · <span class="stage-pill ${b.stage}" style="font-size:0.65rem">${b.stage}</span></div>
@@ -2071,7 +2192,7 @@ function renderDomosGrid(){
         ${helpers.map(m=>`<div class="domo-full-member">
           <span style="font-size:0.9rem">${m.emoji||'👤'}</span>
           <span style="color:var(--text3)">${m.apodo||m.nombre}</span>
-          <span class="domo-role-badge">Ayudante</span>
+          <span class="domo-role-badge">Astronauta</span>
         </div>`).join('')}
       </div>
     </div>`;
@@ -2079,12 +2200,6 @@ function renderDomosGrid(){
 }
 
 /* ── Open member profile ── */
-function openMemberProfile(memberId){
-  currentMemberId = memberId;
-  weekOffset = 0; monthOffset = 0;
-  goTo('member');
-}
-
 function renderMemberProfile(){
   const m = (appData.members||[]).find(x=>x.id===currentMemberId);
   if(!m){ goTo('equipo'); return; }
@@ -2110,15 +2225,6 @@ function renderMemberProfile(){
   renderMemberDomos();
 }
 
-async function saveMemberStatus(){
-  const m = (appData.members||[]).find(x=>x.id===currentMemberId);
-  if(!m) return;
-  m.status = document.getElementById('mprofile-status').value;
-  await upsert();
-  showStatus('Estado actualizado ✓');
-}
-
-/* ── Member tab list ── */
 function renderMemberList(){
   const hitos = getMemberHitos(currentMemberId);
   const el = document.getElementById('mlist-content');
@@ -2229,7 +2335,7 @@ function renderMemberDomos(){
   const brands = appData.brands||[];
   const myBrands = brands.filter(b=>{
     const domo=b.domo; if(!domo) return false;
-    return [...(domo.principales||[]),...(domo.ayudantes||[])].includes(currentMemberId);
+    return [...(domo.principales||[]),...(domo.astronautas||[])].includes(currentMemberId);
   });
   const el = document.getElementById('mdomos-content');
   if(!myBrands.length){
@@ -2239,13 +2345,13 @@ function renderMemberDomos(){
   el.innerHTML = myBrands.map(b=>{
     const domo=b.domo;
     const principals=(domo.principales||[]).map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
-    const helpers=(domo.ayudantes||[]).map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
-    const myRole=(domo.principales||[]).includes(currentMemberId)?'Principal':'Ayudante';
+    const helpers=(domo.astronautas||[]).map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
+    const myRole=(domo.principales||[]).includes(currentMemberId)?'Principal':'Astronauta';
     return `<div class="domo-card">
       <div class="domo-card-title">🏷️ ${b.name} <span style="font-size:0.7rem;color:var(--text3);font-weight:400">(${myRole})</span></div>
       <div class="domo-members-row">
         ${principals.map(m=>`<span class="domo-member-chip principal">${m.emoji||'👤'} ${m.apodo||m.nombre}</span>`).join('')}
-        ${helpers.map(m=>`<span class="domo-member-chip ayudante">${m.emoji||'👤'} ${m.apodo||m.nombre}</span>`).join('')}
+        ${helpers.map(m=>`<span class="domo-member-chip astronauta">${m.emoji||'👤'} ${m.apodo||m.nombre}</span>`).join('')}
       </div>
       <div style="font-size:0.72rem;color:var(--text3)">${b.industria||''} · <span class="stage-pill ${b.stage}" style="font-size:0.65rem">${b.stage}</span></div>
     </div>`;
@@ -2264,32 +2370,6 @@ function switchMemberTab(tab){
 let memberPhotoB64 = null;
 let memberEmojiVal = '👤';
 
-function openMemberModal(){
-  document.getElementById('m-edit-id').value='';
-  document.getElementById('modal-member-title').textContent='✏️ Nuevo miembro';
-  document.getElementById('btn-member-save').textContent='Crear miembro';
-  document.getElementById('m-nombre').value='';
-  document.getElementById('m-cargo').value='';
-  document.getElementById('m-apodo').value='';
-  document.getElementById('m-disponibilidad').value='Disponible';
-  document.getElementById('m-photo-b64').value='';
-  document.getElementById('m-emoji-val').value='👤';
-  document.getElementById('m-avatar-preview').innerHTML='👤';
-  document.querySelectorAll('input[name="m-area"]').forEach(r=>r.checked=false);
-  const err=document.getElementById('modal-member-err');err.style.display='none';err.textContent='';
-  memberPhotoB64=null; memberEmojiVal='👤';
-  document.getElementById('modal-member').classList.remove('hidden');
-  setTimeout(()=>document.getElementById('m-nombre').focus(),80);
-}
-
-function closeMemberModal(){document.getElementById('modal-member').classList.add('hidden');}
-document.addEventListener('DOMContentLoaded', function(){
-  const mo = document.getElementById('modal-overlay');
-  if(mo) mo.addEventListener('click',function(e){if(e.target===this)closeModal();});
-  const mm = document.getElementById('modal-member');
-  if(mm) mm.addEventListener('click',function(e){if(e.target===this)closeMemberModal();});
-});
-
 function onMemberPhotoChange(e){
   const f=e.target.files[0]; if(!f) return;
   const r=new FileReader();
@@ -2301,13 +2381,6 @@ function onMemberPhotoChange(e){
   r.readAsDataURL(f);
 }
 
-function clearMemberPhoto(){
-  memberPhotoB64=null;
-  document.getElementById('m-photo-b64').value='';
-  document.getElementById('m-photo-input').value='';
-  document.getElementById('m-avatar-preview').innerHTML=memberEmojiVal||'👤';
-}
-
 function setMemberEmoji(emoji){
   memberEmojiVal=emoji;
   document.getElementById('m-emoji-val').value=emoji;
@@ -2315,93 +2388,6 @@ function setMemberEmoji(emoji){
     document.getElementById('m-avatar-preview').innerHTML=emoji;
   }
 }
-
-function openEditMemberModal(){
-  const m=(appData.members||[]).find(x=>x.id===currentMemberId);
-  if(!m) return;
-  document.getElementById('m-edit-id').value=m.id;
-  document.getElementById('modal-member-title').textContent='✏️ Editar miembro';
-  document.getElementById('btn-member-save').textContent='Guardar cambios';
-  document.getElementById('m-nombre').value=m.nombre||'';
-  document.getElementById('m-cargo').value=m.cargo||'';
-  document.getElementById('m-apodo').value=m.apodo||'';
-  document.getElementById('m-disponibilidad').value=m.disponibilidad||'Disponible';
-  memberPhotoB64=m.photo||null;
-  memberEmojiVal=m.emoji||'👤';
-  document.getElementById('m-emoji-val').value=memberEmojiVal;
-  document.getElementById('m-avatar-preview').innerHTML=m.photo
-    ?`<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-    :(m.emoji||'👤');
-  document.querySelectorAll('input[name="m-area"]').forEach(r=>{r.checked=r.value===m.area;});
-  const err=document.getElementById('modal-member-err');err.style.display='none';err.textContent='';
-  document.getElementById('modal-member').classList.remove('hidden');
-}
-
-async function saveMember(){
-  const nombre=document.getElementById('m-nombre').value.trim();
-  const cargo=document.getElementById('m-cargo').value.trim();
-  if(!nombre){showStatus('El nombre es obligatorio',true);return;}
-
-  const btn=document.getElementById('btn-member-save');
-  btn.disabled=true;btn.textContent='Guardando…';
-
-  const area=(document.querySelector('input[name="m-area"]:checked')||{}).value||'';
-  const editId=document.getElementById('m-edit-id').value;
-
-  if(!appData.members) appData.members=[];
-
-  if(editId){
-    const m=appData.members.find(x=>x.id===editId);
-    if(m){
-      m.nombre=nombre;m.cargo=cargo;
-      m.apodo=document.getElementById('m-apodo').value.trim();
-      m.disponibilidad=document.getElementById('m-disponibilidad').value.trim();
-      m.area=area;
-      m.emoji=document.getElementById('m-emoji-val').value||'👤';
-      if(memberPhotoB64)m.photo=memberPhotoB64;
-    }
-  }else{
-    appData.members.push({
-      id:uid(),nombre,cargo,
-      apodo:document.getElementById('m-apodo').value.trim(),
-      disponibilidad:document.getElementById('m-disponibilidad').value.trim(),
-      area,emoji:memberEmojiVal||'👤',
-      photo:memberPhotoB64||null,status:'',
-      createdAt:new Date().toISOString()
-    });
-  }
-
-  let saveErr=null;
-  try{
-    const {error}=await sb.from('polen_shared').upsert({id:REC_ID,data:appData,updated_at:new Date().toISOString()},{onConflict:'id'});
-    saveErr=error;
-  }catch(e){saveErr={message:e.message};}
-
-  btn.disabled=false;btn.textContent=editId?'Guardar cambios':'Crear miembro';
-  if(saveErr){
-    const ed=document.getElementById('modal-member-err');
-    ed.textContent='⚠️ '+(saveErr.message||JSON.stringify(saveErr));ed.style.display='block';
-    return;
-  }
-  showStatus((editId?'Miembro actualizado':'Miembro creado')+' ✓');
-  closeMemberModal();
-  if(currentPage==='equipo') renderTeamPage();
-  if(currentPage==='member') renderMemberProfile();
-}
-
-async function deleteMemberCurrent(){
-  const m=(appData.members||[]).find(x=>x.id===currentMemberId);
-  if(!m||!confirm('¿Eliminar a '+( m.apodo||m.nombre)+'?')) return;
-  appData.members=appData.members.filter(x=>x.id!==currentMemberId);
-  await upsert();
-  showStatus('Miembro eliminado');
-  goTo('equipo');
-}
-
-
-/* ══════════════════════════════════════════
-   TEAM MODULE
-══════════════════════════════════════════ */
 
 const AREAS = [
   {id:'direccion',   label:'Dirección',      emoji:'⭐'},
@@ -2566,7 +2552,7 @@ function renderDomosTab() {
       <div class="domo-members-wrap">
         ${m1 ? memberChip(m1,'principal') : '<span style="color:var(--text3);font-size:0.78rem">Sin M1</span>'}
         ${m2 ? memberChip(m2,'principal') : '<span style="color:var(--text3);font-size:0.78rem">Sin M2</span>'}
-        ${helpers.map(h => memberChip(h,'ayudante')).join('')}
+        ${helpers.map(h => memberChip(h,'astronauta')).join('')}
         <button class="btn-ghost" style="font-size:0.72rem;padding:0.25rem 0.6rem" onclick="openDomoModal('${brand.id}')">✏️ Editar</button>
       </div>
     </div>`;
@@ -2577,7 +2563,7 @@ function memberChip(m, role) {
   return `<span class="domo-member-chip">
     <span>${m.emoji||'👤'}</span>
     <span>${m.apodo||m.nombre}</span>
-    <span class="domo-role-badge ${role}">${role==='principal'?'Principal':'Ayudante'}</span>
+    <span class="domo-role-badge ${role}">${role==='principal'?'Principal':'Astronauta'}</span>
   </span>`;
 }
 
@@ -2728,14 +2714,14 @@ function renderProfileDomos(m) {
     const m1 = appData.members.find(x=>x.id===domo.m1);
     const m2 = appData.members.find(x=>x.id===domo.m2);
     const helpers = (domo.helpers||[]).map(hid=>appData.members.find(x=>x.id===hid)).filter(Boolean);
-    const myRole = domo.m1===m.id||domo.m2===m.id ? 'principal' : 'ayudante';
+    const myRole = domo.m1===m.id||domo.m2===m.id ? 'principal' : 'astronauta';
     return `<div class="domo-card-profile">
-      <div class="domo-card-brand">📌 ${brand.name} <span class="domo-role-badge ${myRole}" style="margin-left:0.4rem">${myRole==='principal'?'Principal':'Ayudante'}</span></div>
+      <div class="domo-card-brand">📌 ${brand.name} <span class="domo-role-badge ${myRole}" style="margin-left:0.4rem">${myRole==='principal'?'Principal':'Astronauta'}</span></div>
       <div class="domo-card-members">
         ${m1?`<span>${m1.emoji||'👤'} ${m1.apodo||m1.nombre}</span>`:''}
         ${m1&&m2?`<span style="color:var(--text3)">+</span>`:''}
         ${m2?`<span>${m2.emoji||'👤'} ${m2.apodo||m2.nombre}</span>`:''}
-        ${helpers.length?`<span style="color:var(--text3)">· Ayudantes: ${helpers.map(h=>h.apodo||h.nombre).join(', ')}</span>`:''}
+        ${helpers.length?`<span style="color:var(--text3)">· Astronautas: ${helpers.map(h=>h.apodo||h.nombre).join(', ')}</span>`:''}
       </div>
     </div>`;
   }).join('');
@@ -2933,14 +2919,14 @@ function openDomoModal(brandId) {
   // Helpers
   const helpersWrap = document.getElementById('domo-helpers-wrap-modal') || document.getElementById('domo-helpers-wrap');
   helpersWrap.innerHTML = '';
-  (domo.helpers||[]).forEach(hid => addDomoHelperRow(hid));
+  (domo.helpers||[]).forEach(hid => addDomoAstronautRow(hid));
 
   document.getElementById('modal-domo').classList.remove('hidden');
 }
 
-function addDomoHelper() { addDomoHelperRow(''); }
+function addDomoAstronaut() { addDomoAstronautRow(''); }
 
-function addDomoHelperRow(selectedId) {
+function addDomoAstronautRow(selectedId) {
   const members = appData.members||[];
   const opts = '<option value="">— Seleccionar —</option>'+members.map(m=>`<option value="${m.id}" ${m.id===selectedId?'selected':''}>${m.apodo||m.nombre}</option>`).join('');
   const row = document.createElement('div');
@@ -2966,6 +2952,26 @@ async function saveDomo() {
 }
 
 /* ═══ BOOT ═══ */
+function toggleAstronautasSection(){
+  const wrap=document.getElementById('domo-helpers-wrap');
+  const arrow=document.getElementById('astronautas-toggle-arrow');
+  if(!wrap)return;
+  const isOpen=wrap.style.display==='flex';
+  wrap.style.display=isOpen?'none':'flex';
+  if(arrow)arrow.textContent=isOpen?'▶':'▼';
+}
+
+function toggleModalAstronautas(){
+  const wrap=document.getElementById('domo-helpers-wrap-modal');
+  const arrow=document.getElementById('modal-astro-arrow');
+  const addBtn=document.getElementById('modal-astro-add-btn');
+  if(!wrap)return;
+  const isOpen=wrap.style.display==='flex';
+  wrap.style.display=isOpen?'none':'flex';
+  if(arrow)arrow.textContent=isOpen?'▶':'▼';
+  if(addBtn)addBtn.style.display=isOpen?'none':'';
+}
+
 function forceSkipLoading(){
   const ls=document.getElementById('loading-screen');
   ls.classList.add('hide');
@@ -3012,7 +3018,7 @@ boot();
     <div class="info-grid" style="margin-bottom:1rem">
       <div class="form-group">
         <label class="form-label">Nombre completo *</label>
-        <input class="form-input" id="m-nombre" placeholder="Cristina Monge">
+        <input class="form-input" id="m-nombre" placeholder="Ej: María López">
       </div>
       <div class="form-group">
         <label class="form-label">Cargo</label>
@@ -3070,9 +3076,11 @@ boot();
       <select class="form-select" id="domo-m2"><option value="">— Seleccionar —</option></select>
     </div>
     <div class="form-group" style="margin-bottom:1rem">
-      <label class="form-label">Ayudantes (opcional, separar con comas)</label>
-      <div id="domo-helpers-wrap-modal" style="display:flex;flex-direction:column;gap:0.4rem"></div>
-      <button onclick="addDomoHelper()" class="btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.7rem;margin-top:0.4rem">+ Agregar ayudante</button>
+      <button onclick="toggleModalAstronautas()" style="display:flex;align-items:center;gap:0.5rem;background:none;border:1px solid var(--border);border-radius:99px;padding:0.35rem 0.9rem;font-size:0.78rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all var(--transition);margin-bottom:0.5rem" id="modal-astro-toggle-btn">
+        <span id="modal-astro-arrow">▶</span> 🚀 Astronautas (opcionales)
+      </button>
+      <div id="domo-helpers-wrap-modal" style="display:none;flex-direction:column;gap:0.4rem"></div>
+      <button id="modal-astro-add-btn" onclick="addDomoAstronaut()" class="btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.7rem;margin-top:0.4rem;display:none">+ Agregar astronauta</button>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" onclick="document.getElementById('modal-domo').classList.add('hidden')">Cancelar</button>
