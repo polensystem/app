@@ -560,7 +560,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
       <button class="btn-reload" id="btn-reload" onclick="reloadData()">↻ Recargar</button>
       <button class="btn-add" id="btn-nueva-marca" onclick="openModal()">+ Nueva marca</button>
       <button class="btn-add" id="btn-nuevo-miembro" onclick="openMemberModal()" style="display:none;background:var(--agua)">+ Nuevo miembro</button>
-      <button class="btn-add" id="btn-nuevo-miembro" style="display:none;background:var(--agua)" onclick="openMemberModal()">+ Nuevo miembro</button>
     </div>
   </header>
 
@@ -769,98 +768,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     </div>
   </div>
 
-  <!-- PAGE: EQUIPO -->
-  <div class="page" id="page-equipo">
-    <div class="content">
-      <!-- Tabs: Miembros / Domos -->
-      <div class="tabs-bar" style="margin-bottom:0">
-        <button class="tab-btn active" id="eq-tab-members-btn" onclick="switchEqTab('members')">👥 Miembros</button>
-        <button class="tab-btn" id="eq-tab-domos-btn" onclick="switchEqTab('domos')">🔗 Domos</button>
-      </div>
 
-      <!-- Members tab -->
-      <div class="tab-panel active" id="eq-tab-members">
-        <div class="member-grid" id="members-grid"></div>
-      </div>
-
-      <!-- Domos tab -->
-      <div class="tab-panel" id="eq-tab-domos">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-          <div>
-            <div style="font-size:1rem;font-weight:700">🔗 Domos del estudio</div>
-            <div style="font-size:0.75rem;color:var(--text3);margin-top:0.2rem">Los domos se crean desde la página de cada marca. Aquí puedes reasignar miembros.</div>
-          </div>
-        </div>
-        <div class="domo-section" id="domos-list"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- PAGE: MEMBER PROFILE -->
-  <div class="page" id="page-member">
-    <div class="content">
-      <!-- Hero -->
-      <div class="member-profile-hero">
-        <div class="profile-avatar" id="profile-avatar"></div>
-        <div class="profile-info">
-          <div class="profile-nickname" id="profile-nickname">—</div>
-          <div class="profile-fullname" id="profile-fullname"></div>
-          <div class="profile-meta" id="profile-meta"></div>
-          <input class="member-status" id="profile-status" placeholder="¿Cuál es tu estado hoy?" style="margin-top:0.5rem;border-radius:var(--r-sm);border:1px solid var(--border);padding:0.4rem 0.7rem;width:100%;max-width:400px"
-            onblur="saveMemberStatus()" onkeydown="if(event.key==='Enter')this.blur()">
-        </div>
-        <div class="profile-actions">
-          <button class="btn-back" onclick="goTo('equipo')">← Equipo</button>
-          <button class="btn-ghost" onclick="openEditMemberModal()" style="font-size:0.78rem;padding:0.4rem 0.8rem">✏️ Editar</button>
-          <button class="btn-ghost" onclick="deleteMemberCurrent()" style="font-size:0.78rem;padding:0.4rem 0.8rem;color:#ff5c72;border-color:rgba(255,92,114,0.3)">🗑</button>
-        </div>
-      </div>
-
-      <!-- Profile tabs -->
-      <div class="tabs-bar">
-        <button class="tab-btn active" id="ptab-list-btn" onclick="switchProfileTab('list')">📋 Todos los hitos</button>
-        <button class="tab-btn" id="ptab-week-btn" onclick="switchProfileTab('week')">📅 Semana</button>
-        <button class="tab-btn" id="ptab-month-btn" onclick="switchProfileTab('month')">🗓 Mes</button>
-        <button class="tab-btn" id="ptab-domos-btn" onclick="switchProfileTab('domos')">🔗 Domos</button>
-      </div>
-
-      <!-- Tab: List -->
-      <div class="tab-panel active" id="ptab-list">
-        <div class="section-card">
-          <div class="section-head"><div class="section-head-title">📋 Hitos y revisiones próximas</div></div>
-          <div id="profile-hitos-list"></div>
-        </div>
-      </div>
-
-      <!-- Tab: Week -->
-      <div class="tab-panel" id="ptab-week">
-        <div class="cal-nav">
-          <button class="cal-nav-btn" onclick="navWeek(-1)">‹</button>
-          <span class="cal-period" id="week-label">Esta semana</span>
-          <button class="cal-nav-btn" onclick="navWeek(1)">›</button>
-        </div>
-        <div class="week-grid" id="week-grid"></div>
-      </div>
-
-      <!-- Tab: Month -->
-      <div class="tab-panel" id="ptab-month">
-        <div class="cal-nav">
-          <button class="cal-nav-btn" onclick="navMonth(-1)">‹</button>
-          <span class="cal-period" id="month-label">Este mes</span>
-          <button class="cal-nav-btn" onclick="navMonth(1)">›</button>
-        </div>
-        <div class="month-grid" id="month-grid"></div>
-      </div>
-
-      <!-- Tab: Domos -->
-      <div class="tab-panel" id="ptab-domos">
-        <div class="section-card">
-          <div class="section-head"><div class="section-head-title">🔗 Domos de este miembro</div></div>
-          <div class="section-body" id="profile-domos-list"></div>
-        </div>
-      </div>
-    </div>
-  </div>
 
 
   <!-- PAGE: EQUIPO -->
@@ -1765,7 +1673,7 @@ function updateModalPreview(){
 }
 
 function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');}
-document.getElementById('modal-overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
 
 function previewImage(e){
   const f=e.target.files[0];if(!f)return;
@@ -2375,7 +2283,12 @@ function openMemberModal(){
 }
 
 function closeMemberModal(){document.getElementById('modal-member').classList.add('hidden');}
-document.getElementById('modal-member').addEventListener('click',function(e){if(e.target===this)closeMemberModal();});
+document.addEventListener('DOMContentLoaded', function(){
+  const mo = document.getElementById('modal-overlay');
+  if(mo) mo.addEventListener('click',function(e){if(e.target===this)closeModal();});
+  const mm = document.getElementById('modal-member');
+  if(mm) mm.addEventListener('click',function(e){if(e.target===this)closeMemberModal();});
+});
 
 function onMemberPhotoChange(e){
   const f=e.target.files[0]; if(!f) return;
@@ -3018,7 +2931,7 @@ function openDomoModal(brandId) {
   document.getElementById('domo-m2').value = domo.m2 || '';
 
   // Helpers
-  const helpersWrap = document.getElementById('domo-helpers-wrap');
+  const helpersWrap = document.getElementById('domo-helpers-wrap-modal') || document.getElementById('domo-helpers-wrap');
   helpersWrap.innerHTML = '';
   (domo.helpers||[]).forEach(hid => addDomoHelperRow(hid));
 
@@ -3034,7 +2947,7 @@ function addDomoHelperRow(selectedId) {
   row.style.cssText = 'display:flex;gap:0.5rem;align-items:center';
   row.innerHTML = `<select class="form-select domo-helper-sel" style="flex:1">${opts}</select>
     <button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:1rem;padding:0.2rem">×</button>`;
-  document.getElementById('domo-helpers-wrap').appendChild(row);
+  (document.getElementById('domo-helpers-wrap-modal') || document.getElementById('domo-helpers-wrap')).appendChild(row);
 }
 
 async function saveDomo() {
@@ -3158,106 +3071,12 @@ boot();
     </div>
     <div class="form-group" style="margin-bottom:1rem">
       <label class="form-label">Ayudantes (opcional, separar con comas)</label>
-      <div id="domo-helpers-wrap" style="display:flex;flex-direction:column;gap:0.4rem"></div>
+      <div id="domo-helpers-wrap-modal" style="display:flex;flex-direction:column;gap:0.4rem"></div>
       <button onclick="addDomoHelper()" class="btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.7rem;margin-top:0.4rem">+ Agregar ayudante</button>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" onclick="document.getElementById('modal-domo').classList.add('hidden')">Cancelar</button>
       <button class="btn-save" onclick="saveDomo()">Guardar domo</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: Nuevo / Editar miembro -->
-<div class="modal-overlay hidden" id="modal-member">
-  <div class="modal" style="max-width:520px">
-    <div class="modal-header">
-      <div class="modal-title" id="modal-member-title">✏️ Nuevo miembro</div>
-      <div class="modal-close" onclick="closeMemberModal()">✕</div>
-    </div>
-    <div class="info-grid" style="margin-bottom:1rem">
-      <div class="form-group">
-        <label class="form-label">Nombre completo *</label>
-        <input class="form-input" id="m-nombre" placeholder="Cristina Monge">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Cargo *</label>
-        <input class="form-input" id="m-cargo" placeholder="Redactora Creativa">
-      </div>
-    </div>
-    <div class="form-group" style="margin-bottom:1rem">
-      <label class="form-label">Apodo (opcional)</label>
-      <input class="form-input" id="m-apodo" placeholder="¿Cómo le llaman?">
-    </div>
-    <div class="form-group" style="margin-bottom:1rem">
-      <label class="form-label">Disponibilidad</label>
-      <input class="form-input" id="m-disponibilidad" value="Disponible" placeholder="Disponible">
-    </div>
-
-    <!-- Foto o Emoji -->
-    <div style="margin-bottom:1rem">
-      <label class="form-label" style="margin-bottom:0.6rem">Foto o Emoji</label>
-      <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.7rem">
-        <div id="m-avatar-preview" style="width:52px;height:52px;border-radius:50%;background:var(--bg-card2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.6rem;overflow:hidden;flex-shrink:0">👤</div>
-        <div style="position:relative">
-          <button class="btn-ghost" style="font-size:0.78rem;padding:0.4rem 0.8rem" onclick="document.getElementById('m-photo-input').click()">📷 Subir foto</button>
-          <input type="file" id="m-photo-input" accept="image/*" style="display:none" onchange="onMemberPhotoChange(event)">
-        </div>
-        <button class="btn-ghost" style="font-size:0.78rem;padding:0.4rem 0.8rem" onclick="clearMemberPhoto()">✕ Quitar</button>
-      </div>
-      <!-- Emoji grid -->
-      <div style="display:flex;flex-wrap:wrap;gap:0.4rem" id="emoji-grid-container">
-        <button onclick="setMemberEmoji('👤')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">👤</button>
-        <button onclick="setMemberEmoji('⭐')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">⭐</button>
-        <button onclick="setMemberEmoji('🎯')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">🎯</button>
-        <button onclick="setMemberEmoji('✒️')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">✒️</button>
-        <button onclick="setMemberEmoji('✍️')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">✍️</button>
-        <button onclick="setMemberEmoji('💼')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">💼</button>
-        <button onclick="setMemberEmoji('📦')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">📦</button>
-        <button onclick="setMemberEmoji('🎨')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">🎨</button>
-        <button onclick="setMemberEmoji('🔥')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">🔥</button>
-        <button onclick="setMemberEmoji('💡')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">💡</button>
-        <button onclick="setMemberEmoji('🌿')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">🌿</button>
-        <button onclick="setMemberEmoji('🦁')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">🦁</button>
-        <button onclick="setMemberEmoji('🐺')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">🐺</button>
-        <button onclick="setMemberEmoji('🦊')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">🦊</button>
-        <button onclick="setMemberEmoji('🌊')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">🌊</button>
-        <button onclick="setMemberEmoji('⚡')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);font-size:1.2rem;cursor:pointer">⚡</button>
-      </div>
-    </div>
-
-    <!-- Área -->
-    <div style="margin-bottom:1rem">
-      <label class="form-label" style="margin-bottom:0.6rem">Área</label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem" id="m-area-grid">
-        <label style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:0.83rem;background:var(--bg-card2)">
-          <input type="radio" name="m-area" value="Dirección" style="accent-color:var(--aire)"> ⭐ Dirección
-        </label>
-        <label style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:0.83rem;background:var(--bg-card2)">
-          <input type="radio" name="m-area" value="Head of Brands" style="accent-color:var(--aire)"> 🎯 Head of Brands
-        </label>
-        <label style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:0.83rem;background:var(--bg-card2)">
-          <input type="radio" name="m-area" value="Diseño" style="accent-color:var(--aire)"> ✒️ Diseño
-        </label>
-        <label style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:0.83rem;background:var(--bg-card2)">
-          <input type="radio" name="m-area" value="Redacción" style="accent-color:var(--aire)"> ✍️ Redacción
-        </label>
-        <label style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:0.83rem;background:var(--bg-card2)">
-          <input type="radio" name="m-area" value="Comercial" style="accent-color:var(--aire)"> 💼 Comercial
-        </label>
-        <label style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:0.83rem;background:var(--bg-card2)">
-          <input type="radio" name="m-area" value="Administración" style="accent-color:var(--aire)"> 📦 Administración
-        </label>
-      </div>
-    </div>
-
-    <input type="hidden" id="m-photo-b64">
-    <input type="hidden" id="m-emoji-val" value="👤">
-    <input type="hidden" id="m-edit-id">
-    <div class="modal-err" id="modal-member-err"></div>
-    <div class="modal-footer">
-      <button class="btn-cancel" onclick="closeMemberModal()">Cancelar</button>
-      <button class="btn-save" id="btn-member-save" onclick="saveMember()">Guardar miembro</button>
     </div>
   </div>
 </div>
