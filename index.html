@@ -842,6 +842,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
           <div style="font-size:1.5rem;font-weight:800;letter-spacing:-0.5px">👥 Equipo</div>
           <div style="font-size:0.8rem;color:var(--text3);margin-top:0.2rem">Miembros del estudio y Domos</div>
         </div>
+        <button class="btn-add" style="background:var(--agua)" onclick="openMemberModal()">+ Nuevo miembro</button>
       </div>
       <div class="team-grid" id="team-grid"></div>
 
@@ -975,9 +976,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
           <option value="alta">🔴 Alta</option><option value="media">🟡 Media</option><option value="baja">🟢 Baja</option>
         </select>
       </div>
-      <div class="form-group">
-        <label class="form-label">Responsable</label>
-        <select class="form-select" id="input-responsable"><option value="">Sin asignar</option></select>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">🏠 Domo — Miembro principal 1</label>
+        <select class="form-select" id="input-domo-m1"><option value="">— Sin asignar —</option></select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">🏠 Domo — Miembro principal 2</label>
+        <select class="form-select" id="input-domo-m2"><option value="">— Sin asignar —</option></select>
       </div>
     </div>
     <div class="form-group" style="margin-bottom:0.8rem">
@@ -1227,13 +1232,13 @@ function nextWorkday(dateStr){
 /* ═══ BUILD BRAND DATA FROM TEMPLATE ═══ */
 function buildCronoFromTemplate(tpl,startDateStr){
   const crono={};
-  // Start from today (or given date), skip weekends
   let cursor=new Date(startDateStr||new Date().toISOString().slice(0,10));
-  // If start is weekend, move to Monday
   while(isWeekend(cursor))cursor.setDate(cursor.getDate()+1);
+  // Protect against missing cronograma
+  if(!tpl.cronograma){tpl.cronograma={aire:[],agua:[],tierra:[],fuego:[]};}
 
   ['aire','agua','tierra','fuego'].forEach(stage=>{
-    const acts=(tpl.cronograma[stage]||[]).filter(a=>tpl.includeNaming||!a.isNaming);
+    const acts=((tpl.cronograma[stage])||[]).filter(a=>tpl.includeNaming!==false||!a.isNaming);
     crono[stage]=acts.map(a=>{
       const startStr=fmtDate(cursor);
       const endDate=addWorkdays(cursor,Math.max(a.days-1,0));
@@ -1763,7 +1768,7 @@ function openModal(){
   document.getElementById('btn-save').disabled=false;
   const e=document.getElementById('modal-err');e.style.display='none';e.textContent='';
   // Fill responsable
-  fillResponsableSelect('input-responsable',appData.template?.responsable||'');
+  fillDomoSelects('input-domo-m1','input-domo-m2','','');
   // Template preview
   const tpl=appData.template;
   if(tpl){
@@ -1800,9 +1805,19 @@ function openEditBrandModal(){
   document.getElementById('modal-naming-row').style.display='none';
   document.getElementById('modal-bp-row').style.display='none';
   const e=document.getElementById('modal-err');e.style.display='none';e.textContent='';
-  fillResponsableSelect('input-responsable',brand.responsable||'');
+  fillDomoSelects('input-domo-m1','input-domo-m2',brand.domo?.m1||'',brand.domo?.m2||'');
   document.getElementById('modal-overlay').classList.remove('hidden');
   setTimeout(()=>document.getElementById('input-name').focus(),80);
+}
+
+function fillDomoSelects(m1Id, m2Id, currentM1, currentM2){
+  const members = appData.members || [];
+  const opts = '<option value="">— Sin asignar —</option>' +
+    members.map(m=>`<option value="${m.id}" ${m.id===currentM1||m.id===currentM2?'':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
+  const s1=document.getElementById(m1Id);
+  const s2=document.getElementById(m2Id);
+  if(s1){s1.innerHTML=opts;s1.value=currentM1||'';}
+  if(s2){s2.innerHTML=opts;s2.value=currentM2||'';}
 }
 
 function fillResponsableSelect(selId,currentVal){
@@ -1858,7 +1873,9 @@ async function saveBrand(){
       brand.industria=document.getElementById('input-industria').value.trim();
       brand.stage=document.getElementById('input-stage').value;
       brand.prioridad=document.getElementById('input-prioridad').value;
-      brand.responsable=document.getElementById('input-responsable').value;
+      if(!brand.domo)brand.domo={m1:'',m2:'',helpers:[]};
+      brand.domo.m1=document.getElementById('input-domo-m1').value;
+      brand.domo.m2=document.getElementById('input-domo-m2').value;
       if(image)brand.image=image;
     }
   }else{
@@ -1873,9 +1890,10 @@ async function saveBrand(){
       industria:document.getElementById('input-industria').value.trim(),
       stage:document.getElementById('input-stage').value,
       prioridad:document.getElementById('input-prioridad').value,
-      responsable:document.getElementById('input-responsable').value,
+      domo:{m1:document.getElementById('input-domo-m1').value,m2:document.getElementById('input-domo-m2').value,helpers:[]},
       image,
       includeNaming,
+      rondas:[{id:uid(),label:'R1',done:false},{id:uid(),label:'R2',done:false},{id:uid(),label:'R3',done:false}],
       createdAt:new Date().toISOString(),
       cronograma:buildCronoFromTemplate(tplWithNaming,new Date().toISOString().slice(0,10)),
       brandingPoints:buildBpFromTemplate(tplWithNaming),
@@ -2491,10 +2509,13 @@ function renderEquipo() {
   ensureTeamData();
   renderMembersGrid();
   renderDomosTab();
+  // Also populate "+ Nuevo miembro" button
+  const btn=document.getElementById('btn-nuevo-miembro');
+  if(btn)btn.style.display='';
 }
 
 function renderMembersGrid() {
-  const grid = document.getElementById('members-grid');
+  const grid = document.getElementById('team-grid');
   const members = appData.members || [];
   if (!members.length) {
     grid.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><div>No hay miembros aún.<br>Haz clic en <strong>+ Nuevo miembro</strong> para empezar.</div></div>';
@@ -2536,7 +2557,7 @@ function renderMembersGrid() {
 }
 
 function renderDomosTab() {
-  const el = document.getElementById('domos-list');
+  const el = document.getElementById('domos-grid');
   const brands = (appData.brands || []).filter(b => b.domo && (b.domo.m1 || b.domo.m2));
   if (!brands.length) {
     el.innerHTML = '<div style="color:var(--text3);font-size:0.84rem;padding:1rem">Ninguna marca tiene domo configurado aún. Ve a una marca y configura su domo.</div>';
