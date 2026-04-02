@@ -2228,6 +2228,12 @@ let currentPage='dashboard';
 let currentBrandId=null;
 let editingBrandId=null;
 
+/* ═══ SAFE DOM HELPERS ═══ */
+// Never throws if element doesn't exist — prevents "Cannot set properties of null" errors
+function setHTML(id, html){ const el=document.getElementById(id); if(el) el.innerHTML=html; }
+function setText(id, txt){ const el=document.getElementById(id); if(el) el.textContent=txt; }
+function setVal(id, val){ const el=document.getElementById(id); if(el) el.value=val; }
+
 /* ═══ UID ═══ */
 function uid(){return Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);}
 
@@ -2760,7 +2766,7 @@ function _navDirect(page, brandId, memberId){
   const nEl=document.getElementById('nav-'+page); if(nEl)nEl.classList.add('active');
   const pEl=document.getElementById('page-'+page); if(pEl)pEl.classList.add('active');
   const titles={dashboard:'Dashboard',template:'Template base',brand:'',equipo:'Equipo',member:'',finanzas:'Data',cobranzas:'Cobranzas',archivo:'Archivo'};
-  document.getElementById('header-title').textContent=titles[page]||page;
+  (document.getElementById('header-title')||{}).textContent=titles[page]||page;
   document.getElementById('btn-nueva-marca').style.display=page==='dashboard'?'':'none';
   document.getElementById('btn-nuevo-miembro').style.display=page==='equipo'?'':'none';
   updateGlobalBreadcrumb(page);
@@ -2782,7 +2788,7 @@ function goTo(page,brandId=null){
   const nEl=document.getElementById('nav-'+page);if(nEl)nEl.classList.add('active');
   const pEl=document.getElementById('page-'+page);if(pEl)pEl.classList.add('active');
   const titles={dashboard:'Dashboard',template:'Template base',brand:'',equipo:'Equipo',member:'',finanzas:'Data',cobranzas:'Cobranzas',archivo:'Archivo'};
-  document.getElementById('header-title').textContent=titles[page]||page;
+  (document.getElementById('header-title')||{}).textContent=titles[page]||page;
   document.getElementById('btn-nueva-marca').style.display=page==='dashboard'?'':'none';
   document.getElementById('btn-nuevo-miembro').style.display=page==='equipo'?'':'none';
   updateGlobalBreadcrumb(page);
@@ -3226,7 +3232,7 @@ function goToFinanzas(){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const nEl=document.getElementById('nav-finanzas');if(nEl)nEl.classList.add('active');
   const pEl=document.getElementById('page-finanzas');if(pEl)pEl.classList.add('active');
-  document.getElementById('header-title').textContent='Data';
+  (document.getElementById('header-title')||{}).textContent='Data';
   currentPage='finanzas';
   updateGlobalBreadcrumb('finanzas');
   // Si ya desbloqueó en esta sesión, entrar directo
@@ -3361,7 +3367,7 @@ function renderFinMes(){
   const pctFactMes = fin.metaFacturacion ? Math.round((mData.facturacion||0)/fin.metaFacturacion*100) : 0;
   const pctCobMes  = fin.metaCobranzas  ? Math.round((mData.cobranzas||0)/fin.metaCobranzas*100) : 0;
 
-  document.getElementById('fin-mes-cards').innerHTML = `
+  (document.getElementById('fin-mes-cards')||{innerHTML:''}).innerHTML = `
     <div class="fin-stat-card dark">
       <div class="fin-stat-label dark">Total facturado ${curY}</div>
       <div class="fin-stat-value" style="color:#fff">${fmt$(ytdFact)}</div>
@@ -3394,7 +3400,7 @@ function renderFinMes(){
     </div>`;
 
   // Metas
-  document.getElementById('fin-metas').innerHTML = `
+  (document.getElementById('fin-metas')||{innerHTML:''}).innerHTML = `
     <div style="margin-bottom:1.2rem">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem">
         <div>
@@ -3459,7 +3465,7 @@ function renderFinChart(){
     </div>`;
   }).join('');
 
-  document.getElementById('fin-chart-wrap').innerHTML = `
+  (document.getElementById('fin-chart-wrap')||{innerHTML:''}).innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
       <div>
         <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Facturación · Egresos · Cashflow</div>
@@ -3485,7 +3491,7 @@ function renderFinAnual(){
   const profit  = totFact - totEgr;
   const margen  = totFact ? ((profit/totFact)*100).toFixed(2) : 0;
 
-  document.getElementById('fin-anual-cards').innerHTML = `
+  (document.getElementById('fin-anual-cards')||{innerHTML:''}).innerHTML = `
     <div class="fin-stat-card dark">
       <div class="fin-stat-label dark">Facturación ${curY}</div>
       <div class="fin-stat-value" style="color:#fff">${fmt$(totFact)}</div>
@@ -3545,7 +3551,7 @@ function renderFinAnual(){
     </div>`;
   }).join('');
 
-  document.getElementById('fin-tabla-wrap').innerHTML = `
+  (document.getElementById('fin-tabla-wrap')||{innerHTML:''}).innerHTML = `
     <div class="fin-tabla-row fin-tabla-header">
       <div class="fin-tabla-cell">Mes</div>
       <div class="fin-tabla-cell">Facturación</div>
@@ -3700,7 +3706,7 @@ function goToCobranzas(){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const nEl=document.getElementById('nav-cobranzas');if(nEl){nEl.classList.add('active');}
   const pEl=document.getElementById('page-cobranzas');if(pEl)pEl.classList.add('active');
-  document.getElementById('header-title').textContent='Cobranzas';
+  (document.getElementById('header-title')||{}).textContent='Cobranzas';
   currentPage='cobranzas';
   updateGlobalBreadcrumb('cobranzas');
   if(sessionStorage.getItem('polen_cob_unlocked')==='1'){
@@ -4655,8 +4661,8 @@ function renderDashboard(){
   if(iframe && appData.calendarUrl){
     iframe.src = appData.calendarUrl + '&mode=WEEK&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&bgcolor=%23ffffff';
   }
-  document.getElementById('total-count').textContent=brands.length;
-  document.getElementById('total-sub').textContent=brands.length===0?'Sin marcas. ¡Crea la primera!':brands.length===1?'1 proyecto en curso':brands.length+' proyectos en curso';
+  (document.getElementById('total-count')||{}).textContent=brands.length;
+  (document.getElementById('total-sub')||{}).textContent=brands.length===0?'Sin marcas. ¡Crea la primera!':brands.length===1?'1 proyecto en curso':brands.length+' proyectos en curso';
 
   // ── New stat cards ──
   const alta = brands.filter(b=>b.prioridad==='alta').length;
@@ -4748,7 +4754,7 @@ function renderSegmentedProgress(brand){
   });
   
   const overall=totalActs?Math.round(totalDone/totalActs*100):0;
-  document.getElementById('brand-global-pct').textContent=overall+'%';
+  (document.getElementById('brand-global-pct')||{}).textContent=overall+'%';
   
   // Each segment width = (stage tasks / total tasks) * overall_fill_%
   stages.forEach(s=>{
@@ -4876,7 +4882,7 @@ async function renderBrandPage(){
   }
   if(needsSave){ await upsert(); showStatus('Datos del proyecto actualizados ✓'); }
 
-  document.getElementById('header-title').textContent=brand.name;
+  (document.getElementById('header-title')||{}).textContent=brand.name;
   updateGlobalBreadcrumb('brand', brand.name);
 
   // Hero: set gradient on the new v2 wrap based on stage
@@ -4902,7 +4908,7 @@ async function renderBrandPage(){
     const dm2 = appData.members.find(m=>m.id===brand.domo.m2);
     if(dm1||dm2) domoDisplay=`<span style="font-size:0.75rem;color:var(--text2)">🔗 ${[dm1,dm2].filter(Boolean).map(m=>m.apodo||m.nombre).join(' + ')}</span>`;
   }
-  document.getElementById('brand-hero-meta').innerHTML=`
+  (document.getElementById('brand-hero-meta')||{innerHTML:''}).innerHTML=`
     <span class="stage-pill ${brand.stage}">${s.e} ${s.l}</span>
     <span class="prio-pill ${brand.prioridad||'media'}">${pi[brand.prioridad||'media']}</span>
     ${brand.industria?`<span style="font-size:0.75rem;color:var(--text3)">${brand.industria}</span>`:''}
@@ -4976,7 +4982,7 @@ function openPortalPreview(){
 /* ── Cronograma (brand) ── */
 function renderBrandCrono(brand){
   if(!brand.cronograma){
-    document.getElementById('brand-crono-stages').innerHTML='<div style="color:var(--text3);font-size:0.84rem">Sin cronograma.</div>';
+    (document.getElementById('brand-crono-stages')||{innerHTML:''}).innerHTML='<div style="color:var(--text3);font-size:0.84rem">Sin cronograma.</div>';
     return;
   }
   const stages=['aire','agua','tierra','fuego'];
@@ -4988,7 +4994,7 @@ function renderBrandCrono(brand){
     <span class="shift-label">Mover todo el cronograma (días hábiles)</span>
   </div>`;
 
-  document.getElementById('brand-crono-stages').innerHTML=shiftHTML+stages.map(stage=>{
+  (document.getElementById('brand-crono-stages')||{innerHTML:''}).innerHTML=shiftHTML+stages.map(stage=>{
     const acts=brand.cronograma[stage]||[];
     if(!acts.length)return'';
     const total=acts.length;
@@ -5054,7 +5060,7 @@ function renderBrandCrono(brand){
   }).join('<span style="color:var(--text3)">·</span>');
   const w=Math.floor(totalDays/7),d=totalDays%7;
   const rangeLabel=(firstDate&&lastDate)?` · <span style="color:var(--text2)">${fmtDateDisplay(firstDate)} → ${fmtDateDisplay(lastDate)}</span>`:'';
-  document.getElementById('brand-crono-summary').innerHTML=`${chips}<span class="crono-total-label">⏱ ${w>0?w+' sem. ':''}${d>0?d+'d ':''}<span style="color:var(--text3)">${totalDays}d en total</span>${rangeLabel}</span>`;
+  (document.getElementById('brand-crono-summary')||{innerHTML:''}).innerHTML=`${chips}<span class="crono-total-label">⏱ ${w>0?w+' sem. ':''}${d>0?d+'d ':''}<span style="color:var(--text3)">${totalDays}d en total</span>${rangeLabel}</span>`;
 }
 
 
@@ -5300,6 +5306,7 @@ function renderBrandDomo(){
   // Preview
   const preview = document.getElementById('domo-preview');
   const allIds = [...p,...h].filter(Boolean);
+  if(!preview) return;
   if(!allIds.length){ preview.innerHTML=''; return; }
   const allMembers = allIds.map(id=>members.find(m=>m.id===id)).filter(Boolean);
   preview.innerHTML = `<div style="font-size:0.75rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:0.5rem">Domo actual</div>
@@ -5339,16 +5346,16 @@ function calcBrandBpStats(brand){
 
 function renderBrandBp(brand){
   const bp=brand.brandingPoints;
-  if(!bp){document.getElementById('brand-bp-cats').innerHTML='<div style="color:var(--text3);font-size:0.84rem">Sin branding points.</div>';return;}
+  if(!bp){(document.getElementById('brand-bp-cats')||{innerHTML:''}).innerHTML='<div style="color:var(--text3);font-size:0.84rem">Sin branding points.</div>';return;}
   const {total,used,left}=calcBrandBpStats(brand);
   const totalInput = document.getElementById('brand-bp-total-input');
   if(totalInput) totalInput.value = total;
-  document.getElementById('brand-bp-used').textContent=used;
-  document.getElementById('brand-bp-left').textContent=left;
+  (document.getElementById('brand-bp-used')||{}).textContent=used;
+  (document.getElementById('brand-bp-left')||{}).textContent=left;
   document.getElementById('brand-bp-total-label').textContent=total+' pts';
   document.getElementById('brand-bp-bar').style.width=total>0?Math.min(100,used/total*100)+'%':'0%';
 
-  document.getElementById('brand-bp-cats').innerHTML=(bp.categories||[]).map((cat,ci)=>`
+  (document.getElementById('brand-bp-cats')||{innerHTML:''}).innerHTML=(bp.categories||[]).map((cat,ci)=>`
     <div class="bp-cat">
       <div class="bp-cat-head" onclick="toggleBrandBpCat('${brand.id}',${ci})">
         <div>
@@ -5535,7 +5542,7 @@ function openModal(){
   if(tpl){
     const totalActs=Object.values(tpl.cronograma).flat().filter(a=>tpl.includeNaming||!a.isNaming).length;
     const totalDays=Object.values(tpl.cronograma).flat().filter(a=>tpl.includeNaming||!a.isNaming).reduce((s,a)=>s+a.days,0);
-    document.getElementById('tpl-preview-box').innerHTML=`📋 Se aplicará el template vigente: <span>${totalActs} actividades</span> · <span>${totalDays} días est.</span> · <span>${tpl.brandingPoints.total} BP</span>${tpl.includeNaming?' · <span>incluye Naming</span>':''}`;
+    (document.getElementById('tpl-preview-box')||{innerHTML:''}).innerHTML=`📋 Se aplicará el template vigente: <span>${totalActs} actividades</span> · <span>${totalDays} días est.</span> · <span>${tpl.brandingPoints.total} BP</span>${tpl.includeNaming?' · <span>incluye Naming</span>':''}`;
   }
   // Set naming toggle and BP from template defaults
   const namingDefault = appData.template?.includeNaming !== false;
@@ -5563,7 +5570,7 @@ function openEditBrandModal(){
   document.getElementById('img-preview').style.display='none';
   document.getElementById('upload-placeholder').style.display='';
   document.getElementById('btn-save').disabled=false;
-  document.getElementById('tpl-preview-box').innerHTML='';
+  (document.getElementById('tpl-preview-box')||{innerHTML:''}).innerHTML='';
   document.getElementById('modal-naming-row').style.display='none';
   document.getElementById('modal-bp-row').style.display='none';
   const e=document.getElementById('modal-err');e.style.display='none';e.textContent='';
@@ -5599,7 +5606,7 @@ function updateModalPreview(){
   const totalDays=acts.reduce((s,a)=>s+a.days,0);
   const w=Math.floor(totalDays/7),d=totalDays%7;
   const bpVal=parseInt(document.getElementById('input-bp-total').value)||15;
-  document.getElementById('tpl-preview-box').innerHTML=
+  (document.getElementById('tpl-preview-box')||{innerHTML:''}).innerHTML=
     '📋 Template: <span>'+totalActs+' actividades</span> · '+
     '<span>'+(w>0?w+' sem. ':'')+(d>0?d+'d ':'')+' ('+totalDays+'d)</span> · '+
     '<span>'+bpVal+' BP asignados</span> · '+
@@ -5816,7 +5823,7 @@ function renderTplSummary(){
     return`<span class="crono-sum-chip" style="color:${SCV[s].color}">${SCV[s].emoji} ${d}d</span>`;
   }).join('<span class="crono-sum-sep">·</span>');
   const w=Math.floor(total/7),d=total%7;
-  document.getElementById('tpl-crono-summary').innerHTML=`${chips}<span class="crono-sum-total">⏱ ${w>0?w+' sem. ':''}${d>0?d+'d ':''}<span style="color:var(--text3)">${total} días en total</span></span>`;
+  (document.getElementById('tpl-crono-summary')||{innerHTML:''}).innerHTML=`${chips}<span class="crono-sum-total">⏱ ${w>0?w+' sem. ':''}${d>0?d+'d ':''}<span style="color:var(--text3)">${total} días en total</span></span>`;
 }
 
 function tplToggleHito(stage,id){const a=appData.template.cronograma[stage].find(x=>x.id===id);if(a)a.isHito=!a.isHito;renderTplStage(stage);renderTplSummary();}
@@ -5865,7 +5872,7 @@ function renderTplBpCats(){
   document.getElementById('bp-stat-used').textContent=used;
   document.getElementById('bp-stat-left').textContent=left;
   document.getElementById('bp-bar').style.width=total>0?Math.min(100,used/total*100)+'%':'0%';
-  document.getElementById('bp-cats').innerHTML=bp.categories.map((cat,ci)=>`
+  (document.getElementById('bp-cats')||{innerHTML:''}).innerHTML=bp.categories.map((cat,ci)=>`
     <div class="bp-cat">
       <div class="bp-cat-head">
         <div style="display:flex;align-items:center;gap:0.5rem;flex:1" onclick="tplToggleBpCat(${ci})">
@@ -6040,7 +6047,7 @@ function renderDomosGrid(){
 function renderMemberProfile(){
   const m = (appData.members||[]).find(x=>x.id===currentMemberId);
   if(!m){ goTo('equipo'); return; }
-  document.getElementById('header-title').textContent = m.apodo||m.nombre;
+  (document.getElementById('header-title')||{}).textContent = m.apodo||m.nombre;
 
   // Avatar
   const av = document.getElementById('mprofile-avatar');
@@ -6049,7 +6056,7 @@ function renderMemberProfile(){
   // Info
   document.getElementById('mprofile-apodo').textContent = m.apodo||m.nombre;
   document.getElementById('mprofile-name').textContent = m.apodo ? m.nombre : '';
-  document.getElementById('mprofile-meta').innerHTML = `
+  (document.getElementById('mprofile-meta')||{innerHTML:''}).innerHTML = `
     ${m.cargo?`<span class="member-area-pill">${m.cargo}</span>`:''}
     ${m.area?`<span class="member-area-pill">${getAreaEmoji(m.area)} ${m.area}</span>`:''}
   `;
@@ -6103,7 +6110,7 @@ function renderMemberWeek(){
   document.getElementById('week-range-label').textContent =
     fmtDateDisplay(fmtDate(days[0])) + ' – ' + fmtDateDisplay(fmtDate(days[4]));
 
-  document.getElementById('mweek-content').innerHTML = days.map((d,i)=>{
+  (document.getElementById('mweek-content')||{innerHTML:''}).innerHTML = days.map((d,i)=>{
     const ds = fmtDate(d);
     const dayHitos = hitos.filter(h=>h.date===ds);
     return `<div class="week-day ${ds===todayStr?'today':''}">
@@ -6154,7 +6161,7 @@ function renderMemberMonth(){
     </div>`;
   }
 
-  document.getElementById('mmonth-content').innerHTML = html;
+  (document.getElementById('mmonth-content')||{innerHTML:''}).innerHTML = html;
 }
 
 
@@ -6198,7 +6205,7 @@ function onMemberPhotoChange(e){
   r.onload=ev=>{
     memberPhotoB64=ev.target.result;
     document.getElementById('m-photo-b64').value=memberPhotoB64;
-    document.getElementById('m-avatar-preview').innerHTML=`<img src="${memberPhotoB64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    (document.getElementById('m-avatar-preview')||{innerHTML:''}).innerHTML=`<img src="${memberPhotoB64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
   };
   r.readAsDataURL(f);
 }
@@ -6250,7 +6257,7 @@ function openMemberModal(){
   document.getElementById('m-nombre').value = '';
   document.getElementById('m-cargo').value = '';
   document.getElementById('m-apodo').value = '';
-  document.getElementById('m-avatar-preview').innerHTML = '👤';
+  (document.getElementById('m-avatar-preview')||{innerHTML:''}).innerHTML = '👤';
   document.getElementById('modal-member-err').textContent = '';
   renderMemberEmojiGrid();
   renderMemberAreaGrid('');
@@ -6270,7 +6277,7 @@ function openEditMemberModal(){
   document.getElementById('m-nombre').value = m.nombre || '';
   document.getElementById('m-cargo').value = m.cargo || '';
   document.getElementById('m-apodo').value = m.apodo || '';
-  document.getElementById('m-avatar-preview').innerHTML = m.photo
+  (document.getElementById('m-avatar-preview')||{innerHTML:''}).innerHTML = m.photo
     ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
     : (m.emoji || '👤');
   document.getElementById('modal-member-err').textContent = '';
@@ -6286,7 +6293,7 @@ function closeMemberModal(){
 
 function clearMemberPhoto(){
   memberPhotoB64 = null;
-  document.getElementById('m-avatar-preview').innerHTML = memberEmojiVal || '👤';
+  (document.getElementById('m-avatar-preview')||{innerHTML:''}).innerHTML = memberEmojiVal || '👤';
 }
 
 function previewMemberPhoto(e){
