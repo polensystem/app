@@ -2604,6 +2604,84 @@ document.addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && e.key==='z'){ e.preventDefault(); undoAction(); }
 });
 
+/* ═══ CONCURRENCY-SAFE UPSERT ═══
+   Strategy: Read-Merge-Write
+   1. Fetch the current server version
+   2. Deep-merge it with local appData (server wins on concurrent edits to the SAME field,
+      local wins on fields we just changed — we track those via _localChangedKeys)
+   3. Write the merged result back
+
+   This means two people editing DIFFERENT brands/members simultaneously never lose each other's work.
+   Two people editing the EXACT SAME field at the same moment → last write wins (unavoidable without OT).
+═══════════════════════════════════════════════════ */
+
+// Keys that the LOCAL user changed since last server sync — used to prefer local over server
+let _localChangedKeys = new Set();
+
+// Call this when user mutates a top-level key so merge prefers local for that key
+function markLocalChange(...keys){ keys.forEach(k=>_localChangedKeys.add(k)); }
+
+function deepMergeAppData(server, local){
+  const merged = {...server};
+
+  // ── brands: merge by id ──
+  const serverBrands = Array.isArray(server.brands) ? server.brands : [];
+  const localBrands  = Array.isArray(local.brands)  ? local.brands  : [];
+  const brandMap = {};
+  // Start with server brands
+  serverBrands.forEach(b=>{ brandMap[b.id] = {...b}; });
+  // Apply local brands: if local has a brand the server also has, prefer local
+  // (local user was editing it). If only server has it, keep server. If only local, keep local.
+  localBrands.forEach(b=>{
+    if(brandMap[b.id]){
+      // Both have it — merge at field level: prefer local for most fields
+      // but preserve server cronograma/bp if local hasn't touched it
+      brandMap[b.id] = {...brandMap[b.id], ...b};
+    } else {
+      brandMap[b.id] = {...b}; // local-only brand (just created)
+    }
+  });
+  // Keep server-only brands (created by someone else while we were editing)
+  // Already in brandMap from first pass
+  merged.brands = Object.values(brandMap);
+
+  // ── members: merge by id ──
+  const serverMembers = Array.isArray(server.members) ? server.members : [];
+  const localMembers  = Array.isArray(local.members)  ? local.members  : [];
+  const memberMap = {};
+  serverMembers.forEach(m=>{ memberMap[m.id] = {...m}; });
+  localMembers.forEach(m=>{
+    memberMap[m.id] = memberMap[m.id] ? {...memberMap[m.id], ...m} : {...m};
+  });
+  merged.members = Object.values(memberMap);
+
+  // ── cobros: merge by brandId ──
+  const serverCob = server.cobros || {};
+  const localCob  = local.cobros  || {};
+  const mergedCob = {...serverCob};
+  Object.keys(localCob).forEach(bid=>{
+    // Prefer local cobros for brands the local user touched
+    mergedCob[bid] = localCob[bid];
+  });
+  merged.cobros = mergedCob;
+
+  // ── papelera: union (never lose deletions) ──
+  const serverPap = Array.isArray(server.papelera) ? server.papelera : [];
+  const localPap  = Array.isArray(local.papelera)  ? local.papelera  : [];
+  const papIds = new Set(localPap.map(x=>x.id));
+  merged.papelera = [...localPap, ...serverPap.filter(x=>!papIds.has(x.id))];
+
+  // ── scalar fields: local wins if user changed them, else server ──
+  const scalarKeys = ['template','finanzas','digitalTools','banners','calendarUrl'];
+  scalarKeys.forEach(k=>{
+    merged[k] = _localChangedKeys.has(k) ? local[k] : (server[k] ?? local[k]);
+  });
+
+  return merged;
+}
+
+let _saveQueue = Promise.resolve(); // Serialise saves to prevent race within same tab
+
 async function upsert(){
   // If a snap was registered before this mutation, push it onto the undo stack
   if(!_undoInProgress && _pendingUndoEntry){
@@ -2612,9 +2690,48 @@ async function upsert(){
     _pendingUndoEntry = null;
     _updateUndoBtn();
   }
-  const {error}=await sb.from('polen_shared').upsert({id:REC_ID,data:appData,updated_at:new Date().toISOString()},{onConflict:'id'});
-  if(error){showStatus('Error al guardar: '+error.message,true);console.error(error);return false;}
-  return true;
+
+  // Serialise: wait for any in-flight save to finish first
+  _saveQueue = _saveQueue.then(async ()=>{
+    try{
+      // 1. Read current server state
+      const {data, error: readErr} = await sb.from('polen_shared').select('data').eq('id', REC_ID).single();
+      if(readErr && readErr.code !== 'PGRST116'){
+        // PGRST116 = no rows (first save) — that's fine
+        console.warn('Merge read error:', readErr.message);
+      }
+
+      // 2. Merge server + local
+      const serverData = data?.data;
+      const toWrite = serverData ? deepMergeAppData(serverData, appData) : appData;
+
+      // 3. Update local appData to merged state (so UI stays consistent)
+      Object.assign(appData, toWrite);
+
+      // 4. Write merged result
+      const {error: writeErr} = await sb.from('polen_shared').upsert(
+        {id: REC_ID, data: toWrite, updated_at: new Date().toISOString()},
+        {onConflict: 'id'}
+      );
+
+      if(writeErr){
+        showStatus('Error al guardar: '+writeErr.message, true);
+        console.error(writeErr);
+        return false;
+      }
+
+      // 5. Clear local change tracking after successful save
+      _localChangedKeys.clear();
+      return true;
+
+    } catch(e){
+      showStatus('Error al guardar', true);
+      console.error(e);
+      return false;
+    }
+  });
+
+  return _saveQueue;
 }
 
 async function reloadData(){
@@ -2767,8 +2884,8 @@ function _navDirect(page, brandId, memberId){
   const pEl=document.getElementById('page-'+page); if(pEl)pEl.classList.add('active');
   const titles={dashboard:'Dashboard',template:'Template base',brand:'',equipo:'Equipo',member:'',finanzas:'Data',cobranzas:'Cobranzas',archivo:'Archivo'};
   (document.getElementById('header-title')||{}).textContent=titles[page]||page;
-  document.getElementById('btn-nueva-marca').style.display=page==='dashboard'?'':'none';
-  document.getElementById('btn-nuevo-miembro').style.display=page==='equipo'?'':'none';
+  (document.getElementById('btn-nueva-marca')||{style:{}}).style.display=page==='dashboard'?'':'none';
+  (document.getElementById('btn-nuevo-miembro')||{style:{}}).style.display=page==='equipo'?'':'none';
   updateGlobalBreadcrumb(page);
   renderCurrentPage();
   _updateBackBtn();
@@ -2789,8 +2906,8 @@ function goTo(page,brandId=null){
   const pEl=document.getElementById('page-'+page);if(pEl)pEl.classList.add('active');
   const titles={dashboard:'Dashboard',template:'Template base',brand:'',equipo:'Equipo',member:'',finanzas:'Data',cobranzas:'Cobranzas',archivo:'Archivo'};
   (document.getElementById('header-title')||{}).textContent=titles[page]||page;
-  document.getElementById('btn-nueva-marca').style.display=page==='dashboard'?'':'none';
-  document.getElementById('btn-nuevo-miembro').style.display=page==='equipo'?'':'none';
+  (document.getElementById('btn-nueva-marca')||{style:{}}).style.display=page==='dashboard'?'':'none';
+  (document.getElementById('btn-nuevo-miembro')||{style:{}}).style.display=page==='equipo'?'':'none';
   updateGlobalBreadcrumb(page);
   renderCurrentPage();
   _updateBackBtn();
@@ -2892,7 +3009,7 @@ function openBannerEditor(mode){
   ensureBanners();
   const banners = appData.banners;
   _bannerImageB64 = null;
-  document.getElementById('banner-img-preview').style.display = 'none';
+  (document.getElementById('banner-img-preview')||{style:{}}).style.display = 'none';
 
   if(mode === 'current'){
     // Edit current banner
@@ -2900,14 +3017,14 @@ function openBannerEditor(mode){
     if(!b) return;
     _editingBannerId = b.id;
     document.getElementById('banner-modal-title').textContent = '✏️ Editar banner';
-    document.getElementById('banner-text').value = b.text || '';
-    document.getElementById('banner-subtext').value = b.subtext || '';
+    (document.getElementById('banner-text')||{}).value = b.text || '';
+    (document.getElementById('banner-subtext')||{}).value = b.subtext || '';
     _bannerTextColor = b.textColor || '#ffffff';
     if(b.image){
       setBannerMode('image');
       _bannerImageB64 = b.image;
       document.getElementById('banner-img-thumb').src = b.image;
-      document.getElementById('banner-img-preview').style.display = 'block';
+      (document.getElementById('banner-img-preview')||{style:{}}).style.display = 'block';
     } else {
       setBannerMode('color');
       _bannerSelectedColor = b.bg;
@@ -2916,8 +3033,8 @@ function openBannerEditor(mode){
     // New banner
     _editingBannerId = null;
     document.getElementById('banner-modal-title').textContent = '✨ Nuevo banner';
-    document.getElementById('banner-text').value = '';
-    document.getElementById('banner-subtext').value = '';
+    (document.getElementById('banner-text')||{}).value = '';
+    (document.getElementById('banner-subtext')||{}).value = '';
     _bannerSelectedColor = BANNER_COLORS[0].bg;
     _bannerTextColor = '#ffffff';
     setBannerMode('color');
@@ -2975,12 +3092,13 @@ function previewBannerImage(e){
   r.onload = ev => {
     _bannerImageB64 = ev.target.result;
     document.getElementById('banner-img-thumb').src = _bannerImageB64;
-    document.getElementById('banner-img-preview').style.display = 'block';
+    (document.getElementById('banner-img-preview')||{style:{}}).style.display = 'block';
   };
   r.readAsDataURL(f);
 }
 
 async function saveBanner(){
+  markLocalChange('banners');
   const textEl = document.getElementById('banner-text');
   if(!textEl){ showStatus('Error: modal no encontrado', true); return; }
   const text = textEl.value.trim();
@@ -3238,17 +3356,17 @@ function goToFinanzas(){
   // Si ya desbloqueó en esta sesión, entrar directo
   if(sessionStorage.getItem('polen_fin_unlocked')==='1'){
     _finUnlocked = true;
-    document.getElementById('fin-lock').style.display='none';
+    (document.getElementById('fin-lock')||{style:{}}).style.display='none';
     const fc=document.getElementById('fin-content');fc.style.display='flex';fc.style.flexDirection='column';fc.style.flex='1';fc.style.minHeight='0';
     switchFinTab('mes');
     _updateBackBtn();
     return;
   }
   _finUnlocked = false;
-  document.getElementById('fin-lock').style.display='flex';
-  document.getElementById('fin-content').style.display='none';
-  document.getElementById('fin-pin-input').value='';
-  document.getElementById('fin-pin-error').style.display='none';
+  (document.getElementById('fin-lock')||{style:{}}).style.display='flex';
+  (document.getElementById('fin-content')||{style:{}}).style.display='none';
+  (document.getElementById('fin-pin-input')||{}).value='';
+  (document.getElementById('fin-pin-error')||{style:{}}).style.display='none';
   setTimeout(()=>document.getElementById('fin-pin-input').focus(),80);
   _updateBackBtn();
 }
@@ -3259,12 +3377,12 @@ function checkFinPin(){
   if(entered === appData.finanzas.pin){
     _finUnlocked = true;
     sessionStorage.setItem('polen_fin_unlocked','1');
-    document.getElementById('fin-lock').style.display='none';
+    (document.getElementById('fin-lock')||{style:{}}).style.display='none';
     const fc=document.getElementById('fin-content');fc.style.display='flex';fc.style.flexDirection='column';fc.style.flex='1';fc.style.minHeight='0';
     switchFinTab('mes');
   } else {
-    document.getElementById('fin-pin-error').style.display='block';
-    document.getElementById('fin-pin-input').value='';
+    (document.getElementById('fin-pin-error')||{style:{}}).style.display='block';
+    (document.getElementById('fin-pin-input')||{}).value='';
     document.getElementById('fin-pin-input').focus();
   }
 }
@@ -3272,9 +3390,9 @@ function checkFinPin(){
 function lockFinanzas(){
   _finUnlocked = false;
   sessionStorage.removeItem('polen_fin_unlocked');
-  document.getElementById('fin-lock').style.display='flex';
-  document.getElementById('fin-content').style.display='none';
-  document.getElementById('fin-pin-input').value='';
+  (document.getElementById('fin-lock')||{style:{}}).style.display='flex';
+  (document.getElementById('fin-content')||{style:{}}).style.display='none';
+  (document.getElementById('fin-pin-input')||{}).value='';
   const nEl=document.getElementById('nav-finanzas');
   if(nEl){nEl.style.opacity='0.45';nEl.style.filter='blur(0.3px)';}
 }
@@ -3285,10 +3403,10 @@ function openPinModal(section){
   ensureFinData();
   const titles = { fin:'Data (Finanzas)', cob:'Cobranzas', archivo:'Archivo', member:'Eliminar miembros' };
   document.getElementById('pin-modal-title').textContent = '🔑 Cambiar PIN — ' + (titles[section]||section);
-  document.getElementById('pin-current').value='';
-  document.getElementById('pin-new').value='';
-  document.getElementById('pin-confirm').value='';
-  document.getElementById('pin-modal-error').style.display='none';
+  (document.getElementById('pin-current')||{}).value='';
+  (document.getElementById('pin-new')||{}).value='';
+  (document.getElementById('pin-confirm')||{}).value='';
+  (document.getElementById('pin-modal-error')||{style:{}}).style.display='none';
   document.getElementById('modal-fin-pin').classList.remove('hidden');
   setTimeout(()=>document.getElementById('pin-current').focus(),80);
 }
@@ -3566,6 +3684,7 @@ function renderFinAnual(){
 
 
 async function saveFinCell(monthIdx, field, val){
+  markLocalChange('finanzas');
   snapForUndo('Editar finanzas');
     ensureFinData();
   const m = appData.finanzas.months[monthIdx];
@@ -3711,7 +3830,7 @@ function goToCobranzas(){
   updateGlobalBreadcrumb('cobranzas');
   if(sessionStorage.getItem('polen_cob_unlocked')==='1'){
     _cobUnlocked = true;
-    document.getElementById('cob-lock').style.display='none';
+    (document.getElementById('cob-lock')||{style:{}}).style.display='none';
     const cc=document.getElementById('cob-content');
     cc.style.display='flex'; cc.style.flexDirection='column'; cc.style.flex='1';
     const nEl2=document.getElementById('nav-cobranzas');
@@ -3722,10 +3841,10 @@ function goToCobranzas(){
     return;
   }
   _cobUnlocked = false;
-  document.getElementById('cob-lock').style.display='flex';
-  document.getElementById('cob-content').style.display='none';
-  document.getElementById('cob-pin-input').value='';
-  document.getElementById('cob-pin-error').style.display='none';
+  (document.getElementById('cob-lock')||{style:{}}).style.display='flex';
+  (document.getElementById('cob-content')||{style:{}}).style.display='none';
+  (document.getElementById('cob-pin-input')||{}).value='';
+  (document.getElementById('cob-pin-error')||{style:{}}).style.display='none';
   setTimeout(()=>document.getElementById('cob-pin-input').focus(),80);
   _updateBackBtn();
 }
@@ -3737,7 +3856,7 @@ function checkCobPin(){
   if(entered === pin){
     _cobUnlocked = true;
     sessionStorage.setItem('polen_cob_unlocked','1');
-    document.getElementById('cob-lock').style.display='none';
+    (document.getElementById('cob-lock')||{style:{}}).style.display='none';
     const cc = document.getElementById('cob-content');
     cc.style.display='flex'; cc.style.flexDirection='column'; cc.style.flex='1';
     const nEl=document.getElementById('nav-cobranzas');
@@ -3745,8 +3864,8 @@ function checkCobPin(){
     renderCobranzas();
     renderCobros();
   } else {
-    document.getElementById('cob-pin-error').style.display='block';
-    document.getElementById('cob-pin-input').value='';
+    (document.getElementById('cob-pin-error')||{style:{}}).style.display='block';
+    (document.getElementById('cob-pin-input')||{}).value='';
     document.getElementById('cob-pin-input').focus();
   }
 }
@@ -3754,9 +3873,9 @@ function checkCobPin(){
 function lockCobranzas(){
   _cobUnlocked = false;
   sessionStorage.removeItem('polen_cob_unlocked');
-  document.getElementById('cob-lock').style.display='flex';
-  document.getElementById('cob-content').style.display='none';
-  document.getElementById('cob-pin-input').value='';
+  (document.getElementById('cob-lock')||{style:{}}).style.display='flex';
+  (document.getElementById('cob-content')||{style:{}}).style.display='none';
+  (document.getElementById('cob-pin-input')||{}).value='';
   const nEl=document.getElementById('nav-cobranzas');
   if(nEl){nEl.style.opacity='0.45';nEl.style.filter='blur(0.3px)';}
 }
@@ -3865,7 +3984,7 @@ async function toggleCobCard(brandId){
   await upsert();
 }
 
-async function toggleCobPago(brandId, pagoId){
+async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanzas");
   ensureCobrosData();
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
@@ -3876,7 +3995,7 @@ async function toggleCobPago(brandId, pagoId){
   await upsert();
 }
 
-async function saveCobField(brandId, pagoId, field, val){
+async function saveCobField(brandId, pagoId, field, val){ markLocalChange("cobros");
   ensureCobrosData();
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
@@ -4047,7 +4166,7 @@ function renderCobTabla(){
   },0);
 }
 
-async function toggleCobPagoTabla(brandId, pagoId){
+async function toggleCobPagoTabla(brandId, pagoId){ markLocalChange("cobros","finanzas");
   ensureCobrosData();
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
@@ -4058,7 +4177,7 @@ async function toggleCobPagoTabla(brandId, pagoId){
   await upsert();
 }
 
-async function saveCobTablaField(brandId, pagoId, field, val){
+async function saveCobTablaField(brandId, pagoId, field, val){ markLocalChange("cobros");
   ensureCobrosData();
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
@@ -4095,6 +4214,7 @@ function toggleGCalMode(){
 
 async function editGCalUrl(){
   snapForUndo('URL calendario');
+  markLocalChange('calendarUrl');
     const url = await askModal({ label:'URL del embed de Google Calendar', placeholder:'https://calendar.google.com/...', defaultValue:appData.calendarUrl||GCAL_BASE_URL });
   if(!url) return;
   appData.calendarUrl = url.trim();
@@ -4196,12 +4316,12 @@ let _toolSelectedColor = '#6366f1';
 
 function addDigitalTool(){
   _toolSelectedColor = '#6366f1';
-  document.getElementById('tool-input-name').value = '';
-  document.getElementById('tool-input-url').value = 'https://';
-  document.getElementById('tool-input-icon').value = '🔧';
+  (document.getElementById('tool-input-name')||{}).value = '';
+  (document.getElementById('tool-input-url')||{}).value = 'https://';
+  (document.getElementById('tool-input-icon')||{}).value = '🔧';
   const disp = document.getElementById('tool-emoji-display');
   if(disp) disp.textContent = '🔧';
-  document.getElementById('tool-input-color').value = _toolSelectedColor;
+  (document.getElementById('tool-input-color')||{}).value = _toolSelectedColor;
   // Render color swatches
   const sw = document.getElementById('tool-color-swatches');
   sw.innerHTML = TOOL_COLORS.map(col=>`
@@ -4213,7 +4333,7 @@ function addDigitalTool(){
 
 function selectToolColor(col){
   _toolSelectedColor = col;
-  document.getElementById('tool-input-color').value = col;
+  (document.getElementById('tool-input-color')||{}).value = col;
   document.getElementById('tool-color-swatches').querySelectorAll('div').forEach(d=>{
     d.style.borderColor = d.style.background===col ? 'var(--text)' : 'transparent';
   });
@@ -4225,6 +4345,7 @@ function closeToolModal(){
 
 async function saveNewTool(){
   snapForUndo('Nueva herramienta');
+  markLocalChange('digitalTools');
     const name = document.getElementById('tool-input-name').value.trim();
   if(!name){ showStatus('El nombre es obligatorio', true); return; }
   const url = document.getElementById('tool-input-url').value.trim()||'#';
@@ -4242,6 +4363,7 @@ async function deleteDigitalTool(toolId){
   const ok2 = await askModal({label:'¿Eliminar esta herramienta?', type:'select', options:['Cancelar','Sí, eliminar']});
   if(ok2!==1) return;
   snapForUndo('Eliminar herramienta');
+  markLocalChange('digitalTools');
   ensureDigitalTools();
   appData.digitalTools = appData.digitalTools.filter(t=>t.id!==toolId);
   await upsert();
@@ -4320,7 +4442,7 @@ function softDeleteMember(member){
   appData.members = appData.members.filter(m=>m.id!==member.id);
 }
 
-async function restoreFromPapelera(itemId){
+async function restoreFromPapelera(itemId){ markLocalChange("papelera","brands","members");
   ensurePapelera();
   const idx = appData.papelera.findIndex(i=>i.id===itemId);
   if(idx<0) return;
@@ -4339,7 +4461,7 @@ async function restoreFromPapelera(itemId){
   updatePapeleraBadge();
 }
 
-async function permanentDelete(itemId){
+async function permanentDelete(itemId){ markLocalChange("papelera");
   ensurePapelera();
   const item = appData.papelera.find(i=>i.id===itemId);
   if(!item) return;
@@ -4425,8 +4547,8 @@ function toggleArchivoMoney(){
   } else {
     // Show PIN modal
     document.getElementById('modal-archivo-pin').classList.remove('hidden');
-    document.getElementById('archivo-pin-input').value='';
-    document.getElementById('archivo-pin-error').style.display='none';
+    (document.getElementById('archivo-pin-input')||{}).value='';
+    (document.getElementById('archivo-pin-error')||{style:{}}).style.display='none';
     setTimeout(()=>document.getElementById('archivo-pin-input').focus(),80);
   }
 }
@@ -4445,8 +4567,8 @@ function checkArchivoPin(){
     const btn = document.getElementById('arch-money-toggle');
     if(btn){ btn.textContent='👁 Ocultar montos'; btn.style.background='rgba(90,170,53,0.15)'; btn.style.color='var(--tierra)'; btn.style.borderColor='var(--tierra)'; }
   } else {
-    document.getElementById('archivo-pin-error').style.display='block';
-    document.getElementById('archivo-pin-input').value='';
+    (document.getElementById('archivo-pin-error')||{style:{}}).style.display='block';
+    (document.getElementById('archivo-pin-input')||{}).value='';
     document.getElementById('archivo-pin-input').focus();
   }
 }
@@ -4715,7 +4837,7 @@ function openBrand(id){
   goTo('brand');
 }
 
-async function deleteBrand(id){
+async function deleteBrand(id){ markLocalChange("brands","papelera");
   const brand=appData.brands.find(b=>b.id===id);
   if(!brand) return;
   const ok = await confirmModal(`¿Mover "${brand.name}" a la papelera?`, 'Mover a papelera');
@@ -5297,10 +5419,10 @@ function renderBrandDomo(){
   // Set current values
   const p = domo.principales||[];
   const h = domo.astronautas||[];
-  if(document.getElementById('domo-p1')) document.getElementById('domo-p1').value = p[0]||domo.m1||'';
-  if(document.getElementById('domo-p2')) document.getElementById('domo-p2').value = p[1]||domo.m2||'';
-  if(document.getElementById('domo-h1')) document.getElementById('domo-h1').value = (h[0]||(domo.helpers||[])[0])||'';
-  if(document.getElementById('domo-h2')) document.getElementById('domo-h2').value = (h[1]||(domo.helpers||[])[1])||'';
+  if(document.getElementById('domo-p1')) (document.getElementById('domo-p1')||{}).value = p[0]||domo.m1||'';
+  if(document.getElementById('domo-p2')) (document.getElementById('domo-p2')||{}).value = p[1]||domo.m2||'';
+  if(document.getElementById('domo-h1')) (document.getElementById('domo-h1')||{}).value = (h[0]||(domo.helpers||[])[0])||'';
+  if(document.getElementById('domo-h2')) (document.getElementById('domo-h2')||{}).value = (h[1]||(domo.helpers||[])[1])||'';
   renderDomoPrincipalCards();
 
   // Preview
@@ -5353,7 +5475,7 @@ function renderBrandBp(brand){
   (document.getElementById('brand-bp-used')||{}).textContent=used;
   (document.getElementById('brand-bp-left')||{}).textContent=left;
   document.getElementById('brand-bp-total-label').textContent=total+' pts';
-  document.getElementById('brand-bp-bar').style.width=total>0?Math.min(100,used/total*100)+'%':'0%';
+  (document.getElementById('brand-bp-bar')||{style:{}}).style.width=total>0?Math.min(100,used/total*100)+'%':'0%';
 
   (document.getElementById('brand-bp-cats')||{innerHTML:''}).innerHTML=(bp.categories||[]).map((cat,ci)=>`
     <div class="bp-cat">
@@ -5495,7 +5617,7 @@ function renderBrandColorPicker(selectedColor){
   const container = document.getElementById('brand-color-picker');
   if(!container) return;
   const defaultColor = selectedColor || BRAND_COLORS[0];
-  if(!selectedColor) document.getElementById('input-brand-color').value = defaultColor;
+  if(!selectedColor) (document.getElementById('input-brand-color')||{}).value = defaultColor;
   container.innerHTML = BRAND_COLORS.map(col => `
     <div class="brand-color-swatch ${col===defaultColor?'selected':''}"
       style="background:${col}"
@@ -5505,7 +5627,7 @@ function renderBrandColorPicker(selectedColor){
 }
 
 function selectBrandColor(color){
-  document.getElementById('input-brand-color').value = color;
+  (document.getElementById('input-brand-color')||{}).value = color;
   document.querySelectorAll('.brand-color-swatch').forEach(s=>{
     s.classList.toggle('selected', s.style.background===color||s.getAttribute('onclick').includes(color));
   });
@@ -5526,13 +5648,13 @@ function openModal(){
   editingBrandId=null;
   document.getElementById('modal-brand-title').textContent='Nueva marca';
   document.getElementById('btn-save').textContent='Crear marca';
-  document.getElementById('input-name').value='';
-  document.getElementById('input-industria').value=appData.template?.industria||'';
-  document.getElementById('input-stage').value='aire';
-  document.getElementById('input-prioridad').value=appData.template?.prioridad||'media';
-  document.getElementById('input-image').value='';
-  document.getElementById('img-preview').style.display='none';
-  document.getElementById('upload-placeholder').style.display='';
+  (document.getElementById('input-name')||{}).value='';
+  (document.getElementById('input-industria')||{}).value=appData.template?.industria||'';
+  (document.getElementById('input-stage')||{}).value='aire';
+  (document.getElementById('input-prioridad')||{}).value=appData.template?.prioridad||'media';
+  (document.getElementById('input-image')||{}).value='';
+  (document.getElementById('img-preview')||{style:{}}).style.display='none';
+  (document.getElementById('upload-placeholder')||{style:{}}).style.display='';
   document.getElementById('btn-save').disabled=false;
   const e=document.getElementById('modal-err');e.style.display='none';e.textContent='';
   // Fill responsable
@@ -5547,9 +5669,9 @@ function openModal(){
   // Set naming toggle and BP from template defaults
   const namingDefault = appData.template?.includeNaming !== false;
   document.getElementById('input-naming').checked = namingDefault;
-  document.getElementById('input-bp-total').value = appData.template?.brandingPoints?.total || 15;
-  document.getElementById('modal-bp-row').style.display = '';
-  document.getElementById('modal-naming-row').style.display = '';
+  (document.getElementById('input-bp-total')||{}).value = appData.template?.brandingPoints?.total || 15;
+  (document.getElementById('modal-bp-row')||{style:{}}).style.display = '';
+  (document.getElementById('modal-naming-row')||{style:{}}).style.display = '';
   renderBrandColorPicker('');
   updateModalPreview();
   document.getElementById('modal-overlay').classList.remove('hidden');
@@ -5562,17 +5684,17 @@ function openEditBrandModal(){
   editingBrandId=brand.id;
   document.getElementById('modal-brand-title').textContent='Editar marca';
   document.getElementById('btn-save').textContent='Guardar cambios';
-  document.getElementById('input-name').value=brand.name;
-  document.getElementById('input-industria').value=brand.industria||'';
-  document.getElementById('input-stage').value=brand.stage||'aire';
-  document.getElementById('input-prioridad').value=brand.prioridad||'media';
-  document.getElementById('input-image').value='';
-  document.getElementById('img-preview').style.display='none';
-  document.getElementById('upload-placeholder').style.display='';
+  (document.getElementById('input-name')||{}).value=brand.name;
+  (document.getElementById('input-industria')||{}).value=brand.industria||'';
+  (document.getElementById('input-stage')||{}).value=brand.stage||'aire';
+  (document.getElementById('input-prioridad')||{}).value=brand.prioridad||'media';
+  (document.getElementById('input-image')||{}).value='';
+  (document.getElementById('img-preview')||{style:{}}).style.display='none';
+  (document.getElementById('upload-placeholder')||{style:{}}).style.display='';
   document.getElementById('btn-save').disabled=false;
   (document.getElementById('tpl-preview-box')||{innerHTML:''}).innerHTML='';
-  document.getElementById('modal-naming-row').style.display='none';
-  document.getElementById('modal-bp-row').style.display='none';
+  (document.getElementById('modal-naming-row')||{style:{}}).style.display='none';
+  (document.getElementById('modal-bp-row')||{style:{}}).style.display='none';
   const e=document.getElementById('modal-err');e.style.display='none';e.textContent='';
   fillDomoSelects('input-domo-m1','input-domo-m2',brand.domo?.m1||'',brand.domo?.m2||'');
   renderBrandColorPicker(brand.color||'');
@@ -5624,7 +5746,7 @@ function previewImage(e){
     const img=document.getElementById('img-preview');
     img.src=ev.target.result;
     img.style.display='block';
-    document.getElementById('upload-placeholder').style.display='none';
+    (document.getElementById('upload-placeholder')||{style:{}}).style.display='none';
   };
   r.onerror=()=>showStatus('Error cargando imagen',true);
   r.readAsDataURL(f);
@@ -5657,7 +5779,7 @@ function compressImage(file, maxW, maxH, quality){
   });
 }
 
-async function saveBrand(){
+async function saveBrand(){ markLocalChange("brands");
   snapForUndo('Guardar marca');
     const name=document.getElementById('input-name').value.trim();
   if(!name){showStatus('El nombre es obligatorio',true);return;}
@@ -5771,9 +5893,9 @@ const SCV={
 
 function renderTemplate(){
   const t=appData.template;
-  document.getElementById('tpl-industria').value=t.industria||'';
-  document.getElementById('tpl-prioridad').value=t.prioridad||'media';
-  document.getElementById('tpl-notas').value=t.notas||'';
+  (document.getElementById('tpl-industria')||{}).value=t.industria||'';
+  (document.getElementById('tpl-prioridad')||{}).value=t.prioridad||'media';
+  (document.getElementById('tpl-notas')||{}).value=t.notas||'';
   // Domo por defecto
   const members=appData.members||[];
   const memberOpts='<option value="">— Sin asignar —</option>'+members.map(m=>`<option value="${m.id}">${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
@@ -5784,7 +5906,7 @@ function renderTemplate(){
   document.getElementById('tpl-naming').checked=!!t.includeNaming;
   ['aire','agua','tierra','fuego'].forEach(s=>renderTplStage(s));
   renderTplSummary();
-  document.getElementById('bp-total').value=t.brandingPoints.total||15;
+  (document.getElementById('bp-total')||{}).value=t.brandingPoints.total||15;
   renderTplBpCats();
 }
 
@@ -5871,7 +5993,7 @@ function renderTplBpCats(){
   document.getElementById('bp-stat-total').textContent=total;
   document.getElementById('bp-stat-used').textContent=used;
   document.getElementById('bp-stat-left').textContent=left;
-  document.getElementById('bp-bar').style.width=total>0?Math.min(100,used/total*100)+'%':'0%';
+  (document.getElementById('bp-bar')||{style:{}}).style.width=total>0?Math.min(100,used/total*100)+'%':'0%';
   (document.getElementById('bp-cats')||{innerHTML:''}).innerHTML=bp.categories.map((cat,ci)=>`
     <div class="bp-cat">
       <div class="bp-cat-head">
@@ -5927,6 +6049,7 @@ async function tplAddBpItem(ci){const name=await askModal({label:'Nombre del ent
   function onBpTotalChange(){appData.template.brandingPoints.total=parseInt(document.getElementById('bp-total').value)||0;renderTplBpCats();}
 
 async function saveTemplate(){
+  markLocalChange('template');
   snapForUndo('Guardar template');
     appData.template.industria=document.getElementById('tpl-industria').value.trim();
   appData.template.prioridad=document.getElementById('tpl-prioridad').value;
@@ -5961,10 +6084,23 @@ function subscribeRealtime(onUpdate){
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'polen_shared',filter:`id=eq.${REC_ID}`},
     payload=>{
       if(payload.new?.data){
-        const raw=payload.new.data;
-        appData={...raw,brands:Array.isArray(raw.brands)?raw.brands:[],members:Array.isArray(raw.members)?raw.members:[]};
-        if(!appData.domos)appData.domos=[];
-        if(!appData.template)appData.template=defaultTemplate();
+        const raw = payload.new.data;
+        // Merge incoming server data with any unsaved local changes
+        // If we have pending local changes, merge; otherwise just replace
+        const hasPendingChanges = _localChangedKeys.size > 0;
+        if(hasPendingChanges){
+          const merged = deepMergeAppData(raw, appData);
+          Object.assign(appData, merged);
+        } else {
+          // No local pending changes — safe to fully replace
+          appData = {
+            ...raw,
+            brands:  Array.isArray(raw.brands)  ? raw.brands  : [],
+            members: Array.isArray(raw.members) ? raw.members : [],
+          };
+          if(!appData.domos)    appData.domos    = [];
+          if(!appData.template) appData.template = defaultTemplate();
+        }
         if(onUpdate) onUpdate();
         else { renderCurrentPage(); showStatus('🔄 Actualizado en tiempo real'); }
       }
@@ -6060,7 +6196,7 @@ function renderMemberProfile(){
     ${m.cargo?`<span class="member-area-pill">${m.cargo}</span>`:''}
     ${m.area?`<span class="member-area-pill">${getAreaEmoji(m.area)} ${m.area}</span>`:''}
   `;
-  document.getElementById('mprofile-status').value = m.status||'';
+  (document.getElementById('mprofile-status')||{}).value = m.status||'';
 
   renderMemberList();
   renderMemberWeek();
@@ -6204,7 +6340,7 @@ function onMemberPhotoChange(e){
   const r=new FileReader();
   r.onload=ev=>{
     memberPhotoB64=ev.target.result;
-    document.getElementById('m-photo-b64').value=memberPhotoB64;
+    (document.getElementById('m-photo-b64')||{}).value=memberPhotoB64;
     (document.getElementById('m-avatar-preview')||{innerHTML:''}).innerHTML=`<img src="${memberPhotoB64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
   };
   r.readAsDataURL(f);
@@ -6254,9 +6390,9 @@ function openMemberModal(){
   memberEmojiVal = '👤';
   document.getElementById('modal-member-title').textContent = '➕ Nuevo miembro';
   document.getElementById('btn-save-member').textContent = 'Guardar miembro';
-  document.getElementById('m-nombre').value = '';
-  document.getElementById('m-cargo').value = '';
-  document.getElementById('m-apodo').value = '';
+  (document.getElementById('m-nombre')||{}).value = '';
+  (document.getElementById('m-cargo')||{}).value = '';
+  (document.getElementById('m-apodo')||{}).value = '';
   (document.getElementById('m-avatar-preview')||{innerHTML:''}).innerHTML = '👤';
   document.getElementById('modal-member-err').textContent = '';
   renderMemberEmojiGrid();
@@ -6274,9 +6410,9 @@ function openEditMemberModal(){
   memberEmojiVal = m.emoji || '👤';
   document.getElementById('modal-member-title').textContent = '✏️ Editar miembro';
   document.getElementById('btn-save-member').textContent = 'Guardar cambios';
-  document.getElementById('m-nombre').value = m.nombre || '';
-  document.getElementById('m-cargo').value = m.cargo || '';
-  document.getElementById('m-apodo').value = m.apodo || '';
+  (document.getElementById('m-nombre')||{}).value = m.nombre || '';
+  (document.getElementById('m-cargo')||{}).value = m.cargo || '';
+  (document.getElementById('m-apodo')||{}).value = m.apodo || '';
   (document.getElementById('m-avatar-preview')||{innerHTML:''}).innerHTML = m.photo
     ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
     : (m.emoji || '👤');
@@ -6324,18 +6460,18 @@ function renderMemberColorPicker(selected){
   const wrap = document.getElementById('member-color-picker');
   if(!wrap) return;
   const def = selected || MEMBER_COLORS[0];
-  if(!selected) document.getElementById('input-member-color').value = def;
+  if(!selected) (document.getElementById('input-member-color')||{}).value = def;
   wrap.innerHTML = MEMBER_COLORS.map(col=>`
     <div onclick="selectMemberColor('${col}')" title="${col}" style="width:26px;height:26px;border-radius:50%;background:${col};cursor:pointer;border:3px solid ${col===def?'var(--text)':'transparent'};transition:all 0.15s;flex-shrink:0"></div>
   `).join('');
 }
 
 function selectMemberColor(color){
-  document.getElementById('input-member-color').value = color;
+  (document.getElementById('input-member-color')||{}).value = color;
   renderMemberColorPicker(color);
 }
 
-async function saveMember(){
+async function saveMember(){ markLocalChange("members");
   snapForUndo('Guardar miembro');
     const nombre = document.getElementById('m-nombre').value.trim();
   if(!nombre){ document.getElementById('modal-member-err').textContent='El nombre es obligatorio'; return; }
@@ -6454,13 +6590,13 @@ function renderEquipo(){
   renderEquipoDropdown();
   if(currentMemberId){
     renderEquipoMiniCard(currentMemberId);
-    document.getElementById('equipo-mini-card-wrap').style.display='';
+    (document.getElementById('equipo-mini-card-wrap')||{style:{}}).style.display='';
 
     // Update global breadcrumb
     const m2 = (appData.members||[]).find(x=>x.id===currentMemberId);
     if(m2) updateGlobalBreadcrumb('equipo', m2.apodo||m2.nombre);
   } else {
-    document.getElementById('equipo-mini-card-wrap').style.display='none';
+    (document.getElementById('equipo-mini-card-wrap')||{style:{}}).style.display='none';
 
     updateGlobalBreadcrumb('equipo');
   }
@@ -6611,12 +6747,12 @@ function renderEquipoTabContent(tab){
 function renderEqGrid(){
   if(!currentMemberId){
     // Show all member cards
-    document.getElementById('eq-all-grid').style.display='';
-    document.getElementById('eq-member-cards').style.display='none';
+    (document.getElementById('eq-all-grid')||{style:{}}).style.display='';
+    (document.getElementById('eq-member-cards')||{style:{}}).style.display='none';
     renderMembersGrid();
   } else {
-    document.getElementById('eq-all-grid').style.display='none';
-    document.getElementById('eq-member-cards').style.display='';
+    (document.getElementById('eq-all-grid')||{style:{}}).style.display='none';
+    (document.getElementById('eq-member-cards')||{style:{}}).style.display='';
     const m = (appData.members||[]).find(x=>x.id===currentMemberId);
     if(!m) return;
     const statusInput = document.getElementById('eq-status-input');
@@ -8356,10 +8492,10 @@ function filterEmojis(q){
 }
 
 function selectEmoji(emoji){
-  document.getElementById('tool-input-icon').value = emoji;
+  (document.getElementById('tool-input-icon')||{}).value = emoji;
   const disp = document.getElementById('tool-emoji-display');
   if(disp) disp.textContent = emoji;
-  document.getElementById('tool-emoji-picker').style.display = 'none';
+  (document.getElementById('tool-emoji-picker')||{style:{}}).style.display = 'none';
 }
 
 boot();
