@@ -3204,7 +3204,8 @@ async function deleteBannerCurrent(){
   if(ok1!==1) return;
   appData.banners.splice(_bannerIdx, 1);
   _bannerIdx = Math.max(0, _bannerIdx - 1);
-  await upsert();
+    markLocalChange('banners');
+await upsert();
   showStatus('Banner eliminado');
   renderBanners();
 }
@@ -3365,7 +3366,8 @@ async function toggleHitoFreeMode(brandId, stage, actId){
     act.revDateOverride = subtractWorkdays(act.endDate, 2);
     showStatus('🔓 Modo libre activado — arrastra 🔍 independientemente');
   }
-  await upsert();
+    markLocalChange('brands');
+await upsert();
   renderEqMonth();
   if(currentPage==='brand' && currentBrandId===brandId) renderBrandCrono(brand);
 }
@@ -3496,7 +3498,8 @@ async function saveNewPin(){
   } else if(_changingPinSection==='member'){
     appData.finanzas.memberPin = newPin;
   }
-  await upsert();
+    markLocalChange('finanzas');
+await upsert();
   document.getElementById('modal-fin-pin').classList.add('hidden');
   showStatus('PIN actualizado ✓');
 }
@@ -4032,7 +4035,8 @@ async function toggleCobCard(brandId){
   ensureCobrosData();
   appData.cobros[brandId].expanded = !appData.cobros[brandId].expanded;
   renderCobros();
-  await upsert();
+    markLocalChange('cobros');
+await upsert();
 }
 
 async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanzas");
@@ -4060,7 +4064,8 @@ async function addCobPago(brandId){
   ensureCobrosData();
   const pagos = appData.cobros[brandId].pagos;
   pagos.push({id:uid(), nombre:`Pago ${pagos.length+1}`, monto:0, cobrado:false, trigger:''});
-  await upsert();
+    markLocalChange('cobros');
+await upsert();
   renderCobros();
 }
 
@@ -4068,7 +4073,8 @@ async function deleteCobPago(brandId, pagoId){
   ensureCobrosData();
   const cob = appData.cobros[brandId];
   cob.pagos = cob.pagos.filter(p=>p.id!==pagoId);
-  await upsert();
+    markLocalChange('cobros');
+await upsert();
   renderCobros();
 }
 
@@ -4326,7 +4332,8 @@ async function addToolInfo(toolId){
     const b=document.getElementById('toolbody-'+toolId);
     if(b) b.classList.add('open');
   },30);
-  await upsert();
+    markLocalChange('digitalTools');
+await upsert();
   showStatus('Campo añadido ✓');
 }
 
@@ -4335,7 +4342,8 @@ async function removeToolInfo(toolId, idx){
   const tool = appData.digitalTools.find(t=>t.id===toolId);
   if(!tool||!tool.info) return;
   tool.info.splice(idx,1);
-  await upsert();
+    markLocalChange('digitalTools');
+await upsert();
   renderDigitalTools();
 }
 
@@ -4344,7 +4352,8 @@ async function saveToolInfo(toolId, idx, field, val){
   const tool = appData.digitalTools.find(t=>t.id===toolId);
   if(!tool||!tool.info||!tool.info[idx]) return;
   tool.info[idx][field] = val.trim();
-  await upsert();
+    markLocalChange('digitalTools');
+await upsert();
 }
 
 
@@ -5006,7 +5015,8 @@ async function toggleRonda(brandId,rondaId){
   if(!r)return;
   r.done=!r.done;
   renderRondas(brand);
-  await upsert();
+    markLocalChange('brands');
+await upsert();
 }
 
 async function deleteRonda(brandId,rondaId){
@@ -5014,7 +5024,8 @@ async function deleteRonda(brandId,rondaId){
   if(!brand||!brand.rondas)return;
   brand.rondas=brand.rondas.filter(x=>x.id!==rondaId);
   renderRondas(brand);
-  await upsert();
+    markLocalChange('brands');
+await upsert();
   showStatus('Ronda eliminada');
 }
 
@@ -5024,7 +5035,8 @@ async function saveRondaField(brandId, rondaId, field, val){
   const r=brand.rondas.find(x=>x.id===rondaId);
   if(!r) return;
   r[field]=val;
-  await upsert();
+    markLocalChange('brands');
+await upsert();
 }
 
 async function addRonda(){
@@ -5034,7 +5046,8 @@ async function addRonda(){
   const n=brand.rondas.length+1;
   brand.rondas.push({id:uid(),label:'R'+n,done:false,fecha:'',notas:''});
   renderRondas(brand);
-  await upsert();
+    markLocalChange('brands');
+await upsert();
   showStatus('Ronda añadida ✓');
 }
 
@@ -5252,7 +5265,8 @@ async function toggleHito(brandId, stage, actId){
   const act = (brand.cronograma[stage]||[]).find(a=>a.id===actId);
   if(!act) return;
   act.isHito = !act.isHito;
-  await upsert();
+    markLocalChange('brands');
+await upsert();
   renderBrandCrono(brand);
 }
 
@@ -5282,7 +5296,8 @@ async function addCronoActivity(brandId, stage){
   const endDate = addWorkdays(startDate, days-1);
   acts.push({id:uid(), name, days, startDate, endDate, status:'pendiente', isHito:false});
   brand.cronograma[stage] = acts;
-  await upsert();
+    markLocalChange('brands');
+await upsert();
   showStatus('Actividad añadida ✓');
   renderBrandCrono(brand);
 }
@@ -5305,7 +5320,8 @@ async function deleteCronoActivity(brandId, stage, actId){
     }
   }
   brand.cronograma[stage] = acts;
-  await upsert();
+    markLocalChange('brands');
+await upsert();
   showStatus('Actividad eliminada y fechas reencadenadas ✓');
   renderBrandCrono(brand);
 }
@@ -5396,7 +5412,8 @@ async function shiftAllDates(brandId,delta){
     });
   });
   renderBrandCrono(brand);
-  await upsert();
+    markLocalChange('brands');
+await upsert();
   showStatus((delta>0?'+':'')+delta+' día'+(Math.abs(delta)>1?'s':'')+' aplicado a todo el cronograma ✓');
 }
 
@@ -5424,7 +5441,8 @@ async function cycleStatus(brandId,stage,actId){
   renderSegmentedProgress(brand);
   // Also update hero meta
   renderBrandPage();
-  await upsert();
+    markLocalChange('brands');
+await upsert();
   if(act.status==='completada') showStatus('✓ Completada');
 }
 
@@ -5507,7 +5525,8 @@ async function saveBrandDomo(){
     principales: [p1,p2].filter(Boolean),
     astronautas: [h1,h2].filter(Boolean)
   };
-  await upsert();
+    markLocalChange('brands');
+await upsert();
   showStatus('Domo guardado ✓');
   renderBrandDomo();
 }
@@ -5636,7 +5655,8 @@ async function toggleBrandBpItem(brandId,ci,ii,val){
   if(!brand||!brand.brandingPoints)return;
   brand.brandingPoints.categories[ci].items[ii].selected=val;
   renderBrandBp(brand);
-  await upsert();
+    markLocalChange('brands');
+await upsert();
   showStatus('Guardado ✓');
 }
 
@@ -5645,7 +5665,8 @@ async function updateBrandBpQty(brandId,ci,ii,val){
   if(!brand||!brand.brandingPoints)return;
   brand.brandingPoints.categories[ci].items[ii].qty=parseInt(val)||1;
   renderBrandBp(brand);
-  await upsert();
+    markLocalChange('brands');
+await upsert();
 }
 
 async function addBrandBpItem(brandId,ci){
@@ -5657,7 +5678,8 @@ async function addBrandBpItem(brandId,ci){
   const pts=parseInt(ptsStr)||1;
   brand.brandingPoints.categories[ci].items.push({id:uid(),name:name.trim(),pts,qty:1,selected:false});
   renderBrandBp(brand);
-  await upsert();
+    markLocalChange('brands');
+await upsert();
 }
 
 /* ═══ MODAL: Nueva/Editar marca ═══ */
@@ -5941,7 +5963,8 @@ async function deleteBrandCurrent(){
   if(!ok) return;
   softDeleteBrand(brand);
   currentBrandId=null;
-  await upsert();
+    markLocalChange('brands');
+await upsert();
   updatePapeleraBadge();
   showStatus('Marca movida a la papelera · 30 días para restaurar');
   goTo('dashboard');
@@ -6215,7 +6238,8 @@ async function quickSaveStatus(memberId, val){
     const m = (appData.members||[]).find(x=>x.id===memberId);
   if(!m) return;
   m.status = val;
-  await upsert();
+    markLocalChange('members');
+await upsert();
 }
 
 function renderDomosGrid(){
@@ -7305,7 +7329,8 @@ async function dropToDomo(event, toKey){
 
   _dragBrandId = null;
   _dragFromDomoKey = null;
-  await upsert();
+    markLocalChange('brands');
+await upsert();
   showStatus('Domo actualizado ✓');
   renderEqDomos();
 }
@@ -7327,14 +7352,16 @@ async function createDomo(){
   const key = getDomoKey(m1.id, m2.id);
   const name = await askModal({ label:'Nombre del domo', placeholder:`Domo ${m1.apodo||m1.nombre} + ${m2.apodo||m2.nombre}`, defaultValue:`Domo ${m1.apodo||m1.nombre} + ${m2.apodo||m2.nombre}` });
   if(name) setDomoName(key, name);
-  await upsert();
+    markLocalChange('brands');
+await upsert();
   showStatus(`Domo "${name||'nuevo'}" listo. Ahora arrastra marcas.`);
   renderEqDomos();
 }
 
 async function saveDomoDomeName(key, name){
   setDomoName(key, name.trim());
-  await upsert();
+    markLocalChange('brands');
+await upsert();
 }
 
 
@@ -7370,7 +7397,8 @@ async function saveMemberStatus(){
   const el=document.getElementById('mprofile-status');
   if(!el) return;
   const m=(appData.members||[]).find(x=>x.id===currentMemberId);
-  if(m){ m.status=el.value; await upsert(); }
+  if(m){ m.status=el.value;   markLocalChange('members');
+await upsert(); }
 }
 
 async function quickSaveMemberStatus(id,val){
@@ -7378,7 +7406,8 @@ async function quickSaveMemberStatus(id,val){
   if(!m) return;
   m.status=val;
   renderEquipoMiniCard(id);
-  await upsert();
+    markLocalChange('members');
+await upsert();
 }
 
 async function deleteMemberCurrent(){
@@ -7402,7 +7431,8 @@ async function deleteMemberCurrent(){
     b.domo.helpers=(b.domo.helpers||[]).filter(h=>h!==currentMemberId);
   });
   currentMemberId=null;
-  await upsert();
+    markLocalChange('members');
+await upsert();
   updatePapeleraBadge();
   showStatus('Miembro movido a la papelera · 30 días para restaurar');
   renderEquipo();
@@ -7676,7 +7706,8 @@ function _portalMarkDirty(){
 async function portalSaveAll(brandId){
   const btn = document.getElementById('portal-save-btn');
   if(btn){ btn.textContent='Guardando…'; btn.style.opacity='0.7'; btn.disabled=true; }
-  const ok = await upsert();
+  const ok =   markLocalChange('brands');
+await upsert();
   if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.background='var(--agua)'; btn.style.boxShadow='0 2px 10px rgba(45,195,179,0.3)'; btn.textContent='✓ Guardado'; }
   const st = document.getElementById('portal-save-status');
   if(st){ st.style.display='block'; st.textContent='✓ Cambios guardados correctamente'; }
