@@ -2640,15 +2640,18 @@ async function calDrop(event, newDateStr){
       // LINKED MODE: shift future activities by the same workday delta
       const today = new Date(); today.setHours(0,0,0,0);
 
-      // Calculate delta in WORKDAYS between old and new endDate
-      const oldEnd = new Date(oldEndDate); oldEnd.setHours(0,0,0,0);
-      const newEnd = new Date(newDateStr); newEnd.setHours(0,0,0,0);
-      const sign = newEnd >= oldEnd ? 1 : -1;
+      // Calculate delta in WORKDAYS — safe bounded loop
+      const oldEnd = new Date(oldEndDate+'T12:00:00'); 
+      const newEnd = new Date(newDateStr+'T12:00:00');
+      const sign = newEnd > oldEnd ? 1 : -1;
       let wdDelta = 0;
+      const maxIter = 365;
+      let iter = 0;
       let cursor = new Date(oldEnd);
-      while(cursor.getTime() !== newEnd.getTime()){
+      while(Math.abs(cursor - newEnd) > 43200000 && iter < maxIter){ // >12h apart
         cursor.setDate(cursor.getDate() + sign);
         if(!isWeekend(cursor)) wdDelta += sign;
+        iter++;
       }
 
       if(wdDelta !== 0){
@@ -2656,23 +2659,11 @@ async function calDrop(event, newDateStr){
           (brand.cronograma[st]||[]).forEach(a=>{
             if(a.id === _calDragActId) return; // already moved
             // Skip activities that are in the past
-            const aEnd = a.endDate ? new Date(a.endDate) : null;
-            if(aEnd){ aEnd.setHours(0,0,0,0); if(aEnd < today) return; }
-            if(a.startDate){
-              a.startDate = wdDelta > 0
-                ? fmtDate(addWorkdays(a.startDate, wdDelta))
-                : subtractWorkdays(a.startDate, Math.abs(wdDelta));
-            }
-            if(a.endDate){
-              a.endDate = wdDelta > 0
-                ? fmtDate(addWorkdays(a.endDate, wdDelta))
-                : subtractWorkdays(a.endDate, Math.abs(wdDelta));
-            }
-            if(a.revDateOverride){
-              a.revDateOverride = wdDelta > 0
-                ? fmtDate(addWorkdays(a.revDateOverride, wdDelta))
-                : subtractWorkdays(a.revDateOverride, Math.abs(wdDelta));
-            }
+            const aEnd = a.endDate ? new Date(a.endDate+'T12:00:00') : null;
+            if(aEnd && aEnd < today) return;
+            if(a.startDate) a.startDate = wdDelta > 0 ? fmtDate(addWorkdays(a.startDate, wdDelta)) : subtractWorkdays(a.startDate, Math.abs(wdDelta));
+            if(a.endDate)   a.endDate   = wdDelta > 0 ? fmtDate(addWorkdays(a.endDate,   wdDelta)) : subtractWorkdays(a.endDate,   Math.abs(wdDelta));
+            if(a.revDateOverride) a.revDateOverride = wdDelta > 0 ? fmtDate(addWorkdays(a.revDateOverride, wdDelta)) : subtractWorkdays(a.revDateOverride, Math.abs(wdDelta));
           });
         });
       }
