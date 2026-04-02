@@ -6182,10 +6182,10 @@ function subscribeRealtime(onUpdate){
     payload=>{
       if(payload.new?.data){
         const raw = payload.new.data;
-        // Merge incoming server data with any unsaved local changes
-        // If we have pending local changes, merge; otherwise just replace
         const hasPendingChanges = _localChangedKeys.size > 0;
-        if(hasPendingChanges){
+        const hasPendingDeletes = _localDeletedIds.brands.size > 0 || _localDeletedIds.members.size > 0 || _localDeletedIds.clientNotes.size > 0;
+        if(hasPendingChanges || hasPendingDeletes){
+          // Always merge when we have local changes OR pending deletes
           const merged = deepMergeAppData(raw, appData);
           Object.assign(appData, merged);
         } else {
@@ -6866,6 +6866,7 @@ function renderEqGrid(){
     const today = new Date(); today.setHours(0,0,0,0);
     const upcoming = hitos.filter(h=>h.dateObj>=today).sort((a,b)=>a.dateObj-b.dateObj);
     const el = document.getElementById('eq-hitos-list');
+    if(!el) return;
     if(!upcoming.length){
       el.innerHTML='<div style="padding:2rem;text-align:center;color:var(--text3)">Sin hitos próximos 🎉</div>';
       return;
@@ -7200,6 +7201,7 @@ function renderEqDomos(){
 
   // ── Brands bar (all active brands) ──
   const bar = document.getElementById('domos-brands-bar');
+    if(!bar) return;
   const barLabel = document.getElementById('domos-brands-bar-label');
   if(bar){
     const assigned = brands.filter(b=>b.domo&&(b.domo.m1||b.domo.m2)).length;
@@ -7459,11 +7461,15 @@ async function deleteMemberCurrent(){
   markLocalChange('members');
   markLocalChange('brands');
   markLocalChange('clientNotes');
+
+  // 5. Render immediately so UI reflects deletion before upsert completes
+  renderEquipo();
+  renderDashboard();
+
+  // 6. Save to server
   await upsert();
   updatePapeleraBadge();
   showStatus('Miembro movido a la papelera · 30 días para restaurar');
-  renderEquipo();
-  renderDashboard(); // refresh hub + brands member dropdowns
 }
 
 /* ═══ BOOT ═══ */
