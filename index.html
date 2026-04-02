@@ -1102,7 +1102,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .cob-add-btn:hover{border-color:var(--aire);color:var(--aire);}
 .cob-total{font-size:0.78rem;color:var(--text3);text-align:right;}
 .cob-total strong{font-size:0.95rem;color:var(--text);display:block;}
-.cob-brands-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:0.8rem;}
+.cob-brands-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;}
 </style>
 </head>
 <body>
@@ -3033,23 +3033,26 @@ function renderCobros(){
 
     const pagosHTML = pagos.map((p,pi)=>{
       const st = cobStatus(p, pagos);
-      return `<div class="cob-pago-row" id="cobrow-${b.id}-${p.id}">
-        <div class="cob-check ${p.cobrado?'checked':''}" onclick="toggleCobPago('${b.id}','${p.id}')">
-          ${p.cobrado?'✓':''}
-        </div>
-        <div class="cob-pago-name">
+      return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;align-items:flex-start;gap:0.7rem;padding:0.55rem 1rem;border-bottom:1px solid var(--border)">
+        <div class="cob-check ${p.cobrado?'checked':''}" onclick="toggleCobPago('${b.id}','${p.id}')" style="margin-top:3px;flex-shrink:0">${p.cobrado?'✓':''}</div>
+        <div style="flex:1;min-width:0">
           <input value="${p.nombre||''}" placeholder="Nombre del pago"
+            style="background:none;border:none;outline:none;font-family:var(--font);font-size:0.84rem;font-weight:600;color:var(--text);width:100%;display:block"
             onblur="saveCobField('${b.id}','${p.id}','nombre',this.value)"
             onkeydown="if(event.key==='Enter')this.blur()">
+          <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.2rem">
+            <span class="cob-status-pill ${st.cls}">${st.label}</span>
+            <span style="font-size:0.65rem;color:var(--text3)">${p.trigger||''}</span>
+          </div>
         </div>
-        <span class="cob-status-pill ${st.cls}">${st.label}</span>
-        <span class="cob-trigger">${p.trigger||''}</span>
-        <div class="cob-amount">
-          <input type="number" value="${p.monto||''}" placeholder="0"
-            onblur="saveCobField('${b.id}','${p.id}','monto',this.value)"
-            onkeydown="if(event.key==='Enter')this.blur()">
-        </div>
-        <button class="cob-del-btn" onclick="deleteCobPago('${b.id}','${p.id}')" title="Eliminar pago">✕</button>
+        <input type="number" value="${p.monto||''}" placeholder="0"
+          style="background:none;border:none;outline:none;font-family:var(--font);font-size:0.9rem;font-weight:700;color:var(--text);width:72px;text-align:right;flex-shrink:0;margin-top:2px"
+          onblur="saveCobField('${b.id}','${p.id}','monto',this.value)"
+          onkeydown="if(event.key==='Enter')this.blur()">
+        <button onclick="deleteCobPago('${b.id}','${p.id}')"
+          style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.75rem;flex-shrink:0;margin-top:3px;padding:0 0.2rem;opacity:0.3"
+          onmouseover="this.style.opacity=1;this.style.color='#ef4444'"
+          onmouseout="this.style.opacity=0.3;this.style.color='var(--text3)'">✕</button>
       </div>`;
     }).join('');
 
