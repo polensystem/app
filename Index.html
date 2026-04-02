@@ -2707,13 +2707,27 @@ function deepMergeAppData(server, local){
   localMembers.forEach(m=>{ memberMap[m.id] = memberMap[m.id] ? {...memberMap[m.id], ...m} : {...m}; });
   merged.members = Object.values(memberMap);
 
-  // ── cobros: merge by brandId ──
+  // ── cobros: merge by brandId → by pagoId (concurrency-safe) ──
   const serverCob = server.cobros || {};
   const localCob  = local.cobros  || {};
-  const mergedCob = {...serverCob};
-  Object.keys(localCob).forEach(bid=>{
-    // Prefer local cobros for brands the local user touched
-    mergedCob[bid] = localCob[bid];
+  const mergedCob = {};
+  // Start with all brand IDs from both
+  const allBrandIds = new Set([...Object.keys(serverCob), ...Object.keys(localCob)]);
+  allBrandIds.forEach(bid=>{
+    const sCob = serverCob[bid];
+    const lCob = localCob[bid];
+    if(!lCob){ mergedCob[bid] = sCob; return; }
+    if(!sCob){ mergedCob[bid] = lCob; return; }
+    // Both have data — merge pagos by pagoId, prefer local for fields touched
+    const sPagos = sCob.pagos||[];
+    const lPagos = lCob.pagos||[];
+    const pagoMap = {};
+    sPagos.forEach(p=>{ pagoMap[p.id] = {...p}; });
+    lPagos.forEach(p=>{ pagoMap[p.id] = {...(pagoMap[p.id]||{}), ...p}; });
+    mergedCob[bid] = {
+      ...sCob, ...lCob,
+      pagos: Object.values(pagoMap),
+    };
   });
   merged.cobros = mergedCob;
 
@@ -2779,8 +2793,8 @@ async function upsert(){
 
       // 4. Strip large base64 images before writing (Supabase 500 = payload too large)
       const toWriteSafe = JSON.parse(JSON.stringify(toWrite, (key, val) => {
-        if((key === 'image' || key === 'photo') && typeof val === 'string' && val.startsWith('data:') && val.length > 50000){
-          return val.slice(0, 50000); // truncate to ~37KB max per image
+        if((key === 'image' || key === 'photo') && typeof val === 'string' && val.startsWith('data:') && val.length > 20000){
+          return val.slice(0, 20000); // ~15KB max per image to keep total payload under Supabase limit
         }
         return val;
       }));
@@ -4107,7 +4121,8 @@ async function deleteCobPago(brandId, pagoId){
   cob.pagos = cob.pagos.filter(p=>p.id!==pagoId);
   markLocalChange('cobros');
   renderCobros();
-  await upsert();
+  const saved = await upsert();
+  if(!saved) showStatus('❌ Error al eliminar pago — recarga e intenta de nuevo.', true);
 }
 
 function syncCobrosToFin(){
@@ -4454,7 +4469,8 @@ async function deleteDigitalTool(toolId){
   ensureDigitalTools();
   appData.digitalTools = appData.digitalTools.filter(t=>t.id!==toolId);
   renderDigitalTools();
-  await upsert();
+  const saved = await upsert();
+  if(!saved) showStatus('❌ Error al eliminar herramienta — recarga e intenta de nuevo.', true);
 }
 
 function updateGlobalBreadcrumb(page, extra){
@@ -5373,8 +5389,8 @@ async function deleteCronoActivity(brandId, stage, actId){
   brand.cronograma[stage] = acts;
   markLocalChange('brands');
   renderBrandCrono(brand);
-  showStatus('Actividad eliminada y fechas reencadenadas ✓');
-  await upsert();
+  const saved = await upsert();
+  showStatus(saved ? 'Actividad eliminada y fechas reencadenadas ✓' : '❌ Error al eliminar actividad — recarga e intenta de nuevo.', !saved);
 }
 
 
@@ -6023,14 +6039,32 @@ async function deleteBrandCurrent(){
   if(!brand) return;
   const ok = await confirmModal(`¿Mover "${brand.name}" a la papelera?`, 'Mover a papelera');
   if(!ok) return;
+
+  // Save backup in case upsert fails
+  const brandBackup = JSON.parse(JSON.stringify(brand));
+  const brandId = brand.id;
+
   softDeleteBrand(brand);
   currentBrandId = null;
   markLocalChange('brands');
   markLocalChange('papelera');
-  // Render immediately so UI reflects deletion before upsert
+
+  // Render immediately
   goTo('dashboard');
   renderDashboard();
-  await upsert();
+
+  const saved = await upsert();
+  if(!saved){
+    // Rollback — restore brand to appData
+    appData.brands.push(brandBackup);
+    appData.papelera = (appData.papelera||[]).filter(p=>p.id!==brandId);
+    _localDeletedIds.brands.delete(brandId);
+    currentBrandId = brandId;
+    goTo('brand');
+    renderBrandPage();
+    showStatus('❌ Error al guardar — la marca fue restaurada. Intenta de nuevo.', true);
+    return;
+  }
   updatePapeleraBadge();
   showStatus('Marca movida a la papelera · 30 días para restaurar');
 }
@@ -7448,8 +7482,8 @@ async function deleteDomo(key){
   markLocalChange('brands');
   markLocalChange('domoNames');
   renderEqDomos();
-  showStatus('Domo eliminado');
-  await upsert();
+  const saved = await upsert();
+  showStatus(saved ? 'Domo eliminado ✓' : '❌ Error al eliminar domo — recarga e intenta de nuevo.', !saved);
 }
 
 
@@ -7606,6 +7640,7 @@ async function deleteMemberCurrent(){
   });
 
   // 4. Reset navigation state before rendering
+  const memberBackup = JSON.parse(JSON.stringify(m));
   currentMemberId = null;
   const miniWrap = document.getElementById('equipo-mini-card-wrap');
   if(miniWrap) miniWrap.style.display = 'none';
@@ -7619,7 +7654,17 @@ async function deleteMemberCurrent(){
   renderDashboard();
 
   // 6. Save to server
-  await upsert();
+  const saved = await upsert();
+  if(!saved){
+    // Rollback
+    appData.members.push(memberBackup);
+    appData.papelera = (appData.papelera||[]).filter(p=>p.id!==deletedId);
+    _localDeletedIds.members.delete(deletedId);
+    currentMemberId = deletedId;
+    renderEquipo();
+    showStatus('❌ Error al guardar — el miembro fue restaurado. Intenta de nuevo.', true);
+    return;
+  }
   updatePapeleraBadge();
   showStatus('Miembro movido a la papelera · 30 días para restaurar');
 }
