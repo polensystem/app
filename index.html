@@ -338,6 +338,23 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .modal-tpl-preview{background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--r-sm);padding:0.8rem 1rem;font-size:0.78rem;color:var(--text3);margin-top:0.5rem;line-height:1.7;}
 .modal-tpl-preview span{color:var(--text2);font-weight:600;}
 
+/* ── ASK MODAL (reemplaza prompt nativo) ── */
+.ask-modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:1.5rem;animation:fadeIn 0.15s ease;}
+.ask-modal-overlay.hidden{display:none;}
+.ask-modal{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;box-shadow:0 32px 80px rgba(0,0,0,0.5);padding:1.7rem 2rem 1.5rem;width:100%;max-width:380px;animation:slideUp 0.18s ease;}
+.ask-modal-label{font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:0.65rem;line-height:1.45;}
+.ask-modal-input{background:var(--input-bg);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:0.65rem 0.9rem;color:var(--text);font-family:var(--font);font-size:0.95rem;outline:none;transition:all var(--transition);width:100%;}
+.ask-modal-input:focus{border-color:rgba(176,106,255,0.6);box-shadow:0 0 0 3px rgba(176,106,255,0.08);}
+.ask-modal-footer{display:flex;gap:0.7rem;justify-content:flex-end;margin-top:1.2rem;}
+.ask-modal-select-grid{display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.5rem;}
+.ask-modal-option{display:flex;align-items:center;gap:0.7rem;padding:0.6rem 0.9rem;border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;transition:all var(--transition);font-size:0.85rem;}
+.ask-modal-option:hover{background:var(--bg-card2);}
+.ask-modal-option.selected{border-color:var(--aire);background:rgba(59,158,221,0.07);font-weight:600;}
+/* ── Inline days editor ── */
+.act-days-inline{display:inline-flex;align-items:center;gap:0.15rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;padding:0.12rem 0.4rem;cursor:pointer;transition:all var(--transition);font-size:0.7rem;font-weight:600;color:var(--text2);}
+.act-days-inline:hover{border-color:var(--aire);color:var(--aire);}
+.act-days-inline.editing{border-color:var(--aire);background:rgba(59,158,221,0.08);cursor:default;}
+.act-days-number-input{width:36px;background:none;border:none;outline:none;font-size:0.7rem;font-weight:700;color:var(--aire);font-family:var(--font);text-align:center;}
 /* ── STATUS ── */
 .status-bar{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.4rem 1.1rem;font-size:0.75rem;color:var(--text2);box-shadow:var(--shadow);z-index:50;opacity:0;transition:opacity 0.3s;white-space:nowrap;pointer-events:none;}
 .status-bar.show{opacity:1;}
@@ -1167,6 +1184,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
         <button class="theme-btn active" id="btn-dark" onclick="setTheme('dark')">🌙 Dark</button>
         <button class="theme-btn" id="btn-light" onclick="setTheme('light')">☀️ Light</button>
       </div>
+      <button class="btn-reload" id="btn-undo" onclick="undoAction()" title="Deshacer (Ctrl+Z)" disabled style="opacity:0.4">↩ Deshacer</button>
+      <button class="btn-reload" id="btn-redo" onclick="redoAction()" title="Rehacer (Ctrl+Shift+Z)" disabled style="opacity:0.4">↪ Rehacer</button>
       <button class="btn-reload" id="btn-reload" onclick="reloadData()">↻ Recargar</button>
       <button class="btn-add" id="btn-nueva-marca" onclick="openModal()">+ Nueva marca</button>
       <button class="btn-add" id="btn-nuevo-miembro" onclick="openMemberModal()" style="display:none;background:var(--agua)">+ Nuevo miembro</button>
@@ -1555,6 +1574,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
         <button id="btn-toggle-all-tasks" onclick="toggleAllMemberTasks()" style="font-size:0.75rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.38rem 0.75rem;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s">📋 Colapsar tareas</button>
         <button class="btn-add" style="background:var(--agua);font-size:0.8rem;padding:0.45rem 1rem" onclick="openMemberModal()">+ Miembro</button>
       </div>
+      <!-- Cal free mode toggle — visible on week/month tabs -->
+      <div id="eq-cal-actions" style="display:none;margin-left:auto;align-items:center;gap:0.6rem">
+        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.8rem;font-weight:600;color:var(--text2);user-select:none;background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.38rem 0.9rem;transition:all 0.15s" id="free-mode-label" title="En modo libre cada evento se mueve independientemente. Sin check, mover un hito recadena toda la cadena.">
+          <span style="font-size:0.85rem">🔓</span>
+          <span>Modo libre</span>
+          <input type="checkbox" id="cal-free-mode-check" onchange="toggleCalFreeMode(this.checked)" style="accent-color:var(--aire);width:15px;height:15px;cursor:pointer">
+        </label>
+      </div>
     </div>
 
     <!-- Main area: mini card (when member selected) + content -->
@@ -1837,6 +1864,66 @@ let editingBrandId=null;
 /* ═══ UID ═══ */
 function uid(){return Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);}
 
+/* ═══ ASK MODAL — reemplaza todos los prompt() del sistema ═══
+   Uso:
+     const val = await askModal({ label, placeholder, defaultValue })
+     const val = await askModal({ label, type:'number', defaultValue })
+     const idx = await askModal({ label, type:'select', options:['a','b'] })  → retorna índice (0-based) o null
+   Retorna null si el usuario cancela. */
+function askModal({ label='', placeholder='', defaultValue='', type='text', options=[] }={}){
+  return new Promise(resolve=>{
+    const overlay = document.getElementById('ask-modal-overlay');
+    const box     = document.getElementById('ask-modal-box');
+    const lbl     = document.getElementById('ask-modal-label');
+    const body    = document.getElementById('ask-modal-body');
+    const okBtn   = document.getElementById('ask-modal-ok');
+    const cancelBtn = document.getElementById('ask-modal-cancel');
+
+    lbl.textContent = label;
+
+    // Build body
+    if(type === 'select'){
+      body.innerHTML = `<div class="ask-modal-select-grid">${
+        options.map((o,i)=>`<div class="ask-modal-option" data-idx="${i}" onclick="this.parentElement.querySelectorAll('.ask-modal-option').forEach(x=>x.classList.remove('selected'));this.classList.add('selected')">${o}</div>`).join('')
+      }</div>`;
+    } else {
+      body.innerHTML = `<input class="ask-modal-input" id="ask-modal-input-field" type="${type==='number'?'number':'text'}" placeholder="${placeholder}" value="${defaultValue}" ${type==='number'?'min="1" step="1"':''}>`;
+    }
+
+    overlay.classList.remove('hidden');
+
+    // Focus
+    setTimeout(()=>{
+      const inp = document.getElementById('ask-modal-input-field');
+      if(inp){ inp.focus(); inp.select(); }
+    },80);
+
+    function finish(val){
+      overlay.classList.add('hidden');
+      okBtn.onclick = null; cancelBtn.onclick = null;
+      resolve(val);
+    }
+
+    okBtn.onclick = ()=>{
+      if(type==='select'){
+        const sel = body.querySelector('.ask-modal-option.selected');
+        finish(sel ? parseInt(sel.dataset.idx) : null);
+      } else {
+        const inp = document.getElementById('ask-modal-input-field');
+        const v = inp ? inp.value.trim() : '';
+        finish(v || null);
+      }
+    };
+    cancelBtn.onclick = ()=> finish(null);
+
+    // Enter to confirm
+    box.onkeydown = e=>{
+      if(e.key==='Enter' && type!=='select') okBtn.onclick();
+      if(e.key==='Escape') cancelBtn.onclick();
+    };
+  });
+}
+
 /* ═══ DEFAULT TEMPLATE ═══ */
 function defaultTemplate(){
   return{
@@ -2013,7 +2100,104 @@ async function loadData(){
   }
 }
 
+/* ═══ UNDO SYSTEM ═══ */
+const _undoStack = [];
+const _redoStack = [];
+const _undoMaxSize = 30;
+let _undoInProgress = false;
+let _pendingUndoEntry = null; // set by snapForUndo() before mutating
+
+/* Call this BEFORE mutating appData, with a human-readable label */
+function snapForUndo(label){
+  if(_undoInProgress) return;
+  _pendingUndoEntry = { snapshot: JSON.parse(JSON.stringify(appData)), label };
+  // Any new action clears the redo stack
+  _redoStack.length = 0;
+  _updateRedoBtn();
+}
+
+function _updateUndoBtn(){
+  const btn = document.getElementById('btn-undo');
+  if(!btn) return;
+  if(_undoStack.length > 0){
+    const last = _undoStack[_undoStack.length-1];
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.textContent = `↩ ${last.label}`;
+    btn.title = `Deshacer: ${last.label} (Ctrl+Z)`;
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.4';
+    btn.textContent = '↩ Deshacer';
+    btn.title = 'Nada que deshacer';
+  }
+}
+
+function _updateRedoBtn(){
+  const btn = document.getElementById('btn-redo');
+  if(!btn) return;
+  if(_redoStack.length > 0){
+    const last = _redoStack[_redoStack.length-1];
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.textContent = `↪ ${last.label}`;
+    btn.title = `Rehacer: ${last.label} (Ctrl+Shift+Z)`;
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.4';
+    btn.textContent = '↪ Rehacer';
+    btn.title = 'Nada que rehacer';
+  }
+}
+
+async function undoAction(){
+  if(!_undoStack.length) return;
+  const { snapshot, label } = _undoStack.pop();
+  // Save current state to redo stack before replacing
+  _redoStack.push({ snapshot: JSON.parse(JSON.stringify(appData)), label });
+  _undoInProgress = true;
+  for(const k in appData) delete appData[k];
+  Object.assign(appData, snapshot);
+  const {error} = await sb.from('polen_shared').upsert({id:REC_ID,data:appData,updated_at:new Date().toISOString()},{onConflict:'id'});
+  _undoInProgress = false;
+  if(error){ showStatus('Error al deshacer ❌', true); _undoStack.push({snapshot,label}); _redoStack.pop(); }
+  else { showStatus(`↩ Deshecho: ${label}`); renderCurrentPage(); }
+  _updateUndoBtn();
+  _updateRedoBtn();
+}
+
+async function redoAction(){
+  if(!_redoStack.length) return;
+  const { snapshot, label } = _redoStack.pop();
+  // Save current state back to undo stack
+  _undoStack.push({ snapshot: JSON.parse(JSON.stringify(appData)), label });
+  _undoInProgress = true;
+  for(const k in appData) delete appData[k];
+  Object.assign(appData, snapshot);
+  const {error} = await sb.from('polen_shared').upsert({id:REC_ID,data:appData,updated_at:new Date().toISOString()},{onConflict:'id'});
+  _undoInProgress = false;
+  if(error){ showStatus('Error al rehacer ❌', true); _redoStack.push({snapshot,label}); _undoStack.pop(); }
+  else { showStatus(`↪ Rehecho: ${label}`); renderCurrentPage(); }
+  _updateUndoBtn();
+  _updateRedoBtn();
+}
+
+document.addEventListener('keydown', e=>{
+  const tag = document.activeElement?.tagName?.toLowerCase();
+  const isTyping = tag==='input'||tag==='textarea'||document.activeElement?.isContentEditable;
+  if(isTyping) return;
+  if((e.ctrlKey||e.metaKey) && e.shiftKey && e.key==='Z'){ e.preventDefault(); redoAction(); return; }
+  if((e.ctrlKey||e.metaKey) && e.key==='z'){ e.preventDefault(); undoAction(); }
+});
+
 async function upsert(){
+  // If a snap was registered before this mutation, push it onto the undo stack
+  if(!_undoInProgress && _pendingUndoEntry){
+    _undoStack.push(_pendingUndoEntry);
+    if(_undoStack.length > _undoMaxSize) _undoStack.shift();
+    _pendingUndoEntry = null;
+    _updateUndoBtn();
+  }
   const {error}=await sb.from('polen_shared').upsert({id:REC_ID,data:appData,updated_at:new Date().toISOString()},{onConflict:'id'});
   if(error){showStatus('Error al guardar: '+error.message,true);console.error(error);return false;}
   return true;
@@ -2315,7 +2499,8 @@ function previewBannerImage(e){
 }
 
 async function saveBanner(){
-  const text = document.getElementById('banner-text').value.trim();
+  snapForUndo('Guardar banner');
+    const text = document.getElementById('banner-text').value.trim();
   if(!text){ showStatus('El texto es obligatorio', true); return; }
   const subtext = document.getElementById('banner-subtext').value.trim();
   const isImage = _bannerMode === 'image' && _bannerImageB64;
@@ -2345,7 +2530,8 @@ async function saveBanner(){
 }
 
 async function deleteBannerCurrent(){
-  ensureBanners();
+  snapForUndo('Eliminar banner');
+    ensureBanners();
   if(appData.banners.length <= 1){
     showStatus('Debe haber al menos un banner', true);
     return;
@@ -2398,6 +2584,16 @@ function deduplicateHitos(hitos){
   });
 }
 
+let _calFreeMode = false;
+function toggleCalFreeMode(checked){
+  _calFreeMode = checked;
+  const lbl = document.getElementById('free-mode-label');
+  if(lbl){
+    lbl.style.borderColor = checked ? 'var(--aire)' : 'var(--border)';
+    lbl.style.color = checked ? 'var(--aire)' : 'var(--text2)';
+  }
+}
+
 function calDragStart(event, brandId, stage, actId, type){
   _calDragActId = actId;
   _calDragBrandId = brandId;
@@ -2418,51 +2614,83 @@ async function calDrop(event, newDateStr){
   if(actIdx<0) return;
   const act = acts[actIdx];
 
+  snapForUndo('Mover evento');
+
   if(_calDragType === 'revision'){
-    // Free mode only: move just the revision override
+    // Always moveable — store override regardless of free mode
     act.revDateOverride = newDateStr;
+
   } else {
-    // Move official hito: update endDate, recalculate startDate from days
+    // Moving an official hito endDate
+    const oldEndDate = act.endDate;
     const oldDays = act.days || 1;
-    const newEndDate = newDateStr;
-    // startDate = newEndDate minus (days-1) workdays
-    act.endDate = newEndDate;
-    act.startDate = subtractWorkdays(newEndDate, oldDays - 1);
+    act.endDate = newDateStr;
+    act.startDate = subtractWorkdays(newDateStr, oldDays - 1);
 
-    // If linked mode, auto-set revDate to 2 workdays before
-    if(!act.revDateOverride){
-      // linked: revision computed dynamically — nothing to store
+    // Clear per-hito rev override in linked mode so it recomputes
+    if(!_calFreeMode && act.revDateOverride){
+      delete act.revDateOverride;
     }
 
-    // Rechain subsequent activities in this stage
-    for(let i = actIdx + 1; i < acts.length; i++){
-      const prev = acts[i-1];
-      acts[i].startDate = addWorkdays(prev.endDate, 1);
-      acts[i].endDate = addWorkdays(acts[i].startDate, (acts[i].days||1) - 1);
-    }
+    if(_calFreeMode){
+      // FREE MODE: move only this hito, nothing else shifts
+      // (revision keeps its own override if set, otherwise recomputes dynamically)
 
-    // Also rechain backwards if we moved earlier
-    if(actIdx > 0){
-      const prev = acts[actIdx - 1];
-      const prevEnd = new Date(prev.endDate);
-      const newStart = new Date(act.startDate);
-      if(newStart <= prevEnd){
-        // Moved too early: shift previous activities back
-        for(let i = actIdx - 1; i >= 0; i--){
-          acts[i].endDate = subtractWorkdays(acts[i+1].startDate, 1);
-          acts[i].startDate = subtractWorkdays(acts[i].endDate, (acts[i].days||1) - 1);
-        }
+    } else {
+      // LINKED MODE: shift future activities by the same workday delta
+      const today = new Date(); today.setHours(0,0,0,0);
+
+      // Calculate delta in WORKDAYS between old and new endDate
+      const oldEnd = new Date(oldEndDate); oldEnd.setHours(0,0,0,0);
+      const newEnd = new Date(newDateStr); newEnd.setHours(0,0,0,0);
+      const sign = newEnd >= oldEnd ? 1 : -1;
+      let wdDelta = 0;
+      let cursor = new Date(oldEnd);
+      while(cursor.getTime() !== newEnd.getTime()){
+        cursor.setDate(cursor.getDate() + sign);
+        if(!isWeekend(cursor)) wdDelta += sign;
+      }
+
+      if(wdDelta !== 0){
+        ['aire','agua','tierra','fuego'].forEach(st=>{
+          (brand.cronograma[st]||[]).forEach(a=>{
+            if(a.id === _calDragActId) return; // already moved
+            // Skip activities that are in the past
+            const aEnd = a.endDate ? new Date(a.endDate) : null;
+            if(aEnd){ aEnd.setHours(0,0,0,0); if(aEnd < today) return; }
+            if(a.startDate){
+              a.startDate = wdDelta > 0
+                ? fmtDate(addWorkdays(a.startDate, wdDelta))
+                : subtractWorkdays(a.startDate, Math.abs(wdDelta));
+            }
+            if(a.endDate){
+              a.endDate = wdDelta > 0
+                ? fmtDate(addWorkdays(a.endDate, wdDelta))
+                : subtractWorkdays(a.endDate, Math.abs(wdDelta));
+            }
+            if(a.revDateOverride){
+              a.revDateOverride = wdDelta > 0
+                ? fmtDate(addWorkdays(a.revDateOverride, wdDelta))
+                : subtractWorkdays(a.revDateOverride, Math.abs(wdDelta));
+            }
+          });
+        });
       }
     }
   }
 
   _calDragActId = null; _calDragBrandId = null; _calDragStage = null; _calDragType = null;
 
-  await upsert();
-  showStatus('Fecha actualizada ✓');
-  renderEqMonth();
-  // If on brand page, refresh too
+  // ── Optimistic update: render immediately, save in background ──
+  const activeTab = window._eqTab;
+  if(activeTab==='week') renderEqWeek();
+  else if(activeTab==='month') renderEqMonth();
+
   if(currentPage==='brand' && currentBrandId===brand.id) renderBrandCrono(brand);
+  else { const bp=document.getElementById('brand-crono-summary'); if(bp&&currentBrandId===brand.id) renderBrandCrono(brand); }
+
+  // Save async — don't block UI
+  upsert().then(ok=>{ if(ok) showStatus('Fecha actualizada ✓'); else showStatus('Error al guardar ❌',true); });
 }
 
 async function toggleHitoFreeMode(brandId, stage, actId){
@@ -2506,7 +2734,6 @@ function ensureFinData(){
 }
 
 function goToFinanzas(){
-  _finUnlocked = false;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const nEl=document.getElementById('nav-finanzas');if(nEl)nEl.classList.add('active');
@@ -2514,6 +2741,15 @@ function goToFinanzas(){
   document.getElementById('header-title').textContent='Data';
   currentPage='finanzas';
   updateGlobalBreadcrumb('finanzas');
+  // Si ya desbloqueó en esta sesión, entrar directo
+  if(sessionStorage.getItem('polen_fin_unlocked')==='1'){
+    _finUnlocked = true;
+    document.getElementById('fin-lock').style.display='none';
+    const fc=document.getElementById('fin-content');fc.style.display='flex';fc.style.flexDirection='column';fc.style.flex='1';fc.style.minHeight='0';
+    switchFinTab('mes');
+    return;
+  }
+  _finUnlocked = false;
   document.getElementById('fin-lock').style.display='flex';
   document.getElementById('fin-content').style.display='none';
   document.getElementById('fin-pin-input').value='';
@@ -2526,6 +2762,7 @@ function checkFinPin(){
   const entered = document.getElementById('fin-pin-input').value;
   if(entered === appData.finanzas.pin){
     _finUnlocked = true;
+    sessionStorage.setItem('polen_fin_unlocked','1');
     document.getElementById('fin-lock').style.display='none';
     const fc=document.getElementById('fin-content');fc.style.display='flex';fc.style.flexDirection='column';fc.style.flex='1';fc.style.minHeight='0';
     switchFinTab('mes');
@@ -2538,6 +2775,7 @@ function checkFinPin(){
 
 function lockFinanzas(){
   _finUnlocked = false;
+  sessionStorage.removeItem('polen_fin_unlocked');
   document.getElementById('fin-lock').style.display='flex';
   document.getElementById('fin-content').style.display='none';
   document.getElementById('fin-pin-input').value='';
@@ -2555,7 +2793,8 @@ function changeFinPin(){
 }
 
 async function saveNewPin(){
-  ensureFinData();
+  snapForUndo('Cambiar PIN');
+    ensureFinData();
   const current = document.getElementById('pin-current').value;
   const newPin = document.getElementById('pin-new').value;
   const confirm2 = document.getElementById('pin-confirm').value;
@@ -2564,6 +2803,7 @@ async function saveNewPin(){
   if(!newPin||newPin.length<4){ errEl.textContent='El PIN debe tener al menos 4 dígitos'; errEl.style.display='block'; return; }
   if(newPin !== confirm2){ errEl.textContent='Los PINs no coinciden'; errEl.style.display='block'; return; }
   appData.finanzas.pin = newPin;
+  sessionStorage.removeItem('polen_fin_unlocked');
   await upsert();
   document.getElementById('modal-fin-pin').classList.add('hidden');
   showStatus('PIN actualizado ✓');
@@ -2804,7 +3044,8 @@ function renderFinAnual(){
 
 
 async function saveFinCell(monthIdx, field, val){
-  ensureFinData();
+  snapForUndo('Editar finanzas');
+    ensureFinData();
   const m = appData.finanzas.months[monthIdx];
   m[field] = field==='observaciones' ? val : (parseFloat(val)||0);
   await upsert();
@@ -2937,7 +3178,6 @@ let _cobUnlocked = false;
 const COB_PIN_DEFAULT = '7771';
 
 function goToCobranzas(){
-  _cobUnlocked = false;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const nEl=document.getElementById('nav-cobranzas');if(nEl){nEl.classList.add('active');}
@@ -2945,6 +3185,19 @@ function goToCobranzas(){
   document.getElementById('header-title').textContent='Cobranzas';
   currentPage='cobranzas';
   updateGlobalBreadcrumb('cobranzas');
+  // Si ya desbloqueó en esta sesión, entrar directo
+  if(sessionStorage.getItem('polen_cob_unlocked')==='1'){
+    _cobUnlocked = true;
+    document.getElementById('cob-lock').style.display='none';
+    const cc=document.getElementById('cob-content');
+    cc.style.display='flex'; cc.style.flexDirection='column'; cc.style.flex='1';
+    const nEl2=document.getElementById('nav-cobranzas');
+    if(nEl2){nEl2.style.opacity='1';nEl2.style.filter='none';}
+    renderCobranzas();
+    renderCobros();
+    return;
+  }
+  _cobUnlocked = false;
   document.getElementById('cob-lock').style.display='flex';
   document.getElementById('cob-content').style.display='none';
   document.getElementById('cob-pin-input').value='';
@@ -2958,6 +3211,7 @@ function checkCobPin(){
   const entered = document.getElementById('cob-pin-input').value;
   if(entered === pin){
     _cobUnlocked = true;
+    sessionStorage.setItem('polen_cob_unlocked','1');
     document.getElementById('cob-lock').style.display='none';
     const cc = document.getElementById('cob-content');
     cc.style.display='flex'; cc.style.flexDirection='column'; cc.style.flex='1';
@@ -2974,6 +3228,7 @@ function checkCobPin(){
 
 function lockCobranzas(){
   _cobUnlocked = false;
+  sessionStorage.removeItem('polen_cob_unlocked');
   document.getElementById('cob-lock').style.display='flex';
   document.getElementById('cob-content').style.display='none';
   document.getElementById('cob-pin-input').value='';
@@ -3160,7 +3415,8 @@ function toggleGCalMode(){
 }
 
 async function editGCalUrl(){
-  const url = prompt('URL del embed de Google Calendar:', appData.calendarUrl||GCAL_BASE_URL);
+  snapForUndo('URL calendario');
+    const url = await askModal({ label:'URL del embed de Google Calendar', placeholder:'https://calendar.google.com/...', defaultValue:appData.calendarUrl||GCAL_BASE_URL });
   if(!url) return;
   appData.calendarUrl = url.trim();
   const iframe = document.getElementById('gcal-iframe');
@@ -3210,7 +3466,8 @@ function toggleToolCard(toolId){
 }
 
 async function addToolInfo(toolId){
-  ensureDigitalTools();
+  snapForUndo('Agregar info herramienta');
+    ensureDigitalTools();
   const tool = appData.digitalTools.find(t=>t.id===toolId);
   if(!tool){ showStatus('Herramienta no encontrada',true); return; }
   if(!Array.isArray(tool.info)) tool.info=[];
@@ -3226,7 +3483,8 @@ async function addToolInfo(toolId){
 }
 
 async function removeToolInfo(toolId, idx){
-  ensureDigitalTools();
+  snapForUndo('Eliminar info herramienta');
+    ensureDigitalTools();
   const tool = appData.digitalTools.find(t=>t.id===toolId);
   if(!tool||!tool.info) return;
   tool.info.splice(idx,1);
@@ -3235,7 +3493,8 @@ async function removeToolInfo(toolId, idx){
 }
 
 async function saveToolInfo(toolId, idx, field, val){
-  ensureDigitalTools();
+  snapForUndo('Editar herramienta');
+    ensureDigitalTools();
   const tool = appData.digitalTools.find(t=>t.id===toolId);
   if(!tool||!tool.info||!tool.info[idx]) return;
   tool.info[idx][field] = val.trim();
@@ -3284,7 +3543,8 @@ function closeToolModal(){
 }
 
 async function saveNewTool(){
-  const name = document.getElementById('tool-input-name').value.trim();
+  snapForUndo('Nueva herramienta');
+    const name = document.getElementById('tool-input-name').value.trim();
   if(!name){ showStatus('El nombre es obligatorio', true); return; }
   const url = document.getElementById('tool-input-url').value.trim()||'#';
   const icon = document.getElementById('tool-input-icon').value.trim()||'🔧';
@@ -3298,7 +3558,8 @@ async function saveNewTool(){
 }
 
 async function deleteDigitalTool(toolId){
-  if(!confirm('¿Eliminar esta herramienta?')) return;
+  snapForUndo('Eliminar herramienta');
+    if(!confirm('¿Eliminar esta herramienta?')) return;
   ensureDigitalTools();
   appData.digitalTools = appData.digitalTools.filter(t=>t.id!==toolId);
   await upsert();
@@ -3479,7 +3740,8 @@ function openBrand(id){
 }
 
 async function deleteBrand(id){
-  if(!confirm('¿Eliminar esta marca?'))return;
+  snapForUndo('Eliminar marca');
+    if(!confirm('¿Eliminar esta marca?'))return;
   appData.brands=appData.brands.filter(b=>b.id!==id);
   renderDashboard();
   await upsert();
@@ -3562,7 +3824,8 @@ async function toggleRonda(brandId,rondaId){
 }
 
 async function deleteRonda(brandId,rondaId){
-  const brand=appData.brands.find(b=>b.id===brandId);
+  snapForUndo('Eliminar ronda');
+    const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.rondas)return;
   brand.rondas=brand.rondas.filter(x=>x.id!==rondaId);
   renderRondas(brand);
@@ -3571,7 +3834,8 @@ async function deleteRonda(brandId,rondaId){
 }
 
 async function addRonda(){
-  const brand=appData.brands.find(b=>b.id===currentBrandId);
+  snapForUndo('Agregar ronda');
+    const brand=appData.brands.find(b=>b.id===currentBrandId);
   if(!brand)return;
   if(!brand.rondas)brand.rondas=[];
   const n=brand.rondas.length+1;
@@ -3708,7 +3972,7 @@ function renderBrandCrono(brand){
           <span class="act-item-name ${a.isHito?'hito-name':''} ${a.status==='completada'?'done-name':''}"
             onclick="cycleStatus('${brand.id}','${stage}','${a.id}')"
             title="Click para marcar avance">${a.name}</span>
-          <span class="act-days-badge" onclick="editActDays(event,'${brand.id}','${stage}','${a.id}')" title="Click para editar duración" style="cursor:pointer" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${a.days}d</span>
+          <span class="act-days-inline" id="days-badge-${a.id}" onclick="startInlineDays(event,'${brand.id}','${stage}','${a.id}')" title="Click para editar duración">${a.days}d</span>
           <span class="act-date" title="Fecha inicio — click para editar" onclick="editDate(event,'${brand.id}','${stage}','${a.id}','startDate')">📅 ${fmtDateDisplay(a.startDate)}</span>
           <span style="font-size:0.68rem;color:var(--text3)">→</span>
           <span class="act-date" title="Fecha fin — click para editar" onclick="editDate(event,'${brand.id}','${stage}','${a.id}','endDate')">🏁 ${fmtDateDisplay(a.endDate)}</span>
@@ -3740,14 +4004,14 @@ function renderBrandCrono(brand){
 
 
 async function addCronoActivity(brandId, stage){
-  const brand = appData.brands.find(b=>b.id===brandId);
+  snapForUndo('Agregar actividad');
+    const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.cronograma) return;
-  const name = prompt('Nombre de la nueva actividad:');
+  const name = await askModal({ label:'Nueva actividad', placeholder:'Ej: Revisión de propuestas', defaultValue:'' });
   if(!name) return;
-  const daysStr = prompt('¿Cuántos días hábiles dura?', '3');
+  const daysStr = await askModal({ label:`Duración de "${name}" (días hábiles)`, type:'number', defaultValue:'3' });
   const days = parseInt(daysStr)||3;
   const acts = brand.cronograma[stage]||[];
-  // Start after the last activity's endDate
   const lastAct = acts[acts.length-1];
   const startDate = lastAct?.endDate ? addWorkdays(lastAct.endDate, 1) : new Date().toISOString().slice(0,10);
   const endDate = addWorkdays(startDate, days-1);
@@ -3759,7 +4023,8 @@ async function addCronoActivity(brandId, stage){
 }
 
 async function deleteCronoActivity(brandId, stage, actId){
-  const brand = appData.brands.find(b=>b.id===brandId);
+  snapForUndo('Eliminar actividad');
+    const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.cronograma) return;
   const acts = brand.cronograma[stage]||[];
   const idx = acts.findIndex(a=>a.id===actId);
@@ -3792,26 +4057,40 @@ function addWorkdays(dateStr, days){
 }
 
 
-async function editActDays(e, brandId, stage, actId){
+function startInlineDays(e, brandId, stage, actId){
+  e.stopPropagation();
+  const badge = document.getElementById('days-badge-'+actId);
+  if(!badge || badge.classList.contains('editing')) return;
   const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand) return;
   const acts = brand.cronograma[stage];
   const idx = acts.findIndex(a=>a.id===actId);
   if(idx<0) return;
   const act = acts[idx];
-  const newDays = prompt(`Duración de "${act.name}" (días hábiles):`, act.days);
-  if(!newDays || isNaN(parseInt(newDays))) return;
-  act.days = parseInt(newDays);
-  // Recalculate endDate from startDate
-  act.endDate = addWorkdays(act.startDate, act.days - 1);
-  // Rechain subsequent
-  for(let i=idx+1;i<acts.length;i++){
-    acts[i].startDate = addWorkdays(acts[i-1].endDate, 1);
-    acts[i].endDate = addWorkdays(acts[i].startDate, (acts[i].days||1)-1);
-  }
-  await upsert();
-  showStatus('Duración actualizada ✓');
-  renderBrandCrono(brand);
+  badge.classList.add('editing');
+  badge.innerHTML = `<input class="act-days-number-input" id="days-input-${actId}" type="number" min="1" value="${act.days}" onclick="event.stopPropagation()">d`;
+  const inp = document.getElementById('days-input-'+actId);
+  inp.focus(); inp.select();
+  const commit = async()=>{
+    const v = parseInt(inp.value);
+    if(!isNaN(v) && v > 0 && v !== act.days){
+      snapForUndo('Editar duración');
+      act.days = v;
+      act.endDate = addWorkdays(act.startDate, act.days - 1);
+      for(let i=idx+1;i<acts.length;i++){
+        acts[i].startDate = addWorkdays(acts[i-1].endDate, 1);
+        acts[i].endDate = addWorkdays(acts[i].startDate, (acts[i].days||1)-1);
+      }
+      await upsert();
+      showStatus('Duración actualizada ✓');
+      renderBrandCrono(brand);
+    } else {
+      badge.classList.remove('editing');
+      badge.innerHTML = act.days+'d';
+    }
+  };
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter') commit(); if(e.key==='Escape'){ badge.classList.remove('editing'); badge.innerHTML=act.days+'d'; } });
+  inp.addEventListener('blur', commit);
 }
 
 /* ── Edit a single date inline ── */
@@ -3844,7 +4123,8 @@ function editDate(e,brandId,stage,actId,field){
 
 /* ── Shift ALL dates by N workdays ── */
 async function shiftAllDates(brandId,delta){
-  const brand=appData.brands.find(b=>b.id===brandId);
+  snapForUndo('Mover fechas');
+    const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand)return;
   ['aire','agua','tierra','fuego'].forEach(stage=>{
     (brand.cronograma[stage]||[]).forEach(a=>{
@@ -3858,7 +4138,8 @@ async function shiftAllDates(brandId,delta){
 }
 
 async function cycleStatus(brandId,stage,actId){
-  const brand=appData.brands.find(b=>b.id===brandId);
+  snapForUndo('Cambiar estado');
+    const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.cronograma[stage])return;
   const act=brand.cronograma[stage].find(a=>a.id===actId);
   if(!act)return;
@@ -3951,7 +4232,8 @@ function renderBrandDomo(){
 }
 
 async function saveBrandDomo(){
-  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  snapForUndo('Guardar domo');
+    const brand = appData.brands.find(b=>b.id===currentBrandId);
   if(!brand) return;
   const p1 = document.getElementById('domo-p1')?.value||'';
   const p2 = document.getElementById('domo-p2')?.value||'';
@@ -4043,10 +4325,13 @@ async function updateBrandBpQty(brandId,ci,ii,val){
 }
 
 async function addBrandBpItem(brandId,ci){
-  const brand=appData.brands.find(b=>b.id===brandId);
+  snapForUndo('Agregar entregable');
+    const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.brandingPoints)return;
-  const name=prompt('Nombre del entregable:');if(!name||!name.trim())return;
-  const pts=parseInt(prompt('Branding points:')||'1')||1;
+  const name=await askModal({label:'Nombre del entregable',placeholder:'Ej: Manual de marca'});
+  if(!name||!name.trim())return;
+  const ptsStr=await askModal({label:`Branding points para "${name}"`,type:'number',defaultValue:'1'});
+  const pts=parseInt(ptsStr)||1;
   brand.brandingPoints.categories[ci].items.push({id:uid(),name:name.trim(),pts,qty:1,selected:false});
   renderBrandBp(brand);
   await upsert();
@@ -4226,7 +4511,8 @@ function compressImage(file, maxW, maxH, quality){
 }
 
 async function saveBrand(){
-  const name=document.getElementById('input-name').value.trim();
+  snapForUndo('Guardar marca');
+    const name=document.getElementById('input-name').value.trim();
   if(!name){showStatus('El nombre es obligatorio',true);return;}
   const btn=document.getElementById('btn-save');btn.disabled=true;btn.textContent='Guardando…';
 
@@ -4304,7 +4590,8 @@ async function saveBrand(){
 }
 
 async function deleteBrandCurrent(){
-  if(!currentBrandId)return;
+  snapForUndo('Eliminar marca');
+    if(!currentBrandId)return;
   const brand=appData.brands.find(b=>b.id===currentBrandId);
   if(!confirm('¿Eliminar "'+brand?.name+'"?'))return;
   appData.brands=appData.brands.filter(b=>b.id!==currentBrandId);
@@ -4392,8 +4679,9 @@ function renderTplSummary(){
 function tplToggleHito(stage,id){const a=appData.template.cronograma[stage].find(x=>x.id===id);if(a)a.isHito=!a.isHito;renderTplStage(stage);renderTplSummary();}
 function tplUpdateDays(stage,id,val){const a=appData.template.cronograma[stage].find(x=>x.id===id);if(a)a.days=parseInt(val)||0;renderTplStage(stage);renderTplSummary();}
 function tplDeleteAct(stage,id){appData.template.cronograma[stage]=appData.template.cronograma[stage].filter(a=>a.id!==id);renderTplStage(stage);renderTplSummary();}
-function tplAddAct(stage){const name=prompt('Nombre de la actividad:');if(!name||!name.trim())return;appData.template.cronograma[stage].push({id:uid(),name:name.trim(),days:1,isHito:false,isNaming:false});renderTplStage(stage);renderTplSummary();}
-function onNamingToggle(){appData.template.includeNaming=document.getElementById('tpl-naming').checked;['aire','agua','tierra','fuego'].forEach(s=>renderTplStage(s));renderTplSummary();}
+async function tplAddAct(stage){const name=await askModal({label:'Nueva actividad en la plantilla',placeholder:'Ej: Reunión de revisión'});if(!name||!name.trim())return;appData.template.cronograma[stage].push({id:uid(),name:name.trim(),days:1,isHito:false,isNaming:false});renderTplStage(stage);renderTplSummary();}
+  snapForUndo('Agregar actividad template');
+  function onNamingToggle(){appData.template.includeNaming=document.getElementById('tpl-naming').checked;['aire','agua','tierra','fuego'].forEach(s=>renderTplStage(s));renderTplSummary();}
 
 
 function tplRenameCat(ci, val){
@@ -4484,11 +4772,13 @@ function tplToggleBpItem(ci,ii,val){appData.template.brandingPoints.categories[c
 function tplUpdateBpPts(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].pts=parseInt(val)||0;renderTplBpCats();}
 function tplUpdateBpQty(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].qty=parseInt(val)||1;renderTplBpCats();}
 function tplDeleteBpItem(ci,ii){appData.template.brandingPoints.categories[ci].items.splice(ii,1);renderTplBpCats();}
-function tplAddBpItem(ci){const name=prompt('Nombre del entregable:');if(!name||!name.trim())return;const pts=parseInt(prompt('Branding points:')||'1')||1;appData.template.brandingPoints.categories[ci].items.push({id:uid(),name:name.trim(),pts,qty:1,selected:false});renderTplBpCats();}
-function onBpTotalChange(){appData.template.brandingPoints.total=parseInt(document.getElementById('bp-total').value)||0;renderTplBpCats();}
+async function tplAddBpItem(ci){const name=await askModal({label:'Nombre del entregable',placeholder:'Ej: Manual de marca'});if(!name||!name.trim())return;const ptsStr=await askModal({label:`Branding points para "${name}"`,type:'number',defaultValue:'1'});const pts=parseInt(ptsStr)||1;appData.template.brandingPoints.categories[ci].items.push({id:uid(),name:name.trim(),pts,qty:1,selected:false});renderTplBpCats();}
+  snapForUndo('Agregar entregable template');
+  function onBpTotalChange(){appData.template.brandingPoints.total=parseInt(document.getElementById('bp-total').value)||0;renderTplBpCats();}
 
 async function saveTemplate(){
-  appData.template.industria=document.getElementById('tpl-industria').value.trim();
+  snapForUndo('Guardar template');
+    appData.template.industria=document.getElementById('tpl-industria').value.trim();
   appData.template.prioridad=document.getElementById('tpl-prioridad').value;
   appData.template.domoM1=document.getElementById('tpl-domo-m1')?.value||'';
   appData.template.domoM2=document.getElementById('tpl-domo-m2')?.value||'';
@@ -4564,7 +4854,8 @@ function renderTeamPage(){
 }
 
 async function quickSaveStatus(memberId, val){
-  const m = (appData.members||[]).find(x=>x.id===memberId);
+  snapForUndo('Cambiar estado miembro');
+    const m = (appData.members||[]).find(x=>x.id===memberId);
   if(!m) return;
   m.status = val;
   await upsert();
@@ -4617,7 +4908,6 @@ function renderMemberProfile(){
   document.getElementById('mprofile-meta').innerHTML = `
     ${m.cargo?`<span class="member-area-pill">${m.cargo}</span>`:''}
     ${m.area?`<span class="member-area-pill">${getAreaEmoji(m.area)} ${m.area}</span>`:''}
-    ${m.disponibilidad?`<span class="member-area-pill">📍 ${m.disponibilidad}</span>`:''}
   `;
   document.getElementById('mprofile-status').value = m.status||'';
 
@@ -4816,7 +5106,6 @@ function openMemberModal(){
   document.getElementById('m-nombre').value = '';
   document.getElementById('m-cargo').value = '';
   document.getElementById('m-apodo').value = '';
-  document.getElementById('m-disponibilidad').value = '';
   document.getElementById('m-avatar-preview').innerHTML = '👤';
   document.getElementById('modal-member-err').textContent = '';
   renderMemberEmojiGrid();
@@ -4837,7 +5126,6 @@ function openEditMemberModal(){
   document.getElementById('m-nombre').value = m.nombre || '';
   document.getElementById('m-cargo').value = m.cargo || '';
   document.getElementById('m-apodo').value = m.apodo || '';
-  document.getElementById('m-disponibilidad').value = m.disponibilidad || '';
   document.getElementById('m-avatar-preview').innerHTML = m.photo
     ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
     : (m.emoji || '👤');
@@ -4897,7 +5185,8 @@ function selectMemberColor(color){
 }
 
 async function saveMember(){
-  const nombre = document.getElementById('m-nombre').value.trim();
+  snapForUndo('Guardar miembro');
+    const nombre = document.getElementById('m-nombre').value.trim();
   if(!nombre){ document.getElementById('modal-member-err').textContent='El nombre es obligatorio'; return; }
   const areaRadio = document.querySelector('input[name="m-area"]:checked');
   const memberColor = document.getElementById('input-member-color')?.value || MEMBER_COLORS[0];
@@ -4905,7 +5194,6 @@ async function saveMember(){
     nombre,
     cargo: document.getElementById('m-cargo').value.trim(),
     apodo: document.getElementById('m-apodo').value.trim(),
-    disponibilidad: document.getElementById('m-disponibilidad').value.trim(),
     emoji: memberEmojiVal || '👤',
     photo: memberPhotoB64 || null,
     area: areaRadio ? areaRadio.value : '',
@@ -5156,15 +5444,14 @@ function switchEquipoTab(tab, skipRender){
   ['grid','week','month','domos'].forEach(t=>{
     const panel = document.getElementById('eq-panel-'+t);
     const btn = document.getElementById('eqtab-'+t+'-btn');
-    if(panel){
-      if(t===tab){ panel.classList.add('active'); }
-      else { panel.classList.remove('active'); }
-    }
-    if(btn){
-      if(t===tab){ btn.classList.add('active'); }
-      else { btn.classList.remove('active'); }
-    }
+    if(panel){ if(t===tab){ panel.classList.add('active'); } else { panel.classList.remove('active'); } }
+    if(btn){ if(t===tab){ btn.classList.add('active'); } else { btn.classList.remove('active'); } }
   });
+  const isCal = tab==='week'||tab==='month';
+  const gridActions = document.getElementById('eq-grid-actions');
+  const calActions = document.getElementById('eq-cal-actions');
+  if(gridActions) gridActions.style.display = (tab==='grid'||tab==='domos') ? 'flex' : 'none';
+  if(calActions) calActions.style.display = isCal ? 'flex' : 'none';
   renderEquipoTabContent(tab);
 }
 
@@ -5462,7 +5749,7 @@ function renderEqMonth(){
             const _actFree = (appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
             const _revFree = !!_actFree?.revDateOverride;
             return `<div class="eq-event cal-draggable"
-              style="background:repeating-linear-gradient(-45deg,rgba(${r2},${g2},${b2},0.07) 0px,rgba(${r2},${g2},${b2},0.07) 5px,rgba(${r2},${g2},${b2},0.02) 5px,rgba(${r2},${g2},${b2},0.02) 10px);border:1.5px dashed rgba(${r2},${g2},${b2},0.45);border-left:4px solid rgb(${r2},${g2},${b2});border-radius:0 7px 7px 0;cursor:${_revFree?'grab':'not-allowed'}"
+              style="background:repeating-linear-gradient(-45deg,rgba(${r2},${g2},${b2},0.07) 0px,rgba(${r2},${g2},${b2},0.07) 5px,rgba(${r2},${g2},${b2},0.02) 5px,rgba(${r2},${g2},${b2},0.02) 10px);border:1.5px dashed rgba(${r2},${g2},${b2},0.45);border-left:4px solid rgb(${r2},${g2},${b2});border-radius:0 7px 7px 0;cursor:grab"
               draggable="true"
               ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','revision')"
               title="Arrastra para mover solo esta revisión interna">
@@ -5674,20 +5961,22 @@ async function dropToDomo(event, toKey){
 }
 
 async function createDomo(){
-  // Open a mini picker to choose 2 members
-  const members = appData.members||[];
-  if(members.length < 1){ showStatus('Necesitas al menos un miembro', true); return; }
-  const options = members.map(m=>`${m.emoji||'👤'} ${m.apodo||m.nombre} (${m.cargo||'—'})`).join('\n');
-  const pick1 = prompt(`Elige el miembro principal 1 (escribe el número):\n${members.map((m,i)=>`${i+1}. ${m.apodo||m.nombre}`).join('\n')}`);
-  if(!pick1) return;
-  const pick2 = prompt(`Elige el miembro principal 2 (escribe el número):\n${members.map((m,i)=>`${i+1}. ${m.apodo||m.nombre}`).join('\n')}`);
-  if(!pick2) return;
-  const m1 = members[parseInt(pick1)-1];
-  const m2 = members[parseInt(pick2)-1];
+  snapForUndo('Crear domo');
+    const members = appData.members||[];
+  if(members.length < 2){ showStatus('Necesitas al menos dos miembros', true); return; }
+  const options = members.map(m=>`${m.emoji||'👤'} ${m.apodo||m.nombre} — ${m.cargo||'—'}`);
+  const pick1 = await askModal({ label:'Elige el Miembro Principal 1', type:'select', options });
+  if(pick1===null) return;
+  const options2 = options.map((o,i)=> i===pick1 ? null : o).filter(Boolean);
+  const realIdxMap = options.map((o,i)=> i).filter(i=> i!==pick1);
+  const pick2raw = await askModal({ label:'Elige el Miembro Principal 2', type:'select', options: options2 });
+  if(pick2raw===null) return;
+  const pick2 = realIdxMap[pick2raw];
+  const m1 = members[pick1];
+  const m2 = members[pick2];
   if(!m1||!m2||m1.id===m2.id){ showStatus('Selección inválida', true); return; }
-  // Domo exists implicitly — just name it
   const key = getDomoKey(m1.id, m2.id);
-  const name = prompt(`Nombre del domo:`, `Domo ${m1.apodo||m1.nombre} + ${m2.apodo||m2.nombre}`);
+  const name = await askModal({ label:'Nombre del domo', placeholder:`Domo ${m1.apodo||m1.nombre} + ${m2.apodo||m2.nombre}`, defaultValue:`Domo ${m1.apodo||m1.nombre} + ${m2.apodo||m2.nombre}` });
   if(name) setDomoName(key, name);
   await upsert();
   showStatus(`Domo "${name||'nuevo'}" listo. Ahora arrastra marcas.`);
@@ -5744,12 +6033,13 @@ async function quickSaveMemberStatus(id,val){
 }
 
 async function deleteMemberCurrent(){
-  if(!currentMemberId)return;
+  snapForUndo('Eliminar miembro');
+    if(!currentMemberId)return;
   const m=(appData.members||[]).find(x=>x.id===currentMemberId);
   if(!m)return;
   // Pincode protection
-  const pin = prompt(`🔒 Ingresa el PIN para eliminar a "${m.apodo||m.nombre}":`);
-  if(pin===null) return; // cancelled
+  const pin = await askModal({ label:`🔒 Ingresa el PIN para eliminar a "${m.apodo||m.nombre}"`, placeholder:'••••', defaultValue:'' });
+  if(pin===null) return;
   if(pin !== '1235'){
     showStatus('PIN incorrecto ❌', true);
     return;
@@ -5845,10 +6135,6 @@ boot();
     <div class="form-group" style="margin-bottom:1rem">
       <label class="form-label">Apodo (opcional)</label>
       <input class="form-input" id="m-apodo" placeholder="¿Cómo le llaman?">
-    </div>
-    <div class="form-group" style="margin-bottom:1rem">
-      <label class="form-label">Disponibilidad</label>
-      <input class="form-input" id="m-disponibilidad" placeholder="Disponible">
     </div>
     <!-- Foto o emoji -->
     <div class="form-group" style="margin-bottom:1rem">
@@ -5997,6 +6283,18 @@ boot();
   </div>
 </div>
 
+
+<!-- ASK MODAL: reemplaza todos los prompt() nativos -->
+<div class="ask-modal-overlay hidden" id="ask-modal-overlay">
+  <div class="ask-modal" id="ask-modal-box">
+    <div class="ask-modal-label" id="ask-modal-label"></div>
+    <div id="ask-modal-body"></div>
+    <div class="ask-modal-footer">
+      <button class="btn-cancel" id="ask-modal-cancel">Cancelar</button>
+      <button class="btn-save" id="ask-modal-ok">Aceptar</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL: Finanzas input -->
 <div class="modal-overlay hidden" id="modal-fin-input">
