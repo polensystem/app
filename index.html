@@ -355,6 +355,58 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .act-days-inline:hover{border-color:var(--aire);color:var(--aire);}
 .act-days-inline.editing{border-color:var(--aire);background:rgba(59,158,221,0.08);cursor:default;}
 .act-days-number-input{width:36px;background:none;border:none;outline:none;font-size:0.7rem;font-weight:700;color:var(--aire);font-family:var(--font);text-align:center;}
+/* ── PORTAL MODE ── */
+body.portal-mode .sidebar,
+body.portal-mode .header,
+body.portal-mode #loading-screen{ display:none!important; }
+body.portal-mode .main{ height:100vh; }
+
+/* ── PORTAL VIEW ── */
+#portal-view{ display:none; flex-direction:column; min-height:100vh; background:var(--bg); font-family:var(--font); }
+#portal-view.active{ display:flex; }
+.portal-header{ padding:1.2rem 2rem; background:var(--bg-card); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:1rem; }
+.portal-logo{ font-size:1.1rem; font-weight:800; color:var(--text); letter-spacing:-0.5px; }
+.portal-brand-name{ font-size:1rem; font-weight:700; color:var(--text); }
+.portal-brand-pill{ font-size:0.7rem; font-weight:600; padding:0.2rem 0.6rem; border-radius:99px; }
+.portal-body{ flex:1; overflow-y:auto; padding:2rem; display:flex; flex-direction:column; gap:2rem; max-width:900px; margin:0 auto; width:100%; }
+.portal-section{ background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r); box-shadow:var(--shadow); overflow:hidden; }
+.portal-section-head{ padding:1.1rem 1.5rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.portal-section-title{ font-size:0.95rem; font-weight:700; }
+.portal-section-body{ padding:1.2rem 1.5rem; }
+/* Portal crono */
+.portal-crono-stage{ margin-bottom:1rem; }
+.portal-crono-stage-title{ font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:0.5rem; display:flex; align-items:center; gap:0.5rem; }
+.portal-act-row{ display:flex; align-items:center; gap:0.7rem; padding:0.5rem 0.8rem; border-radius:8px; margin-bottom:0.25rem; background:var(--bg-card2); }
+.portal-act-status{ width:18px; height:18px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:700; flex-shrink:0; }
+.portal-act-status.pendiente{ background:var(--pending-bg); color:var(--text3); }
+.portal-act-status.progreso{ background:var(--progress-bg); color:var(--aire); }
+.portal-act-status.completada{ background:var(--done-bg); color:var(--tierra); }
+.portal-act-name{ flex:1; font-size:0.84rem; }
+.portal-act-name.done{ text-decoration:line-through; color:var(--text3); }
+.portal-act-hito{ font-size:0.75rem; }
+.portal-act-date{ font-size:0.72rem; color:var(--text3); white-space:nowrap; }
+/* Portal BP */
+.portal-bp-item{ display:flex; align-items:center; gap:0.65rem; padding:0.55rem 0.9rem; border-bottom:1px solid var(--border2); transition:background var(--transition); }
+.portal-bp-item:last-child{ border-bottom:none; }
+.portal-bp-item:hover{ background:var(--glass); }
+.portal-bp-pts{ font-size:0.78rem; font-weight:700; color:var(--fuego); background:var(--bg-card2); border:1px solid var(--border); border-radius:8px; padding:0.2rem 0.5rem; min-width:36px; text-align:center; flex-shrink:0; }
+.portal-bp-pts.pending{ color:var(--text3); font-style:italic; }
+.portal-bp-bar{ height:8px; background:var(--bg-card2); border-radius:99px; overflow:hidden; margin-bottom:0.3rem; }
+.portal-bp-bar-fill{ height:100%; border-radius:99px; background:var(--agua); transition:width 0.4s ease; }
+.portal-wrap{ max-width:860px;margin:0 auto;padding:2rem 1.5rem;display:flex;flex-direction:column;gap:1.5rem; }
+.portal-brand-header{ display:flex;align-items:center;gap:1rem;padding:1.5rem 2rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow); }
+.portal-brand-logo{ width:52px;height:52px;border-radius:12px;background:var(--bg-card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0;overflow:hidden; }
+.portal-brand-logo img{ width:100%;height:100%;object-fit:cover;border-radius:11px; }
+.portal-brand-name{ font-size:1.5rem;font-weight:800;letter-spacing:-0.5px; }
+.portal-brand-sub{ font-size:0.8rem;color:var(--text3);margin-top:0.2rem; }
+.portal-section-title{ font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);margin-bottom:0.9rem; }
+.portal-bp-item{ display:flex;align-items:center;gap:0.7rem;padding:0.6rem 1rem;border-bottom:1px solid var(--border2);transition:background var(--transition); }
+.portal-bp-item:last-child{ border-bottom:none; }
+.portal-bp-item:hover{ background:var(--glass); }
+.portal-bp-pts{ font-size:0.78rem;font-weight:700;padding:0.2rem 0.6rem;border-radius:99px;background:var(--bg-card2);border:1px solid var(--border);min-width:40px;text-align:center;flex-shrink:0; }
+.portal-bp-pts.unknown{ color:var(--text3);font-style:italic; }
+.portal-bp-pts.valued{ color:var(--fuego); }
+.portal-powered{ text-align:center;font-size:0.7rem;color:var(--text3);padding:1rem 0;opacity:0.5; }
 /* ── STATUS ── */
 .status-bar{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.4rem 1.1rem;font-size:0.75rem;color:var(--text2);box-shadow:var(--shadow);z-index:50;opacity:0;transition:opacity 0.3s;white-space:nowrap;pointer-events:none;}
 .status-bar.show{opacity:1;}
@@ -830,6 +882,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 
 /* ── Calendar events — NO CSS variables, styles injected inline by JS ── */
 .eq-event{border-radius:5px;padding:0.2rem 0.45rem;margin-bottom:0.2rem;font-size:0.65rem;line-height:1.3;}
+.eq-event *{pointer-events:none;}
+.eq-event .eq-free-toggle{pointer-events:auto;}
+.cal-draggable.dragging{opacity:0.4;}
 .eq-event-type{display:none;}
 .eq-event-brand{font-weight:700;font-size:0.72rem;display:flex;align-items:center;gap:0.3rem;}
 .eq-event-act{font-size:0.67rem;margin-top:1px;}
@@ -1344,6 +1399,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
         <button class="tab-btn" id="tab-rondas-btn" onclick="switchTab('rondas')">🔄 Rondas</button>
         <button class="tab-btn" id="tab-bp-btn" onclick="switchTab('bp')">⭐ Branding Points</button>
         <button class="tab-btn" id="tab-domo-btn" onclick="switchTab('domo')">🏠 Domo</button>
+        <button class="tab-btn" id="tab-portal-btn" onclick="switchTab('portal')">🌐 Portal cliente</button>
       </div>
 
       <!-- Tab: Cronograma -->
@@ -1390,6 +1446,31 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
               <span class="pts-total-val" id="brand-bp-total-label">—</span>
             </div>
             <div id="brand-bp-cats"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Portal cliente -->
+      <div class="tab-panel" id="tab-portal">
+        <div class="section-card">
+          <div class="section-head">
+            <div class="section-head-left">
+              <div class="section-head-title">🌐 Portal del cliente</div>
+              <div class="section-head-sub">Comparte este enlace con tu cliente — verá su cronograma y branding points en tiempo real</div>
+            </div>
+          </div>
+          <div class="section-body">
+            <div id="portal-link-box" style="display:flex;align-items:center;gap:0.7rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--r-sm);padding:0.8rem 1rem">
+              <span style="font-size:0.85rem;color:var(--text2);flex:1;word-break:break-all;font-family:monospace" id="portal-link-text"></span>
+              <button onclick="copyPortalLink()" style="background:var(--text);color:var(--bg);border:none;border-radius:99px;padding:0.4rem 1rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap;flex-shrink:0">Copiar enlace</button>
+              <button onclick="openPortalPreview()" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:99px;padding:0.4rem 0.9rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);white-space:nowrap;flex-shrink:0">Vista previa ↗</button>
+            </div>
+            <div style="margin-top:1.2rem;padding:1rem;background:rgba(59,158,221,0.06);border:1px solid rgba(59,158,221,0.2);border-radius:var(--r-sm)">
+              <div style="font-size:0.78rem;color:var(--text2);line-height:1.6">
+                <strong style="color:var(--aire)">El cliente podrá:</strong> ver el cronograma actualizado, ver y seleccionar entregables de branding points, y agregar nuevos entregables (que aparecerán con <strong>?</strong> puntos hasta que el equipo los valore).<br>
+                <strong style="color:var(--fuego)">No podrá:</strong> cambiar la valuación de puntos ni el total asignado.
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2213,6 +2294,23 @@ async function reloadData(){
 /* ═══ DATE HELPERS ═══ */
 function isWeekend(d){const day=d.getDay();return day===0||day===6;}
 
+// Timezone-safe: parse YYYY-MM-DD as LOCAL date, never UTC
+function parseLocalDate(str){ const [y,m,d]=str.split('-').map(Number); return new Date(y,m-1,d); }
+function fmtLocalDate(d){ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
+
+// Shift a YYYY-MM-DD string by n workdays (n can be negative)
+function shiftWD(dateStr, n){
+  if(!dateStr||n===0) return dateStr;
+  const step = n>0?1:-1;
+  let d = parseLocalDate(dateStr);
+  let moved = 0;
+  while(moved < Math.abs(n)){
+    d.setDate(d.getDate()+step);
+    if(!isWeekend(d)) moved++;
+  }
+  return fmtLocalDate(d);
+}
+
 function addWorkdays(startDate,days){
   let d=new Date(startDate);let added=0;
   while(added<days){
@@ -2601,87 +2699,90 @@ function calDragStart(event, brandId, stage, actId, type){
   _calDragType = type;
   event.dataTransfer.effectAllowed = 'move';
   event.dataTransfer.setData('text/plain', actId);
+  event.currentTarget.classList.add('dragging');
+  // Clean up if drag ends without a drop (e.g. dropped outside)
+  const el = event.currentTarget;
+  el.addEventListener('dragend', ()=>{
+    el.classList.remove('dragging');
+    // Remove all drag-over highlights
+    document.querySelectorAll('.cal-drag-over').forEach(d=>d.classList.remove('cal-drag-over'));
+  }, {once: true});
 }
 
 async function calDrop(event, newDateStr){
   event.preventDefault();
-  if(!_calDragActId || !_calDragBrandId || !_calDragStage) return;
 
-  const brand = (appData.brands||[]).find(b=>b.id===_calDragBrandId);
-  if(!brand?.cronograma?.[_calDragStage]) return;
-  const acts = brand.cronograma[_calDragStage];
-  const actIdx = acts.findIndex(a=>a.id===_calDragActId);
+  const dragActId   = _calDragActId;
+  const dragBrandId = _calDragBrandId;
+  const dragStage   = _calDragStage;
+  const dragType    = _calDragType;
+  _calDragActId = null; _calDragBrandId = null; _calDragStage = null; _calDragType = null;
+
+  if(!dragActId || !dragBrandId || !dragStage) return;
+
+  const brand = (appData.brands||[]).find(b=>b.id===dragBrandId);
+  if(!brand?.cronograma?.[dragStage]) return;
+  const acts = brand.cronograma[dragStage];
+  const actIdx = acts.findIndex(a=>a.id===dragActId);
   if(actIdx<0) return;
   const act = acts[actIdx];
 
   snapForUndo('Mover evento');
 
-  if(_calDragType === 'revision'){
-    // Always moveable — store override regardless of free mode
+  if(dragType === 'revision'){
     act.revDateOverride = newDateStr;
 
   } else {
-    // Moving an official hito endDate
     const oldEndDate = act.endDate;
     const oldDays = act.days || 1;
     act.endDate = newDateStr;
-    act.startDate = subtractWorkdays(newDateStr, oldDays - 1);
-
-    // Clear per-hito rev override in linked mode so it recomputes
-    if(!_calFreeMode && act.revDateOverride){
-      delete act.revDateOverride;
-    }
+    // Recalculate startDate from new endDate
+    act.startDate = shiftWD(newDateStr, -(oldDays - 1));
 
     if(_calFreeMode){
-      // FREE MODE: move only this hito, nothing else shifts
-      // (revision keeps its own override if set, otherwise recomputes dynamically)
-
+      // Free mode: freeze revision where it currently is so it doesn't follow the hito
+      if(!act.revDateOverride) act.revDateOverride = shiftWD(oldEndDate, -2);
+      // (if already has override, it stays put — nothing to do)
     } else {
-      // LINKED MODE: shift future activities by the same workday delta
-      const today = new Date(); today.setHours(0,0,0,0);
+      // Linked mode: clear any rev override so it recomputes relative to new endDate
+      if(act.revDateOverride) delete act.revDateOverride;
+    }
 
-      // Calculate delta in WORKDAYS — safe bounded loop
-      const oldEnd = new Date(oldEndDate+'T12:00:00'); 
-      const newEnd = new Date(newDateStr+'T12:00:00');
-      const sign = newEnd > oldEnd ? 1 : -1;
+    if(!_calFreeMode && oldEndDate){
+      // Count workday delta between old and new endDate (timezone-safe)
+      const oldD = parseLocalDate(oldEndDate);
+      const newD = parseLocalDate(newDateStr);
+      const sign = newD > oldD ? 1 : -1;
       let wdDelta = 0;
-      const maxIter = 365;
-      let iter = 0;
-      let cursor = new Date(oldEnd);
-      while(Math.abs(cursor - newEnd) > 43200000 && iter < maxIter){ // >12h apart
-        cursor.setDate(cursor.getDate() + sign);
+      const cursor = new Date(oldD);
+      for(let i=0; i<400; i++){
+        cursor.setDate(cursor.getDate()+sign);
         if(!isWeekend(cursor)) wdDelta += sign;
-        iter++;
+        if(cursor.getFullYear()===newD.getFullYear() && cursor.getMonth()===newD.getMonth() && cursor.getDate()===newD.getDate()) break;
       }
 
       if(wdDelta !== 0){
         ['aire','agua','tierra','fuego'].forEach(st=>{
           (brand.cronograma[st]||[]).forEach(a=>{
-            if(a.id === _calDragActId) return; // already moved
-            // Skip activities that are in the past
-            const aEnd = a.endDate ? new Date(a.endDate+'T12:00:00') : null;
-            if(aEnd && aEnd < today) return;
-            if(a.startDate) a.startDate = wdDelta > 0 ? fmtDate(addWorkdays(a.startDate, wdDelta)) : subtractWorkdays(a.startDate, Math.abs(wdDelta));
-            if(a.endDate)   a.endDate   = wdDelta > 0 ? fmtDate(addWorkdays(a.endDate,   wdDelta)) : subtractWorkdays(a.endDate,   Math.abs(wdDelta));
-            if(a.revDateOverride) a.revDateOverride = wdDelta > 0 ? fmtDate(addWorkdays(a.revDateOverride, wdDelta)) : subtractWorkdays(a.revDateOverride, Math.abs(wdDelta));
+            if(a.id === dragActId) return;
+            // Don't shift activities that end before (or on) the original hito date
+            if(a.endDate && a.endDate <= oldEndDate) return;
+            if(a.startDate) a.startDate = shiftWD(a.startDate, wdDelta);
+            if(a.endDate)   a.endDate   = shiftWD(a.endDate,   wdDelta);
+            if(a.revDateOverride) a.revDateOverride = shiftWD(a.revDateOverride, wdDelta);
           });
         });
       }
     }
   }
 
-  _calDragActId = null; _calDragBrandId = null; _calDragStage = null; _calDragType = null;
-
-  // ── Optimistic update: render immediately, save in background ──
+  // Render immediately (optimistic)
   const activeTab = window._eqTab;
   if(activeTab==='week') renderEqWeek();
-  else if(activeTab==='month') renderEqMonth();
+  else renderEqMonth();
+  if(currentBrandId===brand.id){ const s=document.getElementById('brand-crono-summary'); if(s) renderBrandCrono(brand); }
 
-  if(currentPage==='brand' && currentBrandId===brand.id) renderBrandCrono(brand);
-  else { const bp=document.getElementById('brand-crono-summary'); if(bp&&currentBrandId===brand.id) renderBrandCrono(brand); }
-
-  // Save async — don't block UI
-  upsert().then(ok=>{ if(ok) showStatus('Fecha actualizada ✓'); else showStatus('Error al guardar ❌',true); });
+  upsert().then(ok=>showStatus(ok?'Fecha actualizada ✓':'Error al guardar ❌', !ok));
 }
 
 async function toggleHitoFreeMode(brandId, stage, actId){
@@ -3902,7 +4003,7 @@ async function renderBrandPage(){
 }
 
 function switchTab(tab){
-  ['crono','rondas','bp','domo'].forEach(t=>{
+  ['crono','rondas','bp','domo','portal'].forEach(t=>{
     const panel=document.getElementById('tab-'+t);
     const btn=document.getElementById('tab-'+t+'-btn');
     if(panel)panel.classList.toggle('active',t===tab);
@@ -3913,6 +4014,26 @@ function switchTab(tab){
     const brand=appData.brands.find(b=>b.id===currentBrandId);
     if(brand)renderRondas(brand);
   }
+  if(tab==='portal') renderPortalTab();
+}
+
+function renderPortalTab(){
+  const url = getPortalUrl(currentBrandId);
+  const el = document.getElementById('portal-link-text');
+  if(el) el.textContent = url;
+}
+
+function getPortalUrl(brandId){
+  return window.location.origin + window.location.pathname + '?portal=' + brandId;
+}
+
+function copyPortalLink(){
+  const url = getPortalUrl(currentBrandId);
+  navigator.clipboard.writeText(url).then(()=>showStatus('Enlace copiado ✓'));
+}
+
+function openPortalPreview(){
+  window.open(getPortalUrl(currentBrandId), '_blank');
 }
 
 /* ── Cronograma (brand) ── */
@@ -4265,7 +4386,7 @@ function renderBrandBp(brand){
       <div class="bp-cat-head" onclick="toggleBrandBpCat('${brand.id}',${ci})">
         <div>
           <span class="bp-cat-name">${cat.name}</span>
-          <span class="bp-cat-meta">${cat.items.filter(i=>i.selected).length} sel. · ${cat.items.filter(i=>i.selected).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0)} pts</span>
+          <span class="bp-cat-meta">${cat.items.filter(i=>i.selected).length} sel. · ${cat.items.filter(i=>i.selected&&i.pts!=null).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0)} pts</span>
         </div>
         <span style="font-size:0.75rem;color:var(--text3)">${cat.open!==false?'▲':'▼'}</span>
       </div>
@@ -4274,10 +4395,16 @@ function renderBrandBp(brand){
           <div class="bp-item">
             <input type="checkbox" ${item.selected?'checked':''} style="width:15px;height:15px;accent-color:var(--agua);cursor:pointer;flex-shrink:0"
               onchange="toggleBrandBpItem('${brand.id}',${ci},${ii},this.checked)">
-            <span class="bp-item-name" style="${item.selected?'':'color:var(--text2)'}">${item.name}</span>
+            <span class="bp-item-name" style="${item.selected?'':'color:var(--text2)'}">${item.name}${item.fromPortal?'<span style="font-size:0.6rem;background:rgba(59,158,221,0.15);color:var(--aire);border-radius:4px;padding:0.1rem 0.35rem;margin-left:0.4rem">cliente</span>':''}</span>
             <div class="bp-pts-wrap">
               <span class="bp-pts-lbl">PTS</span>
-              <span class="bp-pts-val">${item.pts||0}</span>
+              ${item.pts==null
+                ? `<input class="bp-pts-input" type="number" min="0" placeholder="?" value=""
+                    style="color:var(--fuego);width:54px"
+                    onchange="setPortalItemPts('${brand.id}',${ci},${ii},this.value)"
+                    title="Definir valor de este entregable del cliente">`
+                : `<span class="bp-pts-val">${item.pts||0}</span>`
+              }
             </div>
             <div class="bp-pts-wrap">
               <span class="bp-pts-lbl">CANT.</span>
@@ -4313,6 +4440,17 @@ async function updateBrandBpQty(brandId,ci,ii,val){
   brand.brandingPoints.categories[ci].items[ii].qty=parseInt(val)||1;
   renderBrandBp(brand);
   await upsert();
+}
+
+async function setPortalItemPts(brandId,ci,ii,val){
+  const brand=appData.brands.find(b=>b.id===brandId);
+  if(!brand?.brandingPoints)return;
+  const pts=parseInt(val);
+  if(isNaN(pts)||pts<0)return;
+  brand.brandingPoints.categories[ci].items[ii].pts=pts;
+  renderBrandBp(brand);
+  await upsert();
+  showStatus('Valor asignado ✓');
 }
 
 async function addBrandBpItem(brandId,ci){
@@ -4796,7 +4934,7 @@ let collapsed=false;
 sideBtn.addEventListener('click',()=>{collapsed=!collapsed;sidebar.classList.toggle('collapsed',collapsed);sideBtn.textContent=collapsed?'›':'‹';});
 
 /* ═══ REALTIME ═══ */
-function subscribeRealtime(){
+function subscribeRealtime(onUpdate){
   sb.channel('polen_pm_v3')
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'polen_shared',filter:`id=eq.${REC_ID}`},
     payload=>{
@@ -4805,8 +4943,8 @@ function subscribeRealtime(){
         appData={...raw,brands:Array.isArray(raw.brands)?raw.brands:[],members:Array.isArray(raw.members)?raw.members:[]};
         if(!appData.domos)appData.domos=[];
         if(!appData.template)appData.template=defaultTemplate();
-        renderCurrentPage();
-        showStatus('🔄 Actualizado en tiempo real');
+        if(onUpdate) onUpdate();
+        else { renderCurrentPage(); showStatus('🔄 Actualizado en tiempo real'); }
       }
     }).subscribe();
 }
@@ -5263,13 +5401,7 @@ function getMemberHitos(memberId) {
 }
 
 function subtractWorkdays(dateStr, days) {
-  let d = new Date(dateStr);
-  let removed = 0;
-  while (removed < days) {
-    d.setDate(d.getDate() - 1);
-    if (!isWeekend(d)) removed++;
-  }
-  return fmtDate(d);
+  return shiftWD(dateStr, -days);
 }
 
 /* ── Get member domos (brands where they appear) ── */
@@ -5650,9 +5782,9 @@ function renderEqWeek(){
     const isToday = dayStr===fmtDate(today);
     const dayEvs = allHitos.filter(h=>h.date===dayStr);
     return `<div class="eq-week-day ${isToday?'today':''} ${!dayEvs.length&&!isToday?'empty-day':''}"
-      ondragover="event.preventDefault();this.classList.add('cal-drag-over')"
-      ondragleave="this.classList.remove('cal-drag-over')"
-      ondrop="calDrop(event,'${dayStr}');this.classList.remove('cal-drag-over')">
+      ondragover="event.preventDefault();event.dataTransfer.dropEffect='move';this.classList.add('cal-drag-over')"
+      ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('cal-drag-over')"
+      ondrop="this.classList.remove('cal-drag-over');calDrop(event,'${dayStr}')">
       <div class="eq-week-day-label">${dayNames[i]}</div>
       <div class="eq-week-day-num">${fmt(day)}${isToday?'<span class="today-pill">HOY</span>':''}</div>
       ${dayEvs.length ? dayEvs.map(h=>{
@@ -5678,7 +5810,7 @@ function renderEqWeek(){
             <div style="display:flex;align-items:center;gap:0.3rem">
               <span>⭐</span>
               <span class="eq-event-brand" style="color:var(--text);flex:1">${brand?.name||''}</span>
-              <span onclick="event.stopPropagation();toggleHitoFreeMode('${h.brandId}','${h.stage}','${h.actId}')" style="font-size:0.6rem;cursor:pointer;opacity:0.7">${_wFree?'🔓':'🔗'}</span>
+              <span class="eq-free-toggle" onclick="event.stopPropagation();toggleHitoFreeMode('${h.brandId}','${h.stage}','${h.actId}')" style="font-size:0.6rem;cursor:pointer;opacity:0.7">${_wFree?'🔓':'🔗'}</span>
             </div>
             <div class="eq-event-act" style="color:var(--text3)">${h.name}</div>
           </div>`;
@@ -5726,9 +5858,9 @@ function renderEqMonth(){
       const isToday = dayStr===fmtDate(today);
       const dayHitos = allHitos.filter(h=>h.date===dayStr);
       return `<div class="eq-month-day ${isToday?'today':''}"
-        ondragover="event.preventDefault();this.classList.add('cal-drag-over')"
-        ondragleave="this.classList.remove('cal-drag-over')"
-        ondrop="calDrop(event,'${dayStr}');this.classList.remove('cal-drag-over')">
+        ondragover="event.preventDefault();event.dataTransfer.dropEffect='move';this.classList.add('cal-drag-over')"
+        ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('cal-drag-over')"
+        ondrop="this.classList.remove('cal-drag-over');calDrop(event,'${dayStr}')">
         <div class="eq-month-day-label">${isToday?`<span style="font-weight:800;color:var(--aire)">${fmtFull(day)}</span>&nbsp;<span style="background:var(--aire);color:#fff;border-radius:99px;padding:0 0.4rem;font-size:0.58rem;font-weight:700">HOY</span>`:fmtFull(day)}</div>
         <div class="eq-month-events-scroll">
         ${dayHitos.map(h=>{
@@ -5758,7 +5890,7 @@ function renderEqMonth(){
               <div style="display:flex;align-items:center;gap:0.3rem">
                 <span>⭐</span>
                 <span class="eq-event-brand" style="color:var(--text);flex:1">${brand?.name||''}</span>
-                <span onclick="event.stopPropagation();toggleHitoFreeMode('${h.brandId}','${h.stage}','${h.actId}')" 
+                <span class="eq-free-toggle" onclick="event.stopPropagation();toggleHitoFreeMode('${h.brandId}','${h.stage}','${h.actId}')" 
                   title="${_isFree?'Modo libre — click para re-linkear':'Vinculado — click para modo libre'}"
                   style="font-size:0.6rem;cursor:pointer;opacity:0.7;flex-shrink:0;padding:0 2px">${_isFree?'🔓':'🔗'}</span>
               </div>
@@ -6080,10 +6212,23 @@ function forceSkipLoading(){
 }
 
 async function boot(){
+  // Check for portal mode first
+  const urlParams = new URLSearchParams(window.location.search);
+  const portalBrandId = urlParams.get('portal');
+  if(portalBrandId){
+    document.body.classList.add('portal-mode');
+    setTheme(localStorage.getItem('polen-theme')||'light');
+    const ls = document.getElementById('loading-screen');
+    await Promise.race([loadData(), new Promise(res=>setTimeout(res,10000))]);
+    ls.classList.add('hide'); setTimeout(()=>{ ls.style.display='none'; },600);
+    renderPortal(portalBrandId);
+    // Subscribe to realtime so portal auto-updates
+    subscribeRealtime(()=>renderPortal(portalBrandId));
+    return;
+  }
+
   setTheme(localStorage.getItem('polen-theme')||'dark');
 
-  // Race: loadData vs 10s hard timeout
-  // Show "skip" button after 5s in case user is stuck
   const skipTimer = setTimeout(()=>{
     const skipBtn = document.getElementById('loading-skip-btn');
     if(skipBtn) skipBtn.style.display='';
@@ -6095,13 +6240,172 @@ async function boot(){
   ]);
   clearTimeout(skipTimer);
 
-  // Always hide loading screen, no matter what
   const ls=document.getElementById('loading-screen');
   ls.classList.add('hide');
   setTimeout(()=>{ ls.style.display='none'; },600);
 
   renderCurrentPage();
   subscribeRealtime();
+}
+
+/* ═══ PORTAL CLIENT MODE ═══ */
+
+function renderPortal(brandId){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const main = document.querySelector('.main');
+  if(!main) return;
+
+  if(!brand){
+    main.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--text3);font-size:1rem">Marca no encontrada.</div>`;
+    return;
+  }
+
+  const color = getBrandColor(brand);
+  const logoHTML = brand.image
+    ? `<img src="${brand.image}">`
+    : `<span style="color:${color};font-weight:800">${brand.name.charAt(0)}</span>`;
+
+  // Build cronograma HTML (read-only, hitos highlighted)
+  const stages = ['aire','agua','tierra','fuego'];
+  const SC2 = {
+    aire:{emoji:'🌬️',label:'Aire',color:'var(--aire)'},
+    agua:{emoji:'💧',label:'Agua',color:'var(--agua)'},
+    tierra:{emoji:'🌱',label:'Tierra',color:'var(--tierra)'},
+    fuego:{emoji:'🔥',label:'Fuego',color:'var(--fuego)'},
+  };
+
+  const cronoHTML = stages.map(stage=>{
+    const acts = (brand.cronograma?.[stage]||[]);
+    if(!acts.length) return '';
+    const done = acts.filter(a=>a.status==='completada').length;
+    const pct = acts.length ? Math.round(done/acts.length*100) : 0;
+    const c = SC2[stage];
+    return `<div style="margin-bottom:0.8rem;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.2rem;border-bottom:1px solid var(--border2)">
+        <span style="font-size:0.9rem;font-weight:700;color:${c.color}">${c.emoji} ${c.label}</span>
+        <span style="font-size:0.72rem;color:var(--text3)">${done}/${acts.length} · ${pct}%</span>
+      </div>
+      ${acts.map(a=>{
+        const isHito = a.isHito;
+        const isDone = a.status==='completada';
+        const isProgress = a.status==='en progreso';
+        return `<div style="display:flex;align-items:center;gap:0.7rem;padding:0.55rem 1.2rem;border-bottom:1px solid var(--border2);${isDone?'opacity:0.6':''}">
+          <span style="font-size:0.85rem">${isDone?'✅':isProgress?'🔄':isHito?'⭐':'○'}</span>
+          <span style="flex:1;font-size:0.84rem;${isDone?'text-decoration:line-through;color:var(--text3)':''}${isHito?';font-weight:700':''}">${a.name}</span>
+          <span style="font-size:0.72rem;color:var(--text3)">${a.endDate?fmtDateDisplay(a.endDate):''}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+
+  // Build BP HTML (client version)
+  const bpHTML = portalRenderBp(brand);
+
+  main.innerHTML = `
+    <div style="overflow-y:auto;height:100vh;background:var(--bg)">
+      <div class="portal-wrap">
+        <div class="portal-brand-header">
+          <div class="portal-brand-logo" style="border-color:${color}">${logoHTML}</div>
+          <div>
+            <div class="portal-brand-name">${brand.name}</div>
+            <div class="portal-brand-sub">${brand.industria||''} ${brand.industria&&brand.stage?'·':''} ${brand.stage?brand.stage:''}</div>
+          </div>
+          <div style="margin-left:auto">
+            <button onclick="document.body.setAttribute('data-theme',document.body.getAttribute('data-theme')==='dark'?'light':'dark')" style="background:none;border:1px solid var(--border);border-radius:99px;padding:0.35rem 0.8rem;font-size:0.78rem;color:var(--text2);cursor:pointer;font-family:var(--font)">🌙 / ☀️</button>
+          </div>
+        </div>
+
+        <!-- Cronograma -->
+        <div class="card" style="padding:1.5rem">
+          <div class="portal-section-title">📅 Cronograma del proyecto</div>
+          ${cronoHTML || '<div style="color:var(--text3);font-size:0.84rem">Sin cronograma aún.</div>'}
+        </div>
+
+        <!-- Branding Points -->
+        <div class="card" style="padding:1.5rem" id="portal-bp-wrap">
+          ${bpHTML}
+        </div>
+
+        <div class="portal-powered">Powered by Polen PM ✦</div>
+      </div>
+    </div>
+  `;
+
+  // Rebind portal BP realtime
+  window._portalBrandId = brandId;
+}
+
+function portalRenderBp(brand){
+  const bp = brand.brandingPoints;
+  if(!bp) return '<div style="color:var(--text3);font-size:0.84rem">Sin branding points.</div>';
+
+  const total = bp.total || 0;
+  const used = (bp.categories||[]).flatMap(c=>c.items).filter(i=>i.selected&&i.pts!=null).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0);
+  const left = total - used;
+  const pct = total > 0 ? Math.min(100, used/total*100) : 0;
+
+  const catsHTML = (bp.categories||[]).map((cat,ci)=>`
+    <div style="margin-bottom:1rem">
+      <div style="font-size:0.78rem;font-weight:700;color:var(--text2);padding:0.5rem 1rem;background:var(--bg-card2);border-radius:var(--r-sm);margin-bottom:0.3rem;display:flex;justify-content:space-between">
+        <span>${cat.name}</span>
+        <span style="color:var(--text3)">${cat.items.filter(i=>i.selected).length} sel.</span>
+      </div>
+      ${cat.items.map((item,ii)=>`
+        <div class="portal-bp-item">
+          <input type="checkbox" ${item.selected?'checked':''} style="width:16px;height:16px;accent-color:var(--agua);cursor:pointer;flex-shrink:0"
+            onchange="portalToggleBpItem('${brand.id}',${ci},${ii},this.checked)">
+          <span style="flex:1;font-size:0.84rem;${item.selected?'':'color:var(--text2)'}">${item.name}</span>
+          <span class="portal-bp-pts ${item.pts==null?'unknown':'valued'}">${item.pts==null?'?':item.pts+(item.qty>1?' ×'+item.qty:'')}</span>
+        </div>`).join('')}
+      <div style="padding:0.4rem 1rem">
+        <button onclick="portalAddBpItem('${brand.id}',${ci})"
+          style="width:100%;padding:0.35rem;border:1px dashed var(--border);border-radius:8px;background:none;font-size:0.75rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s"
+          onmouseover="this.style.borderColor='var(--aire)';this.style.color='var(--aire)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
+          + Agregar entregable
+        </button>
+      </div>
+    </div>`).join('');
+
+  return `
+    <div class="portal-section-title">⭐ Branding Points</div>
+    <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1rem;flex-wrap:wrap">
+      <div style="text-align:center"><div style="font-size:1.8rem;font-weight:800">${total}</div><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Total</div></div>
+      <div style="text-align:center"><div style="font-size:1.8rem;font-weight:800;color:var(--fuego)">${used}</div><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Usados</div></div>
+      <div style="text-align:center"><div style="font-size:1.8rem;font-weight:800;color:var(--agua)">${left}</div><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Restantes</div></div>
+      <div style="flex:1;min-width:120px">
+        <div style="height:8px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:var(--fuego);border-radius:99px;transition:width 0.4s"></div>
+        </div>
+      </div>
+    </div>
+    ${catsHTML}
+    <div style="font-size:0.72rem;color:var(--text3);margin-top:0.5rem;padding:0.6rem 0.8rem;background:rgba(245,197,66,0.06);border-radius:8px">
+      💡 Los entregables con <strong>?</strong> puntos serán valorados por el equipo.
+    </div>
+  `;
+}
+
+async function portalToggleBpItem(brandId, ci, ii, val){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand?.brandingPoints) return;
+  brand.brandingPoints.categories[ci].items[ii].selected = val;
+  // Re-render BP section only
+  const wrap = document.getElementById('portal-bp-wrap');
+  if(wrap) wrap.innerHTML = portalRenderBp(brand);
+  upsert().then(()=>{});
+}
+
+async function portalAddBpItem(brandId, ci){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand?.brandingPoints) return;
+  const name = await askModal({label:'Nombre del entregable', placeholder:'Ej: Fotobooth para evento'});
+  if(!name||!name.trim()) return;
+  // pts: null → equipo define después
+  brand.brandingPoints.categories[ci].items.push({id:uid(), name:name.trim(), pts:null, qty:1, selected:true, fromPortal:true});
+  const wrap = document.getElementById('portal-bp-wrap');
+  if(wrap) wrap.innerHTML = portalRenderBp(brand);
+  upsert().then(()=>{});
 }
 boot();
 </script>
