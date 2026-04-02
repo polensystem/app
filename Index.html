@@ -5357,8 +5357,8 @@ async function deleteCronoActivity(brandId, stage, actId){
     const prev = acts[i-1];
     const prevEnd = prev ? prev.endDate : (i===0 ? removed.startDate : null);
     if(prevEnd){
-      acts[i].startDate = addWorkdays(prevEnd, 1);
-      acts[i].endDate = addWorkdays(acts[i].startDate, (acts[i].days||1)-1);
+      acts[i].startDate = addWorkdaysStr(prevEnd, 1);
+      acts[i].endDate   = addWorkdaysStr(acts[i].startDate, (acts[i].days||1)-1);
     }
   }
   brand.cronograma[stage] = acts;
@@ -5366,16 +5366,6 @@ async function deleteCronoActivity(brandId, stage, actId){
   renderBrandCrono(brand);
   showStatus('Actividad eliminada y fechas reencadenadas ✓');
   await upsert();
-}
-
-function addWorkdays(dateStr, days){
-  let d = new Date(dateStr);
-  let added = 0;
-  while(added < days){
-    d.setDate(d.getDate()+1);
-    if(!isWeekend(d)) added++;
-  }
-  return fmtDate(d);
 }
 
 
@@ -5501,6 +5491,7 @@ function renderDomoPrincipalCards(){
   ['p1','p2'].forEach(key=>{
     const sel = document.getElementById(`domo-${key}`);
     const preview = document.getElementById(`domo-${key}-preview`);
+    if(!preview) return;
     const card = document.getElementById(`domo-${key}-card`);
     if(!sel||!preview) return;
     const memberId = sel.value;
@@ -7284,6 +7275,7 @@ function renderEqDomos(){
 
   // ── Unassigned zone ──
   const unassignedList = document.getElementById('domos-unassigned-list');
+  if(!unassignedList) return;
   const unassignedLabel = document.getElementById('domos-unassigned-label');
   const unassigned = brands.filter(b=>!b.domo||(!b.domo.m1&&!b.domo.m2));
   if(unassignedList){
@@ -8763,6 +8755,7 @@ function toggleEmojiPicker(){
 function buildEmojiPicker(){
   // Category tabs
   const cats = document.getElementById('emoji-cats');
+  if(!cats) return;
   if(cats && !cats.dataset.built){
     cats.dataset.built = '1';
     cats.innerHTML = EMOJI_CATS.map(c=>`
@@ -9471,6 +9464,7 @@ function openHubComments(noteId){
 
   // Populate author dropdown
   const authSel = document.getElementById('hub-comment-author');
+  if(!authSel) return;
   if(authSel){
     const members = appData.members||[];
     authSel.innerHTML = '<option value="">— Selecciona tu miembro —</option>' +
