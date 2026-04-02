@@ -304,8 +304,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .tpl-bp-item:last-child{border-bottom:none;}
 .tpl-bp-item:hover{background:var(--glass);}
 .tpl-bp-item-name{flex:1;font-size:0.83rem;}
-.bp-pts-input{width:50px;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.4rem;color:var(--fuego);font-family:var(--font);font-size:0.85rem;font-weight:700;text-align:center;outline:none;transition:all var(--transition);}
-.bp-pts-input:focus{border-color:var(--fuego);}
+.bp-pts-input{width:54px;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.4rem;color:var(--fuego);font-family:var(--font);font-size:0.85rem;font-weight:700;text-align:center;outline:none;transition:all var(--transition);cursor:text;}
+.bp-pts-input:hover{border-color:var(--fuego);background:rgba(232,98,42,0.06);}
+.bp-pts-input:focus{border-color:var(--fuego);box-shadow:0 0 0 3px rgba(232,98,42,0.12);background:var(--bg-card2);}
+#brand-bp-total-input::-webkit-inner-spin-button,
+#brand-bp-total-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
 .tpl-bp-item-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:1rem;padding:0.15rem 0.3rem;border-radius:4px;transition:all var(--transition);line-height:1;flex-shrink:0;}
 .tpl-bp-item-del:hover{color:#ff5c72;background:rgba(255,92,114,0.1);}
 .bp-add-row{padding:0.5rem 1rem;}
@@ -645,11 +648,20 @@ body.portal-mode .main{ height:100vh; }
 .bp-item-notes-input::placeholder{color:var(--text3);}
 
 /* ── RONDAS ── */
-.ronda-chip{display:inline-flex;align-items:center;gap:0.5rem;padding:0.4rem 0.9rem;border-radius:99px;border:2px solid var(--border);background:var(--bg-card2);cursor:pointer;transition:all var(--transition);user-select:none;font-size:0.84rem;font-weight:600;}
-.ronda-chip:hover{border-color:var(--text3);}
-.ronda-chip.done{background:rgba(90,170,53,0.15);border-color:var(--tierra);color:var(--tierra);text-decoration:line-through;opacity:0.8;}
-.ronda-chip .ronda-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.9rem;padding:0;line-height:1;margin-left:0.2rem;transition:color var(--transition);}
-.ronda-chip .ronda-del:hover{color:#ff5c72;}
+.ronda-card{background:var(--bg-card2);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:0.75rem 1rem;transition:all var(--transition);}
+.ronda-card.done{opacity:0.6;border-color:var(--tierra);}
+.ronda-card-head{display:flex;align-items:center;gap:0.6rem;margin-bottom:0.55rem;}
+.ronda-check{width:20px;height:20px;border-radius:6px;border:2px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:0.72rem;color:#fff;transition:all 0.15s;font-weight:700;}
+.ronda-check.checked{background:var(--tierra);border-color:var(--tierra);}
+.ronda-check:hover{border-color:var(--tierra);}
+.ronda-label-input{background:none;border:none;outline:none;font-family:var(--font);font-size:0.88rem;font-weight:700;color:var(--text);flex:1;min-width:0;cursor:text;}
+.ronda-date-input{background:var(--bg-card);border:1px solid var(--border);border-radius:7px;padding:0.22rem 0.5rem;font-size:0.73rem;color:var(--text2);font-family:var(--font);outline:none;cursor:pointer;flex-shrink:0;}
+.ronda-date-input:focus{border-color:var(--aire);}
+.ronda-notes{width:100%;background:none;border:none;border-top:1px dashed var(--border2);outline:none;font-family:var(--font);font-size:0.8rem;color:var(--text2);resize:none;min-height:60px;padding-top:0.5rem;cursor:text;transition:color 0.15s;box-sizing:border-box;}
+.ronda-notes:focus{color:var(--text);}
+.ronda-notes::placeholder{color:var(--text3);}
+.ronda-card .ronda-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:1rem;padding:0;line-height:1;margin-left:auto;flex-shrink:0;transition:color var(--transition);}
+.ronda-card .ronda-del:hover{color:#ff5c72;}
 
 /* ── STAGE SUB BARS ── */
 .stage-sub-bar-wrap{display:flex;flex-direction:column;gap:3px;}
@@ -1173,6 +1185,21 @@ body.portal-mode .main{ height:100vh; }
 .cob-add-btn{background:none;border:1px dashed var(--border);border-radius:8px;padding:0.25rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s;}
 .cob-add-btn:hover{border-color:var(--aire);color:var(--aire);}
 .cob-total{font-size:0.78rem;color:var(--text3);text-align:right;}
+/* ── COB TABLA ── */
+.cob-sort-btn{background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.32rem 0.8rem;font-size:0.75rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s;}
+.cob-sort-btn:hover{color:var(--text);}
+.cob-sort-btn.active{background:var(--aire);color:#fff;border-color:var(--aire);}
+.cob-tabla-header{display:flex;align-items:center;padding:0.55rem 1rem;background:var(--bg-card2);border-bottom:1px solid var(--border);font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);}
+.cob-tabla-row{display:flex;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--border2);transition:background 0.15s;}
+.cob-tabla-row:last-child{border-bottom:none;}
+.cob-tabla-row:hover{background:var(--glass);}
+.cob-tabla-row.cobrado-row{opacity:0.5;}
+.cob-tabla-input{background:none;border:none;outline:none;font-family:var(--font);font-size:0.78rem;color:var(--text2);width:100%;cursor:text;}
+.cob-tabla-input:focus{color:var(--text);}
+.cob-tabla-date{background:var(--bg-card2);border:1px solid var(--border);border-radius:7px;padding:0.25rem 0.45rem;font-size:0.75rem;color:var(--text2);font-family:var(--font);outline:none;cursor:pointer;width:120px;}
+.cob-tabla-date:focus{border-color:var(--aire);}
+.cob-tabla-note{background:none;border:none;outline:none;font-family:var(--font);font-size:0.75rem;color:var(--text3);width:100%;resize:none;height:32px;cursor:text;border-bottom:1px solid transparent;transition:border-color 0.15s;overflow:hidden;}
+.cob-tabla-note:focus{border-bottom-color:var(--border);color:var(--text2);}
 .cob-total strong{font-size:0.95rem;color:var(--text);display:block;}
 .cob-brands-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;}
 </style>
@@ -1209,6 +1236,9 @@ body.portal-mode .main{ height:100vh; }
     <button class="nav-item" id="nav-template" onclick="goTo('template')">
       <span class="nav-icon">📋</span><span class="nav-text">Template</span>
     </button>
+    <button class="nav-item" id="nav-archivo" onclick="goTo('archivo')">
+      <span class="nav-icon">🗄️</span><span class="nav-text">Archivo</span>
+    </button>
   </div>
   <!-- Interno toggle -->
   <button class="nav-item" onclick="toggleInternoNav()" id="nav-interno-toggle" style="justify-content:space-between">
@@ -1232,7 +1262,10 @@ body.portal-mode .main{ height:100vh; }
   <header class="header">
     <div style="display:flex;flex-direction:column;gap:0.15rem;min-width:0">
       <div class="global-breadcrumb" id="global-breadcrumb" style="display:none"></div>
-      <div class="header-title" id="header-title">Dashboard</div>
+      <div style="display:flex;align-items:center;gap:0.6rem">
+        <button class="btn-back" id="btn-back-nav" onclick="goBack()" title="Volver" style="display:none;padding:0.3rem 0.7rem;font-size:0.8rem">←</button>
+        <div class="header-title" id="header-title">Dashboard</div>
+      </div>
     </div>
     <div class="header-actions">
       <div class="theme-toggle">
@@ -1419,7 +1452,7 @@ body.portal-mode .main{ height:100vh; }
             <button class="btn-ghost" style="font-size:0.78rem;padding:0.38rem 0.8rem" onclick="addRonda()">+ Agregar ronda</button>
           </div>
           <div class="section-body">
-            <div id="rondas-list" style="display:flex;flex-wrap:wrap;gap:0.6rem"></div>
+            <div id="rondas-list" style="display:flex;flex-direction:column;gap:0.6rem"></div>
           </div>
         </div>
       </div>
@@ -1432,7 +1465,16 @@ body.portal-mode .main{ height:100vh; }
               <div class="section-head-title">⭐ Branding Points</div>
             </div>
             <div class="bp-stats-row">
-              <div class="bp-stat"><div class="bp-stat-val" id="brand-bp-total">0</div><div class="bp-stat-lbl">Total</div></div>
+              <div class="bp-stat">
+                <input id="brand-bp-total-input" type="number" min="0"
+                  style="width:3ch;min-width:2ch;max-width:6ch;background:none;border:none;border-bottom:2px solid transparent;outline:none;text-align:center;cursor:text;font-size:1.5rem;font-weight:800;letter-spacing:-0.5px;line-height:1;color:var(--text);font-family:var(--font);padding:0;-moz-appearance:textfield;transition:border-color 0.2s"
+                  onfocus="this.style.borderBottomColor='var(--text3)';this.style.width=Math.max(2,this.value.length)+'ch'"
+                  oninput="this.style.width=Math.max(2,this.value.length)+'ch'"
+                  onblur="this.style.borderBottomColor='transparent';saveBrandBpTotal(this.value)"
+                  onkeydown="if(event.key==='Enter')this.blur()"
+                  title="Click para editar el total">
+                <div class="bp-stat-lbl">Total</div>
+              </div>
               <div class="bp-sep"></div>
               <div class="bp-stat"><div class="bp-stat-val" style="color:var(--fuego)" id="brand-bp-used">0</div><div class="bp-stat-lbl">Usados</div></div>
               <div class="bp-sep"></div>
@@ -1826,6 +1868,86 @@ body.portal-mode .main{ height:100vh; }
           </div>
           <div id="cob-brands-grid" class="cob-brands-grid"></div>
         </div>
+
+        <!-- Tabla detallada de cobros -->
+        <div style="margin-top:1.5rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.7rem;margin-bottom:0.8rem">
+            <div>
+              <div style="font-size:1rem;font-weight:800;color:var(--text)">Tabla de cobros</div>
+              <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem">Vista detallada · sincronizada en tiempo real</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+              <span style="font-size:0.7rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Ordenar:</span>
+              <button class="cob-sort-btn active" id="cob-sort-proximo" onclick="setCobSort('proximo')">🕐 Más próximos</button>
+              <button class="cob-sort-btn" id="cob-sort-marca" onclick="setCobSort('marca')">🏷 Marca</button>
+              <button class="cob-sort-btn" id="cob-sort-monto" onclick="setCobSort('monto')">💰 Monto</button>
+              <button class="cob-sort-btn" id="cob-sort-npago" onclick="setCobSort('npago')"># Pago</button>
+            </div>
+          </div>
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden">
+            <!-- Header -->
+            <div class="cob-tabla-header">
+              <div style="width:32px;flex-shrink:0"></div>
+              <div style="width:200px;flex-shrink:0">MARCA / PAGO</div>
+              <div style="width:90px;flex-shrink:0;text-align:right">CONTRATO</div>
+              <div style="width:90px;flex-shrink:0;text-align:right">MONTO</div>
+              <div style="width:130px;flex-shrink:0">PROGRESO</div>
+              <div style="width:90px;flex-shrink:0">ESTADO</div>
+              <div style="width:130px;flex-shrink:0">FECHA PROYECTADA</div>
+              <div style="width:130px;flex-shrink:0">ÚLT. SEGUIMIENTO</div>
+              <div style="flex:1;min-width:120px">NOTAS</div>
+            </div>
+            <!-- Scrollable body -->
+            <div id="cob-tabla-body" style="overflow-y:auto;max-height:420px;scrollbar-width:thin;scrollbar-color:var(--border) transparent"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: ARCHIVO -->
+  <div class="page" id="page-archivo">
+    <div class="content">
+      <div style="margin-bottom:1.2rem">
+        <div style="font-size:1.3rem;font-weight:800;letter-spacing:-0.5px">⚙️ Configuración</div>
+      </div>
+      <!-- Tabs -->
+      <div class="tabs-bar" style="margin-bottom:1.5rem">
+        <button class="tab-btn active" id="arch-tab-proyectos-btn" onclick="switchArchivoTab('proyectos')">🗄️ Archivo</button>
+        <button class="tab-btn" id="arch-tab-papelera-btn" onclick="switchArchivoTab('papelera')">🗑️ Papelera <span id="papelera-count-badge" style="display:none;background:var(--fuego);color:#fff;border-radius:99px;font-size:0.6rem;padding:0.1rem 0.45rem;margin-left:0.3rem;font-weight:700"></span></button>
+      </div>
+
+      <!-- Tab: Proyectos archivados -->
+      <div id="arch-tab-proyectos">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;flex-wrap:wrap;gap:0.7rem">
+          <div style="font-size:0.8rem;color:var(--text3)">Proyectos con cronograma 100% completado y cobros pagados al 100%</div>
+          <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+            <span style="font-size:0.72rem;color:var(--text3)">Ordenar:</span>
+            <button class="cob-sort-btn active" id="arch-sort-fecha" onclick="setArchivoSort('fecha')">📅 Más recientes</button>
+            <button class="cob-sort-btn" id="arch-sort-nombre" onclick="setArchivoSort('nombre')">🔤 Nombre</button>
+            <button class="cob-sort-btn" id="arch-sort-monto" onclick="setArchivoSort('monto')">💰 Monto</button>
+            <button id="arch-money-toggle" onclick="toggleArchivoMoney()"
+              style="display:flex;align-items:center;gap:0.4rem;padding:0.38rem 0.85rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:all 0.2s">
+              🔒 Ver montos
+            </button>
+          </div>
+        </div>
+        <div id="archivo-empty" style="display:none;text-align:center;padding:4rem 2rem;color:var(--text3)">
+          <div style="font-size:3rem;margin-bottom:1rem;opacity:0.3">🗄️</div>
+          <div style="font-size:1rem;font-weight:600;margin-bottom:0.4rem">Sin proyectos archivados aún</div>
+          <div style="font-size:0.8rem">Cuando un proyecto tenga el cronograma al 100% y todos sus pagos cobrados, aparecerá aquí.</div>
+        </div>
+        <div id="archivo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem"></div>
+      </div>
+
+      <!-- Tab: Papelera -->
+      <div id="arch-tab-papelera" style="display:none">
+        <div style="font-size:0.8rem;color:var(--text3);margin-bottom:1.2rem">Los elementos borrados se eliminan definitivamente después de 30 días.</div>
+        <div id="papelera-empty" style="display:none;text-align:center;padding:4rem 2rem;color:var(--text3)">
+          <div style="font-size:3rem;margin-bottom:1rem;opacity:0.3">🗑️</div>
+          <div style="font-size:1rem;font-weight:600">La papelera está vacía</div>
+        </div>
+        <div id="papelera-list" style="display:flex;flex-direction:column;gap:0.6rem"></div>
       </div>
     </div>
   </div>
@@ -1916,6 +2038,17 @@ body.portal-mode .main{ height:100vh; }
 </div>
 
 <script>
+
+window.addEventListener('error', function(e){
+  const bar = document.getElementById('status-bar');
+  if(bar){ bar.textContent = '❌ JS Error: ' + e.message + ' (line ' + e.lineno + ')'; bar.classList.add('show','error'); }
+  console.error('Global error:', e.message, e.filename, e.lineno);
+});
+window.addEventListener('unhandledrejection', function(e){
+  const bar = document.getElementById('status-bar');
+  if(bar){ bar.textContent = '❌ Promise: ' + (e.reason?.message||String(e.reason)); bar.classList.add('show','error'); }
+});
+
 const DEFAULT_TOOLS = [
   {id:'slack',     name:'Slack',              icon:'💬', url:'https://slack.com',                color:'#4a154b', info:[]},
   {id:'wetransfer',name:'WeTransfer',          icon:'📦', url:'https://wetransfer.com',           color:'#3ebbd2', info:[]},
@@ -1965,7 +2098,8 @@ function askModal({ label='', placeholder='', defaultValue='', type='text', opti
     // Build body
     if(type === 'select'){
       body.innerHTML = `<div class="ask-modal-select-grid">${
-        options.map((o,i)=>`<div class="ask-modal-option" data-idx="${i}" onclick="this.parentElement.querySelectorAll('.ask-modal-option').forEach(x=>x.classList.remove('selected'));this.classList.add('selected')">${o}</div>`).join('')
+        options.map((o,i)=>`<div class="ask-modal-option" data-idx="${i}"
+          onclick="this.parentElement.querySelectorAll('.ask-modal-option').forEach(x=>x.classList.remove('selected'));this.classList.add('selected')">${o}</div>`).join('')
       }</div>`;
     } else {
       body.innerHTML = `<input class="ask-modal-input" id="ask-modal-input-field" type="${type==='number'?'number':'text'}" placeholder="${placeholder}" value="${defaultValue}" ${type==='number'?'min="1" step="1"':''}>`;
@@ -2005,7 +2139,36 @@ function askModal({ label='', placeholder='', defaultValue='', type='text', opti
   });
 }
 
-/* ═══ DEFAULT TEMPLATE ═══ */
+/* confirmModal — simple yes/no, returns true if confirmed */
+function confirmModal(label, confirmLabel='Confirmar', confirmStyle='background:var(--fuego);color:#fff;border:none'){
+  return new Promise(resolve=>{
+    const overlay = document.getElementById('ask-modal-overlay');
+    const lbl     = document.getElementById('ask-modal-label');
+    const body    = document.getElementById('ask-modal-body');
+    const okBtn   = document.getElementById('ask-modal-ok');
+    const cancelBtn = document.getElementById('ask-modal-cancel');
+
+    lbl.textContent = label;
+    body.innerHTML = '';
+    okBtn.textContent = confirmLabel;
+    okBtn.style.cssText = confirmStyle+';padding:0.55rem 1.3rem;border-radius:99px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:var(--font)';
+    cancelBtn.textContent = 'Cancelar';
+    overlay.classList.remove('hidden');
+
+    function finish(val){
+      overlay.classList.add('hidden');
+      okBtn.onclick = null; cancelBtn.onclick = null;
+      // Reset ok button style
+      okBtn.style.cssText = '';
+      okBtn.className = 'btn-save';
+      okBtn.textContent = 'Aceptar';
+      resolve(val);
+    }
+    okBtn.onclick = ()=> finish(true);
+    cancelBtn.onclick = ()=> finish(false);
+    document.getElementById('ask-modal-box').onkeydown = e=>{ if(e.key==='Escape') finish(false); };
+  });
+}
 function defaultTemplate(){
   return{
     industria:'',prioridad:'media',responsable:'',notas:'',includeNaming:true,
@@ -2398,20 +2561,69 @@ function buildBpFromTemplate(tpl){
 }
 
 /* ═══ NAV ═══ */
+/* ═══ NAVIGATION HISTORY ═══ */
+const _navHistory = [];
+
+function _pushNav(page, brandId){
+  // Don't push same page twice in a row
+  const last = _navHistory[_navHistory.length-1];
+  if(last && last.page===page && last.brandId===brandId) return;
+  _navHistory.push({ page, brandId: brandId||null, memberId: currentMemberId||null });
+  if(_navHistory.length > 20) _navHistory.shift();
+  _updateBackBtn();
+}
+
+function _updateBackBtn(){
+  const btn = document.getElementById('btn-back-nav');
+  if(!btn) return;
+  btn.style.display = _navHistory.length > 0 ? '' : 'none';
+}
+
+function goBack(){
+  if(_navHistory.length === 0) return;
+  const prev = _navHistory.pop();
+  if(!prev) return;
+  _navDirect(prev.page, prev.brandId, null);
+}
+
+function _navDirect(page, brandId, memberId){
+  if(page==='member') page='equipo';
+  currentPage=page;
+  if(brandId) currentBrandId=brandId;
+  if(memberId) currentMemberId=memberId;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const nEl=document.getElementById('nav-'+page); if(nEl)nEl.classList.add('active');
+  const pEl=document.getElementById('page-'+page); if(pEl)pEl.classList.add('active');
+  const titles={dashboard:'Dashboard',template:'Template base',brand:'',equipo:'Equipo',member:'',finanzas:'Data',cobranzas:'Cobranzas',archivo:'Archivo'};
+  document.getElementById('header-title').textContent=titles[page]||page;
+  document.getElementById('btn-nueva-marca').style.display=page==='dashboard'?'':'none';
+  document.getElementById('btn-nuevo-miembro').style.display=page==='equipo'?'':'none';
+  updateGlobalBreadcrumb(page);
+  renderCurrentPage();
+  _updateBackBtn();
+}
+
 function goTo(page,brandId=null){
   if(page==='member') page='equipo'; // unified
+  // Push current location to history before leaving
+  if(_navHistory.length === 0 || _navHistory[_navHistory.length-1].page !== currentPage || _navHistory[_navHistory.length-1].brandId !== (currentBrandId||null)){
+    _navHistory.push({ page: currentPage, brandId: currentBrandId||null });
+    if(_navHistory.length > 30) _navHistory.shift();
+  }
   currentPage=page;
   if(brandId)currentBrandId=brandId;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const nEl=document.getElementById('nav-'+page);if(nEl)nEl.classList.add('active');
   const pEl=document.getElementById('page-'+page);if(pEl)pEl.classList.add('active');
-  const titles={dashboard:'Dashboard',template:'Template base',brand:'',equipo:'Equipo',member:'',finanzas:'Data',cobranzas:'Cobranzas'};
+  const titles={dashboard:'Dashboard',template:'Template base',brand:'',equipo:'Equipo',member:'',finanzas:'Data',cobranzas:'Cobranzas',archivo:'Archivo'};
   document.getElementById('header-title').textContent=titles[page]||page;
   document.getElementById('btn-nueva-marca').style.display=page==='dashboard'?'':'none';
   document.getElementById('btn-nuevo-miembro').style.display=page==='equipo'?'':'none';
   updateGlobalBreadcrumb(page);
   renderCurrentPage();
+  _updateBackBtn();
 }
 
 
@@ -2628,13 +2840,14 @@ async function saveBanner(){
 }
 
 async function deleteBannerCurrent(){
-  snapForUndo('Eliminar banner');
-    ensureBanners();
+  ensureBanners();
   if(appData.banners.length <= 1){
     showStatus('Debe haber al menos un banner', true);
     return;
   }
-  if(!confirm('¿Eliminar este banner?')) return;
+  const ok1 = await askModal({label:'¿Eliminar este banner?', type:'select', options:['Cancelar','Sí, eliminar']});
+  if(ok1!==1) return;
+  snapForUndo('Eliminar banner');
   appData.banners.splice(_bannerIdx, 1);
   _bannerIdx = Math.max(0, _bannerIdx - 1);
   await upsert();
@@ -2826,6 +3039,8 @@ function ensureFinData(){
 }
 
 function goToFinanzas(){
+  _navHistory.push({ page: currentPage, brandId: currentBrandId||null });
+  if(_navHistory.length > 30) _navHistory.shift();
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const nEl=document.getElementById('nav-finanzas');if(nEl)nEl.classList.add('active');
@@ -2839,6 +3054,7 @@ function goToFinanzas(){
     document.getElementById('fin-lock').style.display='none';
     const fc=document.getElementById('fin-content');fc.style.display='flex';fc.style.flexDirection='column';fc.style.flex='1';fc.style.minHeight='0';
     switchFinTab('mes');
+    _updateBackBtn();
     return;
   }
   _finUnlocked = false;
@@ -2847,6 +3063,7 @@ function goToFinanzas(){
   document.getElementById('fin-pin-input').value='';
   document.getElementById('fin-pin-error').style.display='none';
   setTimeout(()=>document.getElementById('fin-pin-input').focus(),80);
+  _updateBackBtn();
 }
 
 function checkFinPin(){
@@ -3270,6 +3487,8 @@ let _cobUnlocked = false;
 const COB_PIN_DEFAULT = '7771';
 
 function goToCobranzas(){
+  _navHistory.push({ page: currentPage, brandId: currentBrandId||null });
+  if(_navHistory.length > 30) _navHistory.shift();
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const nEl=document.getElementById('nav-cobranzas');if(nEl){nEl.classList.add('active');}
@@ -3277,7 +3496,6 @@ function goToCobranzas(){
   document.getElementById('header-title').textContent='Cobranzas';
   currentPage='cobranzas';
   updateGlobalBreadcrumb('cobranzas');
-  // Si ya desbloqueó en esta sesión, entrar directo
   if(sessionStorage.getItem('polen_cob_unlocked')==='1'){
     _cobUnlocked = true;
     document.getElementById('cob-lock').style.display='none';
@@ -3287,6 +3505,7 @@ function goToCobranzas(){
     if(nEl2){nEl2.style.opacity='1';nEl2.style.filter='none';}
     renderCobranzas();
     renderCobros();
+    _updateBackBtn();
     return;
   }
   _cobUnlocked = false;
@@ -3295,6 +3514,7 @@ function goToCobranzas(){
   document.getElementById('cob-pin-input').value='';
   document.getElementById('cob-pin-error').style.display='none';
   setTimeout(()=>document.getElementById('cob-pin-input').focus(),80);
+  _updateBackBtn();
 }
 
 function checkCobPin(){
@@ -3422,6 +3642,7 @@ function renderCobros(){
       </div>` : ''}
     </div>`;
   }).join('');
+  renderCobTabla();
 }
 
 async function toggleCobCard(brandId){
@@ -3449,6 +3670,7 @@ async function saveCobField(brandId, pagoId, field, val){
   pago[field] = field==='monto' ? (parseFloat(val)||0) : val;
   await upsert();
   renderCobros();
+  renderCobTabla();
 }
 
 async function addCobPago(brandId){
@@ -3478,6 +3700,158 @@ function syncCobrosToFin(){
   appData.finanzas.months[curM].cobranzas = totalCobrado;
   if(currentPage==='cobranzas') renderCobranzas();
   if(currentPage==='finanzas'&&_finUnlocked) renderFinMes();
+}
+
+/* ═══ COBROS TABLA ═══ */
+let _cobSort = 'proximo';
+
+function setCobSort(mode){
+  _cobSort = mode;
+  document.querySelectorAll('.cob-sort-btn').forEach(b=>b.classList.remove('active'));
+  const btn = document.getElementById('cob-sort-'+mode);
+  if(btn) btn.classList.add('active');
+  renderCobTabla();
+}
+
+function renderCobTabla(){
+  ensureCobrosData();
+  const body = document.getElementById('cob-tabla-body');
+  if(!body) return;
+
+  const brands = appData.brands||[];
+
+  // Flatten all pagos into rows
+  let rows = [];
+  brands.forEach(b=>{
+    const cob = appData.cobros[b.id];
+    if(!cob) return;
+    const pagos = cob.pagos||[];
+    const total = pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+    pagos.forEach((p,pi)=>{
+      const st = cobStatus(p, pagos);
+      rows.push({
+        brand: b,
+        pago: p,
+        pagoIdx: pi,   // 0-based index = "número de pago"
+        total,
+        status: st,
+      });
+    });
+  });
+
+  // Sort
+  if(_cobSort === 'proximo'){
+    // Not-cobrado first, sorted by pagoIdx then brand name
+    rows.sort((a,b)=>{
+      if(a.pago.cobrado !== b.pago.cobrado) return a.pago.cobrado ? 1 : -1;
+      if(a.pagoIdx !== b.pagoIdx) return a.pagoIdx - b.pagoIdx;
+      return a.brand.name.localeCompare(b.brand.name);
+    });
+  } else if(_cobSort === 'marca'){
+    rows.sort((a,b)=>a.brand.name.localeCompare(b.brand.name) || a.pagoIdx - b.pagoIdx);
+  } else if(_cobSort === 'monto'){
+    rows.sort((a,b)=>(parseFloat(b.pago.monto)||0)-(parseFloat(a.pago.monto)||0));
+  } else if(_cobSort === 'npago'){
+    // Group by pago number, within each group sort by monto desc
+    rows.sort((a,b)=>{
+      if(a.pagoIdx !== b.pagoIdx) return a.pagoIdx - b.pagoIdx;
+      return (parseFloat(b.pago.monto)||0)-(parseFloat(a.pago.monto)||0);
+    });
+  }
+
+  if(!rows.length){
+    body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--text3);font-size:0.84rem">Sin cobros registrados.</div>';
+    return;
+  }
+
+  body.innerHTML = rows.map(({brand:b, pago:p, pagoIdx:pi, total, status:st})=>{
+    const col = getBrandColor(b);
+    const logo = b.image ? `<img src="${b.image}" style="width:100%;height:100%;object-fit:cover;border-radius:7px">` : `<span style="font-size:0.9rem;font-weight:800;color:${col}">${b.name.charAt(0)}</span>`;
+    const monto = parseFloat(p.monto)||0;
+    const pagos = appData.cobros[b.id]?.pagos||[];
+    const totalCobrado = pagos.filter(x=>x.cobrado).reduce((s,x)=>s+(parseFloat(x.monto)||0),0);
+    const pct = total ? Math.round(totalCobrado/total*100) : 0;
+    const triggerPct = p.trigger ? p.trigger.replace(/[^0-9]/g,'') : '0';
+
+    return `<div class="cob-tabla-row ${p.cobrado?'cobrado-row':''}">
+      <!-- Check -->
+      <div style="width:32px;flex-shrink:0">
+        <div class="cob-check ${p.cobrado?'checked':''}" onclick="toggleCobPagoTabla('${b.id}','${p.id}')" style="width:18px;height:18px;border-radius:5px">${p.cobrado?'✓':''}</div>
+      </div>
+      <!-- Marca / Pago -->
+      <div style="width:200px;flex-shrink:0;display:flex;align-items:center;gap:0.5rem">
+        <div style="width:30px;height:30px;border-radius:8px;background:var(--bg-card2);border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${logo}</div>
+        <div style="min-width:0">
+          <div style="font-size:0.82rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
+          <div style="font-size:0.68rem;color:var(--text3)">${p.nombre||'Pago '+(pi+1)} · ${Math.round((pi+1)/pagos.length*100)}%</div>
+        </div>
+      </div>
+      <!-- Contrato -->
+      <div style="width:90px;flex-shrink:0;text-align:right;font-size:0.82rem;color:var(--text3)">$${total.toLocaleString()}</div>
+      <!-- Monto -->
+      <div style="width:90px;flex-shrink:0;text-align:right;font-size:0.9rem;font-weight:800">$${monto.toLocaleString()}</div>
+      <!-- Progreso -->
+      <div style="width:130px;flex-shrink:0;padding-left:0.8rem">
+        <div style="display:flex;align-items:center;gap:0.4rem">
+          <div style="flex:1;height:5px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
+          </div>
+          <span style="font-size:0.65rem;color:var(--text3);white-space:nowrap">${pct}%</span>
+        </div>
+        <div style="font-size:0.6rem;color:var(--text3);margin-top:0.15rem">trigger: ${triggerPct}%</div>
+      </div>
+      <!-- Estado -->
+      <div style="width:90px;flex-shrink:0">
+        <span class="cob-status-pill ${st.cls}" style="font-size:0.68rem">${st.label}</span>
+      </div>
+      <!-- Fecha proyectada -->
+      <div style="width:130px;flex-shrink:0">
+        <input type="date" class="cob-tabla-date" value="${p.fechaProyectada||''}"
+          onchange="saveCobTablaField('${b.id}','${p.id}','fechaProyectada',this.value)"
+          title="Fecha proyectada de cobro">
+      </div>
+      <!-- Último seguimiento -->
+      <div style="width:130px;flex-shrink:0">
+        <input type="date" class="cob-tabla-date" value="${p.ultimoSeguimiento||''}"
+          onchange="saveCobTablaField('${b.id}','${p.id}','ultimoSeguimiento',this.value)"
+          title="Fecha de último seguimiento">
+      </div>
+      <!-- Notas -->
+      <div style="flex:1;min-width:120px;padding-left:0.5rem">
+        <textarea class="cob-tabla-note" placeholder="Añadir nota…"
+          onchange="saveCobTablaField('${b.id}','${p.id}','nota',this.value)"
+          oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+        >${p.nota||''}</textarea>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Auto-expand notes textareas
+  setTimeout(()=>{
+    body.querySelectorAll('.cob-tabla-note').forEach(ta=>{
+      if(ta.value){ ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px'; }
+    });
+  },0);
+}
+
+async function toggleCobPagoTabla(brandId, pagoId){
+  ensureCobrosData();
+  const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
+  if(!pago) return;
+  pago.cobrado = !pago.cobrado;
+  renderCobros();
+  renderCobTabla();
+  syncCobrosToFin();
+  await upsert();
+}
+
+async function saveCobTablaField(brandId, pagoId, field, val){
+  ensureCobrosData();
+  const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
+  if(!pago) return;
+  pago[field] = val;
+  await upsert();
+  // Don't full re-render to preserve focus
 }
 
 function expandAllCobros(){
@@ -3650,8 +4024,9 @@ async function saveNewTool(){
 }
 
 async function deleteDigitalTool(toolId){
+  const ok2 = await askModal({label:'¿Eliminar esta herramienta?', type:'select', options:['Cancelar','Sí, eliminar']});
+  if(ok2!==1) return;
   snapForUndo('Eliminar herramienta');
-    if(!confirm('¿Eliminar esta herramienta?')) return;
   ensureDigitalTools();
   appData.digitalTools = appData.digitalTools.filter(t=>t.id!==toolId);
   await upsert();
@@ -3684,6 +4059,294 @@ function renderCurrentPage(){
   if(currentPage==='member')renderMemberProfile();
   if(currentPage==='finanzas'&&_finUnlocked)renderFinMes();
   if(currentPage==='cobranzas'&&_cobUnlocked)renderCobranzas();
+  if(currentPage==='archivo')renderArchivo();
+}
+
+/* ═══ ARCHIVO ═══ */
+let _archivoSort = 'fecha';
+let _archivoMoneyUnlocked = false;
+let _archivoActiveTab = 'proyectos';
+const ARCHIVO_PIN = '7771';
+const PAPELERA_DIAS = 30;
+
+function switchArchivoTab(tab){
+  _archivoActiveTab = tab;
+  ['proyectos','papelera'].forEach(t=>{
+    const panel = document.getElementById('arch-tab-'+t);
+    const btn = document.getElementById('arch-tab-'+t+'-btn');
+    if(panel) panel.style.display = t===tab ? 'block' : 'none';
+    if(btn) btn.classList.toggle('active', t===tab);
+  });
+  if(tab==='papelera') renderPapelera();
+  else renderArchivo();
+}
+
+/* ── Papelera (soft-delete) ── */
+function ensurePapelera(){
+  if(!appData.papelera) appData.papelera = [];
+  // Auto-purge items older than 30 days
+  const now = Date.now();
+  const before = appData.papelera.length;
+  appData.papelera = appData.papelera.filter(item=>{
+    const age = (now - (item.deletedAt||0)) / (1000*60*60*24);
+    return age < PAPELERA_DIAS;
+  });
+}
+
+function softDeleteBrand(brand){
+  ensurePapelera();
+  appData.papelera.push({ type:'brand', id:brand.id, data:JSON.parse(JSON.stringify(brand)), deletedAt:Date.now() });
+  appData.brands = appData.brands.filter(b=>b.id!==brand.id);
+}
+
+function softDeleteMember(member){
+  ensurePapelera();
+  appData.papelera.push({ type:'member', id:member.id, data:JSON.parse(JSON.stringify(member)), deletedAt:Date.now() });
+  appData.members = appData.members.filter(m=>m.id!==member.id);
+}
+
+async function restoreFromPapelera(itemId){
+  ensurePapelera();
+  const idx = appData.papelera.findIndex(i=>i.id===itemId);
+  if(idx<0) return;
+  const item = appData.papelera[idx];
+  if(item.type==='brand'){
+    appData.brands.push(item.data);
+    showStatus(`"${item.data.name}" restaurada ✓`);
+  } else if(item.type==='member'){
+    if(!appData.members) appData.members=[];
+    appData.members.push(item.data);
+    showStatus(`"${item.data.apodo||item.data.nombre}" restaurado ✓`);
+  }
+  appData.papelera.splice(idx,1);
+  await upsert();
+  renderPapelera();
+  updatePapeleraBadge();
+}
+
+async function permanentDelete(itemId){
+  ensurePapelera();
+  const item = appData.papelera.find(i=>i.id===itemId);
+  if(!item) return;
+  const nombre = item.type==='brand' ? item.data.name : (item.data.apodo||item.data.nombre);
+  const confirmResult = await askModal({ label:`¿Eliminar "${nombre}" permanentemente? Esta acción no se puede deshacer.`, type:'select', options:['Cancelar','Sí, eliminar definitivamente'] });
+  if(confirmResult!==1) return;
+  appData.papelera = appData.papelera.filter(i=>i.id!==itemId);
+  await upsert();
+  renderPapelera();
+  updatePapeleraBadge();
+  showStatus('Eliminado permanentemente');
+}
+
+function updatePapeleraBadge(){
+  ensurePapelera();
+  const count = appData.papelera.length;
+  const badge = document.getElementById('papelera-count-badge');
+  if(!badge) return;
+  if(count>0){ badge.style.display='inline'; badge.textContent=count; }
+  else { badge.style.display='none'; }
+}
+
+function renderPapelera(){
+  ensurePapelera();
+  const list = document.getElementById('papelera-list');
+  const empty = document.getElementById('papelera-empty');
+  if(!list) return;
+  updatePapeleraBadge();
+
+  const items = [...appData.papelera].sort((a,b)=>b.deletedAt-a.deletedAt);
+
+  if(!items.length){
+    list.style.display='none';
+    if(empty) empty.style.display='block';
+    return;
+  }
+  list.style.display='flex';
+  if(empty) empty.style.display='none';
+
+  const now = Date.now();
+  list.innerHTML = items.map(item=>{
+    const nombre = item.type==='brand' ? item.data.name : (item.data.apodo||item.data.nombre);
+    const sub = item.type==='brand' ? (item.data.industria||'Marca') : (item.data.cargo||'Miembro');
+    const daysLeft = Math.max(0, PAPELERA_DIAS - Math.floor((now - item.deletedAt)/(1000*60*60*24)));
+    const icon = item.type==='brand' ? '🏷️' : '👤';
+    const urgency = daysLeft <= 3 ? 'var(--fuego)' : daysLeft <= 7 ? '#d4a800' : 'var(--text3)';
+    const col = item.type==='brand' ? getBrandColor(item.data) : (item.data.color||'var(--text3)');
+    const logo = item.type==='brand'
+      ? (item.data.image ? `<img src="${item.data.image}" style="width:100%;height:100%;object-fit:cover;border-radius:9px">` : `<span style="font-weight:800;color:${col}">${nombre.charAt(0)}</span>`)
+      : (item.data.photo ? `<img src="${item.data.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : (item.data.emoji||'👤'));
+
+    return `<div style="display:flex;align-items:center;gap:1rem;padding:0.9rem 1.2rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-sm);box-shadow:var(--shadow)">
+      <div style="width:38px;height:38px;border-radius:${item.type==='member'?'50%':'10px'};background:var(--bg-card2);border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;font-size:1.2rem">${logo}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.9rem;font-weight:700">${nombre}</div>
+        <div style="font-size:0.72rem;color:var(--text3)">${icon} ${item.type==='brand'?'Marca':'Miembro'} · ${sub}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-right:0.5rem">
+        <div style="font-size:0.68rem;font-weight:700;color:${urgency}">${daysLeft}d restantes</div>
+        <div style="font-size:0.62rem;color:var(--text3)">eliminado hace ${Math.floor((now-item.deletedAt)/(1000*60*60*24))}d</div>
+      </div>
+      <button onclick="restoreFromPapelera('${item.id}')"
+        style="padding:0.4rem 0.9rem;border-radius:99px;border:1px solid var(--tierra);background:rgba(90,170,53,0.1);color:var(--tierra);font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap;flex-shrink:0">
+        ↩ Restaurar
+      </button>
+      <button onclick="permanentDelete('${item.id}')"
+        style="padding:0.4rem 0.7rem;border-radius:99px;border:1px solid rgba(255,92,114,0.3);background:none;color:var(--text3);font-size:0.78rem;cursor:pointer;font-family:var(--font);flex-shrink:0;transition:all 0.15s"
+        onmouseover="this.style.background='rgba(255,92,114,0.1)';this.style.color='#ff5c72'"
+        onmouseout="this.style.background='none';this.style.color='var(--text3)'">
+        🗑
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function toggleArchivoMoney(){
+  if(_archivoMoneyUnlocked){
+    // Lock again
+    _archivoMoneyUnlocked = false;
+    renderArchivo();
+    const btn = document.getElementById('arch-money-toggle');
+    if(btn){ btn.textContent='🔒 Ver montos'; btn.style.background='var(--bg-card2)'; btn.style.color='var(--text2)'; btn.style.borderColor='var(--border)'; }
+  } else {
+    // Show PIN modal
+    document.getElementById('modal-archivo-pin').classList.remove('hidden');
+    document.getElementById('archivo-pin-input').value='';
+    document.getElementById('archivo-pin-error').style.display='none';
+    setTimeout(()=>document.getElementById('archivo-pin-input').focus(),80);
+  }
+}
+
+function closeArchivoPinModal(){
+  document.getElementById('modal-archivo-pin').classList.add('hidden');
+}
+
+function checkArchivoPin(){
+  const val = document.getElementById('archivo-pin-input').value;
+  if(val === ARCHIVO_PIN){
+    _archivoMoneyUnlocked = true;
+    closeArchivoPinModal();
+    renderArchivo();
+    const btn = document.getElementById('arch-money-toggle');
+    if(btn){ btn.textContent='👁 Ocultar montos'; btn.style.background='rgba(90,170,53,0.15)'; btn.style.color='var(--tierra)'; btn.style.borderColor='var(--tierra)'; }
+  } else {
+    document.getElementById('archivo-pin-error').style.display='block';
+    document.getElementById('archivo-pin-input').value='';
+    document.getElementById('archivo-pin-input').focus();
+  }
+}
+
+function setArchivoSort(mode){
+  _archivoSort = mode;
+  document.querySelectorAll('[id^="arch-sort-"]').forEach(b=>b.classList.remove('active'));
+  const btn = document.getElementById('arch-sort-'+mode);
+  if(btn) btn.classList.add('active');
+  renderArchivo();
+}
+
+function isArchivedBrand(brand){
+  // Condición 1: cronograma 100% completado
+  const allActs = Object.values(brand.cronograma||{}).flat();
+  const cronoPct = allActs.length
+    ? allActs.filter(a=>a.status==='completada').length / allActs.length
+    : 0;
+  if(cronoPct < 1) return false;
+
+  // Condición 2: todos los pagos cobrados (si hay cobros definidos)
+  const cob = (appData.cobros||{})[brand.id];
+  if(!cob || !cob.pagos || !cob.pagos.length) return false;
+  const todoCobrado = cob.pagos.every(p=>p.cobrado);
+  return todoCobrado;
+}
+
+function renderArchivo(){
+  updatePapeleraBadge();
+  const grid = document.getElementById('archivo-grid');
+  const empty = document.getElementById('archivo-empty');
+  if(!grid) return;
+
+  const archived = (appData.brands||[]).filter(isArchivedBrand);
+
+  // Sort
+  let sorted = [...archived];
+  if(_archivoSort === 'nombre'){
+    sorted.sort((a,b)=>a.name.localeCompare(b.name));
+  } else if(_archivoSort === 'monto'){
+    sorted.sort((a,b)=>{
+      const montoA = ((appData.cobros||{})[a.id]?.pagos||[]).reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+      const montoB = ((appData.cobros||{})[b.id]?.pagos||[]).reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+      return montoB - montoA;
+    });
+  } else {
+    // fecha — por orden en el array (más reciente al final = invertir)
+    sorted.reverse();
+  }
+
+  if(!sorted.length){
+    grid.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  grid.style.display = 'grid';
+  empty.style.display = 'none';
+
+  grid.innerHTML = sorted.map(brand=>{
+    const col = getBrandColor(brand);
+    const cob = (appData.cobros||{})[brand.id]||{};
+    const pagos = cob.pagos||[];
+    const totalCobrado = pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+    const allActs = Object.values(brand.cronograma||{}).flat();
+    const totalActs = allActs.length;
+    const stages = ['aire','agua','tierra','fuego'];
+    const SC2 = {aire:{emoji:'🌬️',color:'var(--aire)'},agua:{emoji:'💧',color:'var(--agua)'},tierra:{emoji:'🌱',color:'var(--tierra)'},fuego:{emoji:'🔥',color:'var(--fuego)'}};
+    const logo = brand.image
+      ? `<img src="${brand.image}" style="width:100%;height:100%;object-fit:cover;border-radius:11px">`
+      : `<span style="font-size:1.6rem;font-weight:800;color:${col}">${brand.name.charAt(0)}</span>`;
+
+    const stagesHTML = stages.map(s=>{
+      const acts = brand.cronograma?.[s]||[];
+      if(!acts.length) return '';
+      return `<span style="font-size:0.68rem;font-weight:600;color:${SC2[s].color}">${SC2[s].emoji} ${acts.length}</span>`;
+    }).filter(Boolean).join('<span style="color:var(--border);margin:0 0.2rem">·</span>');
+
+    const moneyDisplay = _archivoMoneyUnlocked
+      ? `$${totalCobrado.toLocaleString()}`
+      : `<span style="filter:blur(6px);user-select:none;letter-spacing:2px">$••••</span>`;
+
+    return `<div class="card" style="padding:1.4rem;position:relative;overflow:hidden;cursor:pointer" onclick="openBrand('${brand.id}')">
+      <!-- Accent bar -->
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${col}"></div>
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:0.9rem;margin-bottom:1rem">
+        <div style="width:48px;height:48px;border-radius:12px;background:var(--bg-card2);border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${logo}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:1rem;font-weight:800;letter-spacing:-0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${brand.name}</div>
+          <div style="font-size:0.72rem;color:var(--text3);margin-top:0.1rem">${brand.industria||''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3)">Facturado</div>
+          <div style="font-size:1.1rem;font-weight:800;color:var(--tierra)">${moneyDisplay}</div>
+        </div>
+      </div>
+      <!-- Stats row -->
+      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.9rem;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:0.3rem;font-size:0.72rem;color:var(--tierra);background:rgba(90,170,53,0.1);border-radius:99px;padding:0.2rem 0.7rem;font-weight:600">
+          ✅ ${totalActs} actividades
+        </div>
+        <div style="display:flex;align-items:center;gap:0.3rem;font-size:0.72rem;color:var(--agua);background:rgba(45,195,179,0.1);border-radius:99px;padding:0.2rem 0.7rem;font-weight:600">
+          💳 ${pagos.length} pagos
+        </div>
+        <div style="display:flex;align-items:center;gap:0.3rem;font-size:0.72rem;color:var(--text3)">${stagesHTML}</div>
+      </div>
+      <!-- Progress bar (full green) -->
+      <div style="height:5px;background:var(--bg-card2);border-radius:99px;overflow:hidden;margin-bottom:0.5rem">
+        <div style="height:100%;width:100%;background:var(--tierra);border-radius:99px"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:var(--text3)">
+        <span>Cronograma completado ✓</span>
+        <span>Cobros al 100% ✓</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 /* ═══ DASHBOARD ═══ */
@@ -3832,12 +4495,16 @@ function openBrand(id){
 }
 
 async function deleteBrand(id){
+  const brand=appData.brands.find(b=>b.id===id);
+  if(!brand) return;
+  const ok = await confirmModal(`¿Mover "${brand.name}" a la papelera?`, 'Mover a papelera');
+  if(!ok) return;
   snapForUndo('Eliminar marca');
-    if(!confirm('¿Eliminar esta marca?'))return;
-  appData.brands=appData.brands.filter(b=>b.id!==id);
+  softDeleteBrand(brand);
   renderDashboard();
   await upsert();
-  showStatus('Marca eliminada');
+  updatePapeleraBadge();
+  showStatus('Marca movida a la papelera · 30 días para restaurar');
 }
 
 /* ═══ BRAND PAGE ═══ */
@@ -3899,10 +4566,33 @@ function renderRondas(brand){
   const el=document.getElementById('rondas-list');
   if(!el)return;
   el.innerHTML=brand.rondas.map((r,i)=>`
-    <div class="ronda-chip ${r.done?'done':''}" onclick="toggleRonda('${brand.id}','${r.id}')">
-      <span>${r.done?'✓':''} ${r.label}</span>
-      <button class="ronda-del" onclick="event.stopPropagation();deleteRonda('${brand.id}','${r.id}')" title="Eliminar ronda">×</button>
+    <div class="ronda-card ${r.done?'done':''}">
+      <div class="ronda-card-head">
+        <div class="ronda-check ${r.done?'checked':''}" onclick="toggleRonda('${brand.id}','${r.id}')" title="${r.done?'Desmarcar':'Marcar como completada'}">
+          ${r.done?'✓':''}
+        </div>
+        <input class="ronda-label-input" value="${r.label||''}" placeholder="Ronda..."
+          onclick="event.stopPropagation()"
+          onblur="saveRondaField('${brand.id}','${r.id}','label',this.value)"
+          onkeydown="if(event.key==='Enter')this.blur()">
+        <input type="date" class="ronda-date-input" value="${r.fecha||''}"
+          onclick="event.stopPropagation()"
+          onchange="saveRondaField('${brand.id}','${r.id}','fecha',this.value)"
+          title="Fecha de la ronda">
+        <button class="ronda-del" onclick="event.stopPropagation();deleteRonda('${brand.id}','${r.id}')" title="Eliminar ronda">×</button>
+      </div>
+      <textarea class="ronda-notes" placeholder="Notas de esta ronda…"
+        onchange="saveRondaField('${brand.id}','${r.id}','notas',this.value)"
+        oninput="this.style.height='auto';this.style.height=Math.max(60,this.scrollHeight)+'px'"
+        >${r.notas||''}</textarea>
     </div>`).join('');
+  // Auto-resize existing textareas
+  setTimeout(()=>{
+    el.querySelectorAll('.ronda-notes').forEach(ta=>{
+      ta.style.height='auto';
+      ta.style.height=Math.max(60,ta.scrollHeight)+'px';
+    });
+  },0);
 }
 
 async function toggleRonda(brandId,rondaId){
@@ -3925,13 +4615,22 @@ async function deleteRonda(brandId,rondaId){
   showStatus('Ronda eliminada');
 }
 
+async function saveRondaField(brandId, rondaId, field, val){
+  const brand=appData.brands.find(b=>b.id===brandId);
+  if(!brand?.rondas) return;
+  const r=brand.rondas.find(x=>x.id===rondaId);
+  if(!r) return;
+  r[field]=val;
+  await upsert();
+}
+
 async function addRonda(){
   snapForUndo('Agregar ronda');
-    const brand=appData.brands.find(b=>b.id===currentBrandId);
+  const brand=appData.brands.find(b=>b.id===currentBrandId);
   if(!brand)return;
   if(!brand.rondas)brand.rondas=[];
   const n=brand.rondas.length+1;
-  brand.rondas.push({id:uid(),label:'R'+n,done:false});
+  brand.rondas.push({id:uid(),label:'R'+n,done:false,fecha:'',notas:''});
   renderRondas(brand);
   await upsert();
   showStatus('Ronda añadida ✓');
@@ -4067,6 +4766,12 @@ function renderBrandCrono(brand){
     return`<div class="crono-stage">
       <div class="crono-stage-head">
         <div class="crono-stage-left">
+          <div class="stage-check-all ${done===total&&total>0?'all-done':done>0?'partial':''}"
+            onclick="toggleStageAll('${brand.id}','${stage}')"
+            title="${done===total&&total>0?'Desmarcar todas':'Marcar todas como completadas'}"
+            style="width:18px;height:18px;border-radius:5px;border:2px solid ${done===total&&total>0?c.color:'var(--border)'};background:${done===total&&total>0?c.color:done>0?c.color+'22':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all 0.15s;font-size:0.7rem;color:#fff">
+            ${done===total&&total>0?'✓':done>0?'◑':''}
+          </div>
           <span class="crono-stage-title" style="color:${c.color}">${c.emoji} ${c.label}</span>
           <span class="crono-stage-count">${done}/${total} · ${pct}%</span>
           <div class="stage-mini-bar"><div class="stage-mini-fill" style="width:${pct}%;background:${c.color}"></div></div>
@@ -4080,7 +4785,7 @@ function renderBrandCrono(brand){
             onclick="cycleStatus('${brand.id}','${stage}','${a.id}')" title="Marcar avance">
             ${a.status==='completada'?'✓':a.status==='en progreso'?'◑':''}
           </div>
-          <span class="act-hito-star ${a.isHito?'on':''}">⭐</span>
+          <span class="act-hito-star ${a.isHito?'on':''}" onclick="toggleHito('${brand.id}','${stage}','${a.id}')" title="${a.isHito?'Quitar hito':'Marcar como hito'}" style="cursor:pointer">⭐</span>
           <span class="act-item-name ${a.isHito?'hito-name':''} ${a.status==='completada'?'done-name':''}"
             onclick="cycleStatus('${brand.id}','${stage}','${a.id}')"
             title="Click para marcar avance">${a.name}</span>
@@ -4114,6 +4819,29 @@ function renderBrandCrono(brand){
   document.getElementById('brand-crono-summary').innerHTML=`${chips}<span class="crono-total-label">⏱ ${w>0?w+' sem. ':''}${d>0?d+'d ':''}<span style="color:var(--text3)">${totalDays}d en total</span>${rangeLabel}</span>`;
 }
 
+
+async function toggleHito(brandId, stage, actId){
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand?.cronograma) return;
+  const act = (brand.cronograma[stage]||[]).find(a=>a.id===actId);
+  if(!act) return;
+  act.isHito = !act.isHito;
+  await upsert();
+  renderBrandCrono(brand);
+}
+
+async function toggleStageAll(brandId, stage){
+  snapForUndo('Marcar etapa');
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand?.cronograma) return;
+  const acts = brand.cronograma[stage]||[];
+  const allDone = acts.every(a=>a.status==='completada');
+  // If all done → unmark all. Otherwise → mark all as completada
+  acts.forEach(a=>{ a.status = allDone ? 'pendiente' : 'completada'; });
+  await upsert();
+  renderBrandCrono(brand);
+  showStatus(allDone ? 'Etapa desmarcada' : 'Etapa completada ✓');
+}
 
 async function addCronoActivity(brandId, stage){
   snapForUndo('Agregar actividad');
@@ -4375,7 +5103,8 @@ function renderBrandBp(brand){
   const bp=brand.brandingPoints;
   if(!bp){document.getElementById('brand-bp-cats').innerHTML='<div style="color:var(--text3);font-size:0.84rem">Sin branding points.</div>';return;}
   const {total,used,left}=calcBrandBpStats(brand);
-  document.getElementById('brand-bp-total').textContent=total;
+  const totalInput = document.getElementById('brand-bp-total-input');
+  if(totalInput) totalInput.value = total;
   document.getElementById('brand-bp-used').textContent=used;
   document.getElementById('brand-bp-left').textContent=left;
   document.getElementById('brand-bp-total-label').textContent=total+' pts';
@@ -4392,29 +5121,84 @@ function renderBrandBp(brand){
       </div>
       <div class="bp-cat-body ${cat.open===false?'hidden':''}">
         ${cat.items.map((item,ii)=>`
-          <div class="bp-item">
-            <input type="checkbox" ${item.selected?'checked':''} style="width:15px;height:15px;accent-color:var(--agua);cursor:pointer;flex-shrink:0"
-              onchange="toggleBrandBpItem('${brand.id}',${ci},${ii},this.checked)">
-            <span class="bp-item-name" style="${item.selected?'':'color:var(--text2)'}">${item.name}${item.fromPortal?'<span style="font-size:0.6rem;background:rgba(59,158,221,0.15);color:var(--aire);border-radius:4px;padding:0.1rem 0.35rem;margin-left:0.4rem">cliente</span>':''}</span>
-            <div class="bp-pts-wrap">
-              <span class="bp-pts-lbl">PTS</span>
-              ${item.pts==null
-                ? `<input class="bp-pts-input" type="number" min="0" placeholder="?" value=""
-                    style="color:var(--fuego);width:54px"
-                    onchange="setPortalItemPts('${brand.id}',${ci},${ii},this.value)"
-                    title="Definir valor de este entregable del cliente">`
-                : `<span class="bp-pts-val">${item.pts||0}</span>`
-              }
+          <div style="border-bottom:1px solid var(--border2)">
+            <div class="bp-item" style="padding:0.7rem 1rem;gap:0.8rem">
+              <input type="checkbox" ${item.selected?'checked':''} style="width:15px;height:15px;accent-color:var(--agua);cursor:pointer;flex-shrink:0"
+                onchange="toggleBrandBpItem('${brand.id}',${ci},${ii},this.checked)">
+              <span class="bp-item-name" style="flex:1;${item.selected?'':'color:var(--text2)'}">${item.name}${item.fromPortal?'<span style="font-size:0.6rem;background:rgba(59,158,221,0.15);color:var(--aire);border-radius:4px;padding:0.1rem 0.35rem;margin-left:0.4rem">cliente</span>':''}</span>
+              <button onclick="toggleBpItemNotes('${brand.id}',${ci},${ii})"
+                title="Notas"
+                style="background:none;border:none;cursor:pointer;font-size:0.82rem;padding:0.2rem 0.4rem;border-radius:6px;opacity:${item.notes?'1':'0.3'};transition:all 0.15s;flex-shrink:0"
+                onmouseover="this.style.opacity=1;this.style.background='var(--bg-card2)'" onmouseout="this.style.opacity='${item.notes?'1':'0.3'}';this.style.background='none'">📝</button>
+              <div style="display:flex;align-items:center;gap:0;flex-shrink:0;border:1.5px solid rgba(232,98,42,0.4);border-radius:10px;overflow:hidden">
+                <div style="background:rgba(232,98,42,0.1);padding:0.3rem 0.45rem;border-right:1.5px solid rgba(232,98,42,0.3)">
+                  <span style="font-size:0.6rem;font-weight:800;color:var(--fuego);text-transform:uppercase;letter-spacing:0.6px;white-space:nowrap">pts</span>
+                </div>
+                <input type="number" min="0" placeholder="?" value="${item.pts!=null?item.pts:''}"
+                  style="width:46px;background:none;border:none;outline:none;color:var(--fuego);font-family:var(--font);font-size:0.92rem;font-weight:800;text-align:center;cursor:text;padding:0.3rem 0.3rem"
+                  onchange="setBpItemPts('${brand.id}',${ci},${ii},this.value)"
+                  onfocus="this.closest('div').style.borderColor='var(--fuego)';this.closest('div').style.boxShadow='0 0 0 3px rgba(232,98,42,0.15)'"
+                  onblur="this.closest('div').style.borderColor='rgba(232,98,42,0.4)';this.closest('div').style.boxShadow='none'"
+                  title="Editar puntos">
+              </div>
+              <div style="display:flex;align-items:center;gap:0;flex-shrink:0;border:1.5px solid rgba(45,195,179,0.4);border-radius:10px;overflow:hidden">
+                <div style="background:rgba(45,195,179,0.08);padding:0.3rem 0.45rem;border-right:1.5px solid rgba(45,195,179,0.3)">
+                  <span style="font-size:0.6rem;font-weight:800;color:var(--agua);text-transform:uppercase;letter-spacing:0.6px;white-space:nowrap">cant.</span>
+                </div>
+                <input type="number" min="1" value="${item.qty||1}"
+                  style="width:46px;background:none;border:none;outline:none;color:var(--agua);font-family:var(--font);font-size:0.92rem;font-weight:800;text-align:center;cursor:text;padding:0.3rem 0.3rem"
+                  onchange="updateBrandBpQty('${brand.id}',${ci},${ii},this.value)"
+                  onfocus="this.closest('div').style.borderColor='var(--agua)';this.closest('div').style.boxShadow='0 0 0 3px rgba(45,195,179,0.15)'"
+                  onblur="this.closest('div').style.borderColor='rgba(45,195,179,0.4)';this.closest('div').style.boxShadow='none'">
+              </div>
             </div>
-            <div class="bp-pts-wrap">
-              <span class="bp-pts-lbl">CANT.</span>
-              <input class="bp-qty-input" type="number" min="1" value="${item.qty||1}"
-                onchange="updateBrandBpQty('${brand.id}',${ci},${ii},this.value)">
-            </div>
+            ${item.notesOpen?`
+            <div style="padding:0.3rem 1rem 0.7rem 3.1rem">
+              <textarea
+                placeholder="Medidas, materiales, especificaciones…"
+                onchange="saveBpItemNotes('${brand.id}',${ci},${ii},this.value)"
+                style="width:100%;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem;color:var(--text2);font-family:var(--font);font-size:0.76rem;resize:none;outline:none;transition:border-color 0.15s;line-height:1.5;min-height:60px"
+                onfocus="this.style.borderColor='var(--agua)'" onblur="this.style.borderColor='var(--border)'"
+              >${item.notes||''}</textarea>
+            </div>`:''
+            }
           </div>`).join('')}
-        ${cat.name==='Personalizado'?`<div class="bp-add-row"><button class="btn-add-item" onclick="addBrandBpItem('${brand.id}',${ci})">+ Agregar entregable</button></div>`:''}
+        <div class="bp-add-row"><button class="btn-add-item" onclick="addBrandBpItem('${brand.id}',${ci})">+ Agregar entregable</button></div>
       </div>
     </div>`).join('');
+}
+
+function toggleBpItemNotes(brandId,ci,ii){
+  const brand=appData.brands.find(b=>b.id===brandId);
+  if(!brand?.brandingPoints)return;
+  const item=brand.brandingPoints.categories[ci].items[ii];
+  item.notesOpen=!item.notesOpen;
+  renderBrandBp(brand);
+}
+
+async function saveBpItemNotes(brandId,ci,ii,val){
+  const brand=appData.brands.find(b=>b.id===brandId);
+  if(!brand?.brandingPoints)return;
+  brand.brandingPoints.categories[ci].items[ii].notes=val;
+  upsert().then(()=>{});
+}
+
+async function saveBrandBpTotal(val){
+  const brand=appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand?.brandingPoints)return;
+  const n=parseInt(val)||0;
+  brand.brandingPoints.total=n;
+  renderBrandBp(brand);
+  upsert().then(()=>showStatus('Total actualizado ✓'));
+}
+
+async function setBpItemPts(brandId,ci,ii,val){
+  const brand=appData.brands.find(b=>b.id===brandId);
+  if(!brand?.brandingPoints)return;
+  const v=val.trim();
+  brand.brandingPoints.categories[ci].items[ii].pts = v===''?null:Math.max(0,parseInt(v)||0);
+  renderBrandBp(brand);
+  upsert().then(()=>showStatus('Puntos actualizados ✓'));
 }
 
 async function toggleBrandBpCat(brandId,ci){
@@ -4440,17 +5224,6 @@ async function updateBrandBpQty(brandId,ci,ii,val){
   brand.brandingPoints.categories[ci].items[ii].qty=parseInt(val)||1;
   renderBrandBp(brand);
   await upsert();
-}
-
-async function setPortalItemPts(brandId,ci,ii,val){
-  const brand=appData.brands.find(b=>b.id===brandId);
-  if(!brand?.brandingPoints)return;
-  const pts=parseInt(val);
-  if(isNaN(pts)||pts<0)return;
-  brand.brandingPoints.categories[ci].items[ii].pts=pts;
-  renderBrandBp(brand);
-  await upsert();
-  showStatus('Valor asignado ✓');
 }
 
 async function addBrandBpItem(brandId,ci){
@@ -4719,14 +5492,17 @@ async function saveBrand(){
 }
 
 async function deleteBrandCurrent(){
-  snapForUndo('Eliminar marca');
-    if(!currentBrandId)return;
+  if(!currentBrandId) return;
   const brand=appData.brands.find(b=>b.id===currentBrandId);
-  if(!confirm('¿Eliminar "'+brand?.name+'"?'))return;
-  appData.brands=appData.brands.filter(b=>b.id!==currentBrandId);
+  if(!brand) return;
+  const ok = await confirmModal(`¿Mover "${brand.name}" a la papelera?`, 'Mover a papelera');
+  if(!ok) return;
+  snapForUndo('Eliminar marca');
+  softDeleteBrand(brand);
   currentBrandId=null;
   await upsert();
-  showStatus('Marca eliminada');
+  updatePapeleraBadge();
+  showStatus('Marca movida a la papelera · 30 días para restaurar');
   goTo('dashboard');
 }
 
@@ -4916,8 +5692,9 @@ async function saveTemplate(){
   appData.template.brandingPoints.total=parseInt(document.getElementById('bp-total').value)||0;
   const ok=await upsert();if(ok)showStatus('Template guardado ✓');
 }
-function resetTemplate(){
-  if(!confirm('¿Resetear el template a los valores por defecto?'))return;
+async function resetTemplate(){
+  const ok3 = await askModal({label:'¿Resetear el template a los valores por defecto?', type:'select', options:['Cancelar','Sí, resetear']});
+  if(ok3!==1) return;
   appData.template=defaultTemplate();renderTemplate();showStatus('Template reseteado');
 }
 
@@ -6167,8 +6944,8 @@ async function deleteMemberCurrent(){
     showStatus('PIN incorrecto ❌', true);
     return;
   }
-  appData.members=appData.members.filter(x=>x.id!==currentMemberId);
-  // Also remove from any domos
+  softDeleteMember(m);
+  // Also remove from any domos (but data preserved in papelera)
   (appData.brands||[]).forEach(b=>{
     if(!b.domo)return;
     if(b.domo.m1===currentMemberId) b.domo.m1='';
@@ -6177,7 +6954,8 @@ async function deleteMemberCurrent(){
   });
   currentMemberId=null;
   await upsert();
-  showStatus('Miembro eliminado ✓');
+  updatePapeleraBadge();
+  showStatus('Miembro movido a la papelera · 30 días para restaurar');
   renderEquipo();
 }
 
@@ -6245,6 +7023,8 @@ async function boot(){
   setTimeout(()=>{ ls.style.display='none'; },600);
 
   renderCurrentPage();
+  _updateBackBtn();
+  ensurePapelera();
   subscribeRealtime();
 }
 
@@ -6350,13 +7130,40 @@ function portalRenderBp(brand){
         <span>${cat.name}</span>
         <span style="color:var(--text3)">${cat.items.filter(i=>i.selected).length} sel.</span>
       </div>
-      ${cat.items.map((item,ii)=>`
-        <div class="portal-bp-item">
-          <input type="checkbox" ${item.selected?'checked':''} style="width:16px;height:16px;accent-color:var(--agua);cursor:pointer;flex-shrink:0"
-            onchange="portalToggleBpItem('${brand.id}',${ci},${ii},this.checked)">
-          <span style="flex:1;font-size:0.84rem;${item.selected?'':'color:var(--text2)'}">${item.name}</span>
-          <span class="portal-bp-pts ${item.pts==null?'unknown':'valued'}">${item.pts==null?'?':item.pts+(item.qty>1?' ×'+item.qty:'')}</span>
-        </div>`).join('')}
+      ${cat.items.map((item,ii)=>{
+        const qty = item.qty||1;
+        const ptsLabel = item.pts==null ? '?' : (item.pts * qty) + ' pts';
+        const ptsClass = item.pts==null ? 'unknown' : 'valued';
+        return `<div style="border-bottom:1px solid var(--border2)">
+          <div class="portal-bp-item">
+            <input type="checkbox" ${item.selected?'checked':''} style="width:16px;height:16px;accent-color:var(--agua);cursor:pointer;flex-shrink:0"
+              onchange="portalToggleBpItem('${brand.id}',${ci},${ii},this.checked)">
+            <span style="flex:1;font-size:0.86rem;font-weight:${item.selected?'600':'400'};${item.selected?'':'color:var(--text2)'}">${item.name}</span>
+            ${item.selected ? `
+            <div style="display:flex;align-items:center;gap:0.3rem;flex-shrink:0">
+              <button onclick="portalChangeQty('${brand.id}',${ci},${ii},-1)"
+                style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;line-height:1;font-family:var(--font)">−</button>
+              <span style="font-size:0.85rem;font-weight:700;min-width:20px;text-align:center">${qty}</span>
+              <button onclick="portalChangeQty('${brand.id}',${ci},${ii},1)"
+                style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;line-height:1;font-family:var(--font)">+</button>
+            </div>` : ''}
+            <span class="portal-bp-pts ${ptsClass}">${ptsLabel}</span>
+          </div>
+          ${item.selected ? `
+          <div style="padding:0.2rem 1rem 0.85rem 2.8rem">
+            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);margin-bottom:0.35rem">Notas / Especificaciones</div>
+            <textarea
+              placeholder="Ej: 90×60 cm, impresión en vinil mate, para pared exterior…"
+              oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';portalSaveNotes('${brand.id}',${ci},${ii},this.value)"
+              onchange="portalSaveNotes('${brand.id}',${ci},${ii},this.value)"
+              style="width:100%;background:var(--bg-card2);border:1.5px solid ${item.notes?'var(--agua)':'var(--border)'};border-radius:10px;padding:0.45rem 0.8rem;color:var(--text);font-family:var(--font);font-size:0.82rem;resize:none;outline:none;transition:border-color 0.2s;line-height:1.55;min-height:0;height:${item.notes?'auto':'34px'};overflow:hidden"
+              onfocus="this.style.borderColor='var(--agua)'" onblur="this.style.borderColor='${item.notes?'var(--agua)':'var(--border)'}'"
+            >${item.notes||''}</textarea>
+          </div>` : (item.notes ? `
+          <div style="padding:0.2rem 1rem 0.7rem 2.8rem;font-size:0.78rem;color:var(--text3);font-style:italic">${item.notes}</div>
+          ` : '')}
+        </div>`;
+      }).join('')}
       <div style="padding:0.4rem 1rem">
         <button onclick="portalAddBpItem('${brand.id}',${ci})"
           style="width:100%;padding:0.35rem;border:1px dashed var(--border);border-radius:8px;background:none;font-size:0.75rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s"
@@ -6380,9 +7187,16 @@ function portalRenderBp(brand){
       </div>
     </div>
     ${catsHTML}
-    <div style="font-size:0.72rem;color:var(--text3);margin-top:0.5rem;padding:0.6rem 0.8rem;background:rgba(245,197,66,0.06);border-radius:8px">
-      💡 Los entregables con <strong>?</strong> puntos serán valorados por el equipo.
+    <div style="margin-top:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+      <div style="font-size:0.72rem;color:var(--text3);padding:0.6rem 0.8rem;background:rgba(245,197,66,0.06);border-radius:8px;flex:1">
+        💡 Los entregables con <strong>?</strong> puntos serán valorados por el equipo.
+      </div>
+      <button id="portal-save-btn" onclick="portalSaveAll('${brand.id}')"
+        style="display:flex;align-items:center;gap:0.5rem;padding:0.65rem 1.4rem;border-radius:99px;border:none;background:var(--agua);color:#fff;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:var(--font);transition:all 0.2s;flex-shrink:0;box-shadow:0 2px 10px rgba(45,195,179,0.3)">
+        ✓ Guardar cambios
+      </button>
     </div>
+    <div id="portal-save-status" style="display:none;text-align:right;font-size:0.75rem;color:var(--agua);margin-top:0.5rem;font-weight:600"></div>
   `;
 }
 
@@ -6390,10 +7204,64 @@ async function portalToggleBpItem(brandId, ci, ii, val){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand?.brandingPoints) return;
   brand.brandingPoints.categories[ci].items[ii].selected = val;
-  // Re-render BP section only
+  _portalRefreshBp(brand);
+  _portalMarkDirty();
+}
+
+async function portalChangeQty(brandId, ci, ii, delta){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand?.brandingPoints) return;
+  const item = brand.brandingPoints.categories[ci].items[ii];
+  item.qty = Math.max(1, (item.qty||1) + delta);
+  _portalRefreshBp(brand);
+  _portalMarkDirty();
+}
+
+function _portalMarkDirty(){
+  const btn = document.getElementById('portal-save-btn');
+  if(btn){ btn.style.background='var(--fuego)'; btn.style.boxShadow='0 2px 10px rgba(232,98,42,0.35)'; btn.textContent='● Guardar cambios'; }
+  const st = document.getElementById('portal-save-status');
+  if(st){ st.style.display='none'; }
+}
+
+async function portalSaveAll(brandId){
+  const btn = document.getElementById('portal-save-btn');
+  if(btn){ btn.textContent='Guardando…'; btn.style.opacity='0.7'; btn.disabled=true; }
+  const ok = await upsert();
+  if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.background='var(--agua)'; btn.style.boxShadow='0 2px 10px rgba(45,195,179,0.3)'; btn.textContent='✓ Guardado'; }
+  const st = document.getElementById('portal-save-status');
+  if(st){ st.style.display='block'; st.textContent='✓ Cambios guardados correctamente'; }
+  setTimeout(()=>{ if(btn) btn.textContent='✓ Guardar cambios'; if(st) st.style.display='none'; }, 3000);
+}
+
+function portalToggleNotes(brandId, ci, ii){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand?.brandingPoints) return;
+  const item = brand.brandingPoints.categories[ci].items[ii];
+  item.notesPortalOpen = !item.notesPortalOpen;
+  _portalRefreshBp(brand);
+}
+
+async function portalSaveNotes(brandId, ci, ii, val){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand?.brandingPoints) return;
+  brand.brandingPoints.categories[ci].items[ii].notes = val;
+  _portalMarkDirty();
+}
+
+function _portalRefreshBp(brand){
   const wrap = document.getElementById('portal-bp-wrap');
   if(wrap) wrap.innerHTML = portalRenderBp(brand);
-  upsert().then(()=>{});
+  // Auto-expand textareas that already have content
+  setTimeout(()=>{
+    document.querySelectorAll('#portal-bp-wrap textarea').forEach(ta=>{
+      if(ta.value){ ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px'; }
+    });
+  }, 0);
+  if(typeof renderBrandBp === 'function' && currentBrandId===brand.id){
+    const internalCats = document.getElementById('brand-bp-cats');
+    if(internalCats) renderBrandBp(brand);
+  }
 }
 
 async function portalAddBpItem(brandId, ci){
@@ -6405,7 +7273,7 @@ async function portalAddBpItem(brandId, ci){
   brand.brandingPoints.categories[ci].items.push({id:uid(), name:name.trim(), pts:null, qty:1, selected:true, fromPortal:true});
   const wrap = document.getElementById('portal-bp-wrap');
   if(wrap) wrap.innerHTML = portalRenderBp(brand);
-  upsert().then(()=>{});
+  _portalMarkDirty();
 }
 boot();
 </script>
@@ -6578,6 +7446,26 @@ boot();
   </div>
 </div>
 
+
+<!-- MODAL: Archivo PIN -->
+<div class="modal-overlay hidden" id="modal-archivo-pin">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-header">
+      <div class="modal-title">🔒 Ingresa el PIN</div>
+      <div class="modal-close" onclick="closeArchivoPinModal()">✕</div>
+    </div>
+    <div style="margin-bottom:1.2rem">
+      <input class="form-input" id="archivo-pin-input" type="password" maxlength="6"
+        placeholder="••••" style="text-align:center;font-size:1.4rem;letter-spacing:6px"
+        onkeydown="if(event.key==='Enter')checkArchivoPin()">
+      <div id="archivo-pin-error" style="color:#ef4444;font-size:0.75rem;display:none;margin-top:0.5rem;text-align:center">PIN incorrecto</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeArchivoPinModal()">Cancelar</button>
+      <button class="btn-save" onclick="checkArchivoPin()">Entrar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ASK MODAL: reemplaza todos los prompt() nativos -->
 <div class="ask-modal-overlay hidden" id="ask-modal-overlay">
