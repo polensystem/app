@@ -1083,8 +1083,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .cob-check{width:20px;height:20px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all 0.15s;margin-top:2px;}
 .cob-check.checked{background:#4ade80;border-color:#4ade80;color:#fff;font-size:0.75rem;}
 .cob-check:hover{border-color:var(--aire);}
-.cob-pago-name{flex:1;min-width:0;}
-.cob-pago-name input{background:none;border:none;outline:none;font-family:var(--font);font-size:0.82rem;color:var(--text);width:100%;border-bottom:1px solid transparent;transition:border-color 0.15s;}
+.cob-pago-name{flex:1;min-width:0;display:flex;flex-direction:column;gap:0.2rem;}
+.cob-pago-name input{display:block;background:none;border:none;outline:none;font-family:var(--font);font-size:0.82rem;color:var(--text);width:100%;border-bottom:1px solid transparent;transition:border-color 0.15s;}
 .cob-pago-name input:focus{border-bottom-color:var(--aire);}
 .cob-status-pill{font-size:0.62rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:99px;white-space:nowrap;}
 .cob-status-pill.cobrado{background:rgba(74,222,128,0.15);color:#16a34a;}
