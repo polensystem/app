@@ -72,6 +72,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 #page-equipo{overflow:hidden;}
 .equipo-page,.equipo-wrap{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;}
 .page.active{display:flex;}
+#page-finanzas{display:none;}
+#page-finanzas.active{display:flex!important;flex-direction:column;overflow:hidden;padding:0;width:100%;}
 .content{padding:2rem;display:flex;flex-direction:column;gap:1.5rem;flex:1;}
 
 /* ── SHARED CARDS ── */
@@ -1044,6 +1046,23 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 /* Single member view: card fills available height */
 #eq-all-grid.single-member .member-card{height:calc(100vh - 200px);min-height:400px;}
 #eq-all-grid.single-member .member-card .member-hitos-preview{height:auto;flex:1;}
+
+/* ── Finanzas ── */
+.fin-tab-btn{background:none;border:none;border-radius:8px;padding:0.35rem 0.8rem;font-size:0.78rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s;}
+.fin-tab-btn.active{background:var(--aire);color:#fff;}
+.fin-stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:0.9rem 1rem;}
+.fin-stat-card.dark{background:#1a1a2e;border-color:#2a2a4e;}
+.fin-stat-label{font-size:0.58rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.4rem;}
+.fin-stat-label.dark{color:rgba(255,255,255,0.4);}
+.fin-stat-value{font-size:1.6rem;font-weight:800;letter-spacing:-1px;line-height:1;}
+.fin-stat-sub{font-size:0.68rem;margin-top:0.3rem;}
+.fin-bar-track{height:8px;background:var(--bg-card2);border-radius:99px;overflow:hidden;margin:0.5rem 0;}
+.fin-bar-fill{height:100%;border-radius:99px;transition:width 0.6s ease;}
+.fin-tabla-row{display:grid;grid-template-columns:90px 1.2fr 1.2fr 1fr 90px 1.2fr 2.5fr;gap:0;border-bottom:1px solid var(--border);width:100%;}
+.fin-tabla-cell{padding:0.75rem 1rem;font-size:0.82rem;}
+.fin-tabla-header .fin-tabla-cell{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);background:var(--bg-card2);}
+.fin-editable{cursor:pointer;border-bottom:1px dashed transparent;transition:border-color 0.15s;}
+.fin-editable:hover{border-bottom-color:var(--aire);}
 </style>
 </head>
 <body>
@@ -1066,6 +1085,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
   </button>
   <button class="nav-item" id="nav-equipo" onclick="goTo('equipo')">
     <span class="nav-icon">👥</span><span class="nav-text">Equipo</span>
+  </button>
+  <button class="nav-item" id="nav-finanzas" onclick="goToFinanzas()">
+    <span class="nav-icon">💰</span><span class="nav-text">Finanzas</span>
   </button>
   <!-- Configuración toggle -->
   <button class="nav-item" onclick="toggleConfigNav()" id="nav-config-toggle" style="justify-content:space-between">
@@ -1158,6 +1180,30 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
       <div id="stage-grid-v2" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;align-items:start"></div>
       <div style="font-size:1.1rem;font-weight:800;color:var(--text);letter-spacing:-0.3px;margin-bottom:0.8rem">Todas las marcas</div>
       <div class="brands-grid" id="brands-grid"></div>
+
+      <!-- ── GOOGLE CALENDAR ── -->
+      <div style="margin-top:1.5rem" id="gcal-section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.7rem">
+          <div style="display:flex;align-items:center;gap:0.6rem">
+            <div style="width:32px;height:32px;background:linear-gradient(135deg,#4285f4,#34a853);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem">📅</div>
+            <div>
+              <div style="font-size:0.9rem;font-weight:800;color:var(--text);letter-spacing:-0.2px">Google Calendar</div>
+              <div style="font-size:0.65rem;color:var(--text3);margin-top:0.05rem">Calendario del equipo</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:0.5rem">
+            <button onclick="toggleGCalMode()" id="gcal-mode-btn" style="font-size:0.72rem;background:rgba(66,133,244,0.1);border:1px solid rgba(66,133,244,0.25);border-radius:8px;padding:0.35rem 0.75rem;color:#4285f4;cursor:pointer;font-family:var(--font);font-weight:600">🌙 Oscuro</button>
+            <button onclick="editGCalUrl()" style="font-size:0.72rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.35rem 0.75rem;color:var(--text3);cursor:pointer;font-family:var(--font)">✏️ URL</button>
+          </div>
+        </div>
+        <div style="border-radius:16px;overflow:hidden;border:1px solid var(--border);background:var(--bg-card)">
+          <iframe id="gcal-iframe"
+            src="https://calendar.google.com/calendar/embed?src=info%40pausa.com.ec&ctz=America%2FGuayaquil&mode=WEEK&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&bgcolor=%23ffffff"
+            style="border:0;display:block;width:100%;height:500px"
+            frameborder="0" scrolling="no">
+          </iframe>
+        </div>
+      </div>
 
       <!-- ── DIGITAL TOOLS ── -->
       <div style="margin-top:1.8rem;background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(139,92,246,0.04));border:1px solid rgba(99,102,241,0.18);border-radius:20px;padding:1.4rem 1.6rem">
@@ -1343,17 +1389,29 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
           </div>
         </div>
         <div class="section-body">
-          <div class="info-grid">
-            <div class="form-group"><label class="form-label">Industria por defecto</label><input class="form-input" id="tpl-industria" placeholder="Ej: Restaurantes & Food"></div>
-            <div class="form-group"><label class="form-label">Prioridad por defecto</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.8rem;align-items:start">
+            <div class="form-group">
+              <label class="form-label">Industria</label>
+              <input class="form-input" id="tpl-industria" placeholder="Ej: Restaurantes & Food">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Prioridad</label>
               <select class="form-select" id="tpl-prioridad">
                 <option value="alta">🔴 Alta</option><option value="media">🟡 Media</option><option value="baja">🟢 Baja</option>
               </select>
             </div>
-            <div class="form-group"><label class="form-label">Responsable por defecto</label>
-              <select class="form-select" id="tpl-responsable"><option value="">Sin asignar</option></select>
+            <div class="form-group">
+              <label class="form-label">🏠 Domo — Principal 1</label>
+              <select class="form-select" id="tpl-domo-m1"><option value="">— Sin asignar —</option></select>
             </div>
-            <div class="form-group"><label class="form-label">Notas</label><input class="form-input" id="tpl-notas" placeholder="Notas generales…"></div>
+            <div class="form-group">
+              <label class="form-label">🏠 Domo — Principal 2</label>
+              <select class="form-select" id="tpl-domo-m2"><option value="">— Sin asignar —</option></select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:0.6rem">
+            <label class="form-label">Notas</label>
+            <input class="form-input" id="tpl-notas" placeholder="Notas generales…">
           </div>
         </div>
       </div>
@@ -1803,6 +1861,7 @@ async function loadData(){
       if(!appData.domos) appData.domos=[];
       if(!Array.isArray(appData.banners)) appData.banners=[];
       if(!appData.domoNames) appData.domoNames={};
+      ensureFinData();
       if(!Array.isArray(appData.digitalTools)){appData.digitalTools=DEFAULT_TOOLS.map(t=>({...t}));}
       // Auto-assign colors to brands missing one
       const _autoColors=['#e85d5d','#e87f3a','#e8c23a','#5db85d','#3a9ee8','#6b5de8','#c45de8','#e85d9e','#5de8d0','#5d8ce8','#e8825d','#a0e85d'];
@@ -1914,7 +1973,7 @@ function goTo(page,brandId=null){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const nEl=document.getElementById('nav-'+page);if(nEl)nEl.classList.add('active');
   const pEl=document.getElementById('page-'+page);if(pEl)pEl.classList.add('active');
-  const titles={dashboard:'Dashboard',template:'Template base',brand:'',equipo:'Equipo',member:''};
+  const titles={dashboard:'Dashboard',template:'Template base',brand:'',equipo:'Equipo',member:'',finanzas:'Finanzas'};
   document.getElementById('header-title').textContent=titles[page]||page;
   document.getElementById('btn-nueva-marca').style.display=page==='dashboard'?'':'none';
   document.getElementById('btn-nuevo-miembro').style.display=page==='equipo'?'':'none';
@@ -2264,6 +2323,320 @@ async function toggleHitoFreeMode(brandId, stage, actId){
   if(currentPage==='brand' && currentBrandId===brandId) renderBrandCrono(brand);
 }
 
+
+
+/* ═══ FINANZAS ═══ */
+let _finUnlocked = false;
+const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function ensureFinData(){
+  if(!appData.finanzas){
+    const year = new Date().getFullYear();
+    appData.finanzas = {
+      pin: '0000',
+      metaFacturacion: 40000,
+      metaCobranzas: 22000,
+      months: Array.from({length:12},(_,i)=>({
+        mes:i, facturacion:0, egresos:0, cobranzas:0, observaciones:''
+      }))
+    };
+  }
+}
+
+function goToFinanzas(){
+  _finUnlocked = false;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const nEl=document.getElementById('nav-finanzas');if(nEl)nEl.classList.add('active');
+  const pEl=document.getElementById('page-finanzas');if(pEl)pEl.classList.add('active');
+  document.getElementById('header-title').textContent='Finanzas';
+  currentPage='finanzas';
+  updateGlobalBreadcrumb('finanzas');
+  document.getElementById('fin-lock').style.display='flex';
+  document.getElementById('fin-content').style.display='none';
+  document.getElementById('fin-pin-input').value='';
+  document.getElementById('fin-pin-error').style.display='none';
+  setTimeout(()=>document.getElementById('fin-pin-input').focus(),80);
+}
+
+function checkFinPin(){
+  ensureFinData();
+  const entered = document.getElementById('fin-pin-input').value;
+  if(entered === appData.finanzas.pin){
+    _finUnlocked = true;
+    document.getElementById('fin-lock').style.display='none';
+    const fc=document.getElementById('fin-content');fc.style.display='flex';fc.style.flexDirection='column';fc.style.flex='1';fc.style.minHeight='0';
+    switchFinTab('mes');
+  } else {
+    document.getElementById('fin-pin-error').style.display='block';
+    document.getElementById('fin-pin-input').value='';
+    document.getElementById('fin-pin-input').focus();
+  }
+}
+
+function lockFinanzas(){
+  _finUnlocked = false;
+  document.getElementById('fin-lock').style.display='flex';
+  document.getElementById('fin-content').style.display='none';
+  document.getElementById('fin-pin-input').value='';
+}
+
+async function changeFinPin(){
+  ensureFinData();
+  const current = prompt('PIN actual:');
+  if(current !== appData.finanzas.pin){ showStatus('PIN incorrecto',true); return; }
+  const newPin = prompt('Nuevo PIN (mín. 4 dígitos):');
+  if(!newPin||newPin.length<4){ showStatus('PIN muy corto',true); return; }
+  const confirm2 = prompt('Confirmar nuevo PIN:');
+  if(newPin !== confirm2){ showStatus('Los PINs no coinciden',true); return; }
+  appData.finanzas.pin = newPin;
+  await upsert();
+  showStatus('PIN actualizado ✓');
+}
+
+function switchFinTab(tab){
+  document.querySelectorAll('.fin-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.fin-panel').forEach(p=>{p.classList.remove('active');p.style.display='none';});
+  document.getElementById('fintab-'+tab+'-btn').classList.add('active');
+  const panel = document.getElementById('fin-panel-'+tab);
+  panel.style.display='flex';panel.style.flexDirection='column';
+  if(tab==='mes') renderFinMes();
+  else renderFinAnual();
+}
+
+function fmt$(n){ return '$'+Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0}); }
+
+function renderFinMes(){
+  ensureFinData();
+  const fin = appData.finanzas;
+  const now = new Date();
+  const curM = now.getMonth();
+  const curY = now.getFullYear();
+  const mData = fin.months[curM] || {};
+  const year = fin.months;
+
+  // YTD totals
+  const ytdFact = year.slice(0,curM+1).reduce((s,m)=>s+(m.facturacion||0),0);
+  const ytdCob  = year.slice(0,curM+1).reduce((s,m)=>s+(m.cobranzas||0),0);
+  const ytdEgr  = year.slice(0,curM+1).reduce((s,m)=>s+(m.egresos||0),0);
+  const pctCob  = ytdFact ? Math.round(ytdCob/ytdFact*100) : 0;
+
+  // Próximos cobros: sum of facturacion not yet cobranzas
+  const pendiente = Math.max(0, ytdFact - ytdCob);
+  // Por cobrar ahora: current month facturado - cobrado
+  const porCobrar = Math.max(0, (mData.facturacion||0) - (mData.cobranzas||0));
+
+  // Meta %
+  const pctFactMes = fin.metaFacturacion ? Math.round((mData.facturacion||0)/fin.metaFacturacion*100) : 0;
+  const pctCobMes  = fin.metaCobranzas  ? Math.round((mData.cobranzas||0)/fin.metaCobranzas*100) : 0;
+
+  const cards = [
+    {label:'Total facturado '+curY, value:fmt$(ytdFact), sub:(appData.brands||[]).length+' proyectos activos', dark:true, color:'#fff'},
+    {label:'Total cobrado '+curY,   value:fmt$(ytdCob),  sub:'↑ '+pctCob+'% del total', dark:true, color:'#4ade80'},
+    {label:'Facturado este mes',    value:fmt$(mData.facturacion||0), sub:pctFactMes+'% de meta', color:'var(--agua)'},
+    {label:'Cobrado este mes',      value:fmt$(mData.cobranzas||0),   sub:pctCobMes+'% de meta', color:'#3a9ee8'},
+    {label:'Próximos cobros',       value:fmt$(pendiente), sub:'En progreso', color:'#f59e0b'},
+    {label:'Por cobrar ahora',      value:fmt$(porCobrar), sub:'A cobrar', color:'#ef4444'},
+  ];
+
+  document.getElementById('fin-mes-cards').innerHTML = cards.map(card=>`
+    <div class="fin-stat-card ${card.dark?'dark':''}">
+      <div class="fin-stat-label ${card.dark?'dark':''}">${card.label}</div>
+      <div class="fin-stat-value" style="color:${card.color||'var(--text)'}">${card.value}</div>
+      ${card.sub?`<div class="fin-stat-sub" style="color:${card.dark?'rgba(255,255,255,0.5)':'var(--text3)'}">${card.sub}</div>`:''}
+    </div>`).join('');
+
+  // Metas
+  document.getElementById('fin-metas').innerHTML = `
+    <div style="margin-bottom:1.2rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem">
+        <div>
+          <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Meta de facturación del mes · ${MONTHS[curM]}</div>
+          <div style="font-size:1rem;font-weight:800;color:var(--text);margin-top:0.2rem">${fmt$(mData.facturacion||0)} <span style="font-size:0.78rem;font-weight:400;color:var(--text3)">de ${fmt$(fin.metaFacturacion)}</span>
+            <button onclick="editFinMeta('facturacion')" style="margin-left:0.5rem;font-size:0.68rem;background:none;border:1px solid var(--border);border-radius:6px;padding:0.15rem 0.5rem;color:var(--text3);cursor:pointer;font-family:var(--font)">✏️ Editar</button>
+          </div>
+        </div>
+        <div style="font-size:2rem;font-weight:800;color:var(--agua)">${pctFactMes}%</div>
+      </div>
+      <div class="fin-bar-track"><div class="fin-bar-fill" style="width:${Math.min(pctFactMes,100)}%;background:var(--agua)"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:var(--text3)">
+        <span>$0</span><span>${fmt$(fin.metaFacturacion/4)}</span><span>${fmt$(fin.metaFacturacion/2)}</span><span>${fmt$(fin.metaFacturacion*3/4)}</span><span>${fmt$(fin.metaFacturacion)}</span>
+      </div>
+    </div>
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem">
+        <div>
+          <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Meta de cobranzas del mes · ${MONTHS[curM]}</div>
+          <div style="font-size:1rem;font-weight:800;color:var(--text);margin-top:0.2rem">${fmt$(mData.cobranzas||0)} <span style="font-size:0.78rem;font-weight:400;color:var(--text3)">de ${fmt$(fin.metaCobranzas)}</span>
+            <button onclick="editFinMeta('cobranzas')" style="margin-left:0.5rem;font-size:0.68rem;background:none;border:1px solid var(--border);border-radius:6px;padding:0.15rem 0.5rem;color:var(--text3);cursor:pointer;font-family:var(--font)">✏️ Editar</button>
+          </div>
+        </div>
+        <div style="font-size:2rem;font-weight:800;color:#3a9ee8">${pctCobMes}%</div>
+      </div>
+      <div class="fin-bar-track"><div class="fin-bar-fill" style="width:${Math.min(pctCobMes,100)}%;background:#3a9ee8"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:var(--text3)">
+        <span>$0</span><span>${fmt$(fin.metaCobranzas/4)}</span><span>${fmt$(fin.metaCobranzas/2)}</span><span>${fmt$(fin.metaCobranzas*3/4)}</span><span>${fmt$(fin.metaCobranzas)}</span>
+      </div>
+    </div>`;
+
+  // Chart
+  renderFinChart();
+}
+
+function renderFinChart(){
+  ensureFinData();
+  const fin = appData.finanzas;
+  const ytdFact = fin.months.reduce((s,m)=>s+(m.facturacion||0),0);
+  const maxVal = Math.max(...fin.months.map(m=>(m.facturacion||0)+(m.egresos||0)),1);
+  const curM = new Date().getMonth();
+  const barW = 100/12;
+
+  const barsHTML = fin.months.map((m,i)=>{
+    const fact = m.facturacion||0;
+    const egr  = m.egresos||0;
+    const factH = Math.round(fact/maxVal*200);
+    const egrH  = Math.round(egr/maxVal*200);
+    const isNow = i===curM;
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1">
+      <div style="display:flex;flex-direction:column;justify-content:flex-end;height:200px;width:70%;gap:0">
+        ${fact?`<div style="height:${factH}px;background:#4285f4;border-radius:4px 4px 0 0;opacity:${fact?1:0}"></div>`:''}
+        ${egr?`<div style="height:${egrH}px;background:#f87171;border-radius:${fact?'0':'4px 4px'} 0 0;opacity:${egr?1:0}"></div>`:''}
+      </div>
+      <div style="font-size:0.62rem;color:${isNow?'var(--aire)':'var(--text3)'};font-weight:${isNow?700:400}">${MONTHS[i]}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('fin-chart-wrap').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
+      <div>
+        <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Facturación · Egresos · Cashflow</div>
+        <div style="font-size:1rem;font-weight:800;color:var(--text);margin-top:0.2rem">${fmt$(ytdFact)} <span style="font-size:0.75rem;font-weight:400;color:var(--text3)">facturado ${new Date().getFullYear()}</span></div>
+      </div>
+      <div style="display:flex;gap:1rem;font-size:0.72rem;color:var(--text3)">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#4285f4;border-radius:2px;margin-right:4px"></span>Facturación</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#f87171;border-radius:2px;margin-right:4px"></span>Egresos</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:4px;padding-bottom:0.5rem;border-bottom:1px solid var(--border)">${barsHTML}</div>`;
+}
+
+function renderFinAnual(){
+  ensureFinData();
+  const fin = appData.finanzas;
+  const year = fin.months;
+  const curY = new Date().getFullYear();
+
+  const totFact = year.reduce((s,m)=>s+(m.facturacion||0),0);
+  const totEgr  = year.reduce((s,m)=>s+(m.egresos||0),0);
+  const totCob  = year.reduce((s,m)=>s+(m.cobranzas||0),0);
+  const profit  = totFact - totEgr;
+  const margen  = totFact ? ((profit/totFact)*100).toFixed(2) : 0;
+
+  document.getElementById('fin-anual-cards').innerHTML = `
+    <div class="fin-stat-card dark">
+      <div class="fin-stat-label dark">Facturación ${curY}</div>
+      <div class="fin-stat-value" style="color:#fff">${fmt$(totFact)}</div>
+    </div>
+    <div class="fin-stat-card">
+      <div class="fin-stat-label">Egresos ${curY}</div>
+      <div class="fin-stat-value" style="color:#ef4444">${fmt$(totEgr)}</div>
+      <div class="fin-stat-sub" style="color:var(--text3)">Total acumulado</div>
+    </div>
+    <div class="fin-stat-card" style="border-color:rgba(74,222,128,0.3);background:rgba(74,222,128,0.05)">
+      <div class="fin-stat-label" style="color:#16a34a">💰 Profit ${curY}</div>
+      <div class="fin-stat-value" style="color:#4ade80">${fmt$(profit)}</div>
+      <div class="fin-stat-sub" style="color:#4ade80">↑ ${margen}% margen</div>
+    </div>
+    <div class="fin-stat-card">
+      <div class="fin-stat-label">Margen promedio</div>
+      <div class="fin-stat-value" style="color:#4ade80">${margen}%</div>
+      <div class="fin-stat-sub" style="color:var(--text3)">${profit>=0?'↑ Por encima del 20%':'↓ Bajo el objetivo'}</div>
+    </div>`;
+
+  const rows = year.map((m,i)=>{
+    const fact = m.facturacion||0;
+    const egr  = m.egresos||0;
+    const cob  = m.cobranzas||0;
+    const prof = fact - egr;
+    const marg = fact ? ((prof/fact)*100).toFixed(1) : null;
+    const hasData = fact||egr||cob;
+    return `<div class="fin-tabla-row">
+      <div class="fin-tabla-cell" style="font-weight:600;color:var(--text2)">${MONTHS[i]}</div>
+      <div class="fin-tabla-cell fin-editable" onclick="editFinMonth(${i},'facturacion')" style="color:var(--text)">${hasData?fmt$(fact):'—'}</div>
+      <div class="fin-tabla-cell fin-editable" onclick="editFinMonth(${i},'egresos')" style="color:#ef4444">${hasData&&egr?fmt$(egr):'—'}</div>
+      <div class="fin-tabla-cell" style="color:#4ade80;font-weight:700">${hasData&&prof?fmt$(prof):'—'}</div>
+      <div class="fin-tabla-cell">${marg?`<span style="background:${parseFloat(marg)>=20?'rgba(74,222,128,0.15)':'rgba(239,68,68,0.1)'};color:${parseFloat(marg)>=20?'#4ade80':'#ef4444'};border-radius:6px;padding:0.15rem 0.4rem;font-size:0.72rem;font-weight:700">${marg}%</span>`:'—'}</div>
+      <div class="fin-tabla-cell fin-editable" onclick="editFinMonth(${i},'cobranzas')" style="color:#3a9ee8">${hasData&&cob?fmt$(cob):'—'}</div>
+      <div class="fin-tabla-cell fin-editable" onclick="editFinMonth(${i},'observaciones')" style="color:var(--text3);font-size:0.75rem">${m.observaciones||'Sin datos'}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('fin-tabla-wrap').innerHTML = `
+    <div class="fin-tabla-row fin-tabla-header">
+      <div class="fin-tabla-cell">Mes</div>
+      <div class="fin-tabla-cell">Facturación</div>
+      <div class="fin-tabla-cell">Egresos</div>
+      <div class="fin-tabla-cell">Profit</div>
+      <div class="fin-tabla-cell">Margen</div>
+      <div class="fin-tabla-cell">Cobranzas</div>
+      <div class="fin-tabla-cell">Observaciones</div>
+    </div>
+    ${rows}`;
+}
+
+async function editFinMonth(monthIdx, field){
+  ensureFinData();
+  const m = appData.finanzas.months[monthIdx];
+  const label = {facturacion:'Facturación',egresos:'Egresos',cobranzas:'Cobranzas',observaciones:'Observaciones'}[field];
+  const current = m[field]||'';
+  const val = prompt(`${MONTHS[monthIdx]} · ${label}:`, current);
+  if(val===null) return;
+  m[field] = field==='observaciones' ? val : (parseFloat(val.replace(/[$,]/g,''))||0);
+  await upsert();
+  showStatus('Dato actualizado ✓');
+  if(document.getElementById('fin-panel-anual').style.display!=='none') renderFinAnual();
+  else renderFinMes();
+}
+
+async function editFinMeta(field){
+  ensureFinData();
+  const label = field==='facturacion' ? 'Meta de facturación del mes' : 'Meta de cobranzas del mes';
+  const current = field==='facturacion' ? appData.finanzas.metaFacturacion : appData.finanzas.metaCobranzas;
+  const val = prompt(label+':', current);
+  if(val===null) return;
+  const num = parseFloat(val.replace(/[$,]/g,''))||0;
+  if(field==='facturacion') appData.finanzas.metaFacturacion = num;
+  else appData.finanzas.metaCobranzas = num;
+  await upsert();
+  renderFinMes();
+}
+
+/* ═══ GOOGLE CALENDAR ═══ */
+const GCAL_BASE_URL = 'https://calendar.google.com/calendar/embed?src=info%40pausa.com.ec&ctz=America%2FGuayaquil';
+let _gcalDark = false;
+
+function toggleGCalMode(){
+  _gcalDark = !_gcalDark;
+  const iframe = document.getElementById('gcal-iframe');
+  const btn = document.getElementById('gcal-mode-btn');
+  if(iframe){
+    const bg = _gcalDark ? '%231a1a2e' : '%23ffffff';
+    const color = _gcalDark ? '%23ffffff' : '%23000000';
+    iframe.src = (appData.calendarUrl||GCAL_BASE_URL) + '&mode=WEEK&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&bgcolor=' + bg + '&color=' + color;
+  }
+  if(btn) btn.textContent = _gcalDark ? '☀️ Claro' : '🌙 Oscuro';
+}
+
+async function editGCalUrl(){
+  const url = prompt('URL del embed de Google Calendar:', appData.calendarUrl||GCAL_BASE_URL);
+  if(!url) return;
+  appData.calendarUrl = url.trim();
+  const iframe = document.getElementById('gcal-iframe');
+  if(iframe) iframe.src = appData.calendarUrl + '&mode=WEEK&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&bgcolor=%23ffffff';
+  await upsert();
+  showStatus('URL del calendario actualizada ✓');
+}
+
 /* ═══ DIGITAL TOOLS ═══ */
 
 
@@ -2348,13 +2721,45 @@ function toggleAllTools(){
   if(btn) btn.textContent = _allToolsExpanded ? '▴ Colapsar todas' : '▾ Expandir todas';
 }
 
-async function addDigitalTool(){
-  const name = prompt('Nombre de la herramienta:');
-  if(!name) return;
-  const url = prompt('URL (ej: https://ejemplo.com):', 'https://');
-  const icon = prompt('Emoji como ícono:', '🔧');
+const TOOL_COLORS = ['#6366f1','#3a9ee8','#e85d9e','#e87f3a','#5db85d','#e85d5d','#f5c542','#8b5cf6','#06b6d4','#ec4899','#10b981','#1d6bf3'];
+let _toolSelectedColor = '#6366f1';
+
+function addDigitalTool(){
+  _toolSelectedColor = '#6366f1';
+  document.getElementById('tool-input-name').value = '';
+  document.getElementById('tool-input-url').value = 'https://';
+  document.getElementById('tool-input-icon').value = '🔧';
+  document.getElementById('tool-input-color').value = _toolSelectedColor;
+  // Render color swatches
+  const sw = document.getElementById('tool-color-swatches');
+  sw.innerHTML = TOOL_COLORS.map(col=>`
+    <div onclick="selectToolColor('${col}')" style="width:22px;height:22px;border-radius:50%;background:${col};cursor:pointer;border:2px solid ${col===_toolSelectedColor?'var(--text)':'transparent'};transition:all 0.15s;flex-shrink:0"></div>
+  `).join('');
+  document.getElementById('modal-tool').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('tool-input-name').focus(), 80);
+}
+
+function selectToolColor(col){
+  _toolSelectedColor = col;
+  document.getElementById('tool-input-color').value = col;
+  document.getElementById('tool-color-swatches').querySelectorAll('div').forEach(d=>{
+    d.style.borderColor = d.style.background===col ? 'var(--text)' : 'transparent';
+  });
+}
+
+function closeToolModal(){
+  document.getElementById('modal-tool').classList.add('hidden');
+}
+
+async function saveNewTool(){
+  const name = document.getElementById('tool-input-name').value.trim();
+  if(!name){ showStatus('El nombre es obligatorio', true); return; }
+  const url = document.getElementById('tool-input-url').value.trim()||'#';
+  const icon = document.getElementById('tool-input-icon').value.trim()||'🔧';
+  const color = document.getElementById('tool-input-color').value||'#6366f1';
   ensureDigitalTools();
-  appData.digitalTools.push({id:uid(), name:name.trim(), icon:icon||'🔧', url:url||'#', color:'#6366f1', info:[]});
+  appData.digitalTools.push({id:uid(), name, icon, url, color, info:[]});
+  closeToolModal();
   await upsert();
   showStatus('Herramienta añadida ✓');
   renderDigitalTools();
@@ -2392,6 +2797,7 @@ function renderCurrentPage(){
   if(currentPage==='equipo'||currentPage==='member'){currentPage='equipo';renderEquipo();}
   if(currentPage==='equipo')renderTeamPage();
   if(currentPage==='member')renderMemberProfile();
+  if(currentPage==='finanzas'&&_finUnlocked)renderFinMes();
 }
 
 /* ═══ DASHBOARD ═══ */
@@ -2485,6 +2891,11 @@ function renderDashboard(){
   const brands=appData.brands||[];
   renderBanners();
   renderDigitalTools();
+  // Set calendar URL if saved
+  const iframe = document.getElementById('gcal-iframe');
+  if(iframe && appData.calendarUrl){
+    iframe.src = appData.calendarUrl + '&mode=WEEK&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&bgcolor=%23ffffff';
+  }
   document.getElementById('total-count').textContent=brands.length;
   document.getElementById('total-sub').textContent=brands.length===0?'Sin marcas. ¡Crea la primera!':brands.length===1?'1 proyecto en curso':brands.length+' proyectos en curso';
 
@@ -3293,7 +3704,11 @@ async function saveBrand(){
       stage:document.getElementById('input-stage').value,
       prioridad:document.getElementById('input-prioridad').value,
       color:document.getElementById('input-brand-color').value||BRAND_COLORS[0],
-      domo:{m1:document.getElementById('input-domo-m1').value,m2:document.getElementById('input-domo-m2').value,helpers:[]},
+      domo:{
+        m1:document.getElementById('input-domo-m1').value||(appData.template?.domoM1||''),
+        m2:document.getElementById('input-domo-m2').value||(appData.template?.domoM2||''),
+        helpers:[]
+      },
       image,
       includeNaming,
       rondas:[{id:uid(),label:'R1',done:false},{id:uid(),label:'R2',done:false},{id:uid(),label:'R3',done:false}],
@@ -3360,10 +3775,13 @@ function renderTemplate(){
   document.getElementById('tpl-industria').value=t.industria||'';
   document.getElementById('tpl-prioridad').value=t.prioridad||'media';
   document.getElementById('tpl-notas').value=t.notas||'';
-  // Responsable
-  const sel=document.getElementById('tpl-responsable');
+  // Domo por defecto
   const members=appData.members||[];
-  sel.innerHTML='<option value="">Sin asignar</option>'+members.map(m=>`<option value="${m.id}" ${t.responsable===m.id?'selected':''}>${m.name}</option>`).join('');
+  const memberOpts='<option value="">— Sin asignar —</option>'+members.map(m=>`<option value="${m.id}">${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
+  const s1=document.getElementById('tpl-domo-m1');
+  const s2=document.getElementById('tpl-domo-m2');
+  if(s1){s1.innerHTML=memberOpts; s1.value=t.domoM1||'';}
+  if(s2){s2.innerHTML=memberOpts; s2.value=t.domoM2||'';}
   document.getElementById('tpl-naming').checked=!!t.includeNaming;
   ['aire','agua','tierra','fuego'].forEach(s=>renderTplStage(s));
   renderTplSummary();
@@ -3510,7 +3928,8 @@ function onBpTotalChange(){appData.template.brandingPoints.total=parseInt(docume
 async function saveTemplate(){
   appData.template.industria=document.getElementById('tpl-industria').value.trim();
   appData.template.prioridad=document.getElementById('tpl-prioridad').value;
-  appData.template.responsable=document.getElementById('tpl-responsable').value;
+  appData.template.domoM1=document.getElementById('tpl-domo-m1')?.value||'';
+  appData.template.domoM2=document.getElementById('tpl-domo-m2')?.value||'';
   appData.template.notas=document.getElementById('tpl-notas').value.trim();
   appData.template.includeNaming=document.getElementById('tpl-naming').checked;
   appData.template.brandingPoints.total=parseInt(document.getElementById('bp-total').value)||0;
@@ -3790,10 +4209,14 @@ function onMemberPhotoChange(e){
 
 function setMemberEmoji(emoji){
   memberEmojiVal=emoji;
-  document.getElementById('m-emoji-val').value=emoji;
+  const emojiVal = document.getElementById('m-emoji-val');
+  if(emojiVal) emojiVal.value=emoji;
   if(!memberPhotoB64){
-    document.getElementById('m-avatar-preview').innerHTML=emoji;
+    const av = document.getElementById('m-avatar-preview');
+    if(av) av.innerHTML=emoji;
   }
+  // Re-render grid to show new selection
+  renderMemberEmojiGrid(emoji);
 }
 
 const AREAS = [
@@ -4978,5 +5401,81 @@ boot();
     </div>
   </div>
 </div>
+
+<!-- MODAL: Nueva herramienta digital -->
+<div class="modal-overlay hidden" id="modal-tool">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">🔧 Nueva herramienta</div>
+      <div class="modal-close" onclick="closeToolModal()">✕</div>
+    </div>
+    <div class="form-group" style="margin-bottom:0.9rem">
+      <label class="form-label">Nombre *</label>
+      <input class="form-input" id="tool-input-name" placeholder="Ej: Figma">
+    </div>
+    <div class="form-group" style="margin-bottom:0.9rem">
+      <label class="form-label">URL</label>
+      <input class="form-input" id="tool-input-url" placeholder="https://figma.com">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:0.9rem">
+      <div class="form-group">
+        <label class="form-label">Emoji / Ícono</label>
+        <input class="form-input" id="tool-input-icon" placeholder="🔧" style="font-size:1.3rem;text-align:center">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Color</label>
+        <div id="tool-color-swatches" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.3rem"></div>
+        <input type="hidden" id="tool-input-color" value="#6366f1">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeToolModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveNewTool()">Guardar herramienta</button>
+    </div>
+  </div>
+</div>
+
+  <!-- PAGE: FINANZAS -->
+  <div class="page" id="page-finanzas">
+    <!-- PIN Lock screen -->
+    <div id="fin-lock" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:1.2rem;min-height:400px">
+      <div style="font-size:2.5rem">🔒</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--text)">Acceso restringido</div>
+      <div style="font-size:0.8rem;color:var(--text3)">Ingresa el PIN para continuar</div>
+      <div style="display:flex;gap:0.5rem">
+        <input id="fin-pin-input" type="password" maxlength="6" placeholder="PIN"
+          style="width:120px;text-align:center;font-size:1.2rem;letter-spacing:4px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.8rem;color:var(--text);font-family:var(--font);outline:none"
+          onkeydown="if(event.key==='Enter')checkFinPin()">
+        <button onclick="checkFinPin()" style="background:var(--aire);color:#fff;border:none;border-radius:10px;padding:0.6rem 1.2rem;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:var(--font)">Entrar</button>
+      </div>
+      <div id="fin-pin-error" style="color:#ef4444;font-size:0.75rem;display:none">PIN incorrecto</div>
+    </div>
+
+    <!-- Main content (hidden until unlocked) -->
+    <div id="fin-content" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+      <!-- Topbar -->
+      <div style="display:flex;align-items:center;gap:0.8rem;padding:1rem 1.5rem 0;flex-shrink:0">
+        <div style="display:flex;gap:0.4rem;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.25rem">
+          <button class="fin-tab-btn active" id="fintab-mes-btn" onclick="switchFinTab('mes')">📊 Mes</button>
+          <button class="fin-tab-btn" id="fintab-anual-btn" onclick="switchFinTab('anual')">📈 Anual</button>
+        </div>
+        <button onclick="lockFinanzas()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔒 Bloquear</button>
+        <button onclick="changeFinPin()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔑 Cambiar PIN</button>
+      </div>
+
+      <!-- Tab: Mes -->
+      <div class="fin-panel active" id="fin-panel-mes" style="flex:1;overflow-y:auto;padding:1rem 1.5rem 2rem;width:100%;box-sizing:border-box">
+        <div id="fin-mes-cards" style="display:grid;grid-template-columns:repeat(6,1fr);gap:0.7rem;margin-bottom:1.2rem"></div>
+        <div id="fin-metas" style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.2rem 1.5rem;margin-bottom:1.2rem"></div>
+        <div id="fin-chart-wrap" style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.2rem 1.5rem"></div>
+      </div>
+
+      <!-- Tab: Anual -->
+      <div class="fin-panel" id="fin-panel-anual" style="flex:1;overflow-y:auto;padding:1rem 1.5rem 2rem;display:none;width:100%;box-sizing:border-box">
+        <div id="fin-anual-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;margin-bottom:1.2rem"></div>
+        <div id="fin-tabla-wrap" style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;overflow:hidden"></div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
