@@ -8,6 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root{
   --aire:#3b9edd;--agua:#2dc3b3;--tierra:#5aaa35;--fuego:#e8622a;
@@ -2180,6 +2181,68 @@ body.portal-mode .main{ height:100vh; }
       <label class="form-label">Branding Points asignados a esta marca</label>
       <input class="form-input" id="input-bp-total" type="number" min="1" value="15" oninput="updateModalPreview()" style="max-width:120px;font-weight:700;font-size:1rem">
     </div>
+
+    <!-- ── MARCA EN CURSO / IMPORTAR CALENDARIO ── -->
+    <div style="border-top:1px solid var(--border);margin:0.8rem 0 0.6rem;padding-top:0.8rem" id="modal-import-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <span style="font-size:0.85rem">📅</span>
+          <span style="font-size:0.82rem;font-weight:600;color:var(--text2)">¿Marca ya en curso?</span>
+          <span style="font-size:0.7rem;color:var(--text3)">Importa el cronograma actual</span>
+        </div>
+        <label class="toggle-pill">
+          <input type="checkbox" id="toggle-import-cal" onchange="toggleImportCal(this.checked)">
+          <div class="toggle-track"></div>
+        </label>
+      </div>
+
+      <!-- Import panel (hidden by default) -->
+      <div id="import-cal-panel" style="display:none;flex-direction:column;gap:0.7rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--r-sm);padding:0.85rem;margin-top:0.4rem">
+
+        <!-- Fecha de inicio -->
+        <div style="display:flex;align-items:center;gap:0.8rem">
+          <label class="form-label" style="margin-bottom:0;white-space:nowrap;font-size:0.65rem">Inicio del proyecto</label>
+          <input type="date" class="form-input" id="import-start-date" style="font-size:0.82rem;padding:0.4rem 0.6rem;flex:1;max-width:180px" onchange="refreshImportPreview()">
+        </div>
+
+        <!-- File uploader — simple button style -->
+        <div style="display:flex;align-items:center;gap:0.6rem">
+          <label class="form-label" style="margin-bottom:0;white-space:nowrap;font-size:0.65rem">Archivo (PDF o Excel)</label>
+          <label id="import-file-label" style="display:inline-flex;align-items:center;gap:0.45rem;border:1.5px dashed var(--border);border-radius:8px;padding:0.42rem 0.8rem;cursor:pointer;transition:all 0.18s;background:var(--input-bg);white-space:nowrap"
+            onmouseover="this.style.borderColor='var(--aire)'" onmouseout="this.style.borderColor='var(--border)'">
+            <span style="font-size:1rem;line-height:1">📂</span>
+            <span style="font-size:0.75rem;font-weight:600;color:var(--text2)">Subir archivo</span>
+            <span style="font-size:0.62rem;color:var(--text3)">.pdf · .xlsx · .csv</span>
+            <input type="file" id="import-file-input" accept=".pdf,.xlsx,.xls,.csv" style="display:none" onchange="handleImportFile(this)">
+          </label>
+        </div>
+
+        <!-- File picked indicator -->
+        <div id="import-file-name" style="display:none;align-items:center;gap:0.5rem;font-size:0.75rem;color:var(--text2);background:var(--bg-card);border:1px solid var(--border);border-radius:7px;padding:0.38rem 0.65rem">
+          <span id="import-file-icon">📄</span>
+          <span id="import-file-text" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+          <button type="button" onclick="clearImportFile()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem;flex-shrink:0">✕</button>
+        </div>
+
+        <!-- AI processing status -->
+        <div id="import-ai-status" style="display:none;align-items:center;gap:0.6rem;background:rgba(59,158,221,0.08);border:1px solid rgba(59,158,221,0.2);border-radius:7px;padding:0.55rem 0.8rem">
+          <div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--aire);border-top-color:transparent;animation:spin 0.7s linear infinite;flex-shrink:0"></div>
+          <span id="import-ai-msg" style="font-size:0.78rem;color:var(--aire);font-weight:600">Leyendo archivo…</span>
+        </div>
+
+        <!-- Preview of parsed activities -->
+        <div id="import-preview" style="display:none;flex-direction:column;gap:0.35rem">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Actividades detectadas</div>
+            <button type="button" onclick="clearImportFile()" style="font-size:0.65rem;background:none;border:1px solid var(--border);border-radius:5px;padding:0.15rem 0.45rem;color:var(--text3);cursor:pointer;font-family:var(--font)">✕ Limpiar</button>
+          </div>
+          <div id="import-preview-body" style="max-height:180px;overflow-y:auto;scrollbar-width:thin;display:flex;flex-direction:column;gap:1px;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;padding:0.4rem"></div>
+          <div id="import-preview-summary" style="font-size:0.67rem;color:var(--text3)"></div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- Template preview -->
     <div class="modal-tpl-preview" id="tpl-preview-box"></div>
     <div class="modal-err" id="modal-err"></div>
@@ -5674,6 +5737,11 @@ function openModal(){
   (document.getElementById('modal-naming-row')||{style:{}}).style.display = '';
   renderBrandColorPicker('');
   updateModalPreview();
+  // Reset import calendar section
+  const toggleImport = document.getElementById('toggle-import-cal');
+  if(toggleImport) toggleImport.checked = false;
+  toggleImportCal(false);
+  clearImportFile();
   document.getElementById('modal-overlay').classList.remove('hidden');
   setTimeout(()=>document.getElementById('input-name').focus(),80);
 }
@@ -5809,12 +5877,29 @@ async function saveBrand(){ markLocalChange("brands");
       if(image)brand.image=image;
     }
   }else{
-    // New brand — copy template
+    // New brand
     const tpl=appData.template||defaultTemplate();
-    // Use the naming toggle choice from modal, not the template default
     const includeNaming=document.getElementById('input-naming').checked;
     const bpTotal=parseInt(document.getElementById('input-bp-total').value)||15;
     const tplWithNaming={...tpl,includeNaming,brandingPoints:{...tpl.brandingPoints,total:bpTotal}};
+
+    // Check if importing custom calendar
+    const importToggle = document.getElementById('toggle-import-cal');
+    const usingImport  = importToggle && importToggle.checked;
+    const importActs   = usingImport ? _importActivities.filter(a=>a.name.trim()) : [];
+
+    if(usingImport && !importActs.length){
+      const ed=document.getElementById('modal-err');
+      ed.textContent='⚠️ Agrega al menos una actividad para importar el calendario.';
+      ed.style.display='block';
+      btn.disabled=false;btn.textContent='Crear marca';
+      return;
+    }
+
+    const cronograma = usingImport
+      ? buildCronoFromImport()
+      : buildCronoFromTemplate(tplWithNaming, new Date().toISOString().slice(0,10));
+
     const newBrand={
       id:uid(),name,
       industria:document.getElementById('input-industria').value.trim(),
@@ -5830,7 +5915,7 @@ async function saveBrand(){ markLocalChange("brands");
       includeNaming,
       rondas:[{id:uid(),label:'R1',done:false},{id:uid(),label:'R2',done:false},{id:uid(),label:'R3',done:false}],
       createdAt:new Date().toISOString(),
-      cronograma:buildCronoFromTemplate(tplWithNaming,new Date().toISOString().slice(0,10)),
+      cronograma,
       brandingPoints:buildBpFromTemplate(tplWithNaming),
     };
     if(!Array.isArray(appData.brands))appData.brands=[];
@@ -8496,6 +8581,242 @@ function selectEmoji(emoji){
   const disp = document.getElementById('tool-emoji-display');
   if(disp) disp.textContent = emoji;
   (document.getElementById('tool-emoji-picker')||{style:{}}).style.display = 'none';
+}
+
+/* ═══ IMPORTAR CALENDARIO — FILE UPLOAD + AI ═══ */
+
+let _importActivities = []; // parsed activities [{id,name,stage,days,isHito}]
+
+function toggleImportCal(on){
+  const panel  = document.getElementById('import-cal-panel');
+  const tplBox = document.getElementById('tpl-preview-box');
+  if(!panel) return;
+  panel.style.display = on ? 'flex' : 'none';
+  if(on){
+    // Set today as default start date
+    const sd = document.getElementById('import-start-date');
+    if(sd && !sd.value) sd.value = new Date().toISOString().slice(0,10);
+    if(tplBox) tplBox.style.opacity = '0.35';
+  } else {
+    if(tplBox) tplBox.style.opacity = '1';
+    clearImportFile();
+  }
+}
+
+function clearImportFile(){
+  _importActivities = [];
+  const fi = document.getElementById('import-file-input');
+  if(fi) fi.value = '';
+  const label  = document.getElementById('import-file-label');
+  const nameEl = document.getElementById('import-file-name');
+  const preview = document.getElementById('import-preview');
+  const status  = document.getElementById('import-ai-status');
+  if(label)   { label.style.display = ''; }
+  if(nameEl)  { nameEl.style.display = 'none'; }
+  if(preview) { preview.style.display = 'none'; }
+  if(status)  { status.style.display = 'none'; }
+}
+
+async function handleImportFile(input){
+  const file = input.files[0];
+  if(!file) return;
+
+  // Show filename
+  const nameEl = document.getElementById('import-file-name');
+  const nameText = document.getElementById('import-file-text');
+  const nameIcon = document.getElementById('import-file-icon');
+  const label   = document.getElementById('import-file-label');
+  if(nameEl)  { nameEl.style.display = 'flex'; }
+  if(label)   { label.style.display = 'none'; }
+  if(nameText) nameText.textContent = file.name;
+  if(nameIcon) nameIcon.textContent = file.name.endsWith('.pdf') ? '📄' : '📊';
+
+  // Show loading
+  const status = document.getElementById('import-ai-status');
+  const msg    = document.getElementById('import-ai-msg');
+  if(status) status.style.display = 'flex';
+  if(msg)    msg.textContent = 'Leyendo archivo…';
+
+  try {
+    let rawText = '';
+
+    if(file.name.endsWith('.pdf')){
+      rawText = await extractPDFText(file);
+    } else {
+      rawText = await extractExcelText(file);
+    }
+
+    if(!rawText.trim()){
+      showStatus('No se pudo extraer texto del archivo', true);
+      if(status) status.style.display = 'none';
+      return;
+    }
+
+    if(msg) msg.textContent = 'Interpretando con IA…';
+
+    const acts = await parseWithClaude(rawText);
+    _importActivities = acts;
+    renderImportPreview(acts);
+
+    if(status) status.style.display = 'none';
+
+  } catch(e) {
+    showStatus('Error leyendo archivo: ' + e.message, true);
+    if(status) status.style.display = 'none';
+    console.error(e);
+  }
+}
+
+async function extractPDFText(file){
+  // PDF.js needs a worker
+  const pdfjsLib = window['pdfjs-dist/build/pdf'];
+  if(!pdfjsLib){ throw new Error('PDF.js no cargó'); }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let text = '';
+  for(let i = 1; i <= pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(item => item.str).join(' ') + '\n';
+  }
+  return text;
+}
+
+async function extractExcelText(file){
+  const arrayBuffer = await file.arrayBuffer();
+  const wb = XLSX.read(arrayBuffer, { type: 'array' });
+  let text = '';
+  wb.SheetNames.forEach(sheetName => {
+    const ws = wb.Sheets[sheetName];
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    text += `--- Hoja: ${sheetName} ---\n${csv}\n\n`;
+  });
+  return text;
+}
+
+async function parseWithClaude(rawText){
+  const prompt = `Eres un asistente que extrae cronogramas de proyectos de branding/diseño.
+
+El usuario te pasa el contenido de un archivo (PDF o Excel) que contiene un cronograma o lista de actividades de un proyecto.
+
+Tu tarea es extraer TODAS las actividades y devolver un JSON array. Cada actividad tiene:
+- name: string (nombre de la actividad, en español)
+- stage: "aire" | "agua" | "tierra" | "fuego"
+  - aire = investigación, briefing, estrategia, naming, conceptualización, moodboard, benchmarking
+  - agua = diseño, identidad visual, logo, paleta, tipografía, propuestas gráficas, revisiones de diseño
+  - tierra = aplicaciones, mockups, material, packaging, señalética, piezas finales
+  - fuego = entrega final, archivos, cierre, presentación al cliente, aprobación final
+- days: número entero de días hábiles (si no está claro, estima basado en el tipo de actividad: 1-3 para actividades simples, 3-7 para medianas, 7-15 para complejas)
+- isHito: boolean (true si es un hito, entregable clave, reunión de revisión, aprobación, o punto de control importante)
+
+Responde SOLO con el JSON array, sin texto adicional, sin backticks, sin explicaciones.
+
+Ejemplo de respuesta:
+[{"name":"Briefing inicial","stage":"aire","days":2,"isHito":false},{"name":"Presentación moodboard","stage":"aire","days":1,"isHito":true}]
+
+Contenido del archivo:
+${rawText.slice(0, 8000)}`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if(!response.ok){
+    const err = await response.text();
+    throw new Error('Error API Claude: ' + err.slice(0,200));
+  }
+
+  const data = await response.json();
+  const text = (data.content||[]).map(b=>b.text||'').join('').trim();
+
+  let acts;
+  try {
+    acts = JSON.parse(text);
+  } catch(e) {
+    // Try to extract JSON array from response
+    const match = text.match(/\[.*\]/s);
+    if(match) acts = JSON.parse(match[0]);
+    else throw new Error('La IA no devolvió JSON válido');
+  }
+
+  if(!Array.isArray(acts)) throw new Error('Respuesta inesperada de la IA');
+
+  // Sanitize
+  return acts.map(a => ({
+    id: uid(),
+    name:    String(a.name || '').trim(),
+    stage:   ['aire','agua','tierra','fuego'].includes(a.stage) ? a.stage : 'aire',
+    days:    Math.max(1, parseInt(a.days) || 3),
+    isHito:  !!a.isHito,
+  })).filter(a => a.name);
+}
+
+function renderImportPreview(acts){
+  const preview = document.getElementById('import-preview');
+  const body    = document.getElementById('import-preview-body');
+  const summary = document.getElementById('import-preview-summary');
+  if(!preview || !body) return;
+
+  if(!acts.length){
+    body.innerHTML = '<div style="padding:0.8rem;color:var(--text3);font-size:0.8rem;text-align:center">No se detectaron actividades. Intenta con otro archivo.</div>';
+    preview.style.display = 'flex';
+    return;
+  }
+
+  const startStr = document.getElementById('import-start-date')?.value || new Date().toISOString().slice(0,10);
+  const SCFG = {aire:{e:'🌬️',c:'var(--aire)'},agua:{e:'💧',c:'var(--agua)'},tierra:{e:'🌱',c:'var(--tierra)'},fuego:{e:'🔥',c:'var(--fuego)'}};
+
+  let cursor = startStr;
+  body.innerHTML = acts.map(a => {
+    const sc  = SCFG[a.stage] || SCFG.aire;
+    const end = addWorkdaysStr(cursor, Math.max((a.days||1)-1, 0));
+    cursor    = addWorkdaysStr(end, 1);
+    return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.32rem 0.4rem;border-radius:6px;transition:background 0.1s" onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background=''">
+      <span style="font-size:0.8rem;opacity:${a.isHito?1:0.2};flex-shrink:0">⭐</span>
+      <span style="flex:1;font-size:0.78rem;${a.isHito?'font-weight:700;':''}">${a.name}</span>
+      <span style="font-size:0.68rem;font-weight:700;color:${sc.c};background:${sc.c}18;border-radius:5px;padding:0.1rem 0.4rem;flex-shrink:0;white-space:nowrap">${sc.e} ${a.stage}</span>
+      <span style="font-size:0.67rem;color:var(--text3);flex-shrink:0;white-space:nowrap">${a.days}d · ${fmtDateDisplay(end)}</span>
+    </div>`;
+  }).join('');
+
+  const totalDays = acts.reduce((s,a)=>s+(a.days||1),0);
+  const hitos     = acts.filter(a=>a.isHito).length;
+  const byCat     = {};
+  acts.forEach(a=>{ byCat[a.stage] = (byCat[a.stage]||0)+1; });
+  const catStr = Object.entries(byCat).map(([s,n])=>`${SCFG[s]?.e||''} ${n}`).join(' · ');
+  if(summary) summary.textContent = `${acts.length} actividades · ${hitos} hitos · ${totalDays}d hábiles · ${catStr}`;
+
+  preview.style.display = 'flex';
+}
+
+function refreshImportPreview(){
+  if(_importActivities.length) renderImportPreview(_importActivities);
+}
+
+function buildCronoFromImport(){
+  const acts     = _importActivities.filter(a => a.name.trim());
+  const startStr = document.getElementById('import-start-date')?.value || new Date().toISOString().slice(0,10);
+  const crono    = { aire:[], agua:[], tierra:[], fuego:[] };
+  let cursor     = startStr;
+  acts.forEach(a => {
+    const stage = crono[a.stage] !== undefined ? a.stage : 'aire';
+    const end   = addWorkdaysStr(cursor, Math.max((a.days||1)-1, 0));
+    crono[stage].push({
+      id: uid(), name: a.name, days: a.days||1,
+      isHito: !!a.isHito, isNaming: false,
+      status: 'pendiente', startDate: cursor, endDate: end,
+    });
+    cursor = addWorkdaysStr(end, 1);
+  });
+  return crono;
 }
 
 boot();
