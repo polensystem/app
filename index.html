@@ -1337,8 +1337,89 @@ body.portal-mode .main{ height:100vh; }
       </div>
       <!-- Stage breakdown -->
       <div id="stage-grid-v2" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;align-items:start"></div>
-      <div style="font-size:1.1rem;font-weight:800;color:var(--text);letter-spacing:-0.3px;margin-bottom:0.8rem">Todas las marcas</div>
-      <div class="brands-grid" id="brands-grid"></div>
+      <!-- ── PORTAFOLIO SECTION ── -->
+      <div style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border)">
+        <!-- Section header -->
+        <div style="padding:1rem 1.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
+          <div>
+            <div style="font-size:0.95rem;font-weight:800;color:var(--text);letter-spacing:-0.3px" id="brands-section-title">Todas las marcas</div>
+            <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem" id="brands-section-sub">Portafolio completo</div>
+          </div>
+          <!-- View toggle -->
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <div style="display:flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.2rem;gap:0.15rem">
+              <button id="view-btn-cards" onclick="setBrandsView('cards')"
+                style="padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.12)">
+                ⊞ Tarjetas
+              </button>
+              <button id="view-btn-table" onclick="setBrandsView('table')"
+                style="padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:none;color:var(--text3)">
+                ☰ Tabla
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table filters bar (only visible in table mode) -->
+        <div id="brands-table-filters" style="display:none;padding:0.7rem 1.2rem;border-bottom:1px solid var(--border);background:var(--glass);display:none;align-items:center;gap:0.6rem;flex-wrap:wrap">
+          <!-- Sort -->
+          <div style="display:flex;align-items:center;gap:0.35rem">
+            <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);white-space:nowrap">Ordenar</span>
+            <div style="display:flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:7px;overflow:hidden">
+              <button id="tsort-num"    onclick="setTableSort('num')"    style="padding:0.28rem 0.65rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--bg-card);color:var(--text);border-right:1px solid var(--border)">#</button>
+              <button id="tsort-name"   onclick="setTableSort('name')"   style="padding:0.28rem 0.65rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);border-right:1px solid var(--border)">A–Z</button>
+              <button id="tsort-stage"  onclick="setTableSort('stage')"  style="padding:0.28rem 0.65rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);border-right:1px solid var(--border)">Etapa</button>
+              <button id="tsort-dead"   onclick="setTableSort('dead')"   style="padding:0.28rem 0.65rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);border-right:1px solid var(--border)">Deadline ↑</button>
+              <button id="tsort-pct"    onclick="setTableSort('pct')"    style="padding:0.28rem 0.65rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3)">Progreso</button>
+            </div>
+          </div>
+
+          <div style="width:1px;height:20px;background:var(--border)"></div>
+
+          <!-- Filter: Etapa -->
+          <div style="display:flex;align-items:center;gap:0.35rem">
+            <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);white-space:nowrap">Etapa</span>
+            <div style="display:flex;gap:0.25rem">
+              <button id="tfilter-stage-all"    onclick="setTableStageFilter('all')"    style="padding:0.25rem 0.6rem;border-radius:6px;border:1px solid var(--border);font-size:0.7rem;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--bg-card);color:var(--text)">Todas</button>
+              <button id="tfilter-stage-aire"   onclick="setTableStageFilter('aire')"   style="padding:0.25rem 0.6rem;border-radius:6px;border:1px solid rgba(59,158,221,0.3);font-size:0.7rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--aire)">🌬️</button>
+              <button id="tfilter-stage-agua"   onclick="setTableStageFilter('agua')"   style="padding:0.25rem 0.6rem;border-radius:6px;border:1px solid rgba(45,195,179,0.3);font-size:0.7rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--agua)">💧</button>
+              <button id="tfilter-stage-tierra" onclick="setTableStageFilter('tierra')" style="padding:0.25rem 0.6rem;border-radius:6px;border:1px solid rgba(90,170,53,0.3);font-size:0.7rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--tierra)">🌱</button>
+              <button id="tfilter-stage-fuego"  onclick="setTableStageFilter('fuego')"  style="padding:0.25rem 0.6rem;border-radius:6px;border:1px solid rgba(232,98,42,0.3);font-size:0.7rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--fuego)">🔥</button>
+            </div>
+          </div>
+
+          <!-- Search -->
+          <div style="margin-left:auto">
+            <input id="table-search" oninput="renderBrandsTable()" placeholder="🔍 Buscar marca…"
+              style="background:var(--bg-card2);border:1px solid var(--border);border-radius:7px;padding:0.28rem 0.75rem;font-size:0.75rem;color:var(--text);font-family:var(--font);outline:none;width:160px;transition:border-color 0.18s"
+              onfocus="this.style.borderColor='var(--aire)'" onblur="this.style.borderColor='var(--border)'">
+          </div>
+        </div>
+
+        <!-- Cards view -->
+        <div id="brands-view-cards" style="padding:1.2rem;background:transparent">
+          <div class="brands-grid" id="brands-grid"></div>
+        </div>
+        <!-- Table view -->
+        <div id="brands-view-table" style="display:none;overflow-x:auto;overflow-y:auto;max-height:560px;background:var(--bg-card)">
+          <table id="brands-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;min-width:900px">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);background:var(--bg-card2);position:sticky;top:0;z-index:2">
+                <th style="padding:0.65rem 1rem;text-align:left;font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);white-space:nowrap">#</th>
+                <th style="padding:0.65rem 1rem;text-align:left;font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);white-space:nowrap">Marca</th>
+                <th style="padding:0.65rem 1rem;text-align:left;font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);white-space:nowrap">Tipo</th>
+                <th style="padding:0.65rem 1rem;text-align:left;font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);white-space:nowrap">Domo</th>
+                <th style="padding:0.65rem 1rem;text-align:left;font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);white-space:nowrap">Diseñador</th>
+                <th style="padding:0.65rem 1rem;text-align:left;font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);white-space:nowrap">Redactor</th>
+                <th style="padding:0.65rem 1rem;text-align:left;font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);white-space:nowrap">Etapa actual</th>
+                <th style="padding:0.65rem 1rem;text-align:left;font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);white-space:nowrap">Próx. deadline ↕</th>
+                <th style="padding:0.65rem 1rem;text-align:left;font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);white-space:nowrap">Status</th>
+              </tr>
+            </thead>
+            <tbody id="brands-table-body"></tbody>
+          </table>
+        </div>
+      </div>
 
       <!-- ── GOOGLE CALENDAR ── -->
       <div style="margin-top:1.5rem" id="gcal-section">
@@ -1695,6 +1776,7 @@ body.portal-mode .main{ height:100vh; }
       <!-- Actions -->
       <div style="display:flex;gap:0.6rem;margin-left:auto;flex-shrink:0" id="eq-grid-actions">
         <button id="btn-toggle-all-tasks" onclick="toggleAllMemberTasks()" style="font-size:0.75rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.38rem 0.75rem;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s">📋 Colapsar tareas</button>
+        <button onclick="openPinModal('member')" style="font-size:0.75rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.38rem 0.75rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔑 PIN</button>
         <button class="btn-add" style="background:var(--agua);font-size:0.8rem;padding:0.45rem 1rem" onclick="openMemberModal()">+ Miembro</button>
       </div>
       <!-- Cal free mode toggle — visible on week/month tabs -->
@@ -1854,6 +1936,7 @@ body.portal-mode .main{ height:100vh; }
             <div style="font-size:0.72rem;color:var(--text3);margin-top:0.2rem">Metas del mes — sincronizado con Finanzas en tiempo real</div>
           </div>
           <button onclick="lockCobranzas()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔒 Bloquear</button>
+          <button onclick="openPinModal('cob')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔑 Cambiar PIN</button>
         </div>
         <div id="cob-metas-wrap"></div>
 
@@ -1930,6 +2013,7 @@ body.portal-mode .main{ height:100vh; }
               style="display:flex;align-items:center;gap:0.4rem;padding:0.38rem 0.85rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:all 0.2s">
               🔒 Ver montos
             </button>
+            <button onclick="openPinModal('archivo')" style="padding:0.38rem 0.85rem;border-radius:99px;border:1px solid var(--border);background:none;color:var(--text3);font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font)">🔑 PIN</button>
           </div>
         </div>
         <div id="archivo-empty" style="display:none;text-align:center;padding:4rem 2rem;color:var(--text3)">
@@ -2354,7 +2438,18 @@ let _pendingUndoEntry = null; // set by snapForUndo() before mutating
 /* Call this BEFORE mutating appData, with a human-readable label */
 function snapForUndo(label){
   if(_undoInProgress) return;
-  _pendingUndoEntry = { snapshot: JSON.parse(JSON.stringify(appData)), label };
+  try {
+    // Strip large base64 images from snapshot to avoid JSON size issues
+    const stripped = JSON.parse(JSON.stringify(appData, (key, val) => {
+      if(key === 'image' && typeof val === 'string' && val.startsWith('data:')) return '[img]';
+      if(key === 'photo' && typeof val === 'string' && val.startsWith('data:')) return '[img]';
+      return val;
+    }));
+    _pendingUndoEntry = { snapshot: stripped, label };
+  } catch(e) {
+    console.warn('snapForUndo: could not snapshot', e);
+    _pendingUndoEntry = null;
+  }
   // Any new action clears the redo stack
   _redoStack.length = 0;
   _updateRedoBtn();
@@ -2809,34 +2904,44 @@ function previewBannerImage(e){
 }
 
 async function saveBanner(){
-  snapForUndo('Guardar banner');
-    const text = document.getElementById('banner-text').value.trim();
+  const textEl = document.getElementById('banner-text');
+  if(!textEl){ showStatus('Error: modal no encontrado', true); return; }
+  const text = textEl.value.trim();
   if(!text){ showStatus('El texto es obligatorio', true); return; }
-  const subtext = document.getElementById('banner-subtext').value.trim();
+
+  try { snapForUndo('Guardar banner'); } catch(e){ console.warn('snapForUndo failed:', e); }
+
+  const subtext = (document.getElementById('banner-subtext')?.value||'').trim();
   const isImage = _bannerMode === 'image' && _bannerImageB64;
 
   const bannerData = {
     id: _editingBannerId || uid(),
     text,
     subtext,
-    bg: _bannerSelectedColor,
+    bg: _bannerSelectedColor || BANNER_COLORS[0].bg,
     image: isImage ? _bannerImageB64 : null,
-    textColor: _bannerTextColor,
+    textColor: _bannerTextColor || '#ffffff',
   };
 
-  ensureBanners();
+  if(!Array.isArray(appData.banners)) appData.banners = [];
   if(_editingBannerId){
     const idx = appData.banners.findIndex(b=>b.id===_editingBannerId);
     if(idx>=0) appData.banners[idx] = bannerData;
+    else appData.banners.push(bannerData);
   } else {
     appData.banners.push(bannerData);
     _bannerIdx = appData.banners.length - 1;
   }
 
   closeBannerModal();
-  await upsert();
-  showStatus('Banner guardado ✓');
-  renderBanners();
+  try {
+    await upsert();
+    showStatus('Banner guardado ✓');
+  } catch(e){
+    showStatus('Error al guardar: '+e.message, true);
+    console.error('saveBanner upsert error:', e);
+  }
+  if(currentPage==='dashboard') renderBanners();
 }
 
 async function deleteBannerCurrent(){
@@ -3029,6 +3134,8 @@ function ensureFinData(){
     appData.finanzas = {
       pin: '0000',
       cobPin: '7771',
+      archivoPin: '7771',
+      memberPin: '1235',
       metaFacturacion: 40000,
       metaCobranzas: 22000,
       months: Array.from({length:12},(_,i)=>({
@@ -3036,6 +3143,9 @@ function ensureFinData(){
       }))
     };
   }
+  // Ensure new PIN fields exist for existing data
+  if(!appData.finanzas.archivoPin) appData.finanzas.archivoPin = '7771';
+  if(!appData.finanzas.memberPin) appData.finanzas.memberPin = '1235';
 }
 
 function goToFinanzas(){
@@ -3092,7 +3202,12 @@ function lockFinanzas(){
   if(nEl){nEl.style.opacity='0.45';nEl.style.filter='blur(0.3px)';}
 }
 
-function changeFinPin(){
+let _changingPinSection = 'fin';
+function openPinModal(section){
+  _changingPinSection = section;
+  ensureFinData();
+  const titles = { fin:'Data (Finanzas)', cob:'Cobranzas', archivo:'Archivo', member:'Eliminar miembros' };
+  document.getElementById('pin-modal-title').textContent = '🔑 Cambiar PIN — ' + (titles[section]||section);
   document.getElementById('pin-current').value='';
   document.getElementById('pin-new').value='';
   document.getElementById('pin-confirm').value='';
@@ -3100,19 +3215,40 @@ function changeFinPin(){
   document.getElementById('modal-fin-pin').classList.remove('hidden');
   setTimeout(()=>document.getElementById('pin-current').focus(),80);
 }
+function changeFinPin(){ openPinModal('fin'); }
 
 async function saveNewPin(){
-  snapForUndo('Cambiar PIN');
-    ensureFinData();
+  ensureFinData();
   const current = document.getElementById('pin-current').value;
   const newPin = document.getElementById('pin-new').value;
   const confirm2 = document.getElementById('pin-confirm').value;
   const errEl = document.getElementById('pin-modal-error');
-  if(current !== appData.finanzas.pin){ errEl.textContent='PIN actual incorrecto'; errEl.style.display='block'; return; }
   if(!newPin||newPin.length<4){ errEl.textContent='El PIN debe tener al menos 4 dígitos'; errEl.style.display='block'; return; }
   if(newPin !== confirm2){ errEl.textContent='Los PINs no coinciden'; errEl.style.display='block'; return; }
-  appData.finanzas.pin = newPin;
-  sessionStorage.removeItem('polen_fin_unlocked');
+  // Validate current PIN per section
+  const pins = {
+    fin: appData.finanzas.pin,
+    cob: appData.finanzas.cobPin || COB_PIN_DEFAULT,
+    archivo: appData.finanzas.archivoPin || ARCHIVO_PIN,
+    member: appData.finanzas.memberPin || '1235',
+  };
+  if(current !== pins[_changingPinSection]){ errEl.textContent='PIN actual incorrecto'; errEl.style.display='block'; return; }
+  // Save new PIN per section
+  if(_changingPinSection==='fin'){
+    appData.finanzas.pin = newPin;
+    sessionStorage.removeItem('polen_fin_unlocked');
+  } else if(_changingPinSection==='cob'){
+    appData.finanzas.cobPin = newPin;
+    sessionStorage.removeItem('polen_cob_unlocked');
+  } else if(_changingPinSection==='archivo'){
+    appData.finanzas.archivoPin = newPin;
+    _archivoMoneyUnlocked = false;
+    const btn = document.getElementById('arch-money-toggle');
+    if(btn){ btn.textContent='🔒 Ver montos'; btn.style.background='var(--bg-card2)'; btn.style.color='var(--text2)'; btn.style.borderColor='var(--border)'; }
+  } else if(_changingPinSection==='member'){
+    appData.finanzas.memberPin = newPin;
+  }
+  try { snapForUndo('Cambiar PIN'); } catch(e){}
   await upsert();
   document.getElementById('modal-fin-pin').classList.add('hidden');
   showStatus('PIN actualizado ✓');
@@ -4222,7 +4358,8 @@ function closeArchivoPinModal(){
 
 function checkArchivoPin(){
   const val = document.getElementById('archivo-pin-input').value;
-  if(val === ARCHIVO_PIN){
+  const ARCHIVO_PIN_REAL = (appData.finanzas&&appData.finanzas.archivoPin) || ARCHIVO_PIN;
+  if(val === ARCHIVO_PIN_REAL){
     _archivoMoneyUnlocked = true;
     closeArchivoPinModal();
     renderArchivo();
@@ -4462,6 +4599,11 @@ function renderDashboard(){
   if(el_paused) el_paused.textContent = paused;
 
   renderStageCards(brands);
+  // Update subtitle
+  const brandsSub = document.getElementById('brands-section-sub');
+  if(brandsSub) brandsSub.textContent = `Portafolio completo · ${brands.length} proyectos`;
+  // If table view is active, re-render table
+  if(_brandsView === 'table'){ renderBrandsTable(); }
   const grid=document.getElementById('brands-grid');
   if(!brands.length){grid.innerHTML='<div class="empty-state"><div class="empty-icon">✦</div><div>No hay marcas todavía.<br>Haz clic en <strong>+ Nueva marca</strong> para empezar.</div></div>';return;}
   const si={aire:{l:'Aire',e:'🌬️'},agua:{l:'Agua',e:'💧'},tierra:{l:'Tierra',e:'🌱'},fuego:{l:'Fuego',e:'🔥'}};
@@ -6940,7 +7082,8 @@ async function deleteMemberCurrent(){
   // Pincode protection
   const pin = await askModal({ label:`🔒 Ingresa el PIN para eliminar a "${m.apodo||m.nombre}"`, placeholder:'••••', defaultValue:'' });
   if(pin===null) return;
-  if(pin !== '1235'){
+  const MEMBER_PIN = (appData.finanzas&&appData.finanzas.memberPin) || '1235';
+  if(pin !== MEMBER_PIN){
     showStatus('PIN incorrecto ❌', true);
     return;
   }
@@ -7275,6 +7418,233 @@ async function portalAddBpItem(brandId, ci){
   if(wrap) wrap.innerHTML = portalRenderBp(brand);
   _portalMarkDirty();
 }
+/* ═══ BRANDS VIEW TOGGLE + FILTERS ═══ */
+let _brandsView      = 'cards';
+let _tableSort       = 'num';
+let _tableStageFilter  = 'all';
+
+function setBrandsView(mode){
+  _brandsView = mode;
+  const cardsWrap   = document.getElementById('brands-view-cards');
+  const tableWrap   = document.getElementById('brands-view-table');
+  const filtersBar  = document.getElementById('brands-table-filters');
+  const btnCards    = document.getElementById('view-btn-cards');
+  const btnTable    = document.getElementById('view-btn-table');
+  if(!cardsWrap || !tableWrap) return;
+
+  const activeStyle  = 'padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.12)';
+  const inactiveStyle = 'padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:none;color:var(--text3)';
+
+  if(mode === 'table'){
+    cardsWrap.style.display  = 'none';
+    tableWrap.style.display  = 'block';
+    if(filtersBar) filtersBar.style.display = 'flex';
+    if(btnCards) btnCards.style.cssText = inactiveStyle;
+    if(btnTable) btnTable.style.cssText  = activeStyle;
+    syncTableFilterButtons();
+    renderBrandsTable();
+  } else {
+    cardsWrap.style.display  = 'block';
+    tableWrap.style.display  = 'none';
+    if(filtersBar) filtersBar.style.display = 'none';
+    if(btnCards) btnCards.style.cssText = activeStyle;
+    if(btnTable) btnTable.style.cssText  = inactiveStyle;
+  }
+}
+
+function setTableSort(key){
+  _tableSort = key;
+  syncTableFilterButtons();
+  renderBrandsTable();
+}
+
+function setTableStageFilter(val){
+  _tableStageFilter = val;
+  syncTableFilterButtons();
+  renderBrandsTable();
+}
+
+function syncTableFilterButtons(){
+  // Sort buttons
+  ['num','name','stage','dead','pct'].forEach(k=>{
+    const btn = document.getElementById('tsort-'+k);
+    if(!btn) return;
+    const isActive = _tableSort === k;
+    btn.style.background = isActive ? 'var(--aire)' : 'none';
+    btn.style.color      = isActive ? '#fff' : 'var(--text3)';
+  });
+  // Stage filters
+  ['all','aire','agua','tierra','fuego'].forEach(k=>{
+    const btn = document.getElementById('tfilter-stage-'+k);
+    if(!btn) return;
+    const isActive = _tableStageFilter === k;
+    const colMap = {aire:'var(--aire)',agua:'var(--agua)',tierra:'var(--tierra)',fuego:'var(--fuego)',all:'var(--text)'};
+    btn.style.background = isActive ? (k==='all' ? 'var(--bg-card)' : colMap[k]+'22') : 'none';
+    btn.style.color      = isActive ? (k==='all' ? 'var(--text)' : colMap[k]) : 'var(--text3)';
+    btn.style.fontWeight = isActive ? '700' : '600';
+    btn.style.borderColor = isActive ? (k==='all' ? 'var(--border)' : colMap[k]+'66') : 'var(--border)';
+  });
+}
+
+function getNextHito(brand){
+  const stages = ['aire','agua','tierra','fuego'];
+  let best = null;
+  stages.forEach(s=>{
+    (brand.cronograma?.[s]||[]).forEach(act=>{
+      if(act.status === 'completada') return;
+      const dateStr = act.endDate;
+      if(!dateStr) return;
+      const d = new Date(dateStr + 'T00:00:00');
+      if(!best || d < best.dateObj){
+        best = { label: s, dateStr, dateObj: d, isHito: act.isHito, name: act.name };
+      }
+    });
+  });
+  return best;
+}
+
+function getBrandStatus(b){
+  const pct = brandProgress(b);
+  if(b.paused) return 'pausa';
+  if(pct >= 90) return 'proximo';
+  return 'desarrollo';
+}
+
+function renderBrandsTable(){
+  const body = document.getElementById('brands-table-body');
+  if(!body) return;
+
+  const SC2 = {
+    aire:  {emoji:'🌬️', label:'AIRE',   col:'var(--aire)',   bg:'rgba(59,158,221,0.12)'},
+    agua:  {emoji:'💧',  label:'AGUA',   col:'var(--agua)',   bg:'rgba(45,195,179,0.12)'},
+    tierra:{emoji:'🌱',  label:'TIERRA', col:'var(--tierra)', bg:'rgba(90,170,53,0.12)'},
+    fuego: {emoji:'🔥',  label:'FUEGO',  col:'var(--fuego)',  bg:'rgba(232,98,42,0.12)'},
+  };
+  const monthAbbr = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const today   = new Date(); today.setHours(0,0,0,0);
+  const in5days = new Date(today); in5days.setDate(today.getDate()+5);
+
+  let brands = [...(appData.brands || [])];
+
+  // ── Search ──
+  const searchVal = (document.getElementById('table-search')?.value || '').trim().toLowerCase();
+  if(searchVal) brands = brands.filter(b=> b.name.toLowerCase().includes(searchVal) || (b.industria||'').toLowerCase().includes(searchVal));
+
+  // ── Stage filter ──
+  if(_tableStageFilter !== 'all') brands = brands.filter(b=> b.stage === _tableStageFilter);
+
+  // ── Sort ──
+  brands.sort((a,b)=>{
+    if(_tableSort === 'name')  return a.name.localeCompare(b.name);
+    if(_tableSort === 'stage'){
+      const order = {aire:0,agua:1,tierra:2,fuego:3};
+      return (order[a.stage]??99) - (order[b.stage]??99);
+    }
+    if(_tableSort === 'dead'){
+      const na = getNextHito(a)?.dateObj || new Date('9999');
+      const nb = getNextHito(b)?.dateObj || new Date('9999');
+      return na - nb;
+    }
+    if(_tableSort === 'pct') return brandProgress(b) - brandProgress(a);
+    return 0; // num = original order
+  });
+
+  // ── Update subtitle ──
+  const sub = document.getElementById('brands-section-sub');
+  const total = (appData.brands||[]).length;
+  if(sub) sub.textContent = brands.length === total
+    ? `Portafolio completo · ${total} proyectos`
+    : `${brands.length} de ${total} proyectos`;
+
+  if(!brands.length){
+    body.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2.5rem;color:var(--text3);font-size:0.84rem">
+      ${searchVal ? `Sin resultados para "<strong>${searchVal}</strong>"` : 'No hay marcas con este filtro.'}
+    </td></tr>`;
+    return;
+  }
+
+  body.innerHTML = brands.map((b, idx)=>{
+    const brandCol = getBrandColor(b);
+    const logoHTML = b.image
+      ? `<img src="${b.image}" style="width:100%;height:100%;object-fit:cover;border-radius:7px">`
+      : `<span style="font-weight:800;font-size:0.85rem;color:${brandCol}">${b.name.charAt(0)}</span>`;
+
+    const sc = SC2[b.stage] || SC2.aire;
+
+    // Domo / roles
+    let domoDisplay = '—', disenadorDisplay = '—', redactorDisplay = '—';
+    if(b.domo){
+      const m1 = (appData.members||[]).find(m=>m.id===b.domo.m1);
+      const m2 = (appData.members||[]).find(m=>m.id===b.domo.m2);
+      const domoNames = [m1,m2].filter(Boolean).map(m=>m.apodo||m.nombre);
+      if(domoNames.length) domoDisplay = domoNames.join(' + ');
+      const all = [m1,m2].filter(Boolean);
+      all.forEach(m=>{
+        const area = (m.area||'').toLowerCase();
+        if(area.includes('diseñ')||area.includes('design')||area.includes('visual')){ if(disenadorDisplay==='—') disenadorDisplay=m.apodo||m.nombre; }
+        else if(area.includes('redac')||area.includes('copy')||area.includes('texto')){ if(redactorDisplay==='—') redactorDisplay=m.apodo||m.nombre; }
+      });
+      if(all.length>=1 && disenadorDisplay==='—' && redactorDisplay==='—'){
+        disenadorDisplay = all[0]?(all[0].apodo||all[0].nombre):'—';
+        if(all[1]) redactorDisplay = all[1].apodo||all[1].nombre;
+      }
+    }
+
+    function memberPill(name, col='var(--tierra)'){
+      if(!name||name==='—') return '<span style="color:var(--text3);font-size:0.78rem">—</span>';
+      return `<span style="display:inline-block;background:${col}22;color:${col};border:1px solid ${col}44;border-radius:6px;padding:0.15rem 0.55rem;font-size:0.72rem;font-weight:700;white-space:nowrap">${name}</span>`;
+    }
+
+    // Next deadline
+    const nextHito = getNextHito(b);
+    let deadlineHTML = '<span style="color:var(--text3)">—</span>';
+    if(nextHito){
+      const dsc = SC2[nextHito.label]||SC2.aire;
+      const isPast   = nextHito.dateObj < today;
+      const isUrgent = !isPast && nextHito.dateObj <= in5days;
+      const d = nextHito.dateObj;
+      const urgencyColor = (isPast||isUrgent) ? 'var(--fuego)' : 'var(--text)';
+      const urgencyIcon  = isPast ? '⚠️ ' : isUrgent ? '⚡ ' : '';
+      deadlineHTML = `<span style="color:${urgencyColor};font-weight:700;white-space:nowrap">${urgencyIcon}${dsc.label} ${d.getDate()}/${monthAbbr[d.getMonth()]}</span>`;
+    }
+
+    // Status
+    const statusKey = getBrandStatus(b);
+    const statusCfg = {
+      pausa:      { label:'En pausa',           color:'var(--text3)',  bg:'rgba(90,85,120,0.15)' },
+      proximo:    { label:'Próximo a entregar',  color:'var(--fuego)',  bg:'rgba(232,98,42,0.12)' },
+      desarrollo: { label:'En desarrollo',       color:'var(--agua)',   bg:'rgba(45,195,179,0.12)' },
+    }[statusKey];
+
+    const pct = brandProgress(b);
+    const num = String(idx+1).padStart(2,'0');
+
+    return `<tr onclick="openBrand('${b.id}')" style="cursor:pointer;border-bottom:1px solid var(--border2);transition:background 0.15s" onmouseover="this.style.background='var(--glass)'" onmouseout="this.style.background='transparent'">
+      <td style="padding:0.7rem 1rem;color:var(--text3);font-size:0.75rem;font-weight:600;white-space:nowrap">${num}</td>
+      <td style="padding:0.7rem 1rem;white-space:nowrap">
+        <div style="display:flex;align-items:center;gap:0.6rem">
+          <div style="width:30px;height:30px;border-radius:8px;background:var(--bg-card2);border:1.5px solid ${brandCol};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${logoHTML}</div>
+          <div>
+            <div style="font-size:0.86rem;font-weight:700">${b.name}</div>
+            <div style="font-size:0.65rem;color:var(--text3);margin-top:0.05rem">${pct}% completado</div>
+          </div>
+        </div>
+      </td>
+      <td style="padding:0.7rem 1rem;color:var(--text2);white-space:nowrap;font-size:0.8rem">${b.industria||'—'}</td>
+      <td style="padding:0.7rem 1rem">${memberPill(domoDisplay,'var(--aire)')}</td>
+      <td style="padding:0.7rem 1rem">${memberPill(disenadorDisplay,'var(--tierra)')}</td>
+      <td style="padding:0.7rem 1rem">${memberPill(redactorDisplay,'var(--agua)')}</td>
+      <td style="padding:0.7rem 1rem">
+        <span style="display:inline-flex;align-items:center;gap:0.3rem;background:${sc.bg};color:${sc.col};border-radius:6px;padding:0.22rem 0.65rem;font-size:0.72rem;font-weight:700;white-space:nowrap;border:1px solid ${sc.col}33">${sc.emoji} ${sc.label}</span>
+      </td>
+      <td style="padding:0.7rem 1rem;white-space:nowrap">${deadlineHTML}</td>
+      <td style="padding:0.7rem 1rem">
+        <span style="display:inline-block;background:${statusCfg.bg};color:${statusCfg.color};border-radius:6px;padding:0.22rem 0.65rem;font-size:0.72rem;font-weight:700;white-space:nowrap;border:1px solid ${statusCfg.color}33">• ${statusCfg.label}</span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
 boot();
 </script>
 
@@ -7501,7 +7871,7 @@ boot();
 <div class="modal-overlay hidden" id="modal-fin-pin">
   <div class="modal" style="max-width:360px">
     <div class="modal-header">
-      <div class="modal-title">🔑 Cambiar PIN</div>
+      <div class="modal-title" id="pin-modal-title">🔑 Cambiar PIN</div>
       <div class="modal-close" onclick="document.getElementById('modal-fin-pin').classList.add('hidden')">✕</div>
     </div>
     <div class="form-group" style="margin-bottom:0.8rem">
