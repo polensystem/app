@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Polen PM</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
   --aire:#3b9edd;--agua:#2dc3b3;--tierra:#5aaa35;--fuego:#e8622a;
@@ -131,6 +134,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .brand-progress-fill{height:100%;border-radius:99px;transition:width 0.4s ease;}
 .brand-card-footer{padding:0.45rem 1.05rem 0.8rem;display:flex;justify-content:space-between;align-items:center;}
 .brand-card-footer-pct{font-size:0.68rem;color:var(--text3);font-weight:600;}
+.export-wrap{display:inline-flex;position:relative;}
+.btn-export-inline{display:inline-flex;align-items:center;gap:0.35rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text3);font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:all 0.15s;white-space:nowrap;}
+.btn-export-inline:hover{color:var(--text);background:var(--bg-card);}
+.export-dropdown{display:none;position:absolute;top:calc(100% + 5px);right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,0.3);padding:0.3rem;z-index:300;min-width:130px;}
+.export-dropdown.open{display:block;}
+.export-opt{display:flex;align-items:center;gap:0.55rem;width:100%;padding:0.45rem 0.65rem;background:none;border:none;border-radius:7px;font-size:0.78rem;font-weight:600;color:var(--text);cursor:pointer;font-family:var(--font);text-align:left;transition:background 0.12s;white-space:nowrap;}
+.export-opt:hover{background:var(--bg-card2);}
 .btn-delete{background:none;border:none;color:var(--text3);font-size:0.72rem;cursor:pointer;padding:0.25rem 0.5rem;border-radius:6px;transition:all var(--transition);font-family:var(--font);}
 .btn-delete:hover{background:rgba(255,92,114,0.12);color:#ff5c72;}
 .empty-state{grid-column:1/-1;text-align:center;padding:3rem;color:var(--text3);font-size:0.85rem;}
@@ -1217,7 +1227,7 @@ body.portal-mode .main{ height:100vh; }
 <!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
   <button class="sidebar-toggle" id="sidebar-toggle">‹</button>
-  <div class="sidebar-logo"><span>✦</span><span class="logo-text">Polen PM</span></div>
+  <div class="sidebar-logo" onclick="goTo('dashboard')" style="cursor:pointer" title="Ir al Dashboard"><span>✦</span><span class="logo-text">Polen PM</span></div>
   <div class="nav-label">Principal</div>
   <button class="nav-item active" id="nav-dashboard" onclick="goTo('dashboard')">
     <span class="nav-icon">🏠</span><span class="nav-text">Dashboard</span>
@@ -1345,7 +1355,7 @@ body.portal-mode .main{ height:100vh; }
             <div style="font-size:0.95rem;font-weight:800;color:var(--text);letter-spacing:-0.3px" id="brands-section-title">Todas las marcas</div>
             <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem" id="brands-section-sub">Portafolio completo</div>
           </div>
-          <!-- View toggle -->
+          <!-- View toggle + export -->
           <div style="display:flex;align-items:center;gap:0.5rem">
             <div style="display:flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.2rem;gap:0.15rem">
               <button id="view-btn-cards" onclick="setBrandsView('cards')"
@@ -1356,6 +1366,13 @@ body.portal-mode .main{ height:100vh; }
                 style="padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:none;color:var(--text3)">
                 ☰ Tabla
               </button>
+            </div>
+            <div class="export-wrap">
+              <button class="btn-export-inline" onclick="toggleInlineExport(this)">⬇ Exportar</button>
+              <div class="export-dropdown">
+                <button class="export-opt" onclick="runExport('dash_pdf')">📄 PDF</button>
+                <button class="export-opt" onclick="runExport('dash_xlsx')">📊 Excel</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1508,12 +1525,34 @@ body.portal-mode .main{ height:100vh; }
       </div>
 
       <!-- Tabs -->
-      <div class="tabs-bar">
+      <div class="tabs-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:0.3rem">
         <button class="tab-btn active" id="tab-crono-btn" onclick="switchTab('crono')">📅 Cronograma</button>
         <button class="tab-btn" id="tab-rondas-btn" onclick="switchTab('rondas')">🔄 Rondas</button>
         <button class="tab-btn" id="tab-bp-btn" onclick="switchTab('bp')">⭐ Branding Points</button>
         <button class="tab-btn" id="tab-domo-btn" onclick="switchTab('domo')">🏠 Domo</button>
         <button class="tab-btn" id="tab-portal-btn" onclick="switchTab('portal')">🌐 Portal cliente</button>
+        <!-- Export pills — per tab -->
+        <div id="brand-export-crono" style="margin-left:auto">
+          <div class="export-wrap">
+            <button class="btn-export-inline" onclick="toggleInlineExport(this)">⬇ Exportar</button>
+            <div class="export-dropdown">
+              <button class="export-opt" onclick="runExport('brand_crono_pdf')">📄 PDF</button>
+              <button class="export-opt" onclick="runExport('brand_crono_xlsx')">📊 Excel</button>
+            </div>
+          </div>
+        </div>
+        <div id="brand-export-bp" style="margin-left:auto;display:none">
+          <div class="export-wrap">
+            <button class="btn-export-inline" onclick="toggleInlineExport(this)">⬇ Exportar</button>
+            <div class="export-dropdown">
+              <button class="export-opt" onclick="runExport('brand_bp_pdf')">📄 PDF</button>
+              <button class="export-opt" onclick="runExport('brand_bp_xlsx')">📊 Excel</button>
+            </div>
+          </div>
+        </div>
+        <div id="brand-export-portal" style="margin-left:auto;display:none">
+          <button class="btn-export-inline" onclick="runExport('brand_portal_pdf')" style="background:rgba(45,195,179,0.12);border-color:rgba(45,195,179,0.3);color:var(--agua)">📄 PDF cliente</button>
+        </div>
       </div>
 
       <!-- Tab: Cronograma -->
@@ -1777,6 +1816,13 @@ body.portal-mode .main{ height:100vh; }
       <div style="display:flex;gap:0.6rem;margin-left:auto;flex-shrink:0" id="eq-grid-actions">
         <button id="btn-toggle-all-tasks" onclick="toggleAllMemberTasks()" style="font-size:0.75rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.38rem 0.75rem;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s">📋 Colapsar tareas</button>
         <button onclick="openPinModal('member')" style="font-size:0.75rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.38rem 0.75rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔑 PIN</button>
+        <div class="export-wrap">
+          <button class="btn-export-inline" onclick="toggleInlineExport(this)">⬇ Exportar</button>
+          <div class="export-dropdown">
+            <button class="export-opt" onclick="runExport('equipo_pdf')">📄 PDF</button>
+            <button class="export-opt" onclick="runExport('equipo_xlsx')">📊 Excel</button>
+          </div>
+        </div>
         <button class="btn-add" style="background:var(--agua);font-size:0.8rem;padding:0.45rem 1rem" onclick="openMemberModal()">+ Miembro</button>
       </div>
       <!-- Cal free mode toggle — visible on week/month tabs -->
@@ -1896,6 +1942,13 @@ body.portal-mode .main{ height:100vh; }
         </div>
         <button onclick="lockFinanzas()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔒 Bloquear</button>
         <button onclick="changeFinPin()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔑 Cambiar PIN</button>
+        <div class="export-wrap">
+          <button class="btn-export-inline" onclick="toggleInlineExport(this)">⬇ Exportar</button>
+          <div class="export-dropdown">
+            <button class="export-opt" onclick="runExport('fin_pdf')">📄 PDF</button>
+            <button class="export-opt" onclick="runExport('fin_xlsx')">📊 Excel</button>
+          </div>
+        </div>
       </div>
 
       <!-- Tab: Mes -->
@@ -1928,15 +1981,24 @@ body.portal-mode .main{ height:100vh; }
       <div id="cob-pin-error" style="color:#ef4444;font-size:0.75rem;display:none">PIN incorrecto</div>
     </div>
     <!-- Content -->
-    <div id="cob-content" style="display:none;flex-direction:column;flex:1">
+          <div id="cob-content" style="display:none;flex-direction:column;flex:1">
       <div class="content">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem">
           <div>
             <div style="font-size:1.2rem;font-weight:800;color:var(--text)">💳 Cobranzas</div>
             <div style="font-size:0.72rem;color:var(--text3);margin-top:0.2rem">Metas del mes — sincronizado con Finanzas en tiempo real</div>
           </div>
-          <button onclick="lockCobranzas()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔒 Bloquear</button>
-          <button onclick="openPinModal('cob')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔑 Cambiar PIN</button>
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <button onclick="lockCobranzas()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔒 Bloquear</button>
+            <button onclick="openPinModal('cob')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔑 Cambiar PIN</button>
+            <div class="export-wrap">
+              <button class="btn-export-inline" onclick="toggleInlineExport(this)">⬇ Exportar</button>
+              <div class="export-dropdown">
+                <button class="export-opt" onclick="runExport('cob_pdf')">📄 PDF</button>
+                <button class="export-opt" onclick="runExport('cob_xlsx')">📊 Excel</button>
+              </div>
+            </div>
+          </div>
         </div>
         <div id="cob-metas-wrap"></div>
 
@@ -2014,6 +2076,13 @@ body.portal-mode .main{ height:100vh; }
               🔒 Ver montos
             </button>
             <button onclick="openPinModal('archivo')" style="padding:0.38rem 0.85rem;border-radius:99px;border:1px solid var(--border);background:none;color:var(--text3);font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font)">🔑 PIN</button>
+            <div class="export-wrap">
+              <button class="btn-export-inline" onclick="toggleInlineExport(this)">⬇ Exportar</button>
+              <div class="export-dropdown">
+                <button class="export-opt" onclick="runExport('arch_pdf')">📄 PDF</button>
+                <button class="export-opt" onclick="runExport('arch_xlsx')">📊 Excel</button>
+              </div>
+            </div>
           </div>
         </div>
         <div id="archivo-empty" style="display:none;text-align:center;padding:4rem 2rem;color:var(--text3)">
@@ -2720,6 +2789,8 @@ function goTo(page,brandId=null){
   renderCurrentPage();
   _updateBackBtn();
 }
+
+function updateExportBtn(){} // no-op, kept for safety
 
 
 
@@ -4122,6 +4193,8 @@ function addDigitalTool(){
   document.getElementById('tool-input-name').value = '';
   document.getElementById('tool-input-url').value = 'https://';
   document.getElementById('tool-input-icon').value = '🔧';
+  const disp = document.getElementById('tool-emoji-display');
+  if(disp) disp.textContent = '🔧';
   document.getElementById('tool-input-color').value = _toolSelectedColor;
   // Render color swatches
   const sw = document.getElementById('tool-color-swatches');
@@ -4850,12 +4923,35 @@ function switchTab(tab){
     if(panel)panel.classList.toggle('active',t===tab);
     if(btn)btn.classList.toggle('active',t===tab);
   });
+  // Show/hide contextual export buttons
+  const exportMap = { crono:'brand-export-crono', bp:'brand-export-bp', portal:'brand-export-portal' };
+  ['brand-export-crono','brand-export-bp','brand-export-portal'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display='none';
+  });
+  const activeExport = exportMap[tab];
+  if(activeExport){ const el=document.getElementById(activeExport); if(el) el.style.display=''; }
+
   if(tab==='domo') renderBrandDomo();
   if(tab==='rondas'){
     const brand=appData.brands.find(b=>b.id===currentBrandId);
     if(brand)renderRondas(brand);
   }
   if(tab==='portal') renderPortalTab();
+}
+
+/* ── Inline export dropdown toggle ── */
+function toggleInlineExport(triggerBtn){
+  const wrap = triggerBtn.closest('.export-wrap') || triggerBtn.parentElement;
+  const dd = wrap.querySelector('.export-dropdown');
+  if(!dd) return;
+  // Close all other open dropdowns first
+  document.querySelectorAll('.export-dropdown.open').forEach(d=>{ if(d!==dd) d.classList.remove('open'); });
+  const isOpen = dd.classList.contains('open');
+  dd.classList.toggle('open', !isOpen);
+  if(!isOpen){
+    const close = e=>{ if(!wrap.contains(e.target)){ dd.classList.remove('open'); document.removeEventListener('click', close); }};
+    setTimeout(()=>document.addEventListener('click', close), 10);
+  }
 }
 
 function renderPortalTab(){
@@ -7645,6 +7741,620 @@ function renderBrandsTable(){
   }).join('');
 }
 
+/* ═══════════════════════════════════════════════
+   SISTEMA DE EXPORTACIÓN — PDF + EXCEL
+   ═══════════════════════════════════════════════ */
+
+// ── Colors (hex, not CSS vars) ──
+const EX = {
+  aire:   [59,158,221],
+  agua:   [45,195,179],
+  tierra: [90,170,53],
+  fuego:  [232,98,42],
+  text:   [30,25,60],
+  text2:  [80,72,140],
+  text3:  [140,135,180],
+  bg:     [245,243,255],
+  white:  [255,255,255],
+};
+const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function runExport(id){
+  // Close any open dropdowns
+  document.querySelectorAll('.export-dropdown.open').forEach(d=>d.classList.remove('open'));
+  showStatus('Generando exportación…');
+  setTimeout(()=>{
+    try{
+      const fn = {
+        dash_pdf:         ()=>exportDashPDF(),
+        dash_xlsx:        ()=>exportDashXLSX(),
+        brand_crono_pdf:  ()=>exportBrandCronoPDF(),
+        brand_crono_xlsx: ()=>exportBrandCronoXLSX(),
+        brand_bp_pdf:     ()=>exportBrandBpPDF(),
+        brand_bp_xlsx:    ()=>exportBrandBpXLSX(),
+        brand_portal_pdf: ()=>exportPortalPDF(),
+        fin_pdf:          ()=>exportFinPDF(),
+        fin_xlsx:         ()=>exportFinXLSX(),
+        cob_pdf:          ()=>exportCobPDF(),
+        cob_xlsx:         ()=>exportCobXLSX(),
+        equipo_pdf:       ()=>exportEquipoPDF(),
+        equipo_xlsx:      ()=>exportEquipoXLSX(),
+        arch_pdf:         ()=>exportArchivoPDF(),
+        arch_xlsx:        ()=>exportArchivoXLSX(),
+      }[id];
+      if(fn) fn();
+      showStatus('Exportación lista ✓');
+    } catch(e){ showStatus('Error al exportar: '+e.message, true); console.error(e); }
+  }, 50);
+}
+
+/* ── PDF helpers ── */
+function newPDF(title, subtitle=''){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  // Header bar
+  doc.setFillColor(...EX.text);
+  doc.rect(0, 0, W, 18, 'F');
+  doc.setTextColor(...EX.white);
+  doc.setFontSize(11); doc.setFont(undefined,'bold');
+  doc.text('Polen PM', 14, 11);
+  doc.setFontSize(9); doc.setFont(undefined,'normal');
+  doc.text(title, 14, 16);
+  if(subtitle){ doc.setFontSize(7.5); doc.text(subtitle, W-14, 16, {align:'right'}); }
+  // Date stamp
+  const now = new Date();
+  doc.setFontSize(7); doc.setTextColor(...EX.text3);
+  doc.text(now.toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'numeric'}), W-14, 11, {align:'right'});
+  return doc;
+}
+
+function savePDF(doc, name){
+  doc.save(name.replace(/[^a-z0-9\-_]/gi,'_')+'.pdf');
+}
+
+function stageColorHex(stage){
+  return { aire:EX.aire, agua:EX.agua, tierra:EX.tierra, fuego:EX.fuego }[stage] || EX.text3;
+}
+
+function stageLabel(stage){
+  return { aire:'AIRE 🌬️', agua:'AGUA 💧', tierra:'TIERRA 🌱', fuego:'FUEGO 🔥' }[stage] || stage;
+}
+
+/* ── Excel helper ── */
+function saveXLSX(wb, name){
+  XLSX.writeFile(wb, name.replace(/[^a-z0-9\-_]/gi,'_')+'.xlsx');
+}
+
+function xlsxBook(sheets){ // sheets = [{name, data:[{col:val}]}]
+  const wb = XLSX.utils.book_new();
+  sheets.forEach(s=>{
+    const ws = XLSX.utils.json_to_sheet(s.data);
+    // Auto column widths
+    const cols = s.data.length ? Object.keys(s.data[0]).map(k=>({ wch: Math.max(k.length, ...s.data.map(r=>(String(r[k]||'')).length)) + 2 })) : [];
+    ws['!cols'] = cols;
+    XLSX.utils.book_append_sheet(wb, ws, s.name.slice(0,31));
+  });
+  return wb;
+}
+
+/* ════════════════════════════
+   DASHBOARD EXPORTS
+════════════════════════════ */
+function exportDashPDF(){
+  const brands = appData.brands || [];
+  const doc = newPDF('Portafolio de Marcas', `${brands.length} proyectos activos`);
+  const monthAbbr = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  const rows = brands.map((b,i)=>{
+    const pct = brandProgress(b);
+    const sc = {aire:'Aire',agua:'Agua',tierra:'Tierra',fuego:'Fuego'}[b.stage]||b.stage||'—';
+    const next = getNextHito(b);
+    const deadline = next ? `${sc} ${next.dateObj.getDate()}/${monthAbbr[next.dateObj.getMonth()]}` : '—';
+    const status = b.paused ? 'En pausa' : pct>=90 ? 'Próx. entrega' : 'En desarrollo';
+    let domo = '—';
+    if(b.domo){ const m1=(appData.members||[]).find(m=>m.id===b.domo.m1); const m2=(appData.members||[]).find(m=>m.id===b.domo.m2); domo=[m1,m2].filter(Boolean).map(m=>m.apodo||m.nombre).join(' + ')||'—'; }
+    return [ String(i+1).padStart(2,'0'), b.name, b.industria||'—', domo, sc, `${pct}%`, deadline, status ];
+  });
+
+  doc.autoTable({
+    startY: 24,
+    head: [['#','Marca','Tipo','Domo','Etapa','Progreso','Próx. Deadline','Status']],
+    body: rows,
+    styles: { fontSize:8.5, cellPadding:3.5, font:'helvetica', textColor:EX.text },
+    headStyles: { fillColor:EX.text, textColor:EX.white, fontStyle:'bold', fontSize:7.5 },
+    alternateRowStyles: { fillColor:[248,246,255] },
+    columnStyles: { 0:{cellWidth:10}, 5:{halign:'center'}, 6:{cellWidth:32}, 7:{cellWidth:28} },
+    didParseCell(data){ if(data.section==='body'&&data.column.index===4){ const col=stageColorHex(brands[data.row.index]?.stage); data.cell.styles.textColor=col; data.cell.styles.fontStyle='bold'; } },
+  });
+  savePDF(doc, `Polen_Portafolio_${new Date().toISOString().slice(0,10)}`);
+}
+
+function exportDashXLSX(){
+  const brands = appData.brands || [];
+  const monthAbbr = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const data = brands.map((b,i)=>{
+    const pct = brandProgress(b);
+    const next = getNextHito(b);
+    const sc = {aire:'Aire',agua:'Agua',tierra:'Tierra',fuego:'Fuego'}[b.stage]||b.stage||'—';
+    const deadline = next ? `${sc} ${next.dateObj.getDate()}/${monthAbbr[next.dateObj.getMonth()]}` : '—';
+    let domo='—', disenador='—', redactor='—';
+    if(b.domo){
+      const m1=(appData.members||[]).find(m=>m.id===b.domo.m1); const m2=(appData.members||[]).find(m=>m.id===b.domo.m2);
+      const all=[m1,m2].filter(Boolean); domo=all.map(m=>m.apodo||m.nombre).join(' + ')||'—';
+      if(all[0]) disenador=all[0].apodo||all[0].nombre;
+      if(all[1]) redactor=all[1].apodo||all[1].nombre;
+    }
+    return { '#':i+1, Marca:b.name, Tipo:b.industria||'—', Domo:domo, Diseñador:disenador, Redactor:redactor, Etapa:sc, 'Progreso %':pct, 'Próx. Deadline':deadline, Status: b.paused?'En pausa':pct>=90?'Próx. entrega':'En desarrollo' };
+  });
+  saveXLSX(xlsxBook([{name:'Portafolio', data}]), `Polen_Portafolio_${new Date().toISOString().slice(0,10)}`);
+}
+
+/* ════════════════════════════
+   BRAND — CRONOGRAMA
+════════════════════════════ */
+function exportBrandCronoPDF(){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand) return;
+  const doc = newPDF(`Cronograma — ${brand.name}`, `Progreso: ${brandProgress(brand)}%`);
+  const stages = ['aire','agua','tierra','fuego'];
+  let y = 24;
+  const W = doc.internal.pageSize.getWidth();
+
+  stages.forEach(s=>{
+    const acts = brand.cronograma?.[s]||[];
+    if(!acts.length) return;
+    const done = acts.filter(a=>a.status==='completada').length;
+    const col = stageColorHex(s);
+
+    // Stage header
+    if(y > 180){ doc.addPage(); y=14; }
+    doc.setFillColor(...col);
+    doc.roundedRect(14, y, W-28, 7, 2, 2, 'F');
+    doc.setTextColor(...EX.white); doc.setFontSize(8.5); doc.setFont(undefined,'bold');
+    doc.text(`${stageLabel(s)} — ${done}/${acts.length} completadas`, 18, y+5);
+    y += 10;
+
+    const rows = acts.map(a=>[ a.isHito?'⭐':'○', a.name, {pendiente:'Pendiente','en progreso':'En progreso',completada:'Completada'}[a.status]||a.status, a.endDate||'—', a.days?`${a.days}d`:'—' ]);
+    doc.autoTable({
+      startY: y, margin:{left:14,right:14},
+      head:[['','Actividad','Status','Fecha entrega','Duración']],
+      body: rows,
+      styles:{fontSize:8, cellPadding:2.8, textColor:EX.text},
+      headStyles:{fillColor:[...col,180], textColor:EX.white, fontStyle:'bold', fontSize:7.5},
+      alternateRowStyles:{fillColor:[248,246,255]},
+      columnStyles:{0:{cellWidth:8,halign:'center'},2:{cellWidth:26},3:{cellWidth:28},4:{cellWidth:20,halign:'center'}},
+      didParseCell(data){ if(data.section==='body'&&data.column.index===2){ const st=acts[data.row.index]?.status; if(st==='completada') data.cell.styles.textColor=EX.tierra; else if(st==='en progreso') data.cell.styles.textColor=EX.aire; } },
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  });
+  savePDF(doc, `Polen_Crono_${brand.name}_${new Date().toISOString().slice(0,10)}`);
+}
+
+function exportBrandCronoXLSX(){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand) return;
+  const stages = ['aire','agua','tierra','fuego'];
+  const data = [];
+  stages.forEach(s=>{
+    (brand.cronograma?.[s]||[]).forEach(a=>{
+      data.push({ Etapa:{aire:'Aire',agua:'Agua',tierra:'Tierra',fuego:'Fuego'}[s], Hito:a.isHito?'Sí':'', Actividad:a.name, Status:{pendiente:'Pendiente','en progreso':'En progreso',completada:'Completada'}[a.status]||a.status, 'Fecha entrega':a.endDate||'', 'Días':a.days||'' });
+    });
+  });
+  saveXLSX(xlsxBook([{name:'Cronograma', data}]), `Polen_Crono_${brand.name}_${new Date().toISOString().slice(0,10)}`);
+}
+
+/* ════════════════════════════
+   BRAND — BRANDING POINTS
+════════════════════════════ */
+function exportBrandBpPDF(){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand?.brandingPoints) return;
+  const bp = brand.brandingPoints;
+  const total = bp.total||0;
+  const used = (bp.categories||[]).flatMap(c=>c.items).filter(i=>i.selected&&i.pts!=null).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0);
+  const doc = newPDF(`Branding Points — ${brand.name}`, `${used} / ${total} pts usados`);
+  let y = 24;
+  const W = doc.internal.pageSize.getWidth();
+
+  // Summary row
+  doc.setFillColor(...EX.bg);
+  doc.roundedRect(14,y,W-28,12,3,3,'F');
+  doc.setTextColor(...EX.fuego); doc.setFontSize(13); doc.setFont(undefined,'bold');
+  doc.text(String(total), 22, y+9);
+  doc.setFontSize(7); doc.setFont(undefined,'normal'); doc.setTextColor(...EX.text3);
+  doc.text('Total', 22, y+11.5);
+  doc.setTextColor(...EX.agua); doc.setFontSize(13); doc.setFont(undefined,'bold');
+  doc.text(String(used), 50, y+9);
+  doc.setFontSize(7); doc.setFont(undefined,'normal'); doc.setTextColor(...EX.text3);
+  doc.text('Usados', 50, y+11.5);
+  doc.setTextColor(...EX.text2); doc.setFontSize(13); doc.setFont(undefined,'bold');
+  doc.text(String(total-used), 80, y+9);
+  doc.setFontSize(7); doc.setFont(undefined,'normal'); doc.setTextColor(...EX.text3);
+  doc.text('Restantes', 80, y+11.5);
+  y += 18;
+
+  (bp.categories||[]).forEach(cat=>{
+    if(y > 185){ doc.addPage(); y=14; }
+    doc.setFillColor(...EX.text2);
+    doc.roundedRect(14,y,W-28,6,1.5,1.5,'F');
+    doc.setTextColor(...EX.white); doc.setFontSize(8); doc.setFont(undefined,'bold');
+    doc.text(cat.name, 18, y+4.2);
+    y += 8;
+    const rows = cat.items.filter(i=>i.selected).map(i=>[ i.name, i.qty||1, i.pts!=null?i.pts:'?', i.pts!=null?(i.pts*(i.qty||1))+'':'?', i.notes||'—' ]);
+    if(!rows.length){ y+=2; return; }
+    doc.autoTable({
+      startY:y, margin:{left:14,right:14},
+      head:[['Entregable','Cant.','Pts unit.','Pts total','Notas']],
+      body:rows,
+      styles:{fontSize:8, cellPadding:2.8, textColor:EX.text},
+      headStyles:{fillColor:EX.text3, textColor:EX.white, fontStyle:'bold', fontSize:7.5},
+      alternateRowStyles:{fillColor:[248,246,255]},
+      columnStyles:{1:{cellWidth:14,halign:'center'},2:{cellWidth:18,halign:'center'},3:{cellWidth:18,halign:'center'}},
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  });
+  savePDF(doc, `Polen_BP_${brand.name}_${new Date().toISOString().slice(0,10)}`);
+}
+
+function exportBrandBpXLSX(){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand?.brandingPoints) return;
+  const bp = brand.brandingPoints;
+  const data = [];
+  (bp.categories||[]).forEach(cat=>{
+    cat.items.filter(i=>i.selected).forEach(i=>{
+      data.push({ Categoría:cat.name, Entregable:i.name, Cantidad:i.qty||1, 'Pts unitarios':i.pts!=null?i.pts:'?', 'Pts total':i.pts!=null?(i.pts*(i.qty||1)):'?', Notas:i.notes||'' });
+    });
+  });
+  const total = bp.total||0;
+  const used = data.filter(r=>typeof r['Pts total']==='number').reduce((s,r)=>s+r['Pts total'],0);
+  data.push({Categoría:'── RESUMEN ──', Entregable:'Total usado', Cantidad:'', 'Pts unitarios':'', 'Pts total':used, Notas:''});
+  data.push({Categoría:'', Entregable:'Total disponible', Cantidad:'', 'Pts unitarios':'', 'Pts total':total, Notas:''});
+  data.push({Categoría:'', Entregable:'Restantes', Cantidad:'', 'Pts unitarios':'', 'Pts total':total-used, Notas:''});
+  saveXLSX(xlsxBook([{name:'Branding Points', data}]), `Polen_BP_${brand.name}_${new Date().toISOString().slice(0,10)}`);
+}
+
+/* ════════════════════════════
+   BRAND — PORTAL PDF (cliente)
+════════════════════════════ */
+function exportPortalPDF(){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand) return;
+  const doc = newPDF(`Resumen de proyecto — ${brand.name}`, brand.industria||'');
+  const W = doc.internal.pageSize.getWidth();
+  const brandCol = (() => {
+    const h = getBrandColor(brand); // returns hex like #3b9edd
+    const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16); return[r,g,b];
+  })();
+  let y = 28;
+
+  // Brand hero
+  doc.setFillColor(...brandCol);
+  doc.rect(14,y,4,24,'F');
+  doc.setTextColor(...EX.text); doc.setFontSize(16); doc.setFont(undefined,'bold');
+  doc.text(brand.name, 22, y+10);
+  doc.setFontSize(9); doc.setFont(undefined,'normal'); doc.setTextColor(...EX.text3);
+  doc.text(brand.industria||'', 22, y+17);
+  doc.text(`Progreso: ${brandProgress(brand)}%`, 22, y+23);
+  y += 30;
+
+  // Cronograma
+  const stages=['aire','agua','tierra','fuego'];
+  stages.forEach(s=>{
+    const acts = brand.cronograma?.[s]||[];
+    if(!acts.length) return;
+    const done = acts.filter(a=>a.status==='completada').length;
+    const col = stageColorHex(s);
+    if(y > 180){ doc.addPage(); y=14; }
+    doc.setFillColor(...col);
+    doc.roundedRect(14,y,W-28,6,1.5,1.5,'F');
+    doc.setTextColor(...EX.white); doc.setFontSize(8); doc.setFont(undefined,'bold');
+    doc.text(`${stageLabel(s)} — ${done}/${acts.length}`, 18, y+4.2);
+    y+=8;
+    const rows = acts.map(a=>[ a.isHito?'★':'', a.name, {pendiente:'Pendiente','en progreso':'En progreso',completada:'✓ Completada'}[a.status]||a.status, a.endDate||'—' ]);
+    doc.autoTable({ startY:y, margin:{left:14,right:14},
+      head:[['','Actividad','Status','Fecha']],
+      body:rows,
+      styles:{fontSize:8, cellPadding:2.5, textColor:EX.text},
+      headStyles:{fillColor:[...col], textColor:EX.white, fontStyle:'bold', fontSize:7},
+      alternateRowStyles:{fillColor:[248,246,255]},
+      columnStyles:{0:{cellWidth:8,halign:'center'},2:{cellWidth:30},3:{cellWidth:28}},
+    });
+    y = doc.lastAutoTable.finalY + 7;
+  });
+
+  // BP summary if exists
+  if(brand.brandingPoints?.categories?.length){
+    const bp = brand.brandingPoints;
+    const total = bp.total||0;
+    const used = (bp.categories||[]).flatMap(c=>c.items).filter(i=>i.selected&&i.pts!=null).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0);
+    if(y > 180){ doc.addPage(); y=14; }
+    doc.setFillColor(...EX.text); doc.roundedRect(14,y,W-28,6,1.5,1.5,'F');
+    doc.setTextColor(...EX.white); doc.setFontSize(8); doc.setFont(undefined,'bold');
+    doc.text(`⭐ Branding Points — ${used}/${total} pts`, 18, y+4.2);
+    y+=8;
+    const bpRows = (bp.categories||[]).flatMap(cat=>cat.items.filter(i=>i.selected).map(i=>[cat.name,i.name,i.qty||1,i.pts!=null?i.pts+'pts':'?',i.notes||'']));
+    doc.autoTable({ startY:y, margin:{left:14,right:14},
+      head:[['Categoría','Entregable','Cant.','Pts','Especificaciones']],
+      body:bpRows,
+      styles:{fontSize:8, cellPadding:2.5, textColor:EX.text},
+      headStyles:{fillColor:EX.text, textColor:EX.white, fontStyle:'bold', fontSize:7},
+      alternateRowStyles:{fillColor:[248,246,255]},
+      columnStyles:{2:{cellWidth:14,halign:'center'},3:{cellWidth:16,halign:'center'}},
+    });
+  }
+
+  // Footer note
+  const pages = doc.internal.getNumberOfPages();
+  for(let i=1;i<=pages;i++){
+    doc.setPage(i);
+    doc.setFontSize(7); doc.setTextColor(...EX.text3);
+    doc.text(`Polen PM · Documento generado el ${new Date().toLocaleDateString('es-EC')} · ${i}/${pages}`, W/2, doc.internal.pageSize.getHeight()-6, {align:'center'});
+  }
+  savePDF(doc, `Polen_Portal_${brand.name}_${new Date().toISOString().slice(0,10)}`);
+}
+
+/* ════════════════════════════
+   FINANZAS
+════════════════════════════ */
+function exportFinPDF(){
+  ensureFinData();
+  const fin = appData.finanzas;
+  const curY = new Date().getFullYear();
+  const doc = newPDF(`Reporte Financiero ${curY}`, `Meta facturación: $${(fin.metaFacturacion||0).toLocaleString()} · Meta cobranzas: $${(fin.metaCobranzas||0).toLocaleString()}`);
+
+  const rows = fin.months.map((m,i)=>{
+    const f=m.facturacion||0, c=m.cobranzas||0, e=m.egresos||0;
+    const pctF = fin.metaFacturacion ? Math.round(f/fin.metaFacturacion*100)+'%' : '—';
+    const pctC = fin.metaCobranzas  ? Math.round(c/fin.metaCobranzas*100)+'%'  : '—';
+    return [MONTHS_ES[i], `$${f.toLocaleString()}`, pctF, `$${c.toLocaleString()}`, pctC, `$${e.toLocaleString()}`, `$${(f-e).toLocaleString()}`];
+  });
+  // Totals
+  const totF = fin.months.reduce((s,m)=>s+(m.facturacion||0),0);
+  const totC = fin.months.reduce((s,m)=>s+(m.cobranzas||0),0);
+  const totE = fin.months.reduce((s,m)=>s+(m.egresos||0),0);
+  rows.push(['TOTAL', `$${totF.toLocaleString()}`, '', `$${totC.toLocaleString()}`, '', `$${totE.toLocaleString()}`, `$${(totF-totE).toLocaleString()}`]);
+
+  doc.autoTable({
+    startY:24,
+    head:[['Mes','Facturado','% Meta','Cobrado','% Meta','Egresos','Margen']],
+    body:rows,
+    styles:{fontSize:9, cellPadding:3.5, textColor:EX.text},
+    headStyles:{fillColor:EX.text, textColor:EX.white, fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[248,246,255]},
+    didParseCell(d){
+      if(d.section==='body'&&d.row.index===12){ d.cell.styles.fontStyle='bold'; d.cell.styles.fillColor=[235,232,255]; }
+      if(d.section==='body'&&d.column.index===1) d.cell.styles.textColor=EX.agua;
+      if(d.section==='body'&&d.column.index===3) d.cell.styles.textColor=EX.aire;
+    },
+  });
+  savePDF(doc, `Polen_Finanzas_${curY}_${new Date().toISOString().slice(0,10)}`);
+}
+
+function exportFinXLSX(){
+  ensureFinData();
+  const fin = appData.finanzas;
+  const curY = new Date().getFullYear();
+  const data = fin.months.map((m,i)=>({
+    Mes: MONTHS_ES[i], Facturado: m.facturacion||0, Cobrado: m.cobranzas||0, Egresos: m.egresos||0,
+    Margen: (m.facturacion||0)-(m.egresos||0),
+    '% Meta Facturación': fin.metaFacturacion ? Math.round((m.facturacion||0)/fin.metaFacturacion*100) : 0,
+    '% Meta Cobranzas':   fin.metaCobranzas   ? Math.round((m.cobranzas||0)/fin.metaCobranzas*100)   : 0,
+  }));
+  data.push({ Mes:'META', Facturado:fin.metaFacturacion||0, Cobrado:fin.metaCobranzas||0, Egresos:'', Margen:'', '% Meta Facturación':'', '% Meta Cobranzas':'' });
+  saveXLSX(xlsxBook([{name:`Finanzas ${curY}`, data}]), `Polen_Finanzas_${curY}_${new Date().toISOString().slice(0,10)}`);
+}
+
+/* ════════════════════════════
+   COBRANZAS
+════════════════════════════ */
+function exportCobPDF(){
+  ensureCobrosData();
+  const brands = appData.brands||[];
+  const doc = newPDF('Reporte de Cobranzas', `${brands.length} marcas`);
+
+  const rows = [];
+  brands.forEach(b=>{
+    const cob = appData.cobros[b.id]||{};
+    const pagos = cob.pagos||[];
+    pagos.forEach((p,i)=>{
+      rows.push([b.name, p.nombre||`Pago ${i+1}`, `$${(parseFloat(p.monto)||0).toLocaleString()}`, p.cobrado?'✓ Cobrado':'Pendiente', p.fechaProyectada||'—', p.nota||'']);
+    });
+  });
+
+  doc.autoTable({
+    startY:24,
+    head:[['Marca','Concepto','Monto','Estado','Fecha proyectada','Notas']],
+    body:rows,
+    styles:{fontSize:8.5, cellPadding:3, textColor:EX.text},
+    headStyles:{fillColor:EX.text, textColor:EX.white, fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[248,246,255]},
+    didParseCell(d){
+      if(d.section==='body'&&d.column.index===3){
+        d.cell.styles.textColor = d.cell.text[0]?.includes('✓') ? EX.tierra : EX.fuego;
+        d.cell.styles.fontStyle='bold';
+      }
+    },
+  });
+  savePDF(doc, `Polen_Cobranzas_${new Date().toISOString().slice(0,10)}`);
+}
+
+function exportCobXLSX(){
+  ensureCobrosData();
+  const brands = appData.brands||[];
+  const data = [];
+  brands.forEach(b=>{
+    const pagos = (appData.cobros[b.id]||{}).pagos||[];
+    pagos.forEach((p,i)=>{
+      data.push({ Marca:b.name, Concepto:p.nombre||`Pago ${i+1}`, Monto:parseFloat(p.monto)||0, Estado:p.cobrado?'Cobrado':'Pendiente', 'Fecha proyectada':p.fechaProyectada||'', 'Último seguimiento':p.ultimoSeguimiento||'', Notas:p.nota||'' });
+    });
+  });
+  saveXLSX(xlsxBook([{name:'Cobranzas', data}]), `Polen_Cobranzas_${new Date().toISOString().slice(0,10)}`);
+}
+
+/* ════════════════════════════
+   EQUIPO
+════════════════════════════ */
+function exportEquipoPDF(){
+  const members = appData.members||[];
+  const doc = newPDF('Equipo', `${members.length} miembros`);
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  const rows = members.map(m=>{
+    const hitos = getMemberHitos(m.id).filter(h=>new Date(h.date+'T00:00:00')>=today).sort((a,b)=>a.date.localeCompare(b.date));
+    const proxima = hitos[0] ? `${(appData.brands||[]).find(b=>b.id===hitos[0].brandId)?.name||'—'} · ${hitos[0].date}` : 'Sin tareas';
+    const myBrands = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id)).map(b=>b.name).join(', ')||'—';
+    return [m.apodo||m.nombre, m.cargo||'—', m.area||'—', String(hitos.length), proxima, myBrands];
+  });
+
+  doc.autoTable({
+    startY:24,
+    head:[['Nombre','Cargo','Área','Tareas próx.','Primera tarea','Marcas asignadas']],
+    body:rows,
+    styles:{fontSize:8.5, cellPadding:3, textColor:EX.text},
+    headStyles:{fillColor:EX.text, textColor:EX.white, fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[248,246,255]},
+    columnStyles:{3:{halign:'center',cellWidth:22}},
+  });
+  savePDF(doc, `Polen_Equipo_${new Date().toISOString().slice(0,10)}`);
+}
+
+function exportEquipoXLSX(){
+  const members = appData.members||[];
+  const today = new Date(); today.setHours(0,0,0,0);
+  const data = members.map(m=>{
+    const hitos = getMemberHitos(m.id).filter(h=>new Date(h.date+'T00:00:00')>=today).sort((a,b)=>a.date.localeCompare(b.date));
+    const myBrands = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id)).map(b=>b.name).join(', ')||'—';
+    return { Nombre:m.apodo||m.nombre, 'Nombre completo':m.nombre, Cargo:m.cargo||'—', Área:m.area||'—', 'Tareas próximas':hitos.length, 'Marcas asignadas':myBrands, Status:m.status||'' };
+  });
+  // Detailed tasks sheet
+  const tasks = [];
+  members.forEach(m=>{
+    getMemberHitos(m.id).filter(h=>new Date(h.date+'T00:00:00')>=today).forEach(h=>{
+      const brand = (appData.brands||[]).find(b=>b.id===h.brandId);
+      tasks.push({ Miembro:m.apodo||m.nombre, Marca:brand?.name||'—', Actividad:h.name, Fecha:h.date, Tipo:h.isHito?'Hito':'Tarea' });
+    });
+  });
+  saveXLSX(xlsxBook([{name:'Equipo', data},{name:'Tareas', data:tasks}]), `Polen_Equipo_${new Date().toISOString().slice(0,10)}`);
+}
+
+/* ════════════════════════════
+   ARCHIVO
+════════════════════════════ */
+function exportArchivoPDF(){
+  const brands = (appData.brands||[]).filter(isArchivedBrand);
+  const doc = newPDF('Archivo — Proyectos Completados', `${brands.length} proyectos`);
+  const rows = brands.map(b=>{
+    const pagos = (appData.cobros?.[b.id]||{}).pagos||[];
+    const total = pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+    const allActs = Object.values(b.cronograma||{}).flat();
+    return [b.name, b.industria||'—', String(allActs.length), `$${total.toLocaleString()}`, pagos.length+'', '100%'];
+  });
+  doc.autoTable({
+    startY:24,
+    head:[['Marca','Tipo','Actividades','Monto total','# Pagos','Progreso']],
+    body:rows,
+    styles:{fontSize:9, cellPadding:3.5, textColor:EX.text},
+    headStyles:{fillColor:EX.tierra, textColor:EX.white, fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[248,246,255]},
+    columnStyles:{5:{halign:'center',textColor:EX.tierra,fontStyle:'bold'}},
+  });
+  savePDF(doc, `Polen_Archivo_${new Date().toISOString().slice(0,10)}`);
+}
+
+function exportArchivoXLSX(){
+  const brands = (appData.brands||[]).filter(isArchivedBrand);
+  const data = brands.map(b=>{
+    const pagos = (appData.cobros?.[b.id]||{}).pagos||[];
+    const total = pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+    const allActs = Object.values(b.cronograma||{}).flat();
+    return { Marca:b.name, Tipo:b.industria||'—', 'Total actividades':allActs.length, 'Monto total cobrado':total, 'Número de pagos':pagos.length, Progreso:'100%' };
+  });
+  saveXLSX(xlsxBook([{name:'Archivo', data}]), `Polen_Archivo_${new Date().toISOString().slice(0,10)}`);
+}
+
+/* ═══ EMOJI PICKER (tool modal) ═══ */
+const EMOJI_CATS = [
+  { id:'herramientas', label:'🔧', emojis:['🔧','⚙️','🛠️','🔨','🪛','🔩','🗜️','🔗','📎','✂️','🖊️','📐','📏','🗂️','💾','💿','🖥️','🖱️','⌨️','📡','🔌','🔋','📺','📷','📸','🎥','🎙️','🎚️','🎛️','📻'] },
+  { id:'diseño',   label:'🎨', emojis:['🎨','🖌️','🖍️','✏️','📝','🗒️','📋','🗃️','🗄️','📁','📂','🗳️','📦','🏷️','🔖','📌','📍','🗺️','🧩','💎','🎭','🎬','📽️','🎞️','🏆','🥇','⭐','✨','💡','🌟'] },
+  { id:'negocio',  label:'📊', emojis:['📊','📈','📉','📃','📄','📑','📜','💼','🗓️','📅','📆','🕐','⏰','⏱️','⏲️','🔔','📣','📢','💬','💭','🗨️','🗯️','✉️','📧','📨','📩','📤','📥','📦','🏦'] },
+  { id:'tech',     label:'💻', emojis:['💻','📱','⌚','🖨️','📠','☎️','📞','📟','🔍','🔎','🔐','🔑','🗝️','🔒','🛡️','🧲','💠','🔷','🔹','🔵','🟣','⚡','🌐','🛰️','📡','🤖','👾','🕹️','🎮','🧪'] },
+  { id:'personas', label:'👥', emojis:['👥','👤','🧑‍💻','👩‍🎨','👨‍🎨','🧑‍🎨','👩‍💼','👨‍💼','🧑‍💼','🤝','👋','✋','🫱','🫲','👍','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','❤️‍🔥','💯','🎉','🎊','🎁','🏅'] },
+  { id:'mundo',    label:'🌍', emojis:['🌍','🌎','🌏','🗺️','🌐','🏙️','🌆','🌇','🌉','🏔️','🌋','🏝️','🌊','☁️','⛅','🌤️','⭐','🌙','☀️','🌈','❄️','🔥','💧','🌿','🌱','🌺','🌸','🍀','🌳','🦋'] },
+];
+let _emojiActiveCat = 'herramientas';
+
+function toggleEmojiPicker(){
+  const picker = document.getElementById('tool-emoji-picker');
+  const isOpen = picker.style.display !== 'none';
+  if(isOpen){ picker.style.display='none'; return; }
+  // Build categories if not yet done
+  buildEmojiPicker();
+  picker.style.display = 'block';
+  setTimeout(()=>document.getElementById('emoji-search')?.focus(), 50);
+  // Close on outside click
+  const close = e=>{
+    const trigger = document.getElementById('tool-emoji-trigger');
+    if(!picker.contains(e.target) && e.target !== trigger && !trigger?.contains(e.target)){
+      picker.style.display='none';
+      document.removeEventListener('click', close);
+    }
+  };
+  setTimeout(()=>document.addEventListener('click', close), 10);
+}
+
+function buildEmojiPicker(){
+  // Category tabs
+  const cats = document.getElementById('emoji-cats');
+  if(cats && !cats.dataset.built){
+    cats.dataset.built = '1';
+    cats.innerHTML = EMOJI_CATS.map(c=>`
+      <button onclick="switchEmojiCat('${c.id}')" id="ecat-${c.id}"
+        style="padding:0.4rem 0.7rem;border:none;background:none;font-size:1rem;cursor:pointer;transition:background 0.12s;flex-shrink:0;border-bottom:2px solid transparent"
+        title="${c.id}">${c.label}</button>`).join('');
+  }
+  switchEmojiCat(_emojiActiveCat);
+}
+
+function switchEmojiCat(catId){
+  _emojiActiveCat = catId;
+  document.querySelectorAll('[id^="ecat-"]').forEach(b=>{
+    const active = b.id === 'ecat-'+catId;
+    b.style.background = active ? 'var(--bg-card2)' : 'none';
+    b.style.borderBottomColor = active ? 'var(--aire)' : 'transparent';
+  });
+  const cat = EMOJI_CATS.find(c=>c.id===catId);
+  if(cat) renderEmojiGrid(cat.emojis);
+}
+
+function renderEmojiGrid(emojis){
+  const grid = document.getElementById('emoji-grid-pick');
+  if(!grid) return;
+  grid.innerHTML = emojis.map(e=>`
+    <button onclick="selectEmoji('${e}')" type="button"
+      style="font-size:1.35rem;padding:0.3rem;border:none;background:none;border-radius:8px;cursor:pointer;transition:background 0.1s;line-height:1"
+      onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background='none'"
+      title="${e}">${e}</button>`).join('');
+}
+
+function filterEmojis(q){
+  const all = EMOJI_CATS.flatMap(c=>c.emojis);
+  // Simple filter: if query is empty show active cat, else show matching from all
+  if(!q.trim()){ switchEmojiCat(_emojiActiveCat); return; }
+  // Match by searching emoji names via a simple lookup isn't possible without a DB,
+  // but we can filter by the query acting as a direct emoji paste or show all
+  renderEmojiGrid(all); // show all when searching — user can scroll/pick
+}
+
+function selectEmoji(emoji){
+  document.getElementById('tool-input-icon').value = emoji;
+  const disp = document.getElementById('tool-emoji-display');
+  if(disp) disp.textContent = emoji;
+  document.getElementById('tool-emoji-picker').style.display = 'none';
+}
+
 boot();
 </script>
 
@@ -7801,7 +8511,27 @@ boot();
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:0.9rem">
       <div class="form-group">
         <label class="form-label">Emoji / Ícono</label>
-        <input class="form-input" id="tool-input-icon" placeholder="🔧" style="font-size:1.3rem;text-align:center">
+        <div style="position:relative">
+          <button id="tool-emoji-trigger" onclick="toggleEmojiPicker()" type="button"
+            style="width:100%;padding:0.55rem;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--input-bg);font-size:1.5rem;text-align:center;cursor:pointer;transition:border-color 0.18s;display:flex;align-items:center;justify-content:center;gap:0.5rem">
+            <span id="tool-emoji-display">🔧</span>
+            <span style="font-size:0.65rem;color:var(--text3)">▾</span>
+          </button>
+          <input type="hidden" id="tool-input-icon" value="🔧">
+          <!-- Emoji picker dropdown -->
+          <div id="tool-emoji-picker" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:400;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.35);width:280px;overflow:hidden">
+            <!-- Search -->
+            <div style="padding:0.6rem 0.7rem;border-bottom:1px solid var(--border)">
+              <input id="emoji-search" placeholder="🔍 Buscar emoji…" oninput="filterEmojis(this.value)"
+                style="width:100%;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.38rem 0.65rem;font-size:0.8rem;color:var(--text);font-family:var(--font);outline:none">
+            </div>
+            <!-- Category tabs -->
+            <div id="emoji-cats" style="display:flex;gap:0;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none">
+            </div>
+            <!-- Grid -->
+            <div id="emoji-grid-pick" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:0.5rem;max-height:200px;overflow-y:auto;scrollbar-width:thin"></div>
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Color</label>
