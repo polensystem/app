@@ -1283,8 +1283,6 @@ body.portal-mode .main{ height:100vh; }
         <button class="theme-btn active" id="btn-dark" onclick="setTheme('dark')">🌙 Dark</button>
         <button class="theme-btn" id="btn-light" onclick="setTheme('light')">☀️ Light</button>
       </div>
-      <button class="btn-reload" id="btn-undo" onclick="undoAction()" title="Deshacer (Ctrl+Z)" disabled style="opacity:0.4">↩ Deshacer</button>
-      <button class="btn-reload" id="btn-redo" onclick="redoAction()" title="Rehacer (Ctrl+Shift+Z)" disabled style="opacity:0.4">↪ Rehacer</button>
       <button class="btn-reload" id="btn-reload" onclick="reloadData()">↻ Recargar</button>
       <button class="btn-add" id="btn-nueva-marca" onclick="openModal()">+ Nueva marca</button>
       <button class="btn-add" id="btn-nuevo-miembro" onclick="openMemberModal()" style="display:none;background:var(--agua)">+ Nuevo miembro</button>
@@ -1351,13 +1349,27 @@ body.portal-mode .main{ height:100vh; }
       <!-- ── PORTAFOLIO SECTION ── -->
       <div style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border)">
         <!-- Section header -->
-        <div style="padding:1rem 1.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
+        <div style="padding:1rem 1.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);flex-wrap:wrap">
           <div>
             <div style="font-size:0.95rem;font-weight:800;color:var(--text);letter-spacing:-0.3px" id="brands-section-title">Todas las marcas</div>
             <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem" id="brands-section-sub">Portafolio completo</div>
           </div>
-          <!-- View toggle + export -->
-          <div style="display:flex;align-items:center;gap:0.5rem">
+          <!-- Filters + view toggle + export -->
+          <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+            <!-- Filter by member -->
+            <select id="brands-member-filter" onchange="setBrandsMemberFilter(this.value)"
+              style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.6rem;font-size:0.72rem;color:var(--text2);font-family:var(--font);font-weight:600;cursor:pointer;outline:none">
+              <option value="">👥 Todos</option>
+            </select>
+            <!-- Filter by stage -->
+            <div style="display:flex;gap:0.2rem;align-items:center">
+              <button id="bsf-all"    onclick="setBrandsStageFilter('all')"    style="padding:0.24rem 0.55rem;border-radius:6px;border:1px solid var(--border);font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--bg-card);color:var(--text)">Todas</button>
+              <button id="bsf-aire"   onclick="setBrandsStageFilter('aire')"   style="padding:0.24rem 0.55rem;border-radius:6px;border:1px solid rgba(59,158,221,0.3);font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--aire)">🌬️</button>
+              <button id="bsf-agua"   onclick="setBrandsStageFilter('agua')"   style="padding:0.24rem 0.55rem;border-radius:6px;border:1px solid rgba(45,195,179,0.3);font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--agua)">💧</button>
+              <button id="bsf-tierra" onclick="setBrandsStageFilter('tierra')" style="padding:0.24rem 0.55rem;border-radius:6px;border:1px solid rgba(90,170,53,0.3);font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--tierra)">🌱</button>
+              <button id="bsf-fuego"  onclick="setBrandsStageFilter('fuego')"  style="padding:0.24rem 0.55rem;border-radius:6px;border:1px solid rgba(232,98,42,0.3);font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--fuego)">🔥</button>
+            </div>
+            <!-- View toggle + export -->
             <div style="display:flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.2rem;gap:0.15rem">
               <button id="view-btn-cards" onclick="setBrandsView('cards')"
                 style="padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.12)">
@@ -1436,6 +1448,38 @@ body.portal-mode .main{ height:100vh; }
             </thead>
             <tbody id="brands-table-body"></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- ── CLIENT HUB ── -->
+      <div style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border)">
+        <!-- Header -->
+        <div style="padding:0.85rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:0.8rem;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);flex-wrap:wrap">
+          <div>
+            <div style="font-size:0.95rem;font-weight:800;color:var(--text);letter-spacing:-0.3px">📋 Client Hub</div>
+            <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem" id="client-hub-sub">Notas y seguimiento de clientes</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+            <!-- Filter by member -->
+            <select id="hub-member-filter" onchange="setHubMemberFilter(this.value)"
+              style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.6rem;font-size:0.72rem;color:var(--text2);font-family:var(--font);font-weight:600;cursor:pointer;outline:none">
+              <option value="">👥 Todos</option>
+            </select>
+            <!-- Urgency multi-filter pills -->
+            <div style="display:flex;align-items:center;gap:0.25rem">
+              <button id="hub-uf-sos"      onclick="toggleHubUrgencyFilter('sos')"      style="padding:0.22rem 0.55rem;border-radius:99px;border:1.5px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.1);font-size:0.68rem;font-weight:700;color:#ef4444;cursor:pointer;font-family:var(--font);transition:all 0.15s">🆘</button>
+              <button id="hub-uf-alta"     onclick="toggleHubUrgencyFilter('alta')"     style="padding:0.22rem 0.55rem;border-radius:99px;border:1.5px solid rgba(232,98,42,0.3);background:none;font-size:0.68rem;font-weight:700;color:var(--fuego);cursor:pointer;font-family:var(--font);transition:all 0.15s;opacity:0.4">🔴</button>
+              <button id="hub-uf-moderada" onclick="toggleHubUrgencyFilter('moderada')" style="padding:0.22rem 0.55rem;border-radius:99px;border:1.5px solid rgba(245,197,66,0.3);background:none;font-size:0.68rem;font-weight:700;color:#d4a800;cursor:pointer;font-family:var(--font);transition:all 0.15s;opacity:0.4">🟡</button>
+              <button id="hub-uf-baja"     onclick="toggleHubUrgencyFilter('baja')"     style="padding:0.22rem 0.55rem;border-radius:99px;border:1.5px solid rgba(90,170,53,0.3);background:none;font-size:0.68rem;font-weight:700;color:var(--tierra);cursor:pointer;font-family:var(--font);transition:all 0.15s;opacity:0.4">🟢</button>
+            </div>
+            <!-- Status tabs: removed — archived notes live in Archivo page -->
+            <button id="hub-collapse-all-btn" onclick="toggleAllHubComments()" style="display:none;align-items:center;gap:0.3rem;padding:0.28rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:none;font-size:0.72rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s" onmouseover="this.style.borderColor='var(--aire)'" onmouseout="this.style.borderColor='var(--border)'"><span id="hub-collapse-all-icon">▾</span> <span id="hub-collapse-all-label">Colapsar todos</span></button>
+            <button onclick="openHubModal(null)" style="display:flex;align-items:center;gap:0.4rem;padding:0.42rem 0.9rem;border-radius:99px;border:none;background:var(--text);color:var(--bg);font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font);transition:all 0.15s" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">+ Nota</button>
+          </div>
+        </div>
+        <!-- Notes grid — fixed height, internal scroll -->
+        <div id="client-hub-list" style="padding:1rem;display:grid;grid-template-columns:repeat(4,1fr);gap:0.65rem;max-height:420px;overflow-y:auto;scrollbar-width:thin;align-content:start">
+          <!-- Rendered by JS -->
         </div>
       </div>
 
@@ -1530,6 +1574,7 @@ body.portal-mode .main{ height:100vh; }
         <button class="tab-btn active" id="tab-crono-btn" onclick="switchTab('crono')">📅 Cronograma</button>
         <button class="tab-btn" id="tab-rondas-btn" onclick="switchTab('rondas')">🔄 Rondas</button>
         <button class="tab-btn" id="tab-bp-btn" onclick="switchTab('bp')">⭐ Branding Points</button>
+        <button class="tab-btn" id="tab-notas-btn" onclick="switchTab('notas')">📋 Notas</button>
         <button class="tab-btn" id="tab-domo-btn" onclick="switchTab('domo')">🏠 Domo</button>
         <button class="tab-btn" id="tab-portal-btn" onclick="switchTab('portal')">🌐 Portal cliente</button>
         <!-- Export pills — per tab -->
@@ -1635,6 +1680,24 @@ body.portal-mode .main{ height:100vh; }
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Tab: Notas de cliente -->
+      <div class="tab-panel" id="tab-notas">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem;flex-wrap:wrap;gap:0.5rem">
+          <div id="brand-notas-count" style="font-size:0.72rem;color:var(--text3)"></div>
+          <button id="brand-notas-collapse-all-btn" onclick="toggleAllBrandNotasComments()"
+            style="display:none;align-items:center;gap:0.35rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.75rem;font-size:0.72rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s"
+            onmouseover="this.style.borderColor='var(--aire)'" onmouseout="this.style.borderColor='var(--border)'">
+            <span id="brand-notas-collapse-icon">▾</span> <span id="brand-notas-collapse-label">Colapsar todos</span>
+          </button>
+        </div>
+        <div id="brand-notas-list" style="display:flex;flex-direction:column;gap:0.6rem"></div>
+        <div id="brand-notas-empty" style="display:none;text-align:center;padding:3rem 2rem;color:var(--text3)">
+          <div style="font-size:2.5rem;margin-bottom:0.8rem;opacity:0.3">📋</div>
+          <div style="font-size:0.95rem;font-weight:600">Sin notas para esta marca</div>
+          <div style="font-size:0.78rem;margin-top:0.3rem">Las notas creadas en el Client Hub para esta marca aparecerán aquí</div>
         </div>
       </div>
 
@@ -1824,7 +1887,6 @@ body.portal-mode .main{ height:100vh; }
             <button class="export-opt" onclick="runExport('equipo_xlsx')">📊 Excel</button>
           </div>
         </div>
-        <button class="btn-add" style="background:var(--agua);font-size:0.8rem;padding:0.45rem 1rem" onclick="openMemberModal()">+ Miembro</button>
       </div>
       <!-- Cal free mode toggle — visible on week/month tabs -->
       <div id="eq-cal-actions" style="display:none;margin-left:auto;align-items:center;gap:0.6rem">
@@ -2060,6 +2122,7 @@ body.portal-mode .main{ height:100vh; }
       <!-- Tabs -->
       <div class="tabs-bar" style="margin-bottom:1.5rem">
         <button class="tab-btn active" id="arch-tab-proyectos-btn" onclick="switchArchivoTab('proyectos')">🗄️ Archivo</button>
+        <button class="tab-btn" id="arch-tab-notas-btn" onclick="switchArchivoTab('notas')">📋 Notas archivadas</button>
         <button class="tab-btn" id="arch-tab-papelera-btn" onclick="switchArchivoTab('papelera')">🗑️ Papelera <span id="papelera-count-badge" style="display:none;background:var(--fuego);color:#fff;border-radius:99px;font-size:0.6rem;padding:0.1rem 0.45rem;margin-left:0.3rem;font-weight:700"></span></button>
       </div>
 
@@ -2092,6 +2155,25 @@ body.portal-mode .main{ height:100vh; }
           <div style="font-size:0.8rem">Cuando un proyecto tenga el cronograma al 100% y todos sus pagos cobrados, aparecerá aquí.</div>
         </div>
         <div id="archivo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem"></div>
+      </div>
+
+      <!-- Tab: Notas archivadas -->
+      <div id="arch-tab-notas" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.6rem">
+          <div style="font-size:0.8rem;color:var(--text3)">Notas del Client Hub marcadas como resueltas</div>
+          <div style="display:flex;gap:0.25rem">
+            <button id="arch-uf-sos"      onclick="toggleArchNotesUrgFilter('sos')"      style="padding:0.22rem 0.55rem;border-radius:99px;border:1.5px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.1);font-size:0.68rem;font-weight:700;color:#ef4444;cursor:pointer;font-family:var(--font)">🆘</button>
+            <button id="arch-uf-alta"     onclick="toggleArchNotesUrgFilter('alta')"     style="padding:0.22rem 0.55rem;border-radius:99px;border:1.5px solid rgba(232,98,42,0.3);background:none;font-size:0.68rem;font-weight:700;color:var(--fuego);cursor:pointer;font-family:var(--font);opacity:0.45">🔴</button>
+            <button id="arch-uf-moderada" onclick="toggleArchNotesUrgFilter('moderada')" style="padding:0.22rem 0.55rem;border-radius:99px;border:1.5px solid rgba(245,197,66,0.3);background:none;font-size:0.68rem;font-weight:700;color:#d4a800;cursor:pointer;font-family:var(--font);opacity:0.45">🟡</button>
+            <button id="arch-uf-baja"     onclick="toggleArchNotesUrgFilter('baja')"     style="padding:0.22rem 0.55rem;border-radius:99px;border:1.5px solid rgba(90,170,53,0.3);background:none;font-size:0.68rem;font-weight:700;color:var(--tierra);cursor:pointer;font-family:var(--font);opacity:0.45">🟢</button>
+          </div>
+        </div>
+        <div id="arch-notas-empty" style="display:none;text-align:center;padding:3rem 2rem;color:var(--text3)">
+          <div style="font-size:2.5rem;margin-bottom:0.8rem;opacity:0.3">📋</div>
+          <div style="font-size:0.95rem;font-weight:600">Sin notas archivadas</div>
+          <div style="font-size:0.78rem;margin-top:0.3rem">Las notas resueltas del Client Hub aparecerán aquí</div>
+        </div>
+        <div id="arch-notas-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0.8rem"></div>
       </div>
 
       <!-- Tab: Papelera -->
@@ -2567,105 +2649,14 @@ async function loadData(){
 }
 
 /* ═══ UNDO SYSTEM ═══ */
-const _undoStack = [];
-const _redoStack = [];
-const _undoMaxSize = 30;
+// Undo/redo removed — incompatible with collaborative multi-user sync
+function snapForUndo(){}
+function _updateUndoBtn(){}
+function _updateRedoBtn(){}
+async function undoAction(){}
+async function redoAction(){}
 let _undoInProgress = false;
-let _pendingUndoEntry = null; // set by snapForUndo() before mutating
-
-/* Call this BEFORE mutating appData, with a human-readable label */
-function snapForUndo(label){
-  if(_undoInProgress) return;
-  try {
-    // Strip large base64 images from snapshot to avoid JSON size issues
-    const stripped = JSON.parse(JSON.stringify(appData, (key, val) => {
-      if(key === 'image' && typeof val === 'string' && val.startsWith('data:')) return '[img]';
-      if(key === 'photo' && typeof val === 'string' && val.startsWith('data:')) return '[img]';
-      return val;
-    }));
-    _pendingUndoEntry = { snapshot: stripped, label };
-  } catch(e) {
-    console.warn('snapForUndo: could not snapshot', e);
-    _pendingUndoEntry = null;
-  }
-  // Any new action clears the redo stack
-  _redoStack.length = 0;
-  _updateRedoBtn();
-}
-
-function _updateUndoBtn(){
-  const btn = document.getElementById('btn-undo');
-  if(!btn) return;
-  if(_undoStack.length > 0){
-    const last = _undoStack[_undoStack.length-1];
-    btn.disabled = false;
-    btn.style.opacity = '1';
-    btn.textContent = `↩ ${last.label}`;
-    btn.title = `Deshacer: ${last.label} (Ctrl+Z)`;
-  } else {
-    btn.disabled = true;
-    btn.style.opacity = '0.4';
-    btn.textContent = '↩ Deshacer';
-    btn.title = 'Nada que deshacer';
-  }
-}
-
-function _updateRedoBtn(){
-  const btn = document.getElementById('btn-redo');
-  if(!btn) return;
-  if(_redoStack.length > 0){
-    const last = _redoStack[_redoStack.length-1];
-    btn.disabled = false;
-    btn.style.opacity = '1';
-    btn.textContent = `↪ ${last.label}`;
-    btn.title = `Rehacer: ${last.label} (Ctrl+Shift+Z)`;
-  } else {
-    btn.disabled = true;
-    btn.style.opacity = '0.4';
-    btn.textContent = '↪ Rehacer';
-    btn.title = 'Nada que rehacer';
-  }
-}
-
-async function undoAction(){
-  if(!_undoStack.length) return;
-  const { snapshot, label } = _undoStack.pop();
-  // Save current state to redo stack before replacing
-  _redoStack.push({ snapshot: JSON.parse(JSON.stringify(appData)), label });
-  _undoInProgress = true;
-  for(const k in appData) delete appData[k];
-  Object.assign(appData, snapshot);
-  const {error} = await sb.from('polen_shared').upsert({id:REC_ID,data:appData,updated_at:new Date().toISOString()},{onConflict:'id'});
-  _undoInProgress = false;
-  if(error){ showStatus('Error al deshacer ❌', true); _undoStack.push({snapshot,label}); _redoStack.pop(); }
-  else { showStatus(`↩ Deshecho: ${label}`); renderCurrentPage(); }
-  _updateUndoBtn();
-  _updateRedoBtn();
-}
-
-async function redoAction(){
-  if(!_redoStack.length) return;
-  const { snapshot, label } = _redoStack.pop();
-  // Save current state back to undo stack
-  _undoStack.push({ snapshot: JSON.parse(JSON.stringify(appData)), label });
-  _undoInProgress = true;
-  for(const k in appData) delete appData[k];
-  Object.assign(appData, snapshot);
-  const {error} = await sb.from('polen_shared').upsert({id:REC_ID,data:appData,updated_at:new Date().toISOString()},{onConflict:'id'});
-  _undoInProgress = false;
-  if(error){ showStatus('Error al rehacer ❌', true); _redoStack.push({snapshot,label}); _undoStack.pop(); }
-  else { showStatus(`↪ Rehecho: ${label}`); renderCurrentPage(); }
-  _updateUndoBtn();
-  _updateRedoBtn();
-}
-
-document.addEventListener('keydown', e=>{
-  const tag = document.activeElement?.tagName?.toLowerCase();
-  const isTyping = tag==='input'||tag==='textarea'||document.activeElement?.isContentEditable;
-  if(isTyping) return;
-  if((e.ctrlKey||e.metaKey) && e.shiftKey && e.key==='Z'){ e.preventDefault(); redoAction(); return; }
-  if((e.ctrlKey||e.metaKey) && e.key==='z'){ e.preventDefault(); undoAction(); }
-});
+let _pendingUndoEntry = null;
 
 /* ═══ CONCURRENCY-SAFE UPSERT ═══
    Strategy: Read-Merge-Write
@@ -2728,6 +2719,14 @@ function deepMergeAppData(server, local){
   });
   merged.cobros = mergedCob;
 
+  // ── clientNotes: union by id, prefer local for untouched, server for new ──
+  const serverNotes = Array.isArray(server.clientNotes) ? server.clientNotes : [];
+  const localNotes  = Array.isArray(local.clientNotes)  ? local.clientNotes  : [];
+  const noteMap = {};
+  serverNotes.forEach(n=>{ noteMap[n.id] = {...n}; });
+  localNotes.forEach(n=>{ noteMap[n.id] = {...(noteMap[n.id]||{}), ...n}; });
+  merged.clientNotes = Object.values(noteMap).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+
   // ── papelera: union (never lose deletions) ──
   const serverPap = Array.isArray(server.papelera) ? server.papelera : [];
   const localPap  = Array.isArray(local.papelera)  ? local.papelera  : [];
@@ -2747,12 +2746,6 @@ let _saveQueue = Promise.resolve(); // Serialise saves to prevent race within sa
 
 async function upsert(){
   // If a snap was registered before this mutation, push it onto the undo stack
-  if(!_undoInProgress && _pendingUndoEntry){
-    _undoStack.push(_pendingUndoEntry);
-    if(_undoStack.length > _undoMaxSize) _undoStack.shift();
-    _pendingUndoEntry = null;
-    _updateUndoBtn();
-  }
 
   // Serialise: wait for any in-flight save to finish first
   _saveQueue = _saveQueue.then(async ()=>{
@@ -3167,7 +3160,6 @@ async function saveBanner(){
   const text = textEl.value.trim();
   if(!text){ showStatus('El texto es obligatorio', true); return; }
 
-  try { snapForUndo('Guardar banner'); } catch(e){ console.warn('snapForUndo failed:', e); }
 
   const subtext = (document.getElementById('banner-subtext')?.value||'').trim();
   const isImage = _bannerMode === 'image' && _bannerImageB64;
@@ -3210,7 +3202,6 @@ async function deleteBannerCurrent(){
   }
   const ok1 = await askModal({label:'¿Eliminar este banner?', type:'select', options:['Cancelar','Sí, eliminar']});
   if(ok1!==1) return;
-  snapForUndo('Eliminar banner');
   appData.banners.splice(_bannerIdx, 1);
   _bannerIdx = Math.max(0, _bannerIdx - 1);
   await upsert();
@@ -3303,7 +3294,6 @@ async function calDrop(event, newDateStr){
   if(actIdx<0) return;
   const act = acts[actIdx];
 
-  snapForUndo('Mover evento');
 
   if(dragType === 'revision'){
     act.revDateOverride = newDateStr;
@@ -3506,7 +3496,6 @@ async function saveNewPin(){
   } else if(_changingPinSection==='member'){
     appData.finanzas.memberPin = newPin;
   }
-  try { snapForUndo('Cambiar PIN'); } catch(e){}
   await upsert();
   document.getElementById('modal-fin-pin').classList.add('hidden');
   showStatus('PIN actualizado ✓');
@@ -3748,7 +3737,6 @@ function renderFinAnual(){
 
 async function saveFinCell(monthIdx, field, val){
   markLocalChange('finanzas');
-  snapForUndo('Editar finanzas');
     ensureFinData();
   const m = appData.finanzas.months[monthIdx];
   m[field] = field==='observaciones' ? val : (parseFloat(val)||0);
@@ -4276,7 +4264,6 @@ function toggleGCalMode(){
 }
 
 async function editGCalUrl(){
-  snapForUndo('URL calendario');
   markLocalChange('calendarUrl');
     const url = await askModal({ label:'URL del embed de Google Calendar', placeholder:'https://calendar.google.com/...', defaultValue:appData.calendarUrl||GCAL_BASE_URL });
   if(!url) return;
@@ -4328,7 +4315,6 @@ function toggleToolCard(toolId){
 }
 
 async function addToolInfo(toolId){
-  snapForUndo('Agregar info herramienta');
     ensureDigitalTools();
   const tool = appData.digitalTools.find(t=>t.id===toolId);
   if(!tool){ showStatus('Herramienta no encontrada',true); return; }
@@ -4345,7 +4331,6 @@ async function addToolInfo(toolId){
 }
 
 async function removeToolInfo(toolId, idx){
-  snapForUndo('Eliminar info herramienta');
     ensureDigitalTools();
   const tool = appData.digitalTools.find(t=>t.id===toolId);
   if(!tool||!tool.info) return;
@@ -4355,7 +4340,6 @@ async function removeToolInfo(toolId, idx){
 }
 
 async function saveToolInfo(toolId, idx, field, val){
-  snapForUndo('Editar herramienta');
     ensureDigitalTools();
   const tool = appData.digitalTools.find(t=>t.id===toolId);
   if(!tool||!tool.info||!tool.info[idx]) return;
@@ -4407,7 +4391,6 @@ function closeToolModal(){
 }
 
 async function saveNewTool(){
-  snapForUndo('Nueva herramienta');
   markLocalChange('digitalTools');
     const name = document.getElementById('tool-input-name').value.trim();
   if(!name){ showStatus('El nombre es obligatorio', true); return; }
@@ -4425,7 +4408,6 @@ async function saveNewTool(){
 async function deleteDigitalTool(toolId){
   const ok2 = await askModal({label:'¿Eliminar esta herramienta?', type:'select', options:['Cancelar','Sí, eliminar']});
   if(ok2!==1) return;
-  snapForUndo('Eliminar herramienta');
   markLocalChange('digitalTools');
   ensureDigitalTools();
   appData.digitalTools = appData.digitalTools.filter(t=>t.id!==toolId);
@@ -4471,13 +4453,14 @@ const PAPELERA_DIAS = 30;
 
 function switchArchivoTab(tab){
   _archivoActiveTab = tab;
-  ['proyectos','papelera'].forEach(t=>{
+  ['proyectos','notas','papelera'].forEach(t=>{
     const panel = document.getElementById('arch-tab-'+t);
-    const btn = document.getElementById('arch-tab-'+t+'-btn');
+    const btn   = document.getElementById('arch-tab-'+t+'-btn');
     if(panel) panel.style.display = t===tab ? 'block' : 'none';
-    if(btn) btn.classList.toggle('active', t===tab);
+    if(btn)   btn.classList.toggle('active', t===tab);
   });
   if(tab==='papelera') renderPapelera();
+  else if(tab==='notas') renderArchivoNotas();
   else renderArchivo();
 }
 
@@ -4841,6 +4824,7 @@ function renderDashboard(){
   const brands=appData.brands||[];
   renderBanners();
   renderDigitalTools();
+  renderClientHub();
   // Set calendar URL if saved
   const iframe = document.getElementById('gcal-iframe');
   if(iframe && appData.calendarUrl){
@@ -4863,16 +4847,31 @@ function renderDashboard(){
   if(el_paused) el_paused.textContent = paused;
 
   renderStageCards(brands);
+  syncBrandsMemberDropdown();
+
+  // Apply cards filters
+  let filteredBrands = brands;
+  if(_brandsStageFilter !== 'all') filteredBrands = filteredBrands.filter(b => b.stage === _brandsStageFilter);
+  if(_brandsMemberFilter) filteredBrands = filteredBrands.filter(b => b.domo && (b.domo.m1===_brandsMemberFilter || b.domo.m2===_brandsMemberFilter || (b.domo.helpers||[]).includes(_brandsMemberFilter)));
+
   // Update subtitle
   const brandsSub = document.getElementById('brands-section-sub');
-  if(brandsSub) brandsSub.textContent = `Portafolio completo · ${brands.length} proyectos`;
+  if(brandsSub) brandsSub.textContent = filteredBrands.length === brands.length
+    ? `Portafolio completo · ${brands.length} proyectos`
+    : `${filteredBrands.length} de ${brands.length} proyectos`;
+
   // If table view is active, re-render table
   if(_brandsView === 'table'){ renderBrandsTable(); }
   const grid=document.getElementById('brands-grid');
-  if(!brands.length){grid.innerHTML='<div class="empty-state"><div class="empty-icon">✦</div><div>No hay marcas todavía.<br>Haz clic en <strong>+ Nueva marca</strong> para empezar.</div></div>';return;}
+  if(!filteredBrands.length){
+    grid.innerHTML = brands.length
+      ? '<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin marcas con este filtro.</div></div>'
+      : '<div class="empty-state"><div class="empty-icon">✦</div><div>No hay marcas todavía.<br>Haz clic en <strong>+ Nueva marca</strong> para empezar.</div></div>';
+    return;
+  }
   const si={aire:{l:'Aire',e:'🌬️'},agua:{l:'Agua',e:'💧'},tierra:{l:'Tierra',e:'🌱'},fuego:{l:'Fuego',e:'🔥'}};
   const pi={alta:'🔴 Alta',media:'🟡 Media',baja:'🟢 Baja'};
-  grid.innerHTML=brands.map(b=>{
+  grid.innerHTML=filteredBrands.map(b=>{
     const s=si[b.stage]||si.aire;
     const pct=brandProgress(b);
     const brandCol = getBrandColor(b);
@@ -4905,7 +4904,6 @@ async function deleteBrand(id){ markLocalChange("brands","papelera");
   if(!brand) return;
   const ok = await confirmModal(`¿Mover "${brand.name}" a la papelera?`, 'Mover a papelera');
   if(!ok) return;
-  snapForUndo('Eliminar marca');
   softDeleteBrand(brand);
   renderDashboard();
   await upsert();
@@ -5012,7 +5010,6 @@ async function toggleRonda(brandId,rondaId){
 }
 
 async function deleteRonda(brandId,rondaId){
-  snapForUndo('Eliminar ronda');
     const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.rondas)return;
   brand.rondas=brand.rondas.filter(x=>x.id!==rondaId);
@@ -5031,7 +5028,6 @@ async function saveRondaField(brandId, rondaId, field, val){
 }
 
 async function addRonda(){
-  snapForUndo('Agregar ronda');
   const brand=appData.brands.find(b=>b.id===currentBrandId);
   if(!brand)return;
   if(!brand.rondas)brand.rondas=[];
@@ -5108,7 +5104,7 @@ async function renderBrandPage(){
 }
 
 function switchTab(tab){
-  ['crono','rondas','bp','domo','portal'].forEach(t=>{
+  ['crono','rondas','bp','notas','domo','portal'].forEach(t=>{
     const panel=document.getElementById('tab-'+t);
     const btn=document.getElementById('tab-'+t+'-btn');
     if(panel)panel.classList.toggle('active',t===tab);
@@ -5128,6 +5124,7 @@ function switchTab(tab){
     if(brand)renderRondas(brand);
   }
   if(tab==='portal') renderPortalTab();
+  if(tab==='notas')  renderBrandNotas();
 }
 
 /* ── Inline export dropdown toggle ── */
@@ -5260,7 +5257,6 @@ async function toggleHito(brandId, stage, actId){
 }
 
 async function toggleStageAll(brandId, stage){
-  snapForUndo('Marcar etapa');
   const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand?.cronograma) return;
   const acts = brand.cronograma[stage]||[];
@@ -5273,7 +5269,6 @@ async function toggleStageAll(brandId, stage){
 }
 
 async function addCronoActivity(brandId, stage){
-  snapForUndo('Agregar actividad');
     const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.cronograma) return;
   const name = await askModal({ label:'Nueva actividad', placeholder:'Ej: Revisión de propuestas', defaultValue:'' });
@@ -5292,7 +5287,6 @@ async function addCronoActivity(brandId, stage){
 }
 
 async function deleteCronoActivity(brandId, stage, actId){
-  snapForUndo('Eliminar actividad');
     const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.cronograma) return;
   const acts = brand.cronograma[stage]||[];
@@ -5343,7 +5337,7 @@ function startInlineDays(e, brandId, stage, actId){
   const commit = async()=>{
     const v = parseInt(inp.value);
     if(!isNaN(v) && v > 0 && v !== act.days){
-      snapForUndo('Editar duración');
+
       act.days = v;
       act.endDate = addWorkdays(act.startDate, act.days - 1);
       for(let i=idx+1;i<acts.length;i++){
@@ -5392,7 +5386,6 @@ function editDate(e,brandId,stage,actId,field){
 
 /* ── Shift ALL dates by N workdays ── */
 async function shiftAllDates(brandId,delta){
-  snapForUndo('Mover fechas');
     const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand)return;
   ['aire','agua','tierra','fuego'].forEach(stage=>{
@@ -5407,7 +5400,6 @@ async function shiftAllDates(brandId,delta){
 }
 
 async function cycleStatus(brandId,stage,actId){
-  snapForUndo('Cambiar estado');
     const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.cronograma[stage])return;
   const act=brand.cronograma[stage].find(a=>a.id===actId);
@@ -5502,7 +5494,6 @@ function renderBrandDomo(){
 }
 
 async function saveBrandDomo(){
-  snapForUndo('Guardar domo');
     const brand = appData.brands.find(b=>b.id===currentBrandId);
   if(!brand) return;
   const p1 = document.getElementById('domo-p1')?.value||'';
@@ -5657,7 +5648,6 @@ async function updateBrandBpQty(brandId,ci,ii,val){
 }
 
 async function addBrandBpItem(brandId,ci){
-  snapForUndo('Agregar entregable');
     const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.brandingPoints)return;
   const name=await askModal({label:'Nombre del entregable',placeholder:'Ej: Manual de marca'});
@@ -5848,7 +5838,6 @@ function compressImage(file, maxW, maxH, quality){
 }
 
 async function saveBrand(){ markLocalChange("brands");
-  snapForUndo('Guardar marca');
     const name=document.getElementById('input-name').value.trim();
   if(!name){showStatus('El nombre es obligatorio',true);return;}
   const btn=document.getElementById('btn-save');btn.disabled=true;btn.textContent='Guardando…';
@@ -5949,7 +5938,6 @@ async function deleteBrandCurrent(){
   if(!brand) return;
   const ok = await confirmModal(`¿Mover "${brand.name}" a la papelera?`, 'Mover a papelera');
   if(!ok) return;
-  snapForUndo('Eliminar marca');
   softDeleteBrand(brand);
   currentBrandId=null;
   await upsert();
@@ -6037,7 +6025,6 @@ function tplToggleHito(stage,id){const a=appData.template.cronograma[stage].find
 function tplUpdateDays(stage,id,val){const a=appData.template.cronograma[stage].find(x=>x.id===id);if(a)a.days=parseInt(val)||0;renderTplStage(stage);renderTplSummary();}
 function tplDeleteAct(stage,id){appData.template.cronograma[stage]=appData.template.cronograma[stage].filter(a=>a.id!==id);renderTplStage(stage);renderTplSummary();}
 async function tplAddAct(stage){const name=await askModal({label:'Nueva actividad en la plantilla',placeholder:'Ej: Reunión de revisión'});if(!name||!name.trim())return;appData.template.cronograma[stage].push({id:uid(),name:name.trim(),days:1,isHito:false,isNaming:false});renderTplStage(stage);renderTplSummary();}
-  snapForUndo('Agregar actividad template');
   function onNamingToggle(){appData.template.includeNaming=document.getElementById('tpl-naming').checked;['aire','agua','tierra','fuego'].forEach(s=>renderTplStage(s));renderTplSummary();}
 
 
@@ -6130,12 +6117,10 @@ function tplUpdateBpPts(ci,ii,val){appData.template.brandingPoints.categories[ci
 function tplUpdateBpQty(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].qty=parseInt(val)||1;renderTplBpCats();}
 function tplDeleteBpItem(ci,ii){appData.template.brandingPoints.categories[ci].items.splice(ii,1);renderTplBpCats();}
 async function tplAddBpItem(ci){const name=await askModal({label:'Nombre del entregable',placeholder:'Ej: Manual de marca'});if(!name||!name.trim())return;const ptsStr=await askModal({label:`Branding points para "${name}"`,type:'number',defaultValue:'1'});const pts=parseInt(ptsStr)||1;appData.template.brandingPoints.categories[ci].items.push({id:uid(),name:name.trim(),pts,qty:1,selected:false});renderTplBpCats();}
-  snapForUndo('Agregar entregable template');
   function onBpTotalChange(){appData.template.brandingPoints.total=parseInt(document.getElementById('bp-total').value)||0;renderTplBpCats();}
 
 async function saveTemplate(){
   markLocalChange('template');
-  snapForUndo('Guardar template');
     appData.template.industria=document.getElementById('tpl-industria').value.trim();
   appData.template.prioridad=document.getElementById('tpl-prioridad').value;
   appData.template.domoM1=document.getElementById('tpl-domo-m1')?.value||'';
@@ -6226,7 +6211,6 @@ function renderTeamPage(){
 }
 
 async function quickSaveStatus(memberId, val){
-  snapForUndo('Cambiar estado miembro');
     const m = (appData.members||[]).find(x=>x.id===memberId);
   if(!m) return;
   m.status = val;
@@ -6557,7 +6541,6 @@ function selectMemberColor(color){
 }
 
 async function saveMember(){ markLocalChange("members");
-  snapForUndo('Guardar miembro');
     const nombre = document.getElementById('m-nombre').value.trim();
   if(!nombre){ document.getElementById('modal-member-err').textContent='El nombre es obligatorio'; return; }
   const areaRadio = document.querySelector('input[name="m-area"]:checked');
@@ -7327,7 +7310,6 @@ async function dropToDomo(event, toKey){
 }
 
 async function createDomo(){
-  snapForUndo('Crear domo');
     const members = appData.members||[];
   if(members.length < 2){ showStatus('Necesitas al menos dos miembros', true); return; }
   const options = members.map(m=>`${m.emoji||'👤'} ${m.apodo||m.nombre} — ${m.cargo||'—'}`);
@@ -7399,7 +7381,6 @@ async function quickSaveMemberStatus(id,val){
 }
 
 async function deleteMemberCurrent(){
-  snapForUndo('Eliminar miembro');
     if(!currentMemberId)return;
   const m=(appData.members||[]).find(x=>x.id===currentMemberId);
   if(!m)return;
@@ -7743,9 +7724,42 @@ async function portalAddBpItem(brandId, ci){
   _portalMarkDirty();
 }
 /* ═══ BRANDS VIEW TOGGLE + FILTERS ═══ */
-let _brandsView      = 'cards';
-let _tableSort       = 'num';
+let _brandsView        = 'cards';
+let _tableSort         = 'num';
 let _tableStageFilter  = 'all';
+let _brandsMemberFilter = ''; // memberId or ''
+let _brandsStageFilter  = 'all'; // for cards view
+
+function setBrandsMemberFilter(val){
+  _brandsMemberFilter = val;
+  renderDashboard();
+}
+
+function setBrandsStageFilter(stg){
+  _brandsStageFilter = stg;
+  // Update button styles
+  ['all','aire','agua','tierra','fuego'].forEach(k=>{
+    const btn = document.getElementById('bsf-'+k);
+    if(!btn) return;
+    const isActive = k === stg;
+    const colMap = {aire:'var(--aire)',agua:'var(--agua)',tierra:'var(--tierra)',fuego:'var(--fuego)',all:'var(--text)'};
+    const bgMap  = {aire:'rgba(59,158,221,0.12)',agua:'rgba(45,195,179,0.12)',tierra:'rgba(90,170,53,0.12)',fuego:'rgba(232,98,42,0.12)',all:'var(--bg-card)'};
+    btn.style.background  = isActive ? bgMap[k]  : 'none';
+    btn.style.color       = isActive ? colMap[k] : (k==='all' ? 'var(--text3)' : colMap[k]);
+    btn.style.fontWeight  = isActive ? '700' : '600';
+    btn.style.opacity     = isActive ? '1' : '0.55';
+  });
+  renderDashboard();
+}
+
+function syncBrandsMemberDropdown(){
+  const sel = document.getElementById('brands-member-filter');
+  if(!sel) return;
+  const members = appData.members || [];
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">👥 Todos</option>' +
+    members.map(m=>`<option value="${m.id}" ${m.id===cur?'selected':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
+}
 
 function setBrandsView(mode){
   _brandsView = mode;
@@ -8819,6 +8833,751 @@ function buildCronoFromImport(){
   return crono;
 }
 
+/* ═══ CLIENT HUB ═══ */
+
+const HUB_URGENCY = {
+  sos:      { label:'SOS',          emoji:'🆘', color:'#ef4444',       bg:'rgba(239,68,68,0.1)',   border:'rgba(239,68,68,0.35)' },
+  alta:     { label:'Alta',         emoji:'🔴', color:'var(--fuego)',  bg:'rgba(232,98,42,0.08)',  border:'rgba(232,98,42,0.3)'  },
+  moderada: { label:'Moderada',     emoji:'🟡', color:'#d4a800',       bg:'rgba(245,197,66,0.08)', border:'rgba(245,197,66,0.3)' },
+  baja:     { label:'Poco urgente', emoji:'🟢', color:'var(--tierra)', bg:'rgba(90,170,53,0.08)',  border:'rgba(90,170,53,0.3)'  },
+};
+const HUB_URGENCY_ORDER = { sos:0, alta:1, moderada:2, baja:3 };
+
+let _hubFilter = 'active'; // hub always shows active; archived go to Archivo
+let _hubMemberFilter   = '';         // memberId or ''
+let _hubUrgencyFilters = new Set();  // empty = show all; populated = show only these
+let _hubSelectedUrgency = 'moderada';
+let _hubSelectedMembers = new Set();
+let _hubEditingId       = null;      // id of note being edited
+
+function ensureHubData(){
+  if(!Array.isArray(appData.clientNotes)) appData.clientNotes = [];
+}
+
+/* ── Urgency multi-filter (pills in header) ── */
+function toggleHubUrgencyFilter(key){
+  if(_hubUrgencyFilters.has(key)) _hubUrgencyFilters.delete(key);
+  else _hubUrgencyFilters.add(key);
+  syncHubUrgencyFilterUI();
+  renderClientHub();
+}
+function syncHubUrgencyFilterUI(){
+  Object.keys(HUB_URGENCY).forEach(k=>{
+    const btn = document.getElementById('hub-uf-'+k);
+    if(!btn) return;
+    const active = _hubUrgencyFilters.size === 0 || _hubUrgencyFilters.has(k);
+    btn.style.opacity   = active ? '1' : '0.35';
+    btn.style.background = _hubUrgencyFilters.has(k) ? HUB_URGENCY[k].bg : 'none';
+  });
+}
+
+/* ── Member filter dropdown ── */
+function syncHubMemberDropdown(){
+  const sel = document.getElementById('hub-member-filter');
+  if(!sel) return;
+  const members = appData.members || [];
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">👥 Todos</option>' +
+    members.map(m=>`<option value="${m.id}" ${m.id===cur?'selected':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
+}
+function setHubMemberFilter(val){ _hubMemberFilter = val; renderClientHub(); }
+
+/* ── Status tab filter ── */
+function setHubFilter(f){
+  _hubFilter = f;
+  const btnA = document.getElementById('hub-filter-active');
+  const btnD = document.getElementById('hub-filter-done');
+  const on  = 'padding:0.28rem 0.7rem;border-radius:6px;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.1)';
+  const off = 'padding:0.28rem 0.7rem;border-radius:6px;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3)';
+  if(btnA) btnA.style.cssText = f==='active' ? on : off;
+  if(btnD) btnD.style.cssText = f==='done'   ? on : off;
+  renderClientHub();
+}
+
+/* ── Main render ── */
+function renderClientHub(){
+  ensureHubData();
+  syncHubMemberDropdown();
+  syncHubUrgencyFilterUI();
+  const list = document.getElementById('client-hub-list');
+  const sub  = document.getElementById('client-hub-sub');
+  if(!list) return;
+
+  let notes = appData.clientNotes.filter(n => !n.done); // archived notes live in Archivo page
+  if(_hubMemberFilter) notes = notes.filter(n => Array.isArray(n.assignees) && n.assignees.includes(_hubMemberFilter));
+  if(_hubUrgencyFilters.size > 0) notes = notes.filter(n => _hubUrgencyFilters.has(n.urgency));
+
+  notes.sort((a,b)=>{
+    const d = (HUB_URGENCY_ORDER[a.urgency]??99) - (HUB_URGENCY_ORDER[b.urgency]??99);
+    return d !== 0 ? d : (b.createdAt||'').localeCompare(a.createdAt||'');
+  });
+
+  const totalActive = appData.clientNotes.filter(n=>!n.done).length;
+  if(sub) sub.textContent = totalActive ? `${totalActive} nota${totalActive!==1?'s':''} activa${totalActive!==1?'s':''}` : 'Sin notas activas';
+
+  if(!notes.length){
+    list.style.gridTemplateColumns = '1fr';
+    list.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--text3);font-size:0.82rem">
+      ✓ Sin notas activas
+    </div>`;
+    return;
+  }
+  list.style.gridTemplateColumns = 'repeat(4,1fr)';
+  _syncHubCollapseAllBtn();
+
+  list.innerHTML = notes.map(note=>{
+    const urg    = HUB_URGENCY[note.urgency] || HUB_URGENCY.moderada;
+    const brand  = (appData.brands||[]).find(b=>b.id===note.brandId);
+    const brandCol = brand ? getBrandColor(brand) : 'var(--text3)';
+    const logoHTML = brand?.image
+      ? `<img src="${brand.image}" style="width:100%;height:100%;object-fit:cover;border-radius:5px">`
+      : `<span style="font-size:0.65rem;font-weight:800;color:${brandCol}">${(brand?.name||'?').charAt(0)}</span>`;
+    const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short'}) : '';
+    const assignees = (note.assignees||[]).map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
+    const assigneesInline = assignees.map(m=>{
+      const col = m.color||'var(--aire)';
+      const av  = m.photo ? `<img src="${m.photo}" style="width:14px;height:14px;object-fit:cover;border-radius:50%;flex-shrink:0">` : `<span style="font-size:0.55rem;font-weight:800;color:${col}">${m.emoji||(m.apodo||m.nombre).charAt(0)}</span>`;
+      return `<span style="display:inline-flex;align-items:center;gap:0.2rem;background:${col}18;border:1px solid ${col}44;border-radius:99px;padding:0.08rem 0.35rem 0.08rem 0.22rem;font-size:0.65rem;font-weight:600;color:${col};white-space:nowrap;flex-shrink:0">
+        <span style="width:14px;height:14px;border-radius:50%;background:${col}22;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${av}</span>${m.apodo||m.nombre}
+      </span>`;
+    }).join('');
+
+    return `<div style="display:flex;flex-direction:column;gap:0.4rem;padding:0.75rem;background:${note.done?'var(--glass)':urg.bg};border:1px solid ${note.done?'var(--border)':urg.border};border-radius:10px;transition:all 0.18s;${note.done?'opacity:0.55':''}">
+      <div style="display:flex;align-items:center;gap:0.35rem">
+        <button type="button" onclick="toggleHubNote('${note.id}')"
+          style="width:18px;height:18px;border-radius:5px;border:2px solid ${note.done?'var(--tierra)':urg.color};background:${note.done?'var(--tierra)':'transparent'};cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#fff;transition:all 0.15s">${note.done?'✓':''}</button>
+        <span style="font-size:0.62rem;font-weight:700;color:${urg.color};background:${urg.bg};border:1px solid ${urg.border};border-radius:5px;padding:0.08rem 0.4rem;white-space:nowrap">${urg.emoji} ${urg.label}</span>
+        <span style="font-size:0.62rem;color:var(--text3);margin-left:auto;white-space:nowrap">${date}</span>
+        <button type="button" onclick="openHubComments('${note.id}')" title="Comentar"
+          style="display:inline-flex;align-items:center;gap:0.25rem;background:rgba(45,195,179,0.12);border:1px solid rgba(45,195,179,0.3);border-radius:99px;padding:0.18rem 0.5rem;color:var(--agua);cursor:pointer;font-size:0.68rem;font-weight:700;transition:all 0.15s;flex-shrink:0"
+          onmouseover="this.style.background='rgba(45,195,179,0.22)'" onmouseout="this.style.background='rgba(45,195,179,0.12)'">💬${note.comments?.length ? ` ${note.comments.length}` : ''}</button>
+        <button type="button" onclick="openHubModal('${note.id}')" title="Editar"
+          style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.7rem;padding:0;line-height:1;flex-shrink:0;transition:color 0.12s"
+          onmouseover="this.style.color='var(--aire)'" onmouseout="this.style.color='var(--text3)'">✏️</button>
+        <button type="button" onclick="deleteHubNote('${note.id}')"
+          style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.68rem;padding:0;line-height:1;flex-shrink:0;transition:color 0.12s"
+          onmouseover="this.style.color='#ff5c72'" onmouseout="this.style.color='var(--text3)'">✕</button>
+      </div>
+      <!-- Marca + asignados en la misma fila -->
+      <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;min-width:0">
+        ${brand ? `<div style="display:flex;align-items:center;gap:0.25rem;cursor:pointer;flex-shrink:0" onclick="openBrand('${brand.id}')">
+          <div style="width:14px;height:14px;border-radius:3px;background:var(--bg-card2);border:1.5px solid ${brandCol};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${logoHTML}</div>
+          <span style="font-size:0.7rem;font-weight:700;color:${brandCol};white-space:nowrap">${brand.name}</span>
+        </div>` : ''}
+        ${assigneesInline}
+      </div>
+      <div style="font-size:0.79rem;color:${note.done?'var(--text3)':'var(--text)'};line-height:1.5;${note.done?'text-decoration:line-through;':''};word-break:break-word;flex:1">${note.text}</div>
+      ${(note.comments?.length) ? buildHubCardComments(note.id, note.comments, urg) : ''}
+    </div>`;
+  }).join('');
+}
+
+/* ── Modal open (null = new, id = edit) ── */
+function openHubModal(noteId=null){
+  _hubEditingId = noteId || null;
+  _hubSelectedUrgency = 'moderada';
+  _hubSelectedMembers = new Set();
+
+  const title   = document.getElementById('hub-modal-title');
+  const saveBtn = document.getElementById('hub-btn-save');
+  const editId  = document.getElementById('hub-editing-id');
+
+  // Populate brand select
+  const sel = document.getElementById('hub-input-brand');
+  if(sel) sel.innerHTML = '<option value="">— Seleccionar marca —</option>' +
+    (appData.brands||[]).map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+
+  if(noteId){
+    // Edit mode: pre-fill fields
+    ensureHubData();
+    const note = appData.clientNotes.find(n=>n.id===noteId);
+    if(!note){ showStatus('Nota no encontrada', true); return; }
+    if(title)   title.textContent = '✏️ Editar nota';
+    if(saveBtn) saveBtn.textContent = 'Guardar cambios';
+    if(editId)  editId.value = noteId;
+    if(sel) sel.value = note.brandId || '';
+    selectHubUrgency(note.urgency || 'moderada');
+    const noteEl = document.getElementById('hub-input-note');
+    if(noteEl) noteEl.value = note.text || '';
+    _hubSelectedMembers = new Set(note.assignees || []);
+  } else {
+    // New mode
+    if(title)   title.textContent = '📋 Nueva nota de cliente';
+    if(saveBtn) saveBtn.textContent = 'Guardar nota';
+    if(editId)  editId.value = '';
+    selectHubUrgency('moderada');
+    const noteEl = document.getElementById('hub-input-note');
+    if(noteEl) noteEl.value = '';
+  }
+
+  renderHubMemberChips();
+  const err = document.getElementById('hub-modal-err');
+  if(err){ err.style.display='none'; err.textContent=''; }
+  document.getElementById('modal-hub').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('hub-input-note')?.focus(), 80);
+}
+
+function renderHubMemberChips(){
+  const wrap = document.getElementById('hub-member-chips');
+  if(!wrap) return;
+  const members = appData.members || [];
+  if(!members.length){ wrap.innerHTML='<span style="font-size:0.72rem;color:var(--text3)">Sin miembros en el equipo</span>'; return; }
+  wrap.innerHTML = members.map(m=>{
+    const col = m.color || 'var(--aire)';
+    const selected = _hubSelectedMembers.has(m.id);
+    const av = m.photo ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : (m.emoji||(m.apodo||m.nombre).charAt(0));
+    return `<button type="button" id="hub-chip-${m.id}" onclick="toggleHubMemberChip('${m.id}')"
+      style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.22rem 0.55rem 0.22rem 0.25rem;border-radius:99px;border:1.5px solid ${selected?col:'var(--border)'};background:${selected?col+'22':'none'};cursor:pointer;font-family:var(--font);transition:all 0.15s">
+      <div style="width:18px;height:18px;border-radius:50%;background:${col}22;border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:700;color:${col};overflow:hidden;flex-shrink:0">${av}</div>
+      <span style="font-size:0.72rem;font-weight:${selected?'700':'600'};color:${selected?col:'var(--text2)'};white-space:nowrap">${m.apodo||m.nombre}</span>
+    </button>`;
+  }).join('');
+}
+
+function toggleHubMemberChip(memberId){
+  if(_hubSelectedMembers.has(memberId)) _hubSelectedMembers.delete(memberId);
+  else _hubSelectedMembers.add(memberId);
+  renderHubMemberChips();
+}
+
+function closeHubModal(){ document.getElementById('modal-hub').classList.add('hidden'); }
+
+function selectHubUrgency(key){
+  _hubSelectedUrgency = key;
+  Object.keys(HUB_URGENCY).forEach(k=>{
+    const btn = document.getElementById('hub-urg-'+k);
+    if(!btn) return;
+    const u = HUB_URGENCY[k], isActive = k===key;
+    btn.style.background  = isActive ? u.bg   : 'none';
+    btn.style.borderColor = isActive ? u.color : u.border;
+    btn.style.transform   = isActive ? 'scale(1.05)' : 'scale(1)';
+    btn.style.boxShadow   = isActive ? `0 0 0 2px ${u.color}40` : 'none';
+  });
+  const h = document.getElementById('hub-input-urgency');
+  if(h) h.value = key;
+}
+
+async function saveHubNote(){
+  ensureHubData();
+  const brandId   = document.getElementById('hub-input-brand')?.value || '';
+  const urgency   = document.getElementById('hub-input-urgency')?.value || 'moderada';
+  const text      = (document.getElementById('hub-input-note')?.value || '').trim();
+  const assignees = [..._hubSelectedMembers];
+  const editingId = document.getElementById('hub-editing-id')?.value || '';
+  const err       = document.getElementById('hub-modal-err');
+
+  if(!brandId){ if(err){err.textContent='⚠️ Selecciona una marca.';err.style.display='block';} return; }
+  if(!text)   { if(err){err.textContent='⚠️ Escribe una nota.';err.style.display='block';} return; }
+
+  if(editingId){
+    const note = appData.clientNotes.find(n=>n.id===editingId);
+    if(note){ note.brandId=brandId; note.urgency=urgency; note.text=text; note.assignees=assignees; note.editedAt=new Date().toISOString(); }
+  } else {
+    appData.clientNotes.unshift({ id:uid(), brandId, urgency, text, assignees, done:false, createdAt:new Date().toISOString() });
+  }
+
+  markLocalChange('clientNotes');
+  closeHubModal();
+  renderClientHub();
+  if(currentPage==='brand') renderBrandNotas();
+  await upsert();
+  showStatus(editingId ? 'Nota actualizada ✓' : 'Nota guardada ✓');
+}
+
+async function toggleHubNote(noteId){
+  ensureHubData();
+  const note = appData.clientNotes.find(n=>n.id===noteId);
+  if(!note) return;
+  note.done = !note.done;
+  if(note.done) note.doneAt = new Date().toISOString();
+  markLocalChange('clientNotes');
+  renderClientHub();
+  if(_archivoActiveTab==='notas') renderArchivoNotas();
+  if(currentPage==='brand') renderBrandNotas();
+  await upsert();
+  showStatus(note.done ? 'Nota archivada ✓' : 'Nota reactivada');
+}
+
+async function deleteHubNote(noteId){
+  ensureHubData();
+  const ok = await confirmModal('¿Eliminar esta nota?', 'Eliminar');
+  if(!ok) return;
+  appData.clientNotes = appData.clientNotes.filter(n=>n.id!==noteId);
+  markLocalChange('clientNotes');
+  renderClientHub();
+  await upsert();
+  showStatus('Nota eliminada');
+}
+
+/* ═══ ARCHIVO — NOTAS ARCHIVADAS ═══ */
+
+let _archNotesUrgFilters = new Set();
+
+function toggleArchNotesUrgFilter(key){
+  if(_archNotesUrgFilters.has(key)) _archNotesUrgFilters.delete(key);
+  else _archNotesUrgFilters.add(key);
+  // Sync pill UI
+  ['sos','alta','moderada','baja'].forEach(k=>{
+    const btn = document.getElementById('arch-uf-'+k);
+    if(!btn) return;
+    const active = _archNotesUrgFilters.size===0 || _archNotesUrgFilters.has(k);
+    btn.style.opacity   = active ? '1' : '0.35';
+    btn.style.background = _archNotesUrgFilters.has(k) ? HUB_URGENCY[k].bg : 'none';
+  });
+  renderArchivoNotas();
+}
+
+function renderArchivoNotas(){
+  ensureHubData();
+  const grid  = document.getElementById('arch-notas-grid');
+  const empty = document.getElementById('arch-notas-empty');
+  if(!grid) return;
+
+  let notes = appData.clientNotes.filter(n=>n.done);
+  if(_archNotesUrgFilters.size>0) notes = notes.filter(n=>_archNotesUrgFilters.has(n.urgency));
+  notes.sort((a,b)=>(b.doneAt||b.createdAt||'').localeCompare(a.doneAt||a.createdAt||''));
+
+  if(!notes.length){
+    grid.style.display='none';
+    if(empty) empty.style.display='block';
+    return;
+  }
+  grid.style.display='grid';
+  if(empty) empty.style.display='none';
+
+  grid.innerHTML = notes.map(note=>{
+    const urg    = HUB_URGENCY[note.urgency]||HUB_URGENCY.moderada;
+    const brand  = (appData.brands||[]).find(b=>b.id===note.brandId);
+    const brandCol = brand ? getBrandColor(brand) : 'var(--text3)';
+    const logoHTML = brand?.image
+      ? `<img src="${brand.image}" style="width:100%;height:100%;object-fit:cover;border-radius:5px">`
+      : `<span style="font-size:0.65rem;font-weight:800;color:${brandCol}">${(brand?.name||'?').charAt(0)}</span>`;
+    const doneDate = note.doneAt ? new Date(note.doneAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'2-digit'}) : '';
+    const comments = note.comments||[];
+    const assignees = (note.assignees||[]).map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
+
+    return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)">
+      <!-- Header -->
+      <div style="padding:0.75rem 0.9rem;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:0.45rem;background:var(--bg-card2)">
+        <span style="font-size:0.62rem;font-weight:700;color:${urg.color};background:${urg.bg};border:1px solid ${urg.border};border-radius:5px;padding:0.08rem 0.4rem;white-space:nowrap">${urg.emoji} ${urg.label}</span>
+        ${brand ? `<div style="display:flex;align-items:center;gap:0.25rem;cursor:pointer" onclick="openBrand('${brand.id}')">
+          <div style="width:14px;height:14px;border-radius:3px;background:var(--bg-card);border:1.5px solid ${brandCol};display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:0.55rem">${logoHTML}</div>
+          <span style="font-size:0.68rem;font-weight:700;color:${brandCol}">${brand.name}</span>
+        </div>` : ''}
+        <span style="font-size:0.62rem;color:var(--text3);margin-left:auto">✓ ${doneDate}</span>
+        <!-- Reactivate -->
+        <button onclick="toggleHubNote('${note.id}')" title="Reactivar nota"
+          style="background:none;border:1px solid var(--border);border-radius:6px;padding:0.15rem 0.45rem;font-size:0.65rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s"
+          onmouseover="this.style.borderColor='var(--agua)';this.style.color='var(--agua)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">↩ Reactivar</button>
+      </div>
+      <!-- Note text -->
+      <div style="padding:0.75rem 0.9rem;font-size:0.82rem;color:var(--text2);line-height:1.5;word-break:break-word">${note.text}</div>
+      <!-- Assignees + comments count -->
+      <div style="padding:0.5rem 0.9rem;border-top:1px solid var(--border2);display:flex;align-items:center;gap:0.5rem">
+        ${assignees.length ? `<div style="display:flex;gap:0.2rem">${assignees.map(m=>{
+          const col=m.color||'var(--aire)';
+          const av=m.photo?`<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(m.emoji||(m.apodo||m.nombre).charAt(0));
+          return `<div title="${m.apodo||m.nombre}" style="width:18px;height:18px;border-radius:50%;background:${col}22;border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:${col};overflow:hidden">${av}</div>`;
+        }).join('')}</div>` : ''}
+        <button onclick="openHubComments('${note.id}')"
+          style="margin-left:auto;display:flex;align-items:center;gap:0.3rem;background:none;border:1px solid var(--border);border-radius:99px;padding:0.2rem 0.6rem;font-size:0.7rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s"
+          onmouseover="this.style.borderColor='var(--agua)';this.style.color='var(--agua)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
+          💬 ${comments.length ? comments.length+' comentario'+(comments.length!==1?'s':'') : 'Comentar'}
+        </button>
+      </div>
+      <!-- Comments preview (last 1) -->
+      ${comments.length ? `<div style="padding:0.5rem 0.9rem;border-top:1px solid var(--border2);background:var(--glass)">
+        ${comments.slice(-1).map(cm=>`<div style="display:flex;align-items:flex-start;gap:0.5rem">
+          <div style="font-size:0.7rem;font-weight:700;color:var(--text2);white-space:nowrap">${cm.author}</div>
+          <div style="font-size:0.75rem;color:var(--text3);line-height:1.45;flex:1">${cm.text}</div>
+          <div style="font-size:0.62rem;color:var(--text3);white-space:nowrap">${new Date(cm.createdAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short'})}</div>
+        </div>`).join('')}
+        ${comments.length>1?`<div style="font-size:0.65rem;color:var(--text3);margin-top:0.3rem;cursor:pointer" onclick="openHubComments('${note.id}')">+ ${comments.length-1} más…</div>`:''}
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+/* ═══ HUB COMMENTS ═══ */
+
+let _hubCommentsNoteId = null;
+
+function openHubComments(noteId){
+  _hubCommentsNoteId = noteId;
+  ensureHubData();
+  const note = appData.clientNotes.find(n=>n.id===noteId);
+  if(!note) return;
+
+  const brand = (appData.brands||[]).find(b=>b.id===note.brandId);
+  const urg = HUB_URGENCY[note.urgency]||HUB_URGENCY.moderada;
+
+  // Set brand label
+  const brandEl = document.getElementById('hub-comments-brand');
+  if(brandEl) brandEl.textContent = `${urg.emoji} ${urg.label}${brand?' · '+brand.name:''}`;
+
+  // Note preview
+  const textEl = document.getElementById('hub-comments-note-text');
+  if(textEl) textEl.textContent = note.text;
+
+  // Hidden note id
+  const idEl = document.getElementById('hub-comments-note-id');
+  if(idEl) idEl.value = noteId;
+
+  // Populate author dropdown
+  const authSel = document.getElementById('hub-comment-author');
+  if(authSel){
+    const members = appData.members||[];
+    authSel.innerHTML = '<option value="">— Selecciona tu miembro —</option>' +
+      members.map(m=>`<option value="${m.apodo||m.nombre}">${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
+    // Remember last used author
+    // Remember last used author in localStorage
+    if(window._lastHubAuthor) authSel.value = window._lastHubAuthor;
+    else {
+      const saved = localStorage.getItem('polen-hub-author');
+      if(saved) authSel.value = saved;
+    }
+  }
+
+  // Clear textarea
+  const ta = document.getElementById('hub-comment-text');
+  if(ta) ta.value = '';
+
+  renderHubCommentsList(note);
+  document.getElementById('modal-hub-comments').classList.remove('hidden');
+  setTimeout(()=>ta?.focus(), 80);
+}
+
+function renderHubCommentsList(note){
+  const list = document.getElementById('hub-comments-list');
+  if(!list) return;
+  const comments = note.comments||[];
+  if(!comments.length){
+    list.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--text3);font-size:0.78rem">Sin comentarios aún. Sé el primero.</div>';
+    return;
+  }
+  list.innerHTML = comments.map(cm=>{
+    const member = (appData.members||[]).find(m=>(m.apodo||m.nombre)===cm.author);
+    const col = member?.color || 'var(--text3)';
+    const av = member?.photo
+      ? `<img src="${member.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+      : (member?.emoji || cm.author.charAt(0).toUpperCase());
+    const date = new Date(cm.createdAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    return `<div style="display:flex;align-items:flex-start;gap:0.6rem">
+      <div style="width:28px;height:28px;border-radius:50%;background:${col}22;border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:${col};overflow:hidden;flex-shrink:0">${av}</div>
+      <div style="flex:1;min-width:0;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.55rem 0.75rem">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem">
+          <span style="font-size:0.75rem;font-weight:700;color:${col}">${cm.author}</span>
+          <span style="font-size:0.65rem;color:var(--text3);margin-left:auto">${date}</span>
+        </div>
+        <div style="font-size:0.8rem;color:var(--text);line-height:1.5;word-break:break-word">${cm.text}</div>
+      </div>
+    </div>`;
+  }).join('');
+  // Scroll to bottom
+  list.scrollTop = list.scrollHeight;
+}
+
+async function saveHubComment(){
+  const noteId = document.getElementById('hub-comments-note-id')?.value;
+  const author = document.getElementById('hub-comment-author')?.value;
+  const text   = (document.getElementById('hub-comment-text')?.value||'').trim();
+  if(!author){ showStatus('Selecciona tu miembro primero', true); return; }
+  if(!text)  { showStatus('Escribe un comentario', true); return; }
+
+  ensureHubData();
+  const note = appData.clientNotes.find(n=>n.id===noteId);
+  if(!note) return;
+  if(!Array.isArray(note.comments)) note.comments = [];
+  note.comments.push({ id:uid(), author, text, createdAt:new Date().toISOString() });
+
+  // Remember author for this browser/device
+  window._lastHubAuthor = author;
+  localStorage.setItem('polen-hub-author', author);
+
+  // Clear textarea
+  const ta = document.getElementById('hub-comment-text');
+  if(ta) ta.value = '';
+
+  markLocalChange('clientNotes');
+  renderHubCommentsList(note);
+  renderClientHub();
+  if(_archivoActiveTab==='notas') renderArchivoNotas();
+  if(currentPage==='brand') renderBrandNotas();
+  await upsert();
+  showStatus('Comentario guardado ✓');
+}
+
+function closeHubComments(){
+  document.getElementById('modal-hub-comments').classList.add('hidden');
+}
+
+/* ═══ BRAND NOTAS TAB ═══ */
+let _brandNotasCollapsed = new Set(); // noteIds whose comments are collapsed
+let _brandNotasAllCollapsed = false;
+
+function toggleAllBrandNotasComments(){
+  ensureHubData();
+  const notes = (appData.clientNotes||[]).filter(n=>n.brandId===currentBrandId);
+  _brandNotasAllCollapsed = !_brandNotasAllCollapsed;
+  if(_brandNotasAllCollapsed){
+    notes.forEach(n=>_brandNotasCollapsed.add(n.id));
+  } else {
+    _brandNotasCollapsed.clear();
+  }
+  renderBrandNotas();
+}
+
+function toggleBrandNotaComments(noteId){
+  if(_brandNotasCollapsed.has(noteId)) _brandNotasCollapsed.delete(noteId);
+  else _brandNotasCollapsed.add(noteId);
+  // Update collapse-all button state
+  const notes = (appData.clientNotes||[]).filter(n=>n.brandId===currentBrandId&&(n.comments||[]).length>0);
+  _brandNotasAllCollapsed = notes.length > 0 && notes.every(n=>_brandNotasCollapsed.has(n.id));
+  _syncBrandNotasCollapseBtn();
+  // Re-render just this note's comments section without full re-render
+  const commentsEl = document.getElementById('brand-nota-comments-'+noteId);
+  const toggleBtn  = document.getElementById('brand-nota-toggle-'+noteId);
+  if(!commentsEl || !toggleBtn) { renderBrandNotas(); return; }
+  const collapsed = _brandNotasCollapsed.has(noteId);
+  commentsEl.style.display = collapsed ? 'none' : 'block';
+  const replyWrap = document.getElementById('brand-nota-reply-wrap-'+noteId);
+  if(replyWrap) replyWrap.style.display = collapsed ? 'none' : 'flex';
+  const note = (appData.clientNotes||[]).find(n=>n.id===noteId);
+  const cnt  = (note?.comments||[]).length;
+  toggleBtn.textContent = collapsed ? ('▸ '+cnt+' comentario'+(cnt!==1?'s':'')) : '▾ Colapsar';
+}
+
+function _syncBrandNotasCollapseBtn(){
+  const btn   = document.getElementById('brand-notas-collapse-all-btn');
+  const icon  = document.getElementById('brand-notas-collapse-icon');
+  const label = document.getElementById('brand-notas-collapse-label');
+  if(!btn) return;
+  if(_brandNotasAllCollapsed){
+    if(icon)  icon.textContent  = '▸';
+    if(label) label.textContent = 'Expandir todos';
+  } else {
+    if(icon)  icon.textContent  = '▾';
+    if(label) label.textContent = 'Colapsar todos';
+  }
+}
+
+function renderBrandNotas(){
+  ensureHubData();
+  const list  = document.getElementById('brand-notas-list');
+  const empty = document.getElementById('brand-notas-empty');
+  if(!list) return;
+
+  const notes = (appData.clientNotes||[])
+    .filter(n => n.brandId === currentBrandId)
+    .sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
+
+  // Update count and global collapse button
+  const countEl = document.getElementById('brand-notas-count');
+  const colBtn  = document.getElementById('brand-notas-collapse-all-btn');
+  const notesWithComments = notes.filter(n=>(n.comments||[]).length>0);
+  if(countEl) countEl.textContent = notes.length
+    ? `${notes.length} nota${notes.length!==1?'s':''} · ${notesWithComments.length} con comentarios`
+    : '';
+  if(colBtn) colBtn.style.display = notesWithComments.length ? 'flex' : 'none';
+  _syncBrandNotasCollapseBtn();
+
+  if(!notes.length){
+    list.style.display = 'none';
+    if(empty) empty.style.display = 'block';
+    return;
+  }
+  list.style.display = 'flex';
+  if(empty) empty.style.display = 'none';
+
+  list.innerHTML = notes.map(note=>{
+    const urg = HUB_URGENCY[note.urgency] || HUB_URGENCY.moderada;
+    const comments = note.comments||[];
+    const assignees = (note.assignees||[]).map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
+    const doneDate = note.doneAt ? new Date(note.doneAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'2-digit'}) : null;
+    const createdDate = note.createdAt ? new Date(note.createdAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'2-digit'}) : '';
+
+    // Píldoras de asignados con nombre
+    const assigneesHTML = assignees.map(m=>{
+      const col = m.color||'var(--aire)';
+      const av = m.photo
+        ? `<img src="${m.photo}" style="width:14px;height:14px;object-fit:cover;border-radius:50%;flex-shrink:0">`
+        : `<span style="font-size:0.55rem;font-weight:800;color:${col}">${m.emoji||(m.apodo||m.nombre).charAt(0)}</span>`;
+      return `<span style="display:inline-flex;align-items:center;gap:0.2rem;background:${col}18;border:1px solid ${col}44;border-radius:99px;padding:0.08rem 0.4rem 0.08rem 0.22rem;font-size:0.65rem;font-weight:600;color:${col};white-space:nowrap">
+        <span style="width:14px;height:14px;border-radius:50%;background:${col}22;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${av}</span>${m.apodo||m.nombre}
+      </span>`;
+    }).join('');
+
+    const isCollapsed = _brandNotasCollapsed.has(note.id);
+
+    // Build comments list HTML separately to avoid nested template literal issues
+    let commentsListHTML = '';
+    comments.forEach(cm => {
+      const member = (appData.members||[]).find(m=>(m.apodo||m.nombre)===cm.author);
+      const col = member ? (member.color||'var(--aire)') : 'var(--text3)';
+      const av = member?.photo
+        ? '<img src="'+member.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
+        : (member?.emoji || cm.author.charAt(0).toUpperCase());
+      const cmDate = new Date(cm.createdAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+      commentsListHTML += '<div style="display:flex;align-items:flex-start;gap:0.55rem;padding:0.55rem 0.85rem;border-bottom:1px solid var(--border2)">'
+        + '<div style="width:24px;height:24px;border-radius:50%;background:'+col+'22;border:1.5px solid '+col+';display:flex;align-items:center;justify-content:center;font-size:0.62rem;font-weight:700;color:'+col+';overflow:hidden;flex-shrink:0;margin-top:1px">'+av+'</div>'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="display:flex;align-items:baseline;gap:0.4rem;margin-bottom:0.2rem">'
+            + '<span style="font-size:0.72rem;font-weight:700;color:'+col+'">'+cm.author+'</span>'
+            + '<span style="font-size:0.62rem;color:var(--text3)">'+cmDate+'</span>'
+          + '</div>'
+          + '<div style="font-size:0.79rem;color:var(--text);line-height:1.5;word-break:break-word">'+cm.text+'</div>'
+        + '</div>'
+      + '</div>';
+    });
+
+    const toggleLabel = isCollapsed
+      ? ('▸ ' + comments.length + ' comentario' + (comments.length!==1?'s':''))
+      : '▾ Colapsar';
+    const commentsDisplay = isCollapsed ? 'none' : 'block';
+    const replyPlaceholder = comments.length ? 'Comentar…' : 'Sé el primero en comentar…';
+    const sendLabel = comments.length ? '💬 Enviar' : '💬 Comentar';
+
+    const commentsHTML = '<div style="border-top:1px solid var(--border2);background:var(--glass)">'
+      + (comments.length
+        ? '<div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0.85rem;border-bottom:1px solid var(--border2)">'
+            + '<button id="brand-nota-toggle-'+note.id+'" data-nid="'+note.id+'" onclick="toggleBrandNotaComments(this.dataset.nid)" '
+              + 'style="background:none;border:none;font-size:0.7rem;font-weight:700;color:var(--aire);cursor:pointer;font-family:var(--font);padding:0;display:flex;align-items:center;gap:0.3rem">'
+              + toggleLabel
+            + '</button>'
+          + '</div>'
+          + '<div id="brand-nota-comments-'+note.id+'" style="display:'+commentsDisplay+'">'
+            + commentsListHTML
+          + '</div>'
+        : '')
+      + '<div id="brand-nota-reply-wrap-'+note.id+'" style="padding:0.6rem 0.85rem;display:'+(isCollapsed&&comments.length?'none':'flex')+';align-items:center;gap:0.5rem">'
+        + '<input type="text" placeholder="'+replyPlaceholder+'" id="brand-note-reply-'+note.id+'" data-nid="'+note.id+'" '
+          + 'style="flex:1;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;padding:0.38rem 0.7rem;font-size:0.78rem;color:var(--text);font-family:var(--font);outline:none;transition:border-color 0.15s" '
+          + 'onfocus="this.style.borderColor=\'var(--aire)\'" onblur="this.style.borderColor=\'var(--border)\'" '
+          + 'onkeydown="if(event.key===\'Enter\')quickBrandComment(this.dataset.nid)">'
+        + '<button data-nid="'+note.id+'" onclick="quickBrandComment(this.dataset.nid)" '
+          + 'style="background:var(--agua);border:none;border-radius:8px;padding:0.38rem 0.7rem;font-size:0.75rem;font-weight:700;color:#fff;cursor:pointer;font-family:var(--font);white-space:nowrap;flex-shrink:0">'+sendLabel+'</button>'
+      + '</div>'
+    + '</div>';
+
+    return `<div style="background:var(--bg-card);border:1px solid ${note.done?'var(--border)':urg.border};border-radius:10px;overflow:hidden;${note.done?'opacity:0.7':''}">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:0.5rem;padding:0.6rem 0.85rem;background:${note.done?'var(--glass)':urg.bg};border-bottom:1px solid var(--border2);flex-wrap:wrap">
+        <span style="font-size:0.65rem;font-weight:700;color:${urg.color};background:${urg.bg};border:1px solid ${urg.border};border-radius:5px;padding:0.08rem 0.45rem">${urg.emoji} ${urg.label}</span>
+        ${note.done
+          ? `<span style="font-size:0.65rem;font-weight:700;color:var(--tierra);background:rgba(90,170,53,0.12);border:1px solid rgba(90,170,53,0.3);border-radius:5px;padding:0.08rem 0.45rem">✓ Resuelta ${doneDate||''}</span>`
+          : `<span style="font-size:0.65rem;font-weight:700;color:var(--aire);background:rgba(59,158,221,0.1);border:1px solid rgba(59,158,221,0.25);border-radius:5px;padding:0.08rem 0.45rem">● Activa</span>`}
+        ${assigneesHTML}
+        <span style="font-size:0.62rem;color:var(--text3);margin-left:auto">${createdDate}</span>
+        <button onclick="toggleHubNote('${note.id}')" title="${note.done?'Reactivar':'Marcar resuelta'}"
+          style="background:none;border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.5rem;font-size:0.65rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s"
+          onmouseover="this.style.borderColor='var(--tierra)';this.style.color='var(--tierra)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">${note.done?'↩ Reactivar':'✓ Resolver'}</button>
+      </div>
+      <!-- Note text -->
+      <div style="padding:0.65rem 0.85rem;font-size:0.84rem;color:var(--text);line-height:1.55;word-break:break-word;font-weight:${note.done?'400':'500'}">${note.text}</div>
+      <!-- All comments + reply box -->
+      ${commentsHTML}
+    </div>`;
+  }).join('');
+}
+
+/* Quick inline comment from brand notas tab */
+async function quickBrandComment(noteId){
+  const input = document.getElementById('brand-note-reply-'+noteId);
+  const text = (input?.value||'').trim();
+  if(!text){ input?.focus(); return; }
+
+  // Use saved author or prompt
+  const author = localStorage.getItem('polen-hub-author') || window._lastHubAuthor;
+  if(!author){
+    showStatus('Abre el modal de comentarios para elegir tu firma primero', true);
+    openHubComments(noteId);
+    return;
+  }
+
+  ensureHubData();
+  const note = appData.clientNotes.find(n=>n.id===noteId);
+  if(!note) return;
+  if(!Array.isArray(note.comments)) note.comments = [];
+  note.comments.push({ id:uid(), author, text, createdAt:new Date().toISOString() });
+
+  if(input) input.value = '';
+  markLocalChange('clientNotes');
+  renderBrandNotas();
+  if(_archivoActiveTab==='notas') renderArchivoNotas();
+  renderClientHub();
+  await upsert();
+  showStatus(`Comentado como ${author} ✓`);
+}
+
+/* ═══ HUB COMMENTS COLLAPSE ═══ */
+let _hubCollapsed = new Set();
+let _hubAllCollapsed = false;
+
+function buildHubCardComments(noteId, comments, urg){
+  const isCollapsed = _hubCollapsed.has(noteId);
+  const cnt = comments.length;
+  const border = urg ? urg.border : 'var(--border)';
+  const toggleLabel = isCollapsed ? ('▸ '+cnt+' comentario'+(cnt!==1?'s':'')) : '▾ Colapsar';
+  const listDisplay = isCollapsed ? 'none' : 'block';
+
+  let listHTML = '';
+  comments.forEach(cm => {
+    listHTML += '<div style="display:flex;align-items:baseline;gap:0.35rem;margin-bottom:0.18rem">'
+      + '<span style="font-size:0.63rem;font-weight:700;color:var(--text2);white-space:nowrap;flex-shrink:0">'+cm.author+':</span>'
+      + '<span style="font-size:0.68rem;color:var(--text3);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">'+cm.text+'</span>'
+    + '</div>';
+  });
+
+  return '<div style="border-top:1px solid '+border+';margin-top:0.25rem;padding-top:0.35rem">'
+    + '<button id="hub-card-toggle-'+noteId+'" data-nid="'+noteId+'" onclick="toggleHubCardComments(this.dataset.nid)" '
+      + 'style="background:none;border:none;font-size:0.63rem;font-weight:700;color:var(--agua);cursor:pointer;font-family:var(--font);padding:0 0 0.25rem 0;display:flex;align-items:center;gap:0.2rem">'
+      + toggleLabel
+    + '</button>'
+    + '<div id="hub-card-comments-'+noteId+'" style="display:'+listDisplay+'">'
+      + listHTML
+    + '</div>'
+  + '</div>';
+}
+
+function toggleHubCardComments(noteId){
+  if(_hubCollapsed.has(noteId)) _hubCollapsed.delete(noteId);
+  else _hubCollapsed.add(noteId);
+
+  const commentsEl = document.getElementById('hub-card-comments-'+noteId);
+  const toggleBtn  = document.getElementById('hub-card-toggle-'+noteId);
+  if(!commentsEl || !toggleBtn){ renderClientHub(); return; }
+
+  const collapsed = _hubCollapsed.has(noteId);
+  commentsEl.style.display = collapsed ? 'none' : 'block';
+  const note = (appData.clientNotes||[]).find(n=>n.id===noteId);
+  const cnt = (note?.comments||[]).length;
+  toggleBtn.textContent = collapsed ? ('▸ '+cnt+' comentario'+(cnt!==1?'s':'')) : '▾ Colapsar';
+
+  // sync global button
+  _syncHubCollapseAllBtn();
+}
+
+function toggleAllHubComments(){
+  ensureHubData();
+  const notes = (appData.clientNotes||[]).filter(n=>!n.done&&(n.comments||[]).length>0);
+  _hubAllCollapsed = !_hubAllCollapsed;
+  if(_hubAllCollapsed) notes.forEach(n=>_hubCollapsed.add(n.id));
+  else _hubCollapsed.clear();
+  renderClientHub();
+}
+
+function _syncHubCollapseAllBtn(){
+  const btn   = document.getElementById('hub-collapse-all-btn');
+  const icon  = document.getElementById('hub-collapse-all-icon');
+  const label = document.getElementById('hub-collapse-all-label');
+  if(!btn) return;
+  const notes = (appData.clientNotes||[]).filter(n=>!n.done&&(n.comments||[]).length>0);
+  btn.style.display = notes.length ? 'flex' : 'none';
+  _hubAllCollapsed = notes.length > 0 && notes.every(n=>_hubCollapsed.has(n.id));
+  if(icon)  icon.textContent  = _hubAllCollapsed ? '▸' : '▾';
+  if(label) label.textContent = _hubAllCollapsed ? 'Expandir todos' : 'Colapsar todos';
+}
+
 boot();
 </script>
 
@@ -9010,6 +9769,103 @@ boot();
   </div>
 </div>
 
+
+<!-- MODAL: Client Hub — Nueva nota -->
+<div class="modal-overlay hidden" id="modal-hub">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <div class="modal-title" id="hub-modal-title">📋 Nueva nota de cliente</div>
+      <div class="modal-close" onclick="closeHubModal()">✕</div>
+    </div>
+    <!-- Brand selector -->
+    <div class="form-group" style="margin-bottom:1rem">
+      <label class="form-label">Marca *</label>
+      <select class="form-select" id="hub-input-brand">
+        <option value="">— Seleccionar marca —</option>
+      </select>
+    </div>
+    <!-- Urgency -->
+    <div class="form-group" style="margin-bottom:1rem">
+      <label class="form-label">Nivel de urgencia</label>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;margin-top:0.3rem" id="hub-urgency-grid">
+        <button type="button" onclick="selectHubUrgency('sos')" id="hub-urg-sos"
+          style="padding:0.55rem 0.3rem;border-radius:10px;border:2px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.08);cursor:pointer;font-family:var(--font);transition:all 0.15s;display:flex;flex-direction:column;align-items:center;gap:0.25rem">
+          <span style="font-size:1.3rem">🆘</span>
+          <span style="font-size:0.68rem;font-weight:700;color:#ef4444">SOS</span>
+        </button>
+        <button type="button" onclick="selectHubUrgency('alta')" id="hub-urg-alta"
+          style="padding:0.55rem 0.3rem;border-radius:10px;border:2px solid rgba(232,98,42,0.3);background:none;cursor:pointer;font-family:var(--font);transition:all 0.15s;display:flex;flex-direction:column;align-items:center;gap:0.25rem">
+          <span style="font-size:1.3rem">🔴</span>
+          <span style="font-size:0.68rem;font-weight:700;color:var(--fuego)">Alta</span>
+        </button>
+        <button type="button" onclick="selectHubUrgency('moderada')" id="hub-urg-moderada"
+          style="padding:0.55rem 0.3rem;border-radius:10px;border:2px solid rgba(245,197,66,0.3);background:none;cursor:pointer;font-family:var(--font);transition:all 0.15s;display:flex;flex-direction:column;align-items:center;gap:0.25rem">
+          <span style="font-size:1.3rem">🟡</span>
+          <span style="font-size:0.68rem;font-weight:700;color:#d4a800">Moderada</span>
+        </button>
+        <button type="button" onclick="selectHubUrgency('baja')" id="hub-urg-baja"
+          style="padding:0.55rem 0.3rem;border-radius:10px;border:2px solid rgba(90,170,53,0.3);background:none;cursor:pointer;font-family:var(--font);transition:all 0.15s;display:flex;flex-direction:column;align-items:center;gap:0.25rem">
+          <span style="font-size:1.3rem">🟢</span>
+          <span style="font-size:0.68rem;font-weight:700;color:var(--tierra)">Poco urgente</span>
+        </button>
+      </div>
+      <input type="hidden" id="hub-input-urgency" value="moderada">
+    </div>
+    <!-- Note content -->
+    <div class="form-group" style="margin-bottom:0.9rem">
+      <label class="form-label">Nota *</label>
+      <textarea class="form-input" id="hub-input-note" rows="3" placeholder="Escribe aquí la nota del cliente…" style="resize:vertical;line-height:1.55;font-family:var(--font)"></textarea>
+    </div>
+    <!-- Assign members -->
+    <div class="form-group" style="margin-bottom:0.5rem">
+      <label class="form-label">Asignar a (opcional)</label>
+      <div id="hub-member-chips" style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem;min-height:32px">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+    <div class="modal-err" id="hub-modal-err"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeHubModal()">Cancelar</button>
+      <input type="hidden" id="hub-editing-id" value="">
+      <button class="btn-save" id="hub-btn-save" onclick="saveHubNote()">Guardar nota</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Comentarios de nota -->
+<div class="modal-overlay hidden" id="modal-hub-comments">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">💬 Comentarios</div>
+        <div id="hub-comments-brand" style="font-size:0.72rem;color:var(--text3);margin-top:0.1rem"></div>
+      </div>
+      <div class="modal-close" onclick="closeHubComments()">✕</div>
+    </div>
+    <!-- Note text preview -->
+    <div id="hub-comments-note-text" style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.85rem;font-size:0.82rem;color:var(--text2);line-height:1.5;margin-bottom:1rem"></div>
+    <!-- Comments list -->
+    <div id="hub-comments-list" style="display:flex;flex-direction:column;gap:0.6rem;max-height:260px;overflow-y:auto;scrollbar-width:thin;margin-bottom:1rem"></div>
+    <!-- Add comment -->
+    <div style="border-top:1px solid var(--border);padding-top:0.9rem;display:flex;flex-direction:column;gap:0.6rem">
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span style="font-size:0.72rem;font-weight:700;color:var(--text3)">Firma como:</span>
+        <select id="hub-comment-author" class="form-select" style="flex:1;font-size:0.78rem;padding:0.35rem 0.6rem">
+          <option value="">— Selecciona tu miembro —</option>
+        </select>
+      </div>
+      <textarea id="hub-comment-text" rows="2" placeholder="Escribe un comentario…"
+        style="width:100%;background:var(--input-bg);border:1.5px solid var(--border);border-radius:8px;padding:0.55rem 0.75rem;color:var(--text);font-family:var(--font);font-size:0.82rem;resize:none;outline:none;line-height:1.5;transition:border-color 0.18s"
+        onfocus="this.style.borderColor='var(--aire)'" onblur="this.style.borderColor='var(--border)'"
+        onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter')saveHubComment()"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:0.6rem">
+        <button class="btn-cancel" onclick="closeHubComments()">Cancelar</button>
+        <button class="btn-save" onclick="saveHubComment()">💬 Comentar</button>
+      </div>
+    </div>
+    <input type="hidden" id="hub-comments-note-id">
+  </div>
+</div>
 
 <!-- MODAL: Archivo PIN -->
 <div class="modal-overlay hidden" id="modal-archivo-pin">
