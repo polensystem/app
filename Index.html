@@ -4096,9 +4096,9 @@ async function deleteCobPago(brandId, pagoId){
   ensureCobrosData();
   const cob = appData.cobros[brandId];
   cob.pagos = cob.pagos.filter(p=>p.id!==pagoId);
-    markLocalChange('cobros');
-await upsert();
+  markLocalChange('cobros');
   renderCobros();
+  await upsert();
 }
 
 function syncCobrosToFin(){
@@ -4361,13 +4361,13 @@ await upsert();
 }
 
 async function removeToolInfo(toolId, idx){
-    ensureDigitalTools();
+  ensureDigitalTools();
   const tool = appData.digitalTools.find(t=>t.id===toolId);
   if(!tool||!tool.info) return;
   tool.info.splice(idx,1);
-    markLocalChange('digitalTools');
-await upsert();
+  markLocalChange('digitalTools');
   renderDigitalTools();
+  await upsert();
 }
 
 async function saveToolInfo(toolId, idx, field, val){
@@ -4444,8 +4444,8 @@ async function deleteDigitalTool(toolId){
   markLocalChange('digitalTools');
   ensureDigitalTools();
   appData.digitalTools = appData.digitalTools.filter(t=>t.id!==toolId);
-  await upsert();
   renderDigitalTools();
+  await upsert();
 }
 
 function updateGlobalBreadcrumb(page, extra){
@@ -5362,10 +5362,10 @@ async function deleteCronoActivity(brandId, stage, actId){
     }
   }
   brand.cronograma[stage] = acts;
-    markLocalChange('brands');
-await upsert();
-  showStatus('Actividad eliminada y fechas reencadenadas ✓');
+  markLocalChange('brands');
   renderBrandCrono(brand);
+  showStatus('Actividad eliminada y fechas reencadenadas ✓');
+  await upsert();
 }
 
 function addWorkdays(dateStr, days){
@@ -6027,11 +6027,12 @@ async function deleteBrandCurrent(){
   currentBrandId = null;
   markLocalChange('brands');
   markLocalChange('papelera');
+  // Render immediately so UI reflects deletion before upsert
+  goTo('dashboard');
+  renderDashboard();
   await upsert();
   updatePapeleraBadge();
   showStatus('Marca movida a la papelera · 30 días para restaurar');
-  goTo('dashboard');
-  renderDashboard();
 }
 
 async function testSupa(){
@@ -7430,21 +7431,18 @@ async function deleteDomo(key){
   const name = getDomoName(key) || 'este domo';
   const ok = await confirmModal(`¿Eliminar "${name}"? Las marcas asignadas quedarán sin domo.`, 'Eliminar domo');
   if(!ok) return;
-  // Remove from appData.domos
   appData.domos = (appData.domos||[]).filter(d=>d.key!==key);
-  // Clear domo assignment from brands
   (appData.brands||[]).forEach(b=>{
     if(b.domo && getDomoKey(b.domo.m1, b.domo.m2)===key){
       b.domo = {m1:'', m2:'', helpers:[]};
     }
   });
-  // Remove from domoNames
   if(appData.domoNames) delete appData.domoNames[key];
   markLocalChange('brands');
   markLocalChange('domoNames');
-  await upsert();
-  showStatus('Domo eliminado');
   renderEqDomos();
+  showStatus('Domo eliminado');
+  await upsert();
 }
 
 
