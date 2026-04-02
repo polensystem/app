@@ -2449,6 +2449,7 @@ function confirmModal(label, confirmLabel='Confirmar', confirmStyle='background:
     const overlay = document.getElementById('ask-modal-overlay');
     const lbl     = document.getElementById('ask-modal-label');
     const body    = document.getElementById('ask-modal-body');
+    if(!body) return;
     const okBtn   = document.getElementById('ask-modal-ok');
     const cancelBtn = document.getElementById('ask-modal-cancel');
 
@@ -2671,9 +2672,11 @@ let _pendingUndoEntry = null;
 
 // Keys that the LOCAL user changed since last server sync — used to prefer local over server
 let _localChangedKeys = new Set();
+let _localDeletedIds = { brands: new Set(), members: new Set(), clientNotes: new Set() };
 
 // Call this when user mutates a top-level key so merge prefers local for that key
 function markLocalChange(...keys){ keys.forEach(k=>_localChangedKeys.add(k)); }
+function markLocalDelete(type, id){ if(_localDeletedIds[type]) _localDeletedIds[type].add(id); _localChangedKeys.add(type); }
 
 function deepMergeAppData(server, local){
   const merged = {...server};
@@ -2681,32 +2684,19 @@ function deepMergeAppData(server, local){
   // ── brands: merge by id ──
   const serverBrands = Array.isArray(server.brands) ? server.brands : [];
   const localBrands  = Array.isArray(local.brands)  ? local.brands  : [];
+  const deletedBrandIds = _localDeletedIds.brands;
   const brandMap = {};
-  // Start with server brands
-  serverBrands.forEach(b=>{ brandMap[b.id] = {...b}; });
-  // Apply local brands: if local has a brand the server also has, prefer local
-  // (local user was editing it). If only server has it, keep server. If only local, keep local.
-  localBrands.forEach(b=>{
-    if(brandMap[b.id]){
-      // Both have it — merge at field level: prefer local for most fields
-      // but preserve server cronograma/bp if local hasn't touched it
-      brandMap[b.id] = {...brandMap[b.id], ...b};
-    } else {
-      brandMap[b.id] = {...b}; // local-only brand (just created)
-    }
-  });
-  // Keep server-only brands (created by someone else while we were editing)
-  // Already in brandMap from first pass
+  serverBrands.forEach(b=>{ if(!deletedBrandIds.has(b.id)) brandMap[b.id] = {...b}; });
+  localBrands.forEach(b=>{ brandMap[b.id] = brandMap[b.id] ? {...brandMap[b.id], ...b} : {...b}; });
   merged.brands = Object.values(brandMap);
 
   // ── members: merge by id ──
   const serverMembers = Array.isArray(server.members) ? server.members : [];
   const localMembers  = Array.isArray(local.members)  ? local.members  : [];
+  const deletedMemberIds = _localDeletedIds.members;
   const memberMap = {};
-  serverMembers.forEach(m=>{ memberMap[m.id] = {...m}; });
-  localMembers.forEach(m=>{
-    memberMap[m.id] = memberMap[m.id] ? {...memberMap[m.id], ...m} : {...m};
-  });
+  serverMembers.forEach(m=>{ if(!deletedMemberIds.has(m.id)) memberMap[m.id] = {...m}; });
+  localMembers.forEach(m=>{ memberMap[m.id] = memberMap[m.id] ? {...memberMap[m.id], ...m} : {...m}; });
   merged.members = Object.values(memberMap);
 
   // ── cobros: merge by brandId ──
@@ -2719,11 +2709,12 @@ function deepMergeAppData(server, local){
   });
   merged.cobros = mergedCob;
 
-  // ── clientNotes: union by id, prefer local for untouched, server for new ──
+  // ── clientNotes: merge by id, respect local deletions ──
   const serverNotes = Array.isArray(server.clientNotes) ? server.clientNotes : [];
   const localNotes  = Array.isArray(local.clientNotes)  ? local.clientNotes  : [];
+  const deletedNoteIds = _localDeletedIds.clientNotes;
   const noteMap = {};
-  serverNotes.forEach(n=>{ noteMap[n.id] = {...n}; });
+  serverNotes.forEach(n=>{ if(!deletedNoteIds.has(n.id)) noteMap[n.id] = {...n}; });
   localNotes.forEach(n=>{ noteMap[n.id] = {...(noteMap[n.id]||{}), ...n}; });
   merged.clientNotes = Object.values(noteMap).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
 
@@ -2778,6 +2769,9 @@ async function upsert(){
 
       // 5. Clear local change tracking after successful save
       _localChangedKeys.clear();
+      _localDeletedIds.brands.clear();
+      _localDeletedIds.members.clear();
+      _localDeletedIds.clientNotes.clear();
       return true;
 
     } catch(e){
@@ -4380,6 +4374,7 @@ function addDigitalTool(){
   (document.getElementById('tool-input-color')||{}).value = _toolSelectedColor;
   // Render color swatches
   const sw = document.getElementById('tool-color-swatches');
+  if(!sw) return;
   sw.innerHTML = TOOL_COLORS.map(col=>`
     <div onclick="selectToolColor('${col}')" style="width:22px;height:22px;border-radius:50%;background:${col};cursor:pointer;border:2px solid ${col===_toolSelectedColor?'var(--text)':'transparent'};transition:all 0.15s;flex-shrink:0"></div>
   `).join('');
@@ -4487,12 +4482,14 @@ function ensurePapelera(){
 
 function softDeleteBrand(brand){
   ensurePapelera();
+  markLocalDelete('brands', brand.id);
   appData.papelera.push({ type:'brand', id:brand.id, data:JSON.parse(JSON.stringify(brand)), deletedAt:Date.now() });
   appData.brands = appData.brands.filter(b=>b.id!==brand.id);
 }
 
 function softDeleteMember(member){
   ensurePapelera();
+  markLocalDelete('members', member.id);
   appData.papelera.push({ type:'member', id:member.id, data:JSON.parse(JSON.stringify(member)), deletedAt:Date.now() });
   appData.members = appData.members.filter(m=>m.id!==member.id);
 }
@@ -4908,12 +4905,14 @@ function openBrand(id){
   goTo('brand');
 }
 
-async function deleteBrand(id){ markLocalChange("brands","papelera");
-  const brand=appData.brands.find(b=>b.id===id);
+async function deleteBrand(id){
+  const brand = appData.brands.find(b=>b.id===id);
   if(!brand) return;
   const ok = await confirmModal(`¿Mover "${brand.name}" a la papelera?`, 'Mover a papelera');
   if(!ok) return;
   softDeleteBrand(brand);
+  markLocalChange('brands');
+  markLocalChange('papelera');
   renderDashboard();
   await upsert();
   updatePapeleraBadge();
@@ -5088,6 +5087,7 @@ async function renderBrandPage(){
 
   // Image
   const imgEl=document.getElementById('brand-hero-img');
+  if(!imgEl) return;
   imgEl.innerHTML=brand.image?`<img src="${brand.image}" alt="${brand.name}">`:'<span>'+brand.name.charAt(0)+'</span>';
 
   // Name & meta
@@ -5957,17 +5957,19 @@ async function saveBrand(){ markLocalChange("brands");
 
 async function deleteBrandCurrent(){
   if(!currentBrandId) return;
-  const brand=appData.brands.find(b=>b.id===currentBrandId);
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
   if(!brand) return;
   const ok = await confirmModal(`¿Mover "${brand.name}" a la papelera?`, 'Mover a papelera');
   if(!ok) return;
   softDeleteBrand(brand);
-  currentBrandId=null;
-    markLocalChange('brands');
-await upsert();
+  currentBrandId = null;
+  markLocalChange('brands');
+  markLocalChange('papelera');
+  await upsert();
   updatePapeleraBadge();
   showStatus('Marca movida a la papelera · 30 días para restaurar');
   goTo('dashboard');
+  renderDashboard();
 }
 
 async function testSupa(){
@@ -5997,6 +5999,7 @@ function renderTemplate(){
   const members=appData.members||[];
   const memberOpts='<option value="">— Sin asignar —</option>'+members.map(m=>`<option value="${m.id}">${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
   const s1=document.getElementById('tpl-domo-m1');
+  if(!s1) return;
   const s2=document.getElementById('tpl-domo-m2');
   if(s1){s1.innerHTML=memberOpts; s1.value=t.domoM1||'';}
   if(s2){s2.innerHTML=memberOpts; s2.value=t.domoM2||'';}
@@ -6246,6 +6249,7 @@ function renderDomosGrid(){
   const brands = appData.brands||[];
   const brandsWithDomo = brands.filter(b=>b.domo && (b.domo.principales||[]).length>0);
   const grid = document.getElementById('domos-grid');
+  if(!grid) return;
   if(!brandsWithDomo.length){
     grid.innerHTML='<div style="color:var(--text3);font-size:0.84rem">No hay domos configurados. Asigna un domo desde la página de cada marca.</div>';
     return;
@@ -6281,6 +6285,7 @@ function renderMemberProfile(){
 
   // Avatar
   const av = document.getElementById('mprofile-avatar');
+  if(!av) return;
   av.innerHTML = m.photo ? `<img src="${m.photo}" alt="${m.nombre}">` : (m.emoji||'👤');
 
   // Info
@@ -6446,6 +6451,7 @@ function setMemberEmoji(emoji){
   if(emojiVal) emojiVal.value=emoji;
   if(!memberPhotoB64){
     const av = document.getElementById('m-avatar-preview');
+    if(!av) return;
     if(av) av.innerHTML=emoji;
   }
   // Re-render grid to show new selection
@@ -6680,6 +6686,12 @@ function memberChip(m, role) {
 
 function renderEquipo(){
   ensureTeamData();
+  // Guard: if currentMemberId points to a deleted member, reset it
+  if(currentMemberId && !(appData.members||[]).find(x=>x.id===currentMemberId)){
+    currentMemberId = null;
+    const miniWrap = document.getElementById('equipo-mini-card-wrap');
+    if(miniWrap) miniWrap.style.display = 'none';
+  }
   renderEquipoDropdown();
   if(currentMemberId){
     renderEquipoMiniCard(currentMemberId);
@@ -7411,31 +7423,47 @@ await upsert();
 }
 
 async function deleteMemberCurrent(){
-    if(!currentMemberId)return;
-  const m=(appData.members||[]).find(x=>x.id===currentMemberId);
-  if(!m)return;
-  // Pincode protection
+  if(!currentMemberId) return;
+  const m = (appData.members||[]).find(x=>x.id===currentMemberId);
+  if(!m) return;
+
+  // PIN protection
   const pin = await askModal({ label:`🔒 Ingresa el PIN para eliminar a "${m.apodo||m.nombre}"`, placeholder:'••••', defaultValue:'' });
   if(pin===null) return;
   const MEMBER_PIN = (appData.finanzas&&appData.finanzas.memberPin) || '1235';
-  if(pin !== MEMBER_PIN){
-    showStatus('PIN incorrecto ❌', true);
-    return;
-  }
+  if(pin !== MEMBER_PIN){ showStatus('PIN incorrecto ❌', true); return; }
+
+  const deletedId = currentMemberId;
+
+  // 1. Move to papelera
   softDeleteMember(m);
-  // Also remove from any domos (but data preserved in papelera)
+
+  // 2. Clean all brand domos
   (appData.brands||[]).forEach(b=>{
-    if(!b.domo)return;
-    if(b.domo.m1===currentMemberId) b.domo.m1='';
-    if(b.domo.m2===currentMemberId) b.domo.m2='';
-    b.domo.helpers=(b.domo.helpers||[]).filter(h=>h!==currentMemberId);
+    if(!b.domo) return;
+    if(b.domo.m1===deletedId) b.domo.m1='';
+    if(b.domo.m2===deletedId) b.domo.m2='';
+    b.domo.helpers = (b.domo.helpers||[]).filter(h=>h!==deletedId);
   });
-  currentMemberId=null;
-    markLocalChange('members');
-await upsert();
+
+  // 3. Clean clientNotes assignees
+  (appData.clientNotes||[]).forEach(n=>{
+    if(Array.isArray(n.assignees)) n.assignees = n.assignees.filter(id=>id!==deletedId);
+  });
+
+  // 4. Reset navigation state before rendering
+  currentMemberId = null;
+  const miniWrap = document.getElementById('equipo-mini-card-wrap');
+  if(miniWrap) miniWrap.style.display = 'none';
+
+  markLocalChange('members');
+  markLocalChange('brands');
+  markLocalChange('clientNotes');
+  await upsert();
   updatePapeleraBadge();
   showStatus('Miembro movido a la papelera · 30 días para restaurar');
   renderEquipo();
+  renderDashboard(); // refresh hub + brands member dropdowns
 }
 
 /* ═══ BOOT ═══ */
@@ -7731,6 +7759,7 @@ async function portalSaveNotes(brandId, ci, ii, val){
 
 function _portalRefreshBp(brand){
   const wrap = document.getElementById('portal-bp-wrap');
+  if(!wrap) return;
   if(wrap) wrap.innerHTML = portalRenderBp(brand);
   // Auto-expand textareas that already have content
   setTimeout(()=>{
@@ -7752,6 +7781,7 @@ async function portalAddBpItem(brandId, ci){
   // pts: null → equipo define después
   brand.brandingPoints.categories[ci].items.push({id:uid(), name:name.trim(), pts:null, qty:1, selected:true, fromPortal:true});
   const wrap = document.getElementById('portal-bp-wrap');
+  if(!wrap) return;
   if(wrap) wrap.innerHTML = portalRenderBp(brand);
   _portalMarkDirty();
 }
@@ -9016,6 +9046,7 @@ function openHubModal(noteId=null){
 
   // Populate brand select
   const sel = document.getElementById('hub-input-brand');
+  if(!sel) return;
   if(sel) sel.innerHTML = '<option value="">— Seleccionar marca —</option>' +
     (appData.brands||[]).map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
 
@@ -9134,6 +9165,7 @@ async function deleteHubNote(noteId){
   ensureHubData();
   const ok = await confirmModal('¿Eliminar esta nota?', 'Eliminar');
   if(!ok) return;
+  markLocalDelete('clientNotes', noteId);
   appData.clientNotes = appData.clientNotes.filter(n=>n.id!==noteId);
   markLocalChange('clientNotes');
   renderClientHub();
