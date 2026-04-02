@@ -30,7 +30,8 @@
   --pending-bg:rgba(150,140,200,0.1);--progress-bg:rgba(59,158,221,0.12);--done-bg:rgba(90,170,53,0.12);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;transition:background var(--transition),color var(--transition);}
+html,body{height:100%;overflow:hidden;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;max-height:100vh;display:flex;overflow:hidden;transition:background var(--transition),color var(--transition);}
 
 /* ── SIDEBAR ── */
 .sidebar{width:240px;min-height:100vh;background:var(--sidebar-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:1.5rem 1rem;gap:0.25rem;transition:width var(--transition),padding var(--transition);flex-shrink:0;position:relative;z-index:10;}
@@ -50,7 +51,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .sidebar.collapsed .nav-text{opacity:0;width:0;overflow:hidden;}
 
 /* ── MAIN ── */
-.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;height:100vh;}
 .header{position:sticky;top:0;z-index:9;background:var(--header-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0.85rem 2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;}
 .header-title{font-size:1rem;font-weight:700;}
 .header-actions{display:flex;align-items:center;gap:0.7rem;}
@@ -66,7 +67,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .btn-back:hover{color:var(--text);}
 
 /* ── PAGES ── */
-.page{display:none;flex-direction:column;flex:1;overflow-y:auto;}
+.page{display:none;flex-direction:column;flex:1;overflow-y:auto;min-height:0;}
+.page.active-page{overflow:hidden;}
+#page-equipo{overflow:hidden;}
+.equipo-page,.equipo-wrap{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;}
 .page.active{display:flex;}
 .content{padding:2rem;display:flex;flex-direction:column;gap:1.5rem;flex:1;}
 
@@ -102,12 +106,12 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .tierra .stage-value{color:var(--tierra);}.fuego .stage-value{color:var(--fuego);}
 .stage-sub{font-size:0.72rem;color:var(--text3);}
 .brands-section-label{font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);}
-.brands-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0.8rem;}
+.brands-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.8rem;}
 .brand-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 6px rgba(0,0,0,0.06);overflow:hidden;transition:all var(--transition);cursor:pointer;}
 .brand-card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,0.14);border-color:rgba(255,255,255,0.16);}
 .brand-card-img{display:none;}
-.brand-card-body{padding:0.9rem 1rem 0.6rem;display:flex;align-items:center;gap:0.75rem;}
-.brand-card-logo{width:44px;height:44px;border-radius:12px;background:var(--bg-card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;overflow:hidden;}
+.brand-card-body{padding:0.65rem 0.6rem 0.45rem;display:flex;align-items:center;gap:0.5rem;}
+.brand-card-logo{width:38px;height:38px;border-radius:10px;background:var(--bg-card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;overflow:hidden;}
 .brand-card-logo img{width:100%;height:100%;object-fit:cover;border-radius:9px;}
 .brand-card-info{flex:1;min-width:0;}
 .brand-card-name{font-size:0.88rem;font-weight:700;margin-bottom:0.25rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -360,7 +364,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .member-card:hover{box-shadow:0 8px 32px rgba(0,0,0,0.16);border-color:rgba(255,255,255,0.15);}
 
 /* Gradient hero section of card */
-.member-card-hero{position:relative;padding:1.8rem 1.4rem 1.6rem;display:flex;align-items:center;gap:1.1rem;overflow:hidden;border-bottom:1px solid rgba(255,255,255,0.12);}
+.member-card-hero{position:relative;padding:2rem 1.4rem 1.8rem;display:flex;align-items:center;gap:1.1rem;overflow:hidden;border-bottom:1px solid rgba(255,255,255,0.12);}
 .member-card-hero::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.1) 0%,rgba(0,0,0,0.15) 100%);pointer-events:none;}
 .member-card-hero-content{position:relative;z-index:1;display:flex;align-items:center;gap:0.85rem;width:100%;}
 
@@ -382,7 +386,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .member-status:focus{color:var(--text);}
 
 /* Hitos preview */
-.member-hitos-preview{padding:1.6rem 0.9rem 0.8rem;display:flex;flex-direction:column;gap:0.5rem;height:300px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.member-hitos-preview{padding:0.7rem 0.9rem 0.8rem;display:flex;flex-direction:column;gap:0.5rem;height:300px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;transition:height 0.25s ease,opacity 0.2s ease;}
+.member-hitos-preview.collapsed{height:0!important;padding:0!important;overflow:hidden;opacity:0;}
 .hito-preview-row{display:flex;align-items:center;gap:0.5rem;font-size:0.72rem;padding:0.28rem 0.5rem;border-radius:6px;}
 .hito-preview-row.hito-oficial{background:rgba(245,197,66,0.1);color:var(--text);}
 .hito-preview-row.hito-revision{background:rgba(59,158,221,0.1);color:var(--aire);}
@@ -407,7 +412,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .cal-period{font-size:0.9rem;font-weight:700;}
 
 /* Week view */
-.week-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:0.6rem;}
+.week-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.6rem;}
 .week-day{background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--r-sm);padding:0.6rem;min-height:80px;}
 .week-day-label{font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);margin-bottom:0.4rem;}
 .week-day.today{border-color:var(--aire);}
@@ -464,7 +469,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .area-opt input{accent-color:var(--aire);}
 
 /* ── TEAM PAGE ── */
-.team-grid{display:grid;grid-template-columns:repeat(auto-fill,325px);gap:0.8rem;}
+.team-grid{display:grid;grid-template-columns:repeat(auto-fill,325px);gap:0.8rem;align-content:start;}
 .member-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;cursor:pointer;transition:all var(--transition);}
 .member-card:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,0.22);border-color:rgba(255,255,255,0.14);}
 .member-card-top{padding:1.2rem 1.2rem 0.8rem;display:flex;align-items:center;gap:0.9rem;}
@@ -515,7 +520,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .week-nav-btn{background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.35rem 0.8rem;font-size:0.82rem;cursor:pointer;color:var(--text2);transition:all var(--transition);font-family:var(--font);}
 .week-nav-btn:hover{color:var(--text);}
 .week-label{font-size:0.85rem;font-weight:700;flex:1;}
-.week-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:0.6rem;}
+.week-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.6rem;}
 .week-day{background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--r-sm);padding:0.7rem;min-height:80px;}
 .week-day.today{border-color:var(--aire);background:rgba(59,158,221,0.06);}
 .week-day-label{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);margin-bottom:0.4rem;}
@@ -546,7 +551,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 
 /* ── DOMOS SECTION (team page) ── */
 .domos-section{margin-top:2rem;}
-.domos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;}
+.domos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;}
 .domo-full-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);padding:1.2rem;box-shadow:var(--shadow);}
 .domo-full-title{font-size:0.95rem;font-weight:700;margin-bottom:0.3rem;}
 .domo-full-brand{font-size:0.8rem;color:var(--text2);margin-bottom:0.7rem;}
@@ -718,8 +723,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .equipo-mini-status input:focus{background:rgba(255,255,255,0.22);border-color:rgba(255,255,255,0.4);}
 
 /* Content area */
-.equipo-content-area{flex:1;overflow-y:auto;background:var(--bg);}
-#eq-panel-grid{padding:1.2rem 1.4rem;}
+.equipo-content-area{flex:1;overflow-y:auto;background:var(--bg);min-height:0;}
+#eq-panel-grid{padding:1.2rem 1.4rem;height:100%;box-sizing:border-box;}
 #eq-panel-week.active{display:flex;flex-direction:column;}
 #eq-panel-month{padding:1.2rem 1.4rem;}
 #eq-panel-domos{padding:1.2rem 1.4rem;}
@@ -805,7 +810,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .brand-color-swatch:hover{transform:scale(1.1);}
 
 /* ── Calendar events — NO CSS variables, styles injected inline by JS ── */
-.eq-event{border-radius:7px;padding:0.35rem 0.6rem;margin-bottom:0.35rem;font-size:0.7rem;line-height:1.5;}
+.eq-event{border-radius:5px;padding:0.2rem 0.45rem;margin-bottom:0.2rem;font-size:0.65rem;line-height:1.3;}
 .eq-event-type{display:none;}
 .eq-event-brand{font-weight:700;font-size:0.72rem;display:flex;align-items:center;gap:0.3rem;}
 .eq-event-act{font-size:0.67rem;margin-top:1px;}
@@ -821,16 +826,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
   background:transparent;
   border:none;
   border-right:1px solid var(--border);
-  padding:0.6rem 0.8rem;
-  min-height:90px;
+  padding:0.4rem 0.5rem;
+  height:208px;
+  display:flex;flex-direction:column;
 }
 .eq-month-day:last-child{border-right:none;}
-.eq-month-day.today{background:rgba(59,158,221,0.03);}
+.eq-month-day.today{background:rgba(59,158,221,0.04);}
 .eq-month-day-label{
-  font-size:0.72rem;font-weight:600;color:var(--text2);
-  margin-bottom:0.35rem;
+  font-size:0.65rem;font-weight:600;color:var(--text2);
+  margin-bottom:0.25rem;flex-shrink:0;white-space:nowrap;
 }
 .eq-month-day.today .eq-month-day-label{color:var(--aire);}
+.eq-month-events-scroll{overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
 
 /* ── Domos view ── */
 #eq-domos-content{display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start;}
@@ -987,6 +994,56 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
   font-size:0.85rem;overflow:hidden;flex-shrink:0;
 }
 .domo-brand-logo-sm img{width:100%;height:100%;object-fit:cover;border-radius:6px;}
+
+/* ── Digital Tools ── */
+.tool-card{
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(99,102,241,0.12);
+  border-radius:14px;overflow:hidden;
+  transition:all 0.2s;
+}
+.tool-card:hover{
+  background:rgba(99,102,241,0.08);
+  border-color:rgba(99,102,241,0.3);
+  transform:translateY(-2px);
+  box-shadow:0 6px 20px rgba(99,102,241,0.15);
+}
+.tool-card-header{
+  padding:0.75rem 0.85rem;
+  display:flex;align-items:center;gap:0.55rem;
+  cursor:pointer;text-decoration:none;
+}
+.tool-card-icon{
+  width:34px;height:34px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.2rem;flex-shrink:0;
+}
+.tool-card-name{
+  font-size:0.78rem;font-weight:700;
+  color:var(--text);flex:1;min-width:0;
+}
+.tool-card-toggle{font-size:1rem;color:var(--text3);flex-shrink:0;cursor:pointer;background:none;border:none;padding:0;}
+.tool-card-body{
+  padding:0.55rem 0.85rem 0.75rem;
+  border-top:1px solid rgba(99,102,241,0.12);
+  font-size:0.72rem;color:var(--text2);display:none;
+  background:rgba(0,0,0,0.1);
+}
+.tool-card-body.open{display:block;}
+.tool-info-row{
+  display:flex;align-items:flex-start;gap:0.5rem;flex-wrap:wrap;
+  padding:0.22rem 0;border-bottom:1px solid rgba(255,255,255,0.04);
+}
+.tool-info-key{color:var(--text3);font-size:0.67rem;min-width:55px;flex-shrink:0;word-break:break-word;}
+.tool-info-val{color:var(--text);font-size:0.67rem;font-weight:600;flex:1;min-width:80px;word-break:break-all;}
+
+.cal-draggable{transition:opacity 0.15s;}
+.cal-draggable:active{opacity:0.5;}
+.eq-month-day.cal-drag-over{background:rgba(59,158,221,0.08)!important;outline:2px dashed var(--aire);outline-offset:-2px;}
+
+/* Single member view: card fills available height */
+#eq-all-grid.single-member .member-card{height:calc(100vh - 200px);min-height:400px;}
+#eq-all-grid.single-member .member-card .member-hitos-preview{height:auto;flex:1;}
 </style>
 </head>
 <body>
@@ -1052,6 +1109,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
         <div id="dash-banner-slides" style="position:relative;min-height:130px"></div>
         <!-- Dots navigation -->
         <div id="dash-banner-dots" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:5"></div>
+        <!-- Nav arrows -->
+        <button id="banner-arrow-prev" onclick="goToBanner((_bannerIdx-1+appData.banners.length)%appData.banners.length)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.35);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.9rem;z-index:5">‹</button>
+        <button id="banner-arrow-next" onclick="goToBanner((_bannerIdx+1)%appData.banners.length)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.35);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.9rem;z-index:5">›</button>
         <!-- Controls -->
         <div style="position:absolute;top:10px;right:12px;display:flex;gap:6px;z-index:5">
           <button onclick="openBannerEditor(null)" title="Agregar banner" style="background:rgba(0,0,0,0.35);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;padding:0.3rem 0.6rem;font-size:0.72rem;cursor:pointer;font-family:var(--font)">+ Banner</button>
@@ -1096,8 +1156,26 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
       </div>
       <!-- Stage breakdown -->
       <div id="stage-grid-v2" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;align-items:start"></div>
-      <div class="brands-section-label">Todas las marcas</div>
+      <div style="font-size:1.1rem;font-weight:800;color:var(--text);letter-spacing:-0.3px;margin-bottom:0.8rem">Todas las marcas</div>
       <div class="brands-grid" id="brands-grid"></div>
+
+      <!-- ── DIGITAL TOOLS ── -->
+      <div style="margin-top:1.8rem;background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(139,92,246,0.04));border:1px solid rgba(99,102,241,0.18);border-radius:20px;padding:1.4rem 1.6rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem">
+          <div style="display:flex;align-items:center;gap:0.6rem">
+            <div style="width:32px;height:32px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem">🔧</div>
+            <div>
+              <div style="font-size:0.9rem;font-weight:800;color:var(--text);letter-spacing:-0.2px">Digital Tools</div>
+              <div style="font-size:0.65rem;color:var(--text3);margin-top:0.05rem">Acceso rápido a tus plataformas</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:0.5rem;align-items:center">
+            <button id="btn-tools-expand" onclick="toggleAllTools()" style="font-size:0.72rem;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:0.35rem 0.75rem;color:#818cf8;cursor:pointer;font-family:var(--font);font-weight:600;transition:all 0.15s">▾ Expandir todas</button>
+            <button onclick="addDigitalTool()" style="font-size:0.72rem;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);border-radius:8px;padding:0.35rem 0.8rem;color:#818cf8;cursor:pointer;font-family:var(--font);font-weight:600;transition:all 0.15s" onmouseover="this.style.background='rgba(99,102,241,0.2)'" onmouseout="this.style.background='rgba(99,102,241,0.12)'">+ Agregar</button>
+          </div>
+        </div>
+        <div id="digital-tools-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.6rem"></div>
+      </div>
     </div>
   </div>
 
@@ -1363,13 +1441,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
       </div>
 
       <!-- Actions -->
-      <div style="display:flex;gap:0.6rem;margin-left:auto;flex-shrink:0">
+      <div style="display:flex;gap:0.6rem;margin-left:auto;flex-shrink:0" id="eq-grid-actions">
+        <button id="btn-toggle-all-tasks" onclick="toggleAllMemberTasks()" style="font-size:0.75rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.38rem 0.75rem;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s">📋 Colapsar tareas</button>
         <button class="btn-add" style="background:var(--agua);font-size:0.8rem;padding:0.45rem 1rem" onclick="openMemberModal()">+ Miembro</button>
       </div>
     </div>
 
     <!-- Main area: mini card (when member selected) + content -->
-    <div class="equipo-body">
+    <div class="equipo-body" style="flex:1;min-height:0;overflow:hidden;">
       <!-- Left: mini profile card (hidden when no member selected) -->
       <div class="equipo-mini-card-wrap" id="equipo-mini-card-wrap" style="display:none">
         <div class="equipo-mini-card" id="equipo-mini-card">
@@ -1535,6 +1614,19 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 </div>
 
 <script>
+const DEFAULT_TOOLS = [
+  {id:'slack',     name:'Slack',              icon:'💬', url:'https://slack.com',                color:'#4a154b', info:[]},
+  {id:'wetransfer',name:'WeTransfer',          icon:'📦', url:'https://wetransfer.com',           color:'#3ebbd2', info:[]},
+  {id:'canva',     name:'Canva',               icon:'🎨', url:'https://canva.com',                color:'#00c4cc', info:[]},
+  {id:'fireflies', name:'Fireflies',           icon:'🔥', url:'https://fireflies.ai',             color:'#ff4b4b', info:[]},
+  {id:'whisper',   name:'Whisper Transcribe',  icon:'🎙️', url:'https://whisper.com',              color:'#7c3aed', info:[]},
+  {id:'claude',    name:'Claude',              icon:'✦',  url:'https://claude.ai',               color:'#d97706', info:[]},
+  {id:'chatgpt',   name:'ChatGPT',             icon:'🤖', url:'https://chat.openai.com',          color:'#10a37f', info:[]},
+  {id:'drive',     name:'Google Drive',        icon:'📁', url:'https://drive.google.com',         color:'#4285f4', info:[]},
+  {id:'envato',    name:'Envato',              icon:'🌿', url:'https://envato.com',               color:'#82b541', info:[]},
+  {id:'pacdora',   name:'Pacdora',             icon:'📐', url:'https://pacdora.com',              color:'#ff6b35', info:[]},
+  {id:'higgsfield',name:'Higgsfield',          icon:'🎬', url:'https://higgsfield.ai',            color:'#6366f1', info:[]},
+];
 /* ═══ SUPABASE ═══ */
 const {createClient}=supabase;
 const SB_URL='https://abfgnaavzqvfhmyyfvpn.supabase.co';
@@ -1711,6 +1803,7 @@ async function loadData(){
       if(!appData.domos) appData.domos=[];
       if(!Array.isArray(appData.banners)) appData.banners=[];
       if(!appData.domoNames) appData.domoNames={};
+      if(!Array.isArray(appData.digitalTools)){appData.digitalTools=DEFAULT_TOOLS.map(t=>({...t}));}
       // Auto-assign colors to brands missing one
       const _autoColors=['#e85d5d','#e87f3a','#e8c23a','#5db85d','#3a9ee8','#6b5de8','#c45de8','#e85d9e','#5de8d0','#5d8ce8','#e8825d','#a0e85d'];
       (appData.brands||[]).forEach((b,i)=>{ if(!b.color) b.color=_autoColors[i%_autoColors.length]; });
@@ -1898,6 +1991,11 @@ function renderBanners(){
     `<div class="dash-banner-dot ${i===_bannerIdx?'active':''}" onclick="goToBanner(${i})"></div>`
   ).join('');
 
+  // Show/hide arrows
+  const pa=document.getElementById('banner-arrow-prev');
+  const na=document.getElementById('banner-arrow-next');
+  if(pa) pa.style.display = banners.length>1?'flex':'none';
+  if(na) na.style.display = banners.length>1?'flex':'none';
   // Auto-slide
   clearInterval(_bannerTimer);
   if(banners.length > 1){
@@ -2060,6 +2158,216 @@ function toggleConfigNav(){
   if(arrow) arrow.textContent = isOpen ? '▶' : '▼';
 }
 
+
+
+/* ═══ CALENDAR DRAG & DROP ═══ */
+let _calDragActId = null;
+let _calDragBrandId = null;
+let _calDragStage = null;
+let _calDragType = null; // 'oficial' | 'revision'
+
+
+
+function deduplicateHitos(hitos){
+  const seen = new Set();
+  return hitos.filter(h=>{
+    const key = h.actId + '|' + h.type + '|' + h.date;
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function calDragStart(event, brandId, stage, actId, type){
+  _calDragActId = actId;
+  _calDragBrandId = brandId;
+  _calDragStage = stage;
+  _calDragType = type;
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', actId);
+}
+
+async function calDrop(event, newDateStr){
+  event.preventDefault();
+  if(!_calDragActId || !_calDragBrandId || !_calDragStage) return;
+
+  const brand = (appData.brands||[]).find(b=>b.id===_calDragBrandId);
+  if(!brand?.cronograma?.[_calDragStage]) return;
+  const acts = brand.cronograma[_calDragStage];
+  const actIdx = acts.findIndex(a=>a.id===_calDragActId);
+  if(actIdx<0) return;
+  const act = acts[actIdx];
+
+  if(_calDragType === 'revision'){
+    // Free mode only: move just the revision override
+    act.revDateOverride = newDateStr;
+  } else {
+    // Move official hito: update endDate, recalculate startDate from days
+    const oldDays = act.days || 1;
+    const newEndDate = newDateStr;
+    // startDate = newEndDate minus (days-1) workdays
+    act.endDate = newEndDate;
+    act.startDate = subtractWorkdays(newEndDate, oldDays - 1);
+
+    // If linked mode, auto-set revDate to 2 workdays before
+    if(!act.revDateOverride){
+      // linked: revision computed dynamically — nothing to store
+    }
+
+    // Rechain subsequent activities in this stage
+    for(let i = actIdx + 1; i < acts.length; i++){
+      const prev = acts[i-1];
+      acts[i].startDate = addWorkdays(prev.endDate, 1);
+      acts[i].endDate = addWorkdays(acts[i].startDate, (acts[i].days||1) - 1);
+    }
+
+    // Also rechain backwards if we moved earlier
+    if(actIdx > 0){
+      const prev = acts[actIdx - 1];
+      const prevEnd = new Date(prev.endDate);
+      const newStart = new Date(act.startDate);
+      if(newStart <= prevEnd){
+        // Moved too early: shift previous activities back
+        for(let i = actIdx - 1; i >= 0; i--){
+          acts[i].endDate = subtractWorkdays(acts[i+1].startDate, 1);
+          acts[i].startDate = subtractWorkdays(acts[i].endDate, (acts[i].days||1) - 1);
+        }
+      }
+    }
+  }
+
+  _calDragActId = null; _calDragBrandId = null; _calDragStage = null; _calDragType = null;
+
+  await upsert();
+  showStatus('Fecha actualizada ✓');
+  renderEqMonth();
+  // If on brand page, refresh too
+  if(currentPage==='brand' && currentBrandId===brand.id) renderBrandCrono(brand);
+}
+
+async function toggleHitoFreeMode(brandId, stage, actId){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand?.cronograma?.[stage]) return;
+  const act = brand.cronograma[stage].find(a=>a.id===actId);
+  if(!act) return;
+  if(act.revDateOverride){
+    // Re-link: remove override
+    delete act.revDateOverride;
+    showStatus('🔗 Revisión re-vinculada al hito (−2 días)');
+  } else {
+    // Free mode: set initial override to current computed value
+    act.revDateOverride = subtractWorkdays(act.endDate, 2);
+    showStatus('🔓 Modo libre activado — arrastra 🔍 independientemente');
+  }
+  await upsert();
+  renderEqMonth();
+  if(currentPage==='brand' && currentBrandId===brandId) renderBrandCrono(brand);
+}
+
+/* ═══ DIGITAL TOOLS ═══ */
+
+
+function ensureDigitalTools(){
+  if(!Array.isArray(appData.digitalTools)){
+    appData.digitalTools = DEFAULT_TOOLS.map(t=>({...t}));
+  }
+}
+
+function renderDigitalTools(){
+  ensureDigitalTools();
+  const grid = document.getElementById('digital-tools-grid');
+  if(!grid) return;
+  grid.innerHTML = appData.digitalTools.map(tool=>{
+    const infoRows = (tool.info||[]).map((row,ri)=>`
+      <div class="tool-info-row">
+        <span class="tool-info-key" contenteditable="true" onblur="saveToolInfo('${tool.id}',${ri},'key',this.textContent)">${row.key||'Campo'}</span>
+        <span class="tool-info-val" contenteditable="true" onblur="saveToolInfo('${tool.id}',${ri},'val',this.textContent)">${row.val||'—'}</span>
+        <button onmousedown="event.preventDefault();removeToolInfo('${tool.id}',${ri})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.65rem;padding:0 0.2rem">✕</button>
+      </div>`).join('');
+    return `<div class="tool-card" id="tool-${tool.id}">
+      <a class="tool-card-header" href="${tool.url||'#'}" target="_blank" onclick="event.stopPropagation()">
+        <div class="tool-card-icon" style="background:${tool.color}22;color:${tool.color}">${tool.icon||'🔧'}</div>
+        <span class="tool-card-name">${tool.name}</span>
+        <button class="tool-card-toggle" onclick="event.preventDefault();event.stopPropagation();toggleToolCard('${tool.id}')" title="Info">▾</button>
+        <button onclick="event.preventDefault();event.stopPropagation();deleteDigitalTool('${tool.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.7rem;opacity:0.4;transition:opacity 0.15s" onmouseover="this.style.opacity=1;this.style.color='#ef4444'" onmouseout="this.style.opacity=0.4;this.style.color='var(--text3)'">🗑</button>
+      </a>
+      <div class="tool-card-body" id="toolbody-${tool.id}">
+        ${infoRows}
+        <button onclick="addToolInfo('${tool.id}')" style="width:100%;margin-top:0.3rem;background:none;border:1px dashed var(--border);border-radius:6px;padding:0.25rem;font-size:0.68rem;color:var(--text3);cursor:pointer;font-family:var(--font)">+ Agregar campo</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleToolCard(toolId){
+  const body = document.getElementById('toolbody-'+toolId);
+  if(body) body.classList.toggle('open');
+}
+
+async function addToolInfo(toolId){
+  ensureDigitalTools();
+  const tool = appData.digitalTools.find(t=>t.id===toolId);
+  if(!tool){ showStatus('Herramienta no encontrada',true); return; }
+  if(!Array.isArray(tool.info)) tool.info=[];
+  tool.info.push({key:'Campo',val:'Valor'});
+  // Optimistic render first, then save
+  renderDigitalTools();
+  setTimeout(()=>{
+    const b=document.getElementById('toolbody-'+toolId);
+    if(b) b.classList.add('open');
+  },30);
+  await upsert();
+  showStatus('Campo añadido ✓');
+}
+
+async function removeToolInfo(toolId, idx){
+  ensureDigitalTools();
+  const tool = appData.digitalTools.find(t=>t.id===toolId);
+  if(!tool||!tool.info) return;
+  tool.info.splice(idx,1);
+  await upsert();
+  renderDigitalTools();
+}
+
+async function saveToolInfo(toolId, idx, field, val){
+  ensureDigitalTools();
+  const tool = appData.digitalTools.find(t=>t.id===toolId);
+  if(!tool||!tool.info||!tool.info[idx]) return;
+  tool.info[idx][field] = val.trim();
+  await upsert();
+}
+
+
+let _allToolsExpanded = false;
+function toggleAllTools(){
+  _allToolsExpanded = !_allToolsExpanded;
+  document.querySelectorAll('[id^="toolbody-"]').forEach(b=>{
+    b.classList.toggle('open', _allToolsExpanded);
+  });
+  const btn = document.getElementById('btn-tools-expand');
+  if(btn) btn.textContent = _allToolsExpanded ? '▴ Colapsar todas' : '▾ Expandir todas';
+}
+
+async function addDigitalTool(){
+  const name = prompt('Nombre de la herramienta:');
+  if(!name) return;
+  const url = prompt('URL (ej: https://ejemplo.com):', 'https://');
+  const icon = prompt('Emoji como ícono:', '🔧');
+  ensureDigitalTools();
+  appData.digitalTools.push({id:uid(), name:name.trim(), icon:icon||'🔧', url:url||'#', color:'#6366f1', info:[]});
+  await upsert();
+  showStatus('Herramienta añadida ✓');
+  renderDigitalTools();
+}
+
+async function deleteDigitalTool(toolId){
+  if(!confirm('¿Eliminar esta herramienta?')) return;
+  ensureDigitalTools();
+  appData.digitalTools = appData.digitalTools.filter(t=>t.id!==toolId);
+  await upsert();
+  renderDigitalTools();
+}
+
 function updateGlobalBreadcrumb(page, extra){
   const bc = document.getElementById('global-breadcrumb');
   if(!bc) return;
@@ -2176,6 +2484,7 @@ function toggleStageCard(stageId){
 function renderDashboard(){
   const brands=appData.brands||[];
   renderBanners();
+  renderDigitalTools();
   document.getElementById('total-count').textContent=brands.length;
   document.getElementById('total-sub').textContent=brands.length===0?'Sin marcas. ¡Crea la primera!':brands.length===1?'1 proyecto en curso':brands.length+' proyectos en curso';
 
@@ -2207,10 +2516,10 @@ function renderDashboard(){
         <div class="brand-card-logo">${logoHTML}</div>
         <div class="brand-card-info">
           <div class="brand-card-name">${b.name}</div>
-          <div class="brand-card-meta">
-            <span class="stage-pill ${b.stage}" style="font-size:0.62rem;padding:0.1rem 0.45rem">${s.e} ${s.l}</span>
-            <span class="prio-pill ${b.prioridad||'media'}" style="font-size:0.6rem;padding:0.1rem 0.4rem">${pi[b.prioridad||'media']}</span>
-            <span style="font-size:0.68rem;color:var(--text3);font-weight:600;margin-left:auto">${pct}%</span>
+          <div class="brand-card-meta" style="display:flex;align-items:center;gap:0.3rem;flex-wrap:nowrap;overflow:hidden">
+            <span class="stage-pill ${b.stage}" style="font-size:0.56rem;padding:0.06rem 0.3rem;white-space:nowrap;flex-shrink:0">${s.e} ${s.l}</span>
+            <span class="prio-pill ${b.prioridad||'media'}" style="font-size:0.56rem;padding:0.06rem 0.28rem;white-space:nowrap;flex-shrink:0">${pi[b.prioridad||'media']}</span>
+            <span style="font-size:0.68rem;color:var(--text3);font-weight:600;margin-left:auto;flex-shrink:0;white-space:nowrap">${pct}%</span>
           </div>
         </div>
         <button class="btn-delete" onclick="event.stopPropagation();deleteBrand('${b.id}')" style="opacity:0;transition:opacity 0.15s;font-size:0.75rem;background:none;border:none;cursor:pointer;padding:0.2rem;color:var(--text3);flex-shrink:0" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">🗑</button>
@@ -2455,11 +2764,17 @@ function renderBrandCrono(brand){
           <span class="act-item-name ${a.isHito?'hito-name':''} ${a.status==='completada'?'done-name':''}"
             onclick="cycleStatus('${brand.id}','${stage}','${a.id}')"
             title="Click para marcar avance">${a.name}</span>
-          <span class="act-days-badge">${a.days}d</span>
+          <span class="act-days-badge" onclick="editActDays(event,'${brand.id}','${stage}','${a.id}')" title="Click para editar duración" style="cursor:pointer" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${a.days}d</span>
           <span class="act-date" title="Fecha inicio — click para editar" onclick="editDate(event,'${brand.id}','${stage}','${a.id}','startDate')">📅 ${fmtDateDisplay(a.startDate)}</span>
           <span style="font-size:0.68rem;color:var(--text3)">→</span>
           <span class="act-date" title="Fecha fin — click para editar" onclick="editDate(event,'${brand.id}','${stage}','${a.id}','endDate')">🏁 ${fmtDateDisplay(a.endDate)}</span>
+          <button onclick="deleteCronoActivity('${brand.id}','${stage}','${a.id}')" title="Eliminar actividad" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:0.75rem;color:var(--text3);padding:0.1rem 0.3rem;border-radius:4px;opacity:0.4;transition:opacity 0.15s" onmouseover="this.style.opacity=1;this.style.color='#ef4444'" onmouseout="this.style.opacity=0.4;this.style.color='var(--text3)'">🗑</button>
         </div>`).join('')}
+      <div style="padding:0.4rem 1.2rem 0.6rem">
+        <button onclick="addCronoActivity('${brand.id}','${stage}')" style="display:flex;align-items:center;gap:0.4rem;background:none;border:1px dashed var(--border);border-radius:8px;padding:0.3rem 0.8rem;font-size:0.75rem;color:var(--text3);cursor:pointer;width:100%;justify-content:center;font-family:var(--font);transition:all 0.15s" onmouseover="this.style.borderColor='var(--aire)';this.style.color='var(--aire)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
+          + Agregar actividad
+        </button>
+      </div>
     </div>`;
   }).join('');
 
@@ -2477,6 +2792,82 @@ function renderBrandCrono(brand){
   const w=Math.floor(totalDays/7),d=totalDays%7;
   const rangeLabel=(firstDate&&lastDate)?` · <span style="color:var(--text2)">${fmtDateDisplay(firstDate)} → ${fmtDateDisplay(lastDate)}</span>`:'';
   document.getElementById('brand-crono-summary').innerHTML=`${chips}<span class="crono-total-label">⏱ ${w>0?w+' sem. ':''}${d>0?d+'d ':''}<span style="color:var(--text3)">${totalDays}d en total</span>${rangeLabel}</span>`;
+}
+
+
+async function addCronoActivity(brandId, stage){
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand||!brand.cronograma) return;
+  const name = prompt('Nombre de la nueva actividad:');
+  if(!name) return;
+  const daysStr = prompt('¿Cuántos días hábiles dura?', '3');
+  const days = parseInt(daysStr)||3;
+  const acts = brand.cronograma[stage]||[];
+  // Start after the last activity's endDate
+  const lastAct = acts[acts.length-1];
+  const startDate = lastAct?.endDate ? addWorkdays(lastAct.endDate, 1) : new Date().toISOString().slice(0,10);
+  const endDate = addWorkdays(startDate, days-1);
+  acts.push({id:uid(), name, days, startDate, endDate, status:'pendiente', isHito:false});
+  brand.cronograma[stage] = acts;
+  await upsert();
+  showStatus('Actividad añadida ✓');
+  renderBrandCrono(brand);
+}
+
+async function deleteCronoActivity(brandId, stage, actId){
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand||!brand.cronograma) return;
+  const acts = brand.cronograma[stage]||[];
+  const idx = acts.findIndex(a=>a.id===actId);
+  if(idx<0) return;
+  const removed = acts[idx];
+  acts.splice(idx,1);
+  // Rechain: shift all subsequent activities so no gap
+  for(let i=idx; i<acts.length; i++){
+    const prev = acts[i-1];
+    const prevEnd = prev ? prev.endDate : (i===0 ? removed.startDate : null);
+    if(prevEnd){
+      acts[i].startDate = addWorkdays(prevEnd, 1);
+      acts[i].endDate = addWorkdays(acts[i].startDate, (acts[i].days||1)-1);
+    }
+  }
+  brand.cronograma[stage] = acts;
+  await upsert();
+  showStatus('Actividad eliminada y fechas reencadenadas ✓');
+  renderBrandCrono(brand);
+}
+
+function addWorkdays(dateStr, days){
+  let d = new Date(dateStr);
+  let added = 0;
+  while(added < days){
+    d.setDate(d.getDate()+1);
+    if(!isWeekend(d)) added++;
+  }
+  return fmtDate(d);
+}
+
+
+async function editActDays(e, brandId, stage, actId){
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand) return;
+  const acts = brand.cronograma[stage];
+  const idx = acts.findIndex(a=>a.id===actId);
+  if(idx<0) return;
+  const act = acts[idx];
+  const newDays = prompt(`Duración de "${act.name}" (días hábiles):`, act.days);
+  if(!newDays || isNaN(parseInt(newDays))) return;
+  act.days = parseInt(newDays);
+  // Recalculate endDate from startDate
+  act.endDate = addWorkdays(act.startDate, act.days - 1);
+  // Rechain subsequent
+  for(let i=idx+1;i<acts.length;i++){
+    acts[i].startDate = addWorkdays(acts[i-1].endDate, 1);
+    acts[i].endDate = addWorkdays(acts[i].startDate, (acts[i].days||1)-1);
+  }
+  await upsert();
+  showStatus('Duración actualizada ✓');
+  renderBrandCrono(brand);
 }
 
 /* ── Edit a single date inline ── */
@@ -2529,10 +2920,25 @@ async function cycleStatus(brandId,stage,actId){
   if(!act)return;
   const states=['pendiente','en progreso','completada'];
   act.status=states[(states.indexOf(act.status)+1)%states.length];
+
+  // Auto-advance stage: when all acts in current stage complete, move to next
+  const stageOrder=['aire','agua','tierra','fuego'];
+  const stageActs=brand.cronograma[stage]||[];
+  const allDone=stageActs.length>0&&stageActs.every(a=>a.status==='completada');
+  if(allDone){
+    const nextStage=stageOrder[stageOrder.indexOf(brand.stage)+1];
+    if(nextStage && brand.stage===stage){
+      brand.stage=nextStage;
+      showStatus(`🎉 Etapa ${stage} completada → avanzando a ${nextStage}`);
+    }
+  }
+
   renderBrandCrono(brand);
   renderSegmentedProgress(brand);
+  // Also update hero meta
+  renderBrandPage();
   await upsert();
-  showStatus(act.status==='completada'?'✓ Completada':'Actualizada');
+  if(act.status==='completada') showStatus('✓ Completada');
 }
 
 
@@ -2836,8 +3242,15 @@ function closeModal(){document.getElementById('modal-overlay').classList.add('hi
 
 function previewImage(e){
   const f=e.target.files[0];if(!f)return;
+  if(f.size>2*1024*1024){showStatus('Imagen demasiado grande. Máx 2MB',true);e.target.value='';return;}
   const r=new FileReader();
-  r.onload=ev=>{document.getElementById('img-preview').src=ev.target.result;document.getElementById('img-preview').style.display='block';document.getElementById('upload-placeholder').style.display='none';};
+  r.onload=ev=>{
+    const img=document.getElementById('img-preview');
+    img.src=ev.target.result;
+    img.style.display='block';
+    document.getElementById('upload-placeholder').style.display='none';
+  };
+  r.onerror=()=>showStatus('Error cargando imagen',true);
   r.readAsDataURL(f);
 }
 
@@ -3563,8 +3976,8 @@ function getMemberHitos(memberId) {
           status: act.status,
         });
 
-        // Internal review = 2 workdays before endDate
-        const revDate = subtractWorkdays(act.endDate, 2);
+        // Internal review: use override if free mode, else 2 workdays before endDate
+        const revDate = act.revDateOverride || subtractWorkdays(act.endDate, 2);
         const revD = new Date(revDate); revD.setHours(0,0,0,0);
         results.push({
           type: 'revision',
@@ -3576,6 +3989,7 @@ function getMemberHitos(memberId) {
           date: revDate,
           dateObj: revD,
           status: act.status,
+          freeMode: !!act.revDateOverride,
         });
       });
     });
@@ -3814,6 +4228,46 @@ function renderEqGrid(){
   }
 }
 
+
+
+let _allTasksCollapsed = false;
+
+function toggleMemberTasks(memberId){
+  const body = document.getElementById('tasks-body-'+memberId);
+  const arrow = document.getElementById('tasks-arrow-'+memberId);
+  if(!body) return;
+  const isCollapsed = body.classList.contains('collapsed');
+  body.classList.toggle('collapsed', !isCollapsed);
+  if(arrow) arrow.style.transform = isCollapsed ? '' : 'rotate(-90deg)';
+}
+
+function toggleAllMemberTasks(){
+  _allTasksCollapsed = !_allTasksCollapsed;
+  const btn = document.getElementById('btn-toggle-all-tasks');
+  document.querySelectorAll('[id^="tasks-body-"]').forEach(body=>{
+    body.classList.toggle('collapsed', _allTasksCollapsed);
+  });
+  document.querySelectorAll('[id^="tasks-arrow-"]').forEach(arrow=>{
+    arrow.style.transform = _allTasksCollapsed ? 'rotate(-90deg)' : '';
+  });
+  if(btn) btn.textContent = _allTasksCollapsed ? '📋 Expandir tareas' : '📋 Colapsar tareas';
+}
+
+function showRichToolbar(memberId){
+  document.querySelectorAll('[id^="rich-toolbar-"]').forEach(t=>{t.style.display='none';});
+  const tb = document.getElementById('rich-toolbar-'+memberId);
+  if(tb) tb.style.display='flex';
+  // Hide on click outside
+  setTimeout(()=>{
+    document.addEventListener('click', function h(e){
+      if(!e.target.closest('[id^="rich-toolbar-"]')&&!e.target.closest('.member-status-editor')){
+        document.querySelectorAll('[id^="rich-toolbar-"]').forEach(t=>{t.style.display='none';});
+        document.removeEventListener('click',h);
+      }
+    });
+  },100);
+}
+
 function renderMembersGrid(){
   const grid = document.getElementById('eq-all-grid') || document.getElementById('team-grid');
   if(!grid) return;
@@ -3825,7 +4279,7 @@ function renderMembersGrid(){
   grid.innerHTML = members.map((m,idx)=>{
     const hitos = getMemberHitos(m.id);
     const today = new Date(); today.setHours(0,0,0,0);
-    const upcoming = hitos.filter(h=>h.dateObj>=today).slice(0,3);
+    const upcoming = hitos.filter(h=>h.dateObj>=today).sort((a,b)=>a.dateObj-b.dateObj).slice(0,6);
     const area = AREAS.find(a=>a.id===m.area);
     const avatarHTML = m.photo ? `<img src="${m.photo}" alt="">` : (m.emoji||'👤');
     const gradient = getMemberGradient(m.id);
@@ -3835,16 +4289,28 @@ function renderMembersGrid(){
       <div class="member-card-hero" style="background:${gradient}">
         <div class="member-card-hero-content">
           <div class="member-avatar">${avatarHTML}</div>
-          <div style="min-width:0;flex:1">
+          <div style="min-width:0;flex:1" onclick="event.stopPropagation()">
             <div class="member-nickname">${m.apodo||m.nombre}</div>
             ${m.cargo?`<div style="font-size:0.68rem;color:rgba(255,255,255,0.75);margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.cargo}</div>`:''}
-            <input class="member-status" value="${m.status||''}" placeholder="Estado emocional…"
+            <div contenteditable="true" id="status-ed-${m.id}"
               onclick="event.stopPropagation()"
-              onblur="quickSaveMemberStatus('${m.id}',this.value)"
-              onkeydown="if(event.key==='Enter'){event.stopPropagation();this.blur()}"
-              style="margin-top:0.4rem;width:100%;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:0.25rem 0.5rem;font-size:0.7rem;color:#fff;font-family:var(--font);outline:none;"
-              onfocus="this.style.background='rgba(255,255,255,0.18)';this.style.border='1px solid rgba(255,255,255,0.3)'"
-              onblur="this.style.background='transparent';this.style.border='1px solid transparent';quickSaveMemberStatus('${m.id}',this.value)">
+              onfocus="event.stopPropagation();this.style.background='rgba(255,255,255,0.18)';this.style.border='1px solid rgba(255,255,255,0.3)';showRichToolbar('${m.id}')"
+              onblur="this.style.background='transparent';this.style.border='1px solid transparent';quickSaveMemberStatus('${m.id}',this.innerHTML)"
+              style="margin-top:0.4rem;width:100%;min-height:1.5rem;background:transparent;border:1px solid transparent;border-radius:6px;padding:0.28rem 0.5rem;font-size:0.76rem;color:#fff;font-family:var(--font);outline:none;transition:all 0.2s;cursor:text;word-break:break-word"
+              >${m.status||''}</div>
+            ${!m.status?`<div style="position:absolute;pointer-events:none;margin-top:-1.3rem;padding:0.28rem 1rem;font-size:0.76rem;color:rgba(255,255,255,0.4);font-style:italic" id="status-ph-${m.id}">Estado emocional…</div>`:''}
+            <div id="rich-toolbar-${m.id}" style="display:none;gap:0.25rem;margin-top:0.3rem;flex-wrap:wrap">
+              <button onmousedown="event.preventDefault();document.execCommand('bold')" style="background:rgba(255,255,255,0.2);border:none;border-radius:4px;padding:0.1rem 0.4rem;color:#fff;font-size:0.68rem;cursor:pointer;font-weight:bold">B</button>
+              <button onmousedown="event.preventDefault();document.execCommand('italic')" style="background:rgba(255,255,255,0.2);border:none;border-radius:4px;padding:0.1rem 0.4rem;color:#fff;font-size:0.68rem;cursor:pointer;font-style:italic">I</button>
+              <button onmousedown="event.preventDefault();document.execCommand('underline')" style="background:rgba(255,255,255,0.2);border:none;border-radius:4px;padding:0.1rem 0.4rem;color:#fff;font-size:0.68rem;cursor:pointer;text-decoration:underline">U</button>
+              <button onmousedown="event.preventDefault();document.execCommand('fontSize',false,'5')" style="background:rgba(255,255,255,0.2);border:none;border-radius:4px;padding:0.1rem 0.35rem;color:#fff;font-size:0.68rem;cursor:pointer">A↑</button>
+              <button onmousedown="event.preventDefault();document.execCommand('fontSize',false,'2')" style="background:rgba(255,255,255,0.2);border:none;border-radius:4px;padding:0.1rem 0.35rem;color:#fff;font-size:0.68rem;cursor:pointer">A↓</button>
+              <button onmousedown="event.preventDefault();document.execCommand('foreColor',false,'#f5c542')" style="background:rgba(245,197,66,0.35);border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;flex-shrink:0"></button>
+              <button onmousedown="event.preventDefault();document.execCommand('foreColor',false,'#5de8d0')" style="background:rgba(93,232,208,0.5);border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;flex-shrink:0"></button>
+              <button onmousedown="event.preventDefault();document.execCommand('foreColor',false,'#ff8080')" style="background:rgba(255,128,128,0.5);border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;flex-shrink:0"></button>
+              <button onmousedown="event.preventDefault();document.execCommand('foreColor',false,'#c084fc')" style="background:rgba(192,132,252,0.5);border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;flex-shrink:0"></button>
+              <button onmousedown="event.preventDefault();document.execCommand('foreColor',false,'#ffffff')" style="background:rgba(255,255,255,0.5);border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;flex-shrink:0"></button>
+            </div>
           </div>
         </div>
         <!-- Card actions -->
@@ -3855,19 +4321,28 @@ function renderMembersGrid(){
       </div>
       <!-- Tareas -->
       <div class="member-card-right">
-        <div class="member-hitos-preview">
+        <div onclick="event.stopPropagation();toggleMemberTasks('${m.id}')" style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.9rem;cursor:pointer;border-bottom:1px solid var(--border);user-select:none" onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background='transparent'">
+          <span style="font-size:0.67rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px">Tareas <span style="font-weight:400;color:var(--text3)">(${upcoming.length})</span></span>
+          <span id="tasks-arrow-${m.id}" style="font-size:0.65rem;color:var(--text3);display:inline-block;transition:transform 0.2s">▼</span>
+        </div>
+        <div class="member-hitos-preview" id="tasks-body-${m.id}">
           ${upcoming.length?upcoming.map(h=>`
-            <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.55rem 0.7rem;border-left:3px solid ${h.type==='revision'?'var(--fuego)':'#f5c542'}">
-              <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;flex-wrap:nowrap;min-width:0">
-                <!-- Brand name: shrinks with ellipsis -->
-                <span style="font-size:0.68rem;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">${(appData.brands||[]).find(b=>b.id===h.brandId)?.name||'—'}</span>
-                <!-- Partner chip: fixed, no shrink -->
-                ${(()=>{const br=(appData.brands||[]).find(b=>b.id===h.brandId);if(!br?.domo)return'';const partnerId=br.domo.m1===m.id?br.domo.m2:br.domo.m1;const partner=(appData.members||[]).find(x=>x.id===partnerId);return partner?`<span style="font-size:0.62rem;background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.05rem 0.45rem;color:var(--text2);white-space:nowrap;flex-shrink:0">${partner.emoji||'👤'} ${partner.apodo||partner.nombre}</span>`:'';})()}
-                <!-- Date pill: fixed, no shrink -->
-                <span style="font-size:0.65rem;font-weight:700;color:${h.type==='revision'?'var(--fuego)':'#c4980a'};background:${h.type==='revision'?'rgba(232,98,42,0.1)':'rgba(245,197,66,0.12)'};border-radius:6px;padding:0.1rem 0.4rem;white-space:nowrap;flex-shrink:0">${h.type==='revision'?'🔍':'⭐'} ${fmtDateDisplay(h.date)}</span>
-              </div>
-              <div style="font-size:0.73rem;color:var(--text2);line-height:1.35">${h.name.replace('🔍 Rev. interna: ','')}</div>
-            </div>`).join(''):'<div style="font-size:0.7rem;color:var(--text3);padding:0.3rem 0">Sin hitos ✓</div>'}
+            ${(()=>{
+              const _br=(appData.brands||[]).find(b=>b.id===h.brandId);
+              const _col=getBrandColor(_br);
+              const _r=parseInt(_col.slice(1,3),16),_g=parseInt(_col.slice(3,5),16),_bv=parseInt(_col.slice(5,7),16);
+              const _isRev=h.type==='revision';
+              const _partnerId=_br?.domo?(_br.domo.m1===m.id?_br.domo.m2:_br.domo.m1):null;
+              const _partner=_partnerId?(appData.members||[]).find(x=>x.id===_partnerId):null;
+              return `<div style="background:rgba(${_r},${_g},${_bv},0.06);border:1px solid rgba(${_r},${_g},${_bv},0.2);border-radius:10px;padding:0.5rem 0.7rem;border-left:3px solid rgb(${_r},${_g},${_bv});${_isRev?'background:repeating-linear-gradient(-45deg,rgba('+_r+','+_g+','+_bv+',0.04) 0,rgba('+_r+','+_g+','+_bv+',0.04) 4px,transparent 4px,transparent 10px);':''}">
+                <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.2rem;flex-wrap:nowrap;min-width:0">
+                  <span style="font-size:0.68rem;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">${_br?.name||'—'}</span>
+                  ${_partner?`<span style="font-size:0.61rem;background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.05rem 0.4rem;color:var(--text2);white-space:nowrap;flex-shrink:0">${_partner.emoji||'👤'} ${_partner.apodo||_partner.nombre}</span>`:''}
+                  <span style="font-size:0.63rem;font-weight:700;color:rgb(${_r},${_g},${_bv});background:rgba(${_r},${_g},${_bv},0.12);border-radius:6px;padding:0.1rem 0.4rem;white-space:nowrap;flex-shrink:0">${_isRev?'🔍':'⭐'} ${fmtDateDisplay(h.date)}</span>
+                </div>
+                <div style="font-size:0.72rem;color:var(--text2);line-height:1.35">${h.name.replace('🔍 Rev. interna: ','')}</div>
+              </div>`;
+            })()}`).join(''):'<div style="font-size:0.7rem;color:var(--text3);padding:0.3rem 0">Sin hitos ✓</div>'}
         </div>
       </div>
     </div>`;
@@ -3892,7 +4367,8 @@ function renderEqWeek(){
   if(subEl) subEl.textContent = `${fmt(monday)} — ${fmt(friday)}`;
 
   const membersToShow = currentMemberId ? [(appData.members||[]).find(m=>m.id===currentMemberId)].filter(Boolean) : (appData.members||[]);
-  const allHitos = membersToShow.flatMap(m=>getMemberHitos(m.id).map(h=>({...h,member:m})));
+  const allHitosRaw = membersToShow.flatMap(m=>getMemberHitos(m.id).map(h=>({...h,member:m})));
+  const allHitos = currentMemberId ? allHitosRaw : deduplicateHitos(allHitosRaw);
   // getMemberHitos already returns separate oficial + revision objects with correct date
 
   const dayNames=['Lun','Mar','Mié','Jue','Vie'];
@@ -3910,7 +4386,10 @@ function renderEqWeek(){
     const dayStr = fmtDate(day);
     const isToday = dayStr===fmtDate(today);
     const dayEvs = allHitos.filter(h=>h.date===dayStr);
-    return `<div class="eq-week-day ${isToday?'today':''} ${!dayEvs.length&&!isToday?'empty-day':''}">
+    return `<div class="eq-week-day ${isToday?'today':''} ${!dayEvs.length&&!isToday?'empty-day':''}"
+      ondragover="event.preventDefault();this.classList.add('cal-drag-over')"
+      ondragleave="this.classList.remove('cal-drag-over')"
+      ondrop="calDrop(event,'${dayStr}');this.classList.remove('cal-drag-over')">
       <div class="eq-week-day-label">${dayNames[i]}</div>
       <div class="eq-week-day-num">${fmt(day)}${isToday?'<span class="today-pill">HOY</span>':''}</div>
       ${dayEvs.length ? dayEvs.map(h=>{
@@ -3918,13 +4397,26 @@ function renderEqWeek(){
         const col=getBrandColor(brand);
         const r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),bv=parseInt(col.slice(5,7),16);
         if(h.type==='revision'){
-          return `<div class="eq-event" style="background:repeating-linear-gradient(-45deg,rgba(${r},${g},${bv},0.07) 0,rgba(${r},${g},${bv},0.07) 5px,rgba(${r},${g},${bv},0.02) 5px,rgba(${r},${g},${bv},0.02) 10px);border:1.5px dashed rgba(${r},${g},${bv},0.45);border-left:4px solid rgb(${r},${g},${bv});border-radius:0 7px 7px 0">
+          return `<div class="eq-event cal-draggable" 
+            style="background:repeating-linear-gradient(-45deg,rgba(${r},${g},${bv},0.07) 0,rgba(${r},${g},${bv},0.07) 5px,rgba(${r},${g},${bv},0.02) 5px,rgba(${r},${g},${bv},0.02) 10px);border:1.5px dashed rgba(${r},${g},${bv},0.45);border-left:4px solid rgb(${r},${g},${bv});border-radius:0 7px 7px 0;cursor:grab"
+            draggable="true"
+            ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','revision')"
+            title="Arrastra para mover solo esta revisión interna">
             <div class="eq-event-brand" style="color:var(--text);font-weight:700">🔍 ${brand?.name||''}</div>
             <div class="eq-event-act" style="color:var(--text2)">${h.name.replace('🔍 Rev. interna: ','')}</div>
           </div>`;
         } else {
-          return `<div class="eq-event" style="background:rgba(${r},${g},${bv},0.2);border-left:4px solid rgb(${r},${g},${bv})">
-            <div class="eq-event-brand" style="color:var(--text)">⭐ ${brand?.name||''}</div>
+          const _wActData = (appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
+          const _wFree = !!_wActData?.revDateOverride;
+          return `<div class="eq-event cal-draggable"
+            style="background:rgba(${r},${g},${bv},0.2);border-left:4px solid rgb(${r},${g},${bv});cursor:grab"
+            draggable="true"
+            ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','oficial')">
+            <div style="display:flex;align-items:center;gap:0.3rem">
+              <span>⭐</span>
+              <span class="eq-event-brand" style="color:var(--text);flex:1">${brand?.name||''}</span>
+              <span onclick="event.stopPropagation();toggleHitoFreeMode('${h.brandId}','${h.stage}','${h.actId}')" style="font-size:0.6rem;cursor:pointer;opacity:0.7">${_wFree?'🔓':'🔗'}</span>
+            </div>
             <div class="eq-event-act" style="color:var(--text3)">${h.name}</div>
           </div>`;
         }
@@ -3940,7 +4432,8 @@ function eqShiftMonth(d){ _eqMonthOffset+=d; renderEqMonth(); }
 function renderEqMonth(){
   const today = new Date(); today.setHours(0,0,0,0);
   const membersToShow = currentMemberId ? [(appData.members||[]).find(m=>m.id===currentMemberId)].filter(Boolean) : (appData.members||[]);
-  const allHitos = membersToShow.flatMap(m=>getMemberHitos(m.id).map(h=>({...h,member:m})));
+  const allHitosRaw2 = membersToShow.flatMap(m=>getMemberHitos(m.id).map(h=>({...h,member:m})));
+  const allHitos = currentMemberId ? allHitosRaw2 : deduplicateHitos(allHitosRaw2);
   const fmt = d=>{const ms=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return `${d.getDate()} ${ms[d.getMonth()]}`;};
   const fmtFull = d=>{const ds=['L','M','X','J','V'];const ms=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return `${ds[d.getDay()===0?6:d.getDay()-1]} ${d.getDate()} ${ms[d.getMonth()]}`;};
 
@@ -3969,25 +4462,48 @@ function renderEqMonth(){
       const dayStr = fmtDate(day);
       const isToday = dayStr===fmtDate(today);
       const dayHitos = allHitos.filter(h=>h.date===dayStr);
-      return `<div class="eq-month-day ${isToday?'today':''}">
+      return `<div class="eq-month-day ${isToday?'today':''}"
+        ondragover="event.preventDefault();this.classList.add('cal-drag-over')"
+        ondragleave="this.classList.remove('cal-drag-over')"
+        ondrop="calDrop(event,'${dayStr}');this.classList.remove('cal-drag-over')">
         <div class="eq-month-day-label">${isToday?`<span style="font-weight:800;color:var(--aire)">${fmtFull(day)}</span>&nbsp;<span style="background:var(--aire);color:#fff;border-radius:99px;padding:0 0.4rem;font-size:0.58rem;font-weight:700">HOY</span>`:fmtFull(day)}</div>
+        <div class="eq-month-events-scroll">
         ${dayHitos.map(h=>{
           const isRev = h.revDate===dayStr && h.date!==dayStr;
           const brand = (appData.brands||[]).find(b=>b.id===h.brandId);
           const evColor2 = getBrandColor(brand);
           const r2=parseInt(evColor2.slice(1,3),16), g2=parseInt(evColor2.slice(3,5),16), b2=parseInt(evColor2.slice(5,7),16);
           if(h.type==='revision'){
-            return `<div class="eq-event" style="background:repeating-linear-gradient(-45deg,rgba(${r2},${g2},${b2},0.07) 0px,rgba(${r2},${g2},${b2},0.07) 5px,rgba(${r2},${g2},${b2},0.02) 5px,rgba(${r2},${g2},${b2},0.02) 10px);border:1.5px dashed rgba(${r2},${g2},${b2},0.45);border-left:4px solid rgb(${r2},${g2},${b2});border-radius:0 7px 7px 0">
+            const _actFree = (appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
+            const _revFree = !!_actFree?.revDateOverride;
+            return `<div class="eq-event cal-draggable"
+              style="background:repeating-linear-gradient(-45deg,rgba(${r2},${g2},${b2},0.07) 0px,rgba(${r2},${g2},${b2},0.07) 5px,rgba(${r2},${g2},${b2},0.02) 5px,rgba(${r2},${g2},${b2},0.02) 10px);border:1.5px dashed rgba(${r2},${g2},${b2},0.45);border-left:4px solid rgb(${r2},${g2},${b2});border-radius:0 7px 7px 0;cursor:${_revFree?'grab':'not-allowed'}"
+              draggable="true"
+              ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','revision')"
+              title="Arrastra para mover solo esta revisión interna">
               <div class="eq-event-brand" style="color:var(--text);font-weight:700">🔍 ${brand?.name||''}</div>
               <div class="eq-event-act" style="color:var(--text2)">${h.name}</div>
             </div>`;
           } else {
-            return `<div class="eq-event" style="background:rgba(${r2},${g2},${b2},0.2);border-left:4px solid rgb(${r2},${g2},${b2})">
-              <div class="eq-event-brand" style="color:var(--text)">⭐ ${brand?.name||''}</div>
+            const _actData = (appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
+            const _isFree = !!_actData?.revDateOverride;
+            return `<div class="eq-event cal-draggable" 
+              style="background:rgba(${r2},${g2},${b2},0.2);border-left:4px solid rgb(${r2},${g2},${b2});cursor:grab;position:relative"
+              draggable="true"
+              ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','oficial')"
+              title="Arrastra para cambiar fecha">
+              <div style="display:flex;align-items:center;gap:0.3rem">
+                <span>⭐</span>
+                <span class="eq-event-brand" style="color:var(--text);flex:1">${brand?.name||''}</span>
+                <span onclick="event.stopPropagation();toggleHitoFreeMode('${h.brandId}','${h.stage}','${h.actId}')" 
+                  title="${_isFree?'Modo libre — click para re-linkear':'Vinculado — click para modo libre'}"
+                  style="font-size:0.6rem;cursor:pointer;opacity:0.7;flex-shrink:0;padding:0 2px">${_isFree?'🔓':'🔗'}</span>
+              </div>
               <div class="eq-event-act" style="color:var(--text3)">${h.name}</div>
             </div>`;
           }
         }).join('')}
+        </div>
       </div>`;
     }).join('');
     return `<div class="eq-month-section">
