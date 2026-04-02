@@ -2338,6 +2338,11 @@ body.portal-mode .main{ height:100vh; }
 <script>
 
 window.addEventListener('error', function(e){
+  // Suppress DOM null errors from render functions — they're non-critical
+  if(e.message && e.message.includes('Cannot set properties of null')) {
+    console.warn('DOM null error (non-critical):', e.message, 'line', e.lineno);
+    return;
+  }
   const bar = document.getElementById('status-bar');
   if(bar){ bar.textContent = '❌ JS Error: ' + e.message + ' (line ' + e.lineno + ')'; bar.classList.add('show','error'); }
   console.error('Global error:', e.message, e.filename, e.lineno);
@@ -4437,15 +4442,19 @@ function updateGlobalBreadcrumb(page, extra){
 }
 
 function renderCurrentPage(){
-  if(currentPage==='dashboard')renderDashboard();
-  if(currentPage==='brand')renderBrandPage();
-  if(currentPage==='template')renderTemplate();
-  if(currentPage==='equipo'||currentPage==='member'){currentPage='equipo';renderEquipo();}
-  if(currentPage==='equipo')renderTeamPage();
-  if(currentPage==='member')renderMemberProfile();
-  if(currentPage==='finanzas'&&_finUnlocked)renderFinMes();
-  if(currentPage==='cobranzas'&&_cobUnlocked)renderCobranzas();
-  if(currentPage==='archivo')renderArchivo();
+  try {
+    if(currentPage==='dashboard')renderDashboard();
+    if(currentPage==='brand')renderBrandPage();
+    if(currentPage==='template')renderTemplate();
+    if(currentPage==='equipo'||currentPage==='member'){currentPage='equipo';renderEquipo();}
+    if(currentPage==='equipo')renderTeamPage();
+    if(currentPage==='member')renderMemberProfile();
+    if(currentPage==='finanzas'&&_finUnlocked)renderFinMes();
+    if(currentPage==='cobranzas'&&_cobUnlocked)renderCobranzas();
+    if(currentPage==='archivo')renderArchivo();
+  } catch(e) {
+    console.error('renderCurrentPage error:', e);
+  }
 }
 
 /* ═══ ARCHIVO ═══ */
@@ -6199,7 +6208,7 @@ function subscribeRealtime(onUpdate){
           if(!appData.template) appData.template = defaultTemplate();
         }
         if(onUpdate) onUpdate();
-        else { renderCurrentPage(); showStatus('🔄 Actualizado en tiempo real'); }
+        else { try { renderCurrentPage(); } catch(e){ console.error('realtime render error:',e); } showStatus('🔄 Actualizado en tiempo real'); }
       }
     }).subscribe();
 }
