@@ -2768,8 +2768,14 @@ async function upsert(){
       const serverData = data?.data;
       const toWrite = serverData ? deepMergeAppData(serverData, appData) : appData;
 
-      // 3. Update local appData to merged state (so UI stays consistent)
+      // 3. Update local appData to merged state — re-apply local deletes as safety net
       Object.assign(appData, toWrite);
+      if(_localDeletedIds.brands.size)
+        appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
+      if(_localDeletedIds.members.size)
+        appData.members = (appData.members||[]).filter(m=>!_localDeletedIds.members.has(m.id));
+      if(_localDeletedIds.clientNotes.size)
+        appData.clientNotes = (appData.clientNotes||[]).filter(n=>!_localDeletedIds.clientNotes.has(n.id));
 
       // 4. Strip large base64 images before writing (Supabase 500 = payload too large)
       const toWriteSafe = JSON.parse(JSON.stringify(toWrite, (key, val) => {
@@ -2792,10 +2798,13 @@ async function upsert(){
       }
 
       // 5. Clear local change tracking after successful save
+      // Keep deletedIds alive briefly so late realtime events don't re-insert deleted items
       _localChangedKeys.clear();
-      _localDeletedIds.brands.clear();
-      _localDeletedIds.members.clear();
-      _localDeletedIds.clientNotes.clear();
+      setTimeout(()=>{
+        _localDeletedIds.brands.clear();
+        _localDeletedIds.members.clear();
+        _localDeletedIds.clientNotes.clear();
+      }, 5000);
       return true;
 
     } catch(e){
@@ -6239,7 +6248,6 @@ function subscribeRealtime(onUpdate){
         const hasPendingChanges = _localChangedKeys.size > 0;
         const hasPendingDeletes = _localDeletedIds.brands.size > 0 || _localDeletedIds.members.size > 0 || _localDeletedIds.clientNotes.size > 0;
         if(hasPendingChanges || hasPendingDeletes){
-          // Always merge when we have local changes OR pending deletes
           const merged = deepMergeAppData(raw, appData);
           Object.assign(appData, merged);
         } else {
@@ -6252,6 +6260,13 @@ function subscribeRealtime(onUpdate){
           if(!appData.domos)    appData.domos    = [];
           if(!appData.template) appData.template = defaultTemplate();
         }
+        // Always re-apply local deletes as safety net against stale realtime snapshots
+        if(_localDeletedIds.brands.size)
+          appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
+        if(_localDeletedIds.members.size)
+          appData.members = (appData.members||[]).filter(m=>!_localDeletedIds.members.has(m.id));
+        if(_localDeletedIds.clientNotes.size)
+          appData.clientNotes = (appData.clientNotes||[]).filter(n=>!_localDeletedIds.clientNotes.has(n.id));
         if(onUpdate) onUpdate();
         else { try { renderCurrentPage(); } catch(e){ console.error('realtime render error:',e); } showStatus('🔄 Actualizado en tiempo real'); }
       }
