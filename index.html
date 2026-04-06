@@ -2104,6 +2104,8 @@ body.portal-mode .main{ height:100vh; }
               <button class="cob-sort-btn" id="cob-sort-marca" onclick="setCobSort('marca')">🏷 Marca</button>
               <button class="cob-sort-btn" id="cob-sort-monto" onclick="setCobSort('monto')">💰 Monto</button>
               <button class="cob-sort-btn" id="cob-sort-npago" onclick="setCobSort('npago')"># Pago</button>
+              <div style="width:1px;height:16px;background:var(--border);margin:0 0.25rem"></div>
+              <button class="cob-sort-btn" id="cob-hide-cobrado-btn" onclick="toggleHideCobrado()" style="gap:0.3rem">👁 Ocultar cobrados</button>
             </div>
           </div>
           <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden">
@@ -2813,6 +2815,16 @@ async function upsert(){
         appData.members = (appData.members||[]).filter(m=>!_localDeletedIds.members.has(m.id));
       if(_localDeletedIds.clientNotes.size)
         appData.clientNotes = (appData.clientNotes||[]).filter(n=>!_localDeletedIds.clientNotes.has(n.id));
+      // Re-apply deleted pagos
+      Object.entries(_localDeletedPagoIds).forEach(([bid, deletedIds])=>{
+        if(deletedIds.size && appData.cobros?.[bid])
+          appData.cobros[bid].pagos = (appData.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
+      });
+      // Also ensure toWrite reflects deleted pagos before writing to Supabase
+      Object.entries(_localDeletedPagoIds).forEach(([bid, deletedIds])=>{
+        if(deletedIds.size && toWrite.cobros?.[bid])
+          toWrite.cobros[bid].pagos = (toWrite.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
+      });
 
       // 4. Strip large base64 images before writing (Supabase 500 = payload too large)
       const toWriteSafe = JSON.parse(JSON.stringify(toWrite, (key, val) => {
@@ -4441,6 +4453,21 @@ function syncCobrosToFin(){
 
 /* ═══ COBROS TABLA ═══ */
 let _cobSort = 'proximo';
+let _hideCobrado = false;
+
+function toggleHideCobrado(){
+  _hideCobrado = !_hideCobrado;
+  const btn = document.getElementById('cob-hide-cobrado-btn');
+  if(btn){
+    btn.textContent = _hideCobrado ? '👁 Mostrar cobrados' : '👁 Ocultar cobrados';
+    btn.classList.toggle('active', _hideCobrado);
+  }
+  renderCobTabla();
+  // Also hide/show in the cards grid
+  document.querySelectorAll('.cobrado-row').forEach(r=>{
+    r.style.display = _hideCobrado ? 'none' : '';
+  });
+}
 
 function setCobSort(mode){
   _cobSort = mode;
@@ -4465,6 +4492,7 @@ function renderCobTabla(){
     const pagos = cob.pagos||[];
     const total = pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
     pagos.forEach((p,pi)=>{
+      if(_hideCobrado && p.cobrado) return; // filter out cobrados
       const st = cobStatus(p, pagos, b);
       rows.push({
         brand: b,
