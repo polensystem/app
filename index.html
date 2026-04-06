@@ -2658,6 +2658,11 @@ async function loadData(){
       if(!Array.isArray(appData.tareas)) appData.tareas=[];
       ensureFinData();
       if(!Array.isArray(appData.digitalTools)){appData.digitalTools=DEFAULT_TOOLS.map(t=>({...t}));}
+      // Filter out persisted deleted IDs
+      if(appData._deletedMemberIds?.length)
+        appData.members = appData.members.filter(m=>!appData._deletedMemberIds.includes(m.id));
+      if(appData._deletedBrandIds?.length)
+        appData.brands = appData.brands.filter(b=>!appData._deletedBrandIds.includes(b.id));
       // Auto-assign colors to brands missing one
       const _autoColors=['#e85d5d','#e87f3a','#e8c23a','#5db85d','#3a9ee8','#6b5de8','#c45de8','#e85d9e','#5de8d0','#5d8ce8','#e8825d','#a0e85d'];
       (appData.brands||[]).forEach((b,i)=>{ if(!b.color) b.color=_autoColors[i%_autoColors.length]; });
@@ -2710,29 +2715,35 @@ function deepMergeAppData(server, local){
   const serverBrands = Array.isArray(server.brands) ? server.brands : [];
   const localBrands  = Array.isArray(local.brands)  ? local.brands  : [];
   const deletedBrandIds = _localDeletedIds.brands;
+  // Also respect persisted deleted IDs
+  const persistedDeletedBrandIds = new Set([...(local._deletedBrandIds||[]), ...(server._deletedBrandIds||[])]);
+  const allDeletedBrandIds = new Set([...deletedBrandIds, ...persistedDeletedBrandIds]);
   if(_localChangedKeys.has('brands')){
-    // Local changed — use local, filtered
-    merged.brands = localBrands.filter(b=>!deletedBrandIds.has(b.id));
+    merged.brands = localBrands.filter(b=>!allDeletedBrandIds.has(b.id));
   } else {
-    // No local change — merge server into local, respecting deletions
     const brandMap = {};
-    serverBrands.forEach(b=>{ if(!deletedBrandIds.has(b.id)) brandMap[b.id] = {...b}; });
-    localBrands.forEach(b=>{ if(!deletedBrandIds.has(b.id)) brandMap[b.id] = brandMap[b.id] ? {...brandMap[b.id], ...b} : {...b}; });
+    serverBrands.forEach(b=>{ if(!allDeletedBrandIds.has(b.id)) brandMap[b.id] = {...b}; });
+    localBrands.forEach(b=>{ if(!allDeletedBrandIds.has(b.id)) brandMap[b.id] = brandMap[b.id] ? {...brandMap[b.id], ...b} : {...b}; });
     merged.brands = Object.values(brandMap);
   }
+  merged._deletedBrandIds = [...persistedDeletedBrandIds];
 
   // ── members: local always wins (same pattern as cobros) ──
   const serverMembers = Array.isArray(server.members) ? server.members : [];
   const localMembers  = Array.isArray(local.members)  ? local.members  : [];
   const deletedMemberIds = _localDeletedIds.members;
+  // Also respect persisted deleted IDs
+  const persistedDeletedMemberIds = new Set([...(local._deletedMemberIds||[]), ...(server._deletedMemberIds||[])]);
+  const allDeletedMemberIds = new Set([...deletedMemberIds, ...persistedDeletedMemberIds]);
   if(_localChangedKeys.has('members')){
-    merged.members = localMembers.filter(m=>!deletedMemberIds.has(m.id));
+    merged.members = localMembers.filter(m=>!allDeletedMemberIds.has(m.id));
   } else {
     const memberMap = {};
-    serverMembers.forEach(m=>{ if(!deletedMemberIds.has(m.id)) memberMap[m.id] = {...m}; });
-    localMembers.forEach(m=>{ if(!deletedMemberIds.has(m.id)) memberMap[m.id] = memberMap[m.id] ? {...memberMap[m.id], ...m} : {...m}; });
+    serverMembers.forEach(m=>{ if(!allDeletedMemberIds.has(m.id)) memberMap[m.id] = {...m}; });
+    localMembers.forEach(m=>{ if(!allDeletedMemberIds.has(m.id)) memberMap[m.id] = memberMap[m.id] ? {...memberMap[m.id], ...m} : {...m}; });
     merged.members = Object.values(memberMap);
   }
+  merged._deletedMemberIds = [...persistedDeletedMemberIds];
 
   // ── clientNotes: merge by id, respect local deletions ──
   const serverNotes = Array.isArray(server.clientNotes) ? server.clientNotes : [];
@@ -4863,6 +4874,9 @@ function ensurePapelera(){
 function softDeleteBrand(brand){
   ensurePapelera();
   markLocalDelete('brands', brand.id);
+  // Persist deleted ID in appData so it survives reloads
+  if(!appData._deletedBrandIds) appData._deletedBrandIds = [];
+  if(!appData._deletedBrandIds.includes(brand.id)) appData._deletedBrandIds.push(brand.id);
   appData.papelera.push({ type:'brand', id:brand.id, data:JSON.parse(JSON.stringify(brand)), deletedAt:Date.now() });
   appData.brands = appData.brands.filter(b=>b.id!==brand.id);
 }
@@ -4870,6 +4884,9 @@ function softDeleteBrand(brand){
 function softDeleteMember(member){
   ensurePapelera();
   markLocalDelete('members', member.id);
+  // Persist deleted ID in appData so it survives reloads
+  if(!appData._deletedMemberIds) appData._deletedMemberIds = [];
+  if(!appData._deletedMemberIds.includes(member.id)) appData._deletedMemberIds.push(member.id);
   appData.papelera.push({ type:'member', id:member.id, data:JSON.parse(JSON.stringify(member)), deletedAt:Date.now() });
   appData.members = appData.members.filter(m=>m.id!==member.id);
 }
@@ -4881,10 +4898,16 @@ async function restoreFromPapelera(itemId){ markLocalChange("papelera","brands",
   const item = appData.papelera[idx];
   if(item.type==='brand'){
     appData.brands.push(item.data);
+    // Remove from persisted deleted list
+    appData._deletedBrandIds = (appData._deletedBrandIds||[]).filter(id=>id!==itemId);
+    _localDeletedIds.brands.delete(itemId);
     showStatus(`"${item.data.name}" restaurada ✓`);
   } else if(item.type==='member'){
     if(!appData.members) appData.members=[];
     appData.members.push(item.data);
+    // Remove from persisted deleted list
+    appData._deletedMemberIds = (appData._deletedMemberIds||[]).filter(id=>id!==itemId);
+    _localDeletedIds.members.delete(itemId);
     showStatus(`"${item.data.apodo||item.data.nombre}" restaurado ✓`);
   }
   appData.papelera.splice(idx,1);
