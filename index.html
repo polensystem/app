@@ -2706,23 +2706,33 @@ function markLocalDelete(type, id){ if(_localDeletedIds[type]) _localDeletedIds[
 function deepMergeAppData(server, local){
   const merged = {...server};
 
-  // ── brands: merge by id, respecting local deletions ──
+  // ── brands: local always wins (same pattern as cobros) ──
   const serverBrands = Array.isArray(server.brands) ? server.brands : [];
   const localBrands  = Array.isArray(local.brands)  ? local.brands  : [];
   const deletedBrandIds = _localDeletedIds.brands;
-  const brandMap = {};
-  serverBrands.forEach(b=>{ if(!deletedBrandIds.has(b.id)) brandMap[b.id] = {...b}; });
-  localBrands.forEach(b=>{ if(!deletedBrandIds.has(b.id)) brandMap[b.id] = brandMap[b.id] ? {...brandMap[b.id], ...b} : {...b}; });
-  merged.brands = Object.values(brandMap);
+  if(_localChangedKeys.has('brands')){
+    // Local changed — use local, filtered
+    merged.brands = localBrands.filter(b=>!deletedBrandIds.has(b.id));
+  } else {
+    // No local change — merge server into local, respecting deletions
+    const brandMap = {};
+    serverBrands.forEach(b=>{ if(!deletedBrandIds.has(b.id)) brandMap[b.id] = {...b}; });
+    localBrands.forEach(b=>{ if(!deletedBrandIds.has(b.id)) brandMap[b.id] = brandMap[b.id] ? {...brandMap[b.id], ...b} : {...b}; });
+    merged.brands = Object.values(brandMap);
+  }
 
-  // ── members: merge by id, respecting local deletions ──
+  // ── members: local always wins (same pattern as cobros) ──
   const serverMembers = Array.isArray(server.members) ? server.members : [];
   const localMembers  = Array.isArray(local.members)  ? local.members  : [];
   const deletedMemberIds = _localDeletedIds.members;
-  const memberMap = {};
-  serverMembers.forEach(m=>{ if(!deletedMemberIds.has(m.id)) memberMap[m.id] = {...m}; });
-  localMembers.forEach(m=>{ if(!deletedMemberIds.has(m.id)) memberMap[m.id] = memberMap[m.id] ? {...memberMap[m.id], ...m} : {...m}; });
-  merged.members = Object.values(memberMap);
+  if(_localChangedKeys.has('members')){
+    merged.members = localMembers.filter(m=>!deletedMemberIds.has(m.id));
+  } else {
+    const memberMap = {};
+    serverMembers.forEach(m=>{ if(!deletedMemberIds.has(m.id)) memberMap[m.id] = {...m}; });
+    localMembers.forEach(m=>{ if(!deletedMemberIds.has(m.id)) memberMap[m.id] = memberMap[m.id] ? {...memberMap[m.id], ...m} : {...m}; });
+    merged.members = Object.values(memberMap);
+  }
 
   // ── clientNotes: merge by id, respect local deletions ──
   const serverNotes = Array.isArray(server.clientNotes) ? server.clientNotes : [];
@@ -2830,13 +2840,9 @@ async function upsert(){
       }
 
       // 5. Clear local change tracking after successful save
-      // Keep deletedIds alive briefly so late realtime events don't re-insert deleted items
+      // NOTE: _localDeletedIds intentionally NOT cleared — they must persist
+      // until the deleted item's absence is confirmed stable in Supabase
       _localChangedKeys.clear();
-      setTimeout(()=>{
-        _localDeletedIds.brands.clear();
-        _localDeletedIds.members.clear();
-        _localDeletedIds.clientNotes.clear();
-      }, 5000);
       return true;
 
     } catch(e){
@@ -6731,22 +6737,27 @@ function subscribeRealtime(onUpdate){
         const raw = payload.new.data;
         const hasPendingChanges = _localChangedKeys.size > 0;
         const hasPendingDeletes = _localDeletedIds.brands.size > 0 || _localDeletedIds.members.size > 0 || _localDeletedIds.clientNotes.size > 0 || Object.values(_localDeletedPagoIds).some(s=>s.size>0);
-        const localCobros = appData.cobros; // always preserve local cobros
+        const localCobros  = appData.cobros;  // always preserve local cobros
+        const localBrands  = appData.brands;  // preserve local brands
+        const localMembers = appData.members; // preserve local members
         if(hasPendingChanges || hasPendingDeletes){
           const merged = deepMergeAppData(raw, appData);
           Object.assign(appData, merged);
         } else {
-          // No local pending changes — safe to fully replace (except cobros)
-          appData = {
-            ...raw,
-            brands:  Array.isArray(raw.brands)  ? raw.brands  : [],
-            members: Array.isArray(raw.members) ? raw.members : [],
-          };
+          appData = { ...raw };
           if(!appData.domos)    appData.domos    = [];
           if(!appData.template) appData.template = defaultTemplate();
+          // Always restore local state for mutable collections
+          appData.brands  = localBrands  || (Array.isArray(raw.brands)  ? raw.brands  : []);
+          appData.members = localMembers || (Array.isArray(raw.members) ? raw.members : []);
         }
-        // cobros: always keep local version
-        appData.cobros = localCobros;
+        // Always restore local cobros
+        appData.cobros = localCobros || raw.cobros || {};
+        // Re-apply deleted ids as final safety net
+        if(_localDeletedIds.brands.size)
+          appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
+        if(_localDeletedIds.members.size)
+          appData.members = (appData.members||[]).filter(m=>!_localDeletedIds.members.has(m.id));
         // Re-apply local deletes as safety net against stale realtime snapshots
         if(_localDeletedIds.brands.size)
           appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
