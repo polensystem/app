@@ -1187,7 +1187,7 @@ body.portal-mode .main{ height:100vh; }
 .cob-pago-name input:focus{border-bottom-color:var(--aire);}
 .cob-status-pill{font-size:0.62rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:99px;white-space:nowrap;}
 .cob-status-pill.cobrado{background:rgba(74,222,128,0.15);color:#16a34a;}
-.cob-status-pill.acobrar{background:rgba(239,68,68,0.12);color:#ef4444;}
+.cob-status-pill.acobrar{background:rgba(232,98,42,0.13);color:var(--fuego);}
 .cob-status-pill.proximo{background:rgba(245,197,66,0.15);color:#a87a00;}
 .cob-status-pill.pendiente{background:var(--bg-card2);color:var(--text3);}
 .cob-trigger{font-size:0.65rem;color:var(--text3);}
@@ -2112,9 +2112,9 @@ body.portal-mode .main{ height:100vh; }
               <div style="width:32px;flex-shrink:0"></div>
               <div style="width:200px;flex-shrink:0">MARCA / PAGO</div>
               <div style="width:90px;flex-shrink:0;text-align:right">CONTRATO</div>
-              <div style="width:90px;flex-shrink:0;text-align:right">MONTO</div>
-              <div style="width:130px;flex-shrink:0">PROGRESO</div>
-              <div style="width:90px;flex-shrink:0">ESTADO</div>
+              <div style="width:100px;flex-shrink:0;text-align:right;padding-right:1.2rem">MONTO</div>
+              <div style="width:150px;flex-shrink:0;padding-left:0.8rem">PROGRESO</div>
+              <div style="width:110px;flex-shrink:0;padding-left:1rem">ESTADO</div>
               <div style="width:130px;flex-shrink:0">FECHA PROYECTADA</div>
               <div style="width:130px;flex-shrink:0">ÚLT. SEGUIMIENTO</div>
               <div style="flex:1;min-width:120px">NOTAS</div>
@@ -3581,22 +3581,20 @@ function renderFinMes(){
   const curM = now.getMonth();
   const curY = now.getFullYear();
   const mData = fin.months[curM] || {};
+  const liveCobMes = calcCobradoMes(curM, curY);
   const year = fin.months;
 
   // YTD totals
   const ytdFact = year.slice(0,curM+1).reduce((s,m)=>s+(m.facturacion||0),0);
-  const ytdCob  = year.slice(0,curM+1).reduce((s,m)=>s+(m.cobranzas||0),0);
+  const ytdCob  = year.slice(0,curM).reduce((s,m)=>s+(m.cobranzas||0),0) + liveCobMes;
   const ytdEgr  = year.slice(0,curM+1).reduce((s,m)=>s+(m.egresos||0),0);
   const pctCob  = ytdFact ? Math.round(ytdCob/ytdFact*100) : 0;
 
-  // Próximos cobros: sum of facturacion not yet cobranzas
   const pendiente = Math.max(0, ytdFact - ytdCob);
-  // Por cobrar ahora: current month facturado - cobrado
-  const porCobrar = Math.max(0, (mData.facturacion||0) - (mData.cobranzas||0));
+  const porCobrar = Math.max(0, (mData.facturacion||0) - liveCobMes);
 
-  // Meta %
   const pctFactMes = fin.metaFacturacion ? Math.round((mData.facturacion||0)/fin.metaFacturacion*100) : 0;
-  const pctCobMes  = fin.metaCobranzas  ? Math.round((mData.cobranzas||0)/fin.metaCobranzas*100) : 0;
+  const pctCobMes  = fin.metaCobranzas  ? Math.round(liveCobMes/fin.metaCobranzas*100) : 0;
 
   (document.getElementById('fin-mes-cards')||{innerHTML:''}).innerHTML = `
     <div class="fin-stat-card dark">
@@ -3616,7 +3614,7 @@ function renderFinMes(){
     </div>
     <div class="fin-stat-card" style="cursor:pointer" onclick="editFinMonth(${curM},'cobranzas')" title="Editar">
       <div class="fin-stat-label" style="display:flex;justify-content:space-between">Cobrado este mes <span style="opacity:0.35;font-size:0.7rem">✏️</span></div>
-      <div class="fin-stat-value" style="color:#3a9ee8">${fmt$(mData.cobranzas||0)}</div>
+      <div class="fin-stat-value" style="color:#3a9ee8">${fmt$(liveCobMes)}</div>
       <div class="fin-stat-sub" style="color:var(--text3)">${pctCobMes}% de meta</div>
     </div>
     <div class="fin-stat-card">
@@ -3653,17 +3651,30 @@ function renderFinMes(){
     <div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem">
         <div>
-          <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Meta de cobranzas del mes · ${MONTHS[curM]}</div>
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.2rem">
+            <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Meta de cobranzas del mes · ${MONTHS[curM]}</div>
+            <label style="display:flex;align-items:center;gap:0.25rem;cursor:pointer;user-select:none;font-size:0.6rem;color:var(--text3)" title="${fin.cobManual?'Cambiar a automático (suma cobros del mes)':'Ingresar manualmente'}">
+              <input type="checkbox" ${fin.cobManual?'checked':''} onchange="toggleCobManual(this.checked)"
+                style="accent-color:#3a9ee8;width:11px;height:11px;cursor:pointer">
+              manual
+            </label>
+          </div>
           <div style="font-size:1.6rem;font-weight:800;color:var(--text);margin-top:0.3rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
-            <span onclick="editFinMonth(${curM},'cobranzas')" style="cursor:pointer;border-bottom:1.5px dashed #3a9ee8;padding-bottom:1px" title="Editar cobrado">${fmt$(mData.cobranzas||0)}</span>
+            ${fin.cobManual
+              ? `<input type="number" value="${mData.cobranzas||''}" placeholder="0"
+                  style="color:#3a9ee8;font-weight:700;font-size:1.6rem;background:none;border:none;border-bottom:1.5px dashed #3a9ee8;outline:none;font-family:var(--font);width:130px;padding-bottom:1px"
+                  onchange="saveFinCell(${curM},'cobranzas',this.value)"
+                  onblur="saveFinCell(${curM},'cobranzas',this.value)"
+                  onkeydown="if(event.key==='Enter')this.blur()">`
+              : `<span style="color:#3a9ee8;font-weight:700">${fmt$(liveCobMes)}</span>`}
             <span style="font-size:0.78rem;font-weight:400;color:var(--text3)">de</span>
             <span onclick="editFinMeta('cobranzas')" style="cursor:pointer;font-size:0.78rem;font-weight:400;color:var(--text3);border-bottom:1.5px dashed var(--border);padding-bottom:1px" title="Editar meta">${fmt$(fin.metaCobranzas)}</span>
             <span style="font-size:0.65rem;opacity:0.4">✏️</span>
           </div>
         </div>
-        <div style="font-size:2rem;font-weight:800;color:#3a9ee8">${pctCobMes}%</div>
+        <div style="font-size:2rem;font-weight:800;color:#3a9ee8">${fin.cobManual ? Math.round((mData.cobranzas||0)/fin.metaCobranzas*100) : pctCobMes}%</div>
       </div>
-      <div class="fin-bar-track"><div class="fin-bar-fill" style="width:${Math.min(pctCobMes,100)}%;background:#3a9ee8"></div></div>
+      <div class="fin-bar-track"><div class="fin-bar-fill" style="width:${Math.min(fin.cobManual ? Math.round((mData.cobranzas||0)/fin.metaCobranzas*100) : pctCobMes,100)}%;background:#3a9ee8"></div></div>
       <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:var(--text3)">
         <span>$0</span><span>${fmt$(fin.metaCobranzas/4)}</span><span>${fmt$(fin.metaCobranzas/2)}</span><span>${fmt$(fin.metaCobranzas*3/4)}</span><span>${fmt$(fin.metaCobranzas)}</span>
       </div>
@@ -3798,14 +3809,12 @@ function renderFinAnual(){
 
 async function saveFinCell(monthIdx, field, val){
   markLocalChange('finanzas');
-    ensureFinData();
+  ensureFinData();
   const m = appData.finanzas.months[monthIdx];
   m[field] = field==='observaciones' ? val : (parseFloat(val)||0);
   await upsert();
-  // Re-render to update profit/margen
   renderFinAnual();
-  // Also update mes view if visible
-  if(document.getElementById('fin-panel-mes').style.display!=='none') renderFinMes();
+  if(document.getElementById('fin-panel-mes')?.style.display!=='none') renderFinMes();
   if(currentPage==='cobranzas') renderCobranzas();
 }
 
@@ -3826,9 +3835,18 @@ function editFinMonth(monthIdx, field){
   }, isText);
 }
 
+async function toggleCobManual(checked){
+  ensureFinData();
+  appData.finanzas.cobManual = checked;
+  markLocalChange('finanzas');
+  renderFinMes();
+  renderCobranzas();
+  await upsert();
+}
+
+
 function editFinMeta(field){
   ensureFinData();
-  const label = field==='facturacion' ? 'Meta de facturación del mes' : 'Meta de cobranzas del mes';
   const current = field==='facturacion' ? appData.finanzas.metaFacturacion : appData.finanzas.metaCobranzas;
   openFinModal('✏️ '+label, 'Meta ($)', current, async(val)=>{
     if(val===null||val==='') return;
@@ -3880,7 +3898,8 @@ function renderCobranzas(){
   const mData = fin.months[curM] || {};
 
   const pctFactMes = fin.metaFacturacion ? Math.round((mData.facturacion||0)/fin.metaFacturacion*100) : 0;
-  const pctCobMes  = fin.metaCobranzas  ? Math.round((mData.cobranzas||0)/fin.metaCobranzas*100) : 0;
+  const liveCobMesC = calcCobradoMes(curM, new Date().getFullYear());
+  const pctCobMes  = fin.metaCobranzas  ? Math.round(liveCobMesC/fin.metaCobranzas*100) : 0;
 
   const wrap = document.getElementById('cob-metas-wrap');
   if(!wrap) return;
@@ -3910,17 +3929,30 @@ function renderCobranzas(){
       <div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">
           <div>
-            <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Meta de cobranzas del mes · ${MONTHS[curM]}</div>
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.2rem">
+              <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Meta de cobranzas del mes · ${MONTHS[curM]}</div>
+              <label style="display:flex;align-items:center;gap:0.25rem;cursor:pointer;user-select:none;font-size:0.6rem;color:var(--text3)" title="${fin.cobManual?'Cambiar a automático':'Ingresar manualmente'}">
+                <input type="checkbox" ${fin.cobManual?'checked':''} onchange="toggleCobManual(this.checked)"
+                  style="accent-color:#3a9ee8;width:11px;height:11px;cursor:pointer">
+                manual
+              </label>
+            </div>
             <div style="font-size:1.6rem;font-weight:800;color:var(--text);margin-top:0.25rem;display:flex;align-items:center;gap:0.5rem">
-              <span onclick="editFinMonth(${curM},'cobranzas');setTimeout(renderCobranzas,300)" style="cursor:pointer;border-bottom:1.5px dashed #3a9ee8;padding-bottom:1px">${fmt$(mData.cobranzas||0)}</span>
+              ${fin.cobManual
+                ? `<input type="number" value="${mData.cobranzas||''}" placeholder="0"
+                    style="color:#3a9ee8;font-weight:700;font-size:1.6rem;background:none;border:none;border-bottom:1.5px dashed #3a9ee8;outline:none;font-family:var(--font);width:130px;padding-bottom:1px"
+                    onchange="saveFinCell(${curM},'cobranzas',this.value)"
+                    onblur="saveFinCell(${curM},'cobranzas',this.value)"
+                    onkeydown="if(event.key==='Enter')this.blur()">`
+                : `<span style="color:#3a9ee8;font-weight:700">${fmt$(liveCobMesC)}</span>`}
               <span style="font-size:0.9rem;font-weight:400;color:var(--text3)">de</span>
               <span onclick="editFinMeta('cobranzas');setTimeout(renderCobranzas,300)" style="cursor:pointer;font-size:0.9rem;font-weight:400;color:var(--text3);border-bottom:1.5px dashed var(--border);padding-bottom:1px">${fmt$(fin.metaCobranzas)}</span>
               <span style="font-size:0.65rem;opacity:0.35">✏️</span>
             </div>
           </div>
-          <div style="font-size:2.5rem;font-weight:800;color:#3a9ee8">${pctCobMes}%</div>
+          <div style="font-size:2.5rem;font-weight:800;color:#3a9ee8">${fin.cobManual ? Math.round((mData.cobranzas||0)/fin.metaCobranzas*100) : pctCobMes}%</div>
         </div>
-        <div class="fin-bar-track"><div class="fin-bar-fill" style="width:${Math.min(pctCobMes,100)}%;background:#3a9ee8"></div></div>
+        <div class="fin-bar-track"><div class="fin-bar-fill" style="width:${Math.min(fin.cobManual ? Math.round((mData.cobranzas||0)/fin.metaCobranzas*100) : pctCobMes,100)}%;background:#3a9ee8"></div></div>
         <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:var(--text3);margin-top:0.3rem">
           <span>$0</span><span>${fmt$(fin.metaCobranzas/4)}</span><span>${fmt$(fin.metaCobranzas/2)}</span><span>${fmt$(fin.metaCobranzas*3/4)}</span><span>${fmt$(fin.metaCobranzas)}</span>
         </div>
@@ -3998,6 +4030,67 @@ function lockCobranzas(){
 /* ═══ COBROS POR MARCA ═══ */
 let _cobrosAllExpanded = false;
 
+function getCobTriggerLabel(pago, brand){
+  if(pago.triggerType === 'inicio') return '🚀 Al iniciar el proyecto';
+  if(pago.triggerType === 'evento' && pago.triggerActName) return `📅 ${pago.triggerActName}`;
+  if(pago.trigger) return pago.trigger; // legacy
+  return '— Sin trigger —';
+}
+
+function getBrandActivities(brand){
+  // Returns only hito activities from the brand's cronograma
+  if(!brand?.cronograma) return [];
+  return ['aire','agua','tierra','fuego'].flatMap(s=>
+    (brand.cronograma[s]||[]).filter(a=>a.isHito).map(a=>({...a, stage:s}))
+  );
+}
+
+async function openTriggerModal(brandId, pagoId){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const cob = appData.cobros?.[brandId];
+  if(!brand||!cob) return;
+  const pago = cob.pagos.find(p=>p.id===pagoId);
+  if(!pago) return;
+
+  const acts = getBrandActivities(brand);
+
+  // Build options
+  const options = [
+    '🚀 Al iniciar el proyecto',
+    ...acts.map(a=>`📅 ${a.name}`)
+  ];
+
+  const current = pago.triggerType==='inicio' ? 0
+    : acts.findIndex(a=>a.name===pago.triggerActName)+1;
+
+  const pick = await askModal({
+    label: `Trigger de "${pago.nombre}" — ¿cuándo se activa este pago?`,
+    type: 'select',
+    options,
+    defaultValue: current >= 0 ? current : 0
+  });
+
+  if(pick === null) return;
+
+  if(pick === 0){
+    pago.triggerType = 'inicio';
+    delete pago.triggerActName;
+    delete pago.trigger;
+  } else {
+    const act = acts[pick-1];
+    pago.triggerType = 'evento';
+    pago.triggerActName = act.name;
+    pago.triggerActId = act.id;
+    delete pago.trigger;
+  }
+
+  markLocalChange('cobros');
+  renderCobros();
+  await upsert();
+  showStatus('Trigger actualizado ✓');
+}
+
+
 function ensureCobrosData(){
   if(!appData.cobros) appData.cobros = {};
   // Ensure every active brand has a cobros entry
@@ -4006,24 +4099,60 @@ function ensureCobrosData(){
       appData.cobros[b.id] = {
         expanded: false,
         pagos: [
-          {id:uid(), nombre:'Primer pago',  monto:0, cobrado:false, trigger:'trigger 0%'},
-          {id:uid(), nombre:'Segundo pago', monto:0, cobrado:false, trigger:'trigger 50%'},
-          {id:uid(), nombre:'Tercer pago',  monto:0, cobrado:false, trigger:'trigger 90%'},
+          {id:uid(), nombre:'Primer pago',  monto:0, cobrado:false, triggerType:'inicio'},
+          {id:uid(), nombre:'Segundo pago', monto:0, cobrado:false, triggerType:'evento', triggerActName:'Presentación de propuesta de marca'},
+          {id:uid(), nombre:'Tercer pago',  monto:0, cobrado:false, triggerType:'evento', triggerActName:'Empaquetado de recursos'},
         ]
       };
     }
   });
 }
 
-function cobStatus(pago, allPagos){
+function cobStatus(pago, allPagos, brand){
+  // Cobrado: already paid
   if(pago.cobrado) return {label:'Cobrado', cls:'cobrado'};
-  const idx = allPagos.indexOf(pago);
-  // If previous pago is cobrado or it's the first, it's "A cobrar"
-  if(idx===0 || allPagos[idx-1]?.cobrado) return {label:'A cobrar', cls:'acobrar'};
-  // If 2nd+ and prev not done
-  const prevCobrado = allPagos.slice(0,idx).filter(p=>p.cobrado).length;
-  if(prevCobrado === idx-1) return {label:'Próximo', cls:'proximo'};
-  return {label:'Pendiente', cls:'pendiente'};
+
+  // Find the trigger activity for this pago
+  const getTriggerAct = (p)=>{
+    if(!brand?.cronograma) return null;
+    if(p.triggerType === 'inicio') return null; // special: brand creation
+    if(p.triggerType === 'evento' && p.triggerActName){
+      for(const st of ['aire','agua','tierra','fuego']){
+        const found = (brand.cronograma[st]||[]).find(a=>a.name===p.triggerActName);
+        if(found) return found;
+      }
+    }
+    return null;
+  };
+
+  const triggerAct = getTriggerAct(pago);
+
+  // "Cobrar": trigger is reached — either it's the inicio trigger (brand exists)
+  // or the trigger activity is completada
+  if(pago.triggerType === 'inicio'){
+    // First pago always starts as "Cobrar" once the brand exists
+    return {label:'Cobrar', cls:'acobrar'};
+  }
+
+  if(triggerAct && triggerAct.status === 'completada'){
+    return {label:'Cobrar', cls:'acobrar'};
+  }
+
+  // "Próximo": the activity immediately BEFORE the trigger activity is completada
+  if(triggerAct){
+    // Find all activities across all stages in order
+    const allActs = ['aire','agua','tierra','fuego'].flatMap(s=>(brand.cronograma[s]||[]));
+    const triggerIdx = allActs.findIndex(a=>a.id===triggerAct.id);
+    if(triggerIdx > 0){
+      const prevAct = allActs[triggerIdx - 1];
+      if(prevAct && prevAct.status === 'completada'){
+        return {label:'Próximo', cls:'proximo'};
+      }
+    }
+  }
+
+  // "Futuro": haven't reached the trigger yet
+  return {label:'Futuro', cls:'pendiente'};
 }
 
 function renderCobros(){
@@ -4036,16 +4165,21 @@ function renderCobros(){
   grid.innerHTML = brands.map(b=>{
     const cob = appData.cobros[b.id];
     const pagos = cob.pagos||[];
-    const cobrados = pagos.filter(p=>p.cobrado).length;
-    const total = pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
-    const totalCobrado = pagos.filter(p=>p.cobrado).reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
-    const pct = total ? Math.round(totalCobrado/total*100) : 0;
     const brandCol = getBrandColor(b);
     const logo = b.image ? `<img src="${b.image}">` : b.name.charAt(0);
     const isExp = cob.expanded;
 
+    const useTotal = !!cob.useTotal;
+    const valorTotal = cob.valorTotal || 0;
+    const montoIndividual = useTotal && pagos.length ? Math.round((valorTotal / pagos.length) * 100) / 100 : null;
+    const totalDisplay = useTotal ? valorTotal : pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+    const totalCobrado = pagos.filter(p=>p.cobrado).reduce((s,p)=>s+(useTotal ? montoIndividual : (parseFloat(p.monto)||0)),0);
+    const pct = totalDisplay ? Math.round(totalCobrado/totalDisplay*100) : 0;
+
     const pagosHTML = pagos.map((p,pi)=>{
-      const st = cobStatus(p, pagos);
+      const st = cobStatus(p, pagos, b);
+      const triggerLabel = getCobTriggerLabel(p, b);
+      const montoVal = useTotal ? montoIndividual : (p.monto||'');
       return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;align-items:flex-start;gap:0.7rem;padding:0.55rem 1rem;border-bottom:1px solid var(--border)">
         <div class="cob-check ${p.cobrado?'checked':''}" onclick="toggleCobPago('${b.id}','${p.id}')" style="margin-top:3px;flex-shrink:0">${p.cobrado?'✓':''}</div>
         <div style="flex:1;min-width:0">
@@ -4053,15 +4187,19 @@ function renderCobros(){
             style="background:none;border:none;outline:none;font-family:var(--font);font-size:0.84rem;font-weight:600;color:var(--text);width:100%;display:block"
             onblur="saveCobField('${b.id}','${p.id}','nombre',this.value)"
             onkeydown="if(event.key==='Enter')this.blur()">
-          <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.2rem">
+          <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.2rem;flex-wrap:wrap">
             <span class="cob-status-pill ${st.cls}">${st.label}</span>
-            <span style="font-size:0.65rem;color:var(--text3)">${p.trigger||''}</span>
+            <button onclick="openTriggerModal('${b.id}','${p.id}')"
+              style="display:inline-flex;align-items:center;gap:0.2rem;background:none;border:1px dashed var(--border);border-radius:6px;padding:0.1rem 0.45rem;font-size:0.62rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+              onmouseover="this.style.borderColor='var(--aire)';this.style.color='var(--aire)'"
+              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'"
+              title="Cambiar trigger">${triggerLabel} ✏️</button>
           </div>
         </div>
-        <input type="number" value="${p.monto||''}" placeholder="0"
-          style="background:none;border:none;outline:none;font-family:var(--font);font-size:0.9rem;font-weight:700;color:var(--text);width:72px;text-align:right;flex-shrink:0;margin-top:2px"
+        <input type="number" value="${montoVal}" placeholder="0"
+          ${useTotal ? 'disabled style="background:none;border:none;outline:none;font-family:var(--font);font-size:0.9rem;font-weight:700;color:var(--text3);width:72px;text-align:right;flex-shrink:0;margin-top:2px;cursor:not-allowed"' : `style="background:none;border:none;outline:none;font-family:var(--font);font-size:0.9rem;font-weight:700;color:var(--text);width:72px;text-align:right;flex-shrink:0;margin-top:2px"
           onblur="saveCobField('${b.id}','${p.id}','monto',this.value)"
-          onkeydown="if(event.key==='Enter')this.blur()">
+          onkeydown="if(event.key==='Enter')this.blur()"`}>
         <button onclick="deleteCobPago('${b.id}','${p.id}')"
           style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.75rem;flex-shrink:0;margin-top:3px;padding:0 0.2rem;opacity:0.3"
           onmouseover="this.style.opacity=1;this.style.color='#ef4444'"
@@ -4074,16 +4212,30 @@ function renderCobros(){
         <div class="cob-brand-logo" style="border-color:${brandCol}">${logo}</div>
         <div style="flex:1;min-width:0">
           <div class="cob-brand-name">${b.name}</div>
-          <div class="cob-brand-sub">${cobrados}/${pagos.length} cobrados · $${total.toLocaleString()}</div>
+          <div class="cob-brand-sub">${pagos.filter(p=>p.cobrado).length}/${pagos.length} cobrados · $${totalDisplay.toLocaleString()}</div>
         </div>
         <span class="cob-pct" style="color:${brandCol}">${pct}%</span>
         <span class="cob-arrow" style="transform:${isExp?'rotate(0)':'rotate(-90deg)'}">▼</span>
       </div>
       ${isExp ? `<div class="cob-body">
         ${pagosHTML}
-        <div class="cob-footer">
+        <div class="cob-footer" onclick="event.stopPropagation()">
           <button class="cob-add-btn" onclick="addCobPago('${b.id}')">+ Agregar pago</button>
-          <div class="cob-total">Total:<strong>$${total.toLocaleString()}</strong></div>
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <label style="display:flex;align-items:center;gap:0.25rem;cursor:pointer;user-select:none;font-size:0.6rem;color:var(--text3);white-space:nowrap" title="Distribuir equitativamente">
+              <input type="checkbox" ${useTotal?'checked':''} onchange="toggleCobUseTotal('${b.id}',this.checked)"
+                style="accent-color:var(--aire);width:11px;height:11px;cursor:pointer">
+              dividir
+            </label>
+            <div class="cob-total">Total:
+              ${useTotal
+                ? `<input type="number" value="${valorTotal||''}" placeholder="0"
+                    style="background:none;border:none;border-bottom:1px dashed var(--border);outline:none;font-family:var(--font);font-size:0.84rem;font-weight:800;color:var(--text);width:70px;text-align:right"
+                    onblur="saveCobTotal('${b.id}',this.value)"
+                    onkeydown="if(event.key==='Enter')this.blur()">`
+                : `<strong>$${totalDisplay.toLocaleString()}</strong>`}
+            </div>
+          </div>
         </div>
       </div>` : ''}
     </div>`;
@@ -4091,9 +4243,36 @@ function renderCobros(){
   renderCobTabla();
 }
 
+async function toggleCobUseTotal(brandId, checked){
+  ensureCobrosData();
+  const cob = appData.cobros[brandId];
+  cob.useTotal = checked;
+  if(!checked){
+    // Switching OFF: distribute current valorTotal as individual montos so nothing is lost
+    const pagos = cob.pagos||[];
+    if(cob.valorTotal && pagos.length){
+      const each = Math.round((cob.valorTotal / pagos.length) * 100) / 100;
+      pagos.forEach(p=>{ p.monto = each; });
+    }
+  }
+  markLocalChange('cobros');
+  renderCobros();
+  await upsert();
+}
+
+async function saveCobTotal(brandId, val){
+  ensureCobrosData();
+  const cob = appData.cobros[brandId];
+  cob.valorTotal = parseFloat(val)||0;
+  markLocalChange('cobros');
+  renderCobros();
+  syncCobrosToFin();
+  await upsert();
+}
+
+
 async function toggleCobCard(brandId){
   ensureCobrosData();
-  appData.cobros[brandId].expanded = !appData.cobros[brandId].expanded;
   renderCobros();
     markLocalChange('cobros');
 await upsert();
@@ -4126,10 +4305,13 @@ async function saveCobField(brandId, pagoId, field, val){ markLocalChange("cobro
 async function addCobPago(brandId){
   ensureCobrosData();
   const pagos = appData.cobros[brandId].pagos;
-  pagos.push({id:uid(), nombre:`Pago ${pagos.length+1}`, monto:0, cobrado:false, trigger:''});
-    markLocalChange('cobros');
-await upsert();
+  const newPago = {id:uid(), nombre:`Pago ${pagos.length+1}`, monto:0, cobrado:false, triggerType:'evento', triggerActName:''};
+  pagos.push(newPago);
+  markLocalChange('cobros');
+  await upsert();
   renderCobros();
+  // Open trigger modal immediately so user can pick the event
+  setTimeout(()=>openTriggerModal(brandId, newPago.id), 200);
 }
 
 async function deleteCobPago(brandId, pagoId){
@@ -4142,15 +4324,27 @@ async function deleteCobPago(brandId, pagoId){
   if(!saved) showStatus('❌ Error al eliminar pago — recarga e intenta de nuevo.', true);
 }
 
-function syncCobrosToFin(){
-  // Sum all cobrado amounts and update current month cobranzas
-  ensureFinData();
+function calcCobradoMes(month, year){
+  // Sum cobros where cobrado=true AND fechaProyectada is in the given month/year
   ensureCobrosData();
-  const totalCobrado = Object.values(appData.cobros).reduce((s,cob)=>
-    s + (cob.pagos||[]).filter(p=>p.cobrado).reduce((ss,p)=>ss+(parseFloat(p.monto)||0),0)
-  ,0);
-  const curM = new Date().getMonth();
-  appData.finanzas.months[curM].cobranzas = totalCobrado;
+  return Object.values(appData.cobros||{}).reduce((s, cob)=>{
+    const pagos = cob.pagos||[];
+    const useTotal = !!cob.useTotal;
+    const montoInd = useTotal && pagos.length ? (cob.valorTotal||0) / pagos.length : null;
+    return s + pagos.filter(p=>{
+      if(!p.cobrado) return false;
+      if(!p.fechaProyectada) return false;
+      const d = new Date(p.fechaProyectada);
+      return d.getFullYear()===year && d.getMonth()===month;
+    }).reduce((ss,p)=>ss+(useTotal ? montoInd : (parseFloat(p.monto)||0)), 0);
+  }, 0);
+}
+
+
+function syncCobrosToFin(){
+  ensureFinData();
+  const now = new Date();
+  appData.finanzas.months[now.getMonth()].cobranzas = calcCobradoMes(now.getMonth(), now.getFullYear());
   if(currentPage==='cobranzas') renderCobranzas();
   if(currentPage==='finanzas'&&_finUnlocked) renderFinMes();
 }
@@ -4181,7 +4375,7 @@ function renderCobTabla(){
     const pagos = cob.pagos||[];
     const total = pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
     pagos.forEach((p,pi)=>{
-      const st = cobStatus(p, pagos);
+      const st = cobStatus(p, pagos, b);
       rows.push({
         brand: b,
         pago: p,
@@ -4224,7 +4418,7 @@ function renderCobTabla(){
     const pagos = appData.cobros[b.id]?.pagos||[];
     const totalCobrado = pagos.filter(x=>x.cobrado).reduce((s,x)=>s+(parseFloat(x.monto)||0),0);
     const pct = total ? Math.round(totalCobrado/total*100) : 0;
-    const triggerPct = p.trigger ? p.trigger.replace(/[^0-9]/g,'') : '0';
+    const triggerLabel = getCobTriggerLabel(p, b);
 
     return `<div class="cob-tabla-row ${p.cobrado?'cobrado-row':''}">
       <!-- Check -->
@@ -4242,19 +4436,22 @@ function renderCobTabla(){
       <!-- Contrato -->
       <div style="width:90px;flex-shrink:0;text-align:right;font-size:0.82rem;color:var(--text3)">$${total.toLocaleString()}</div>
       <!-- Monto -->
-      <div style="width:90px;flex-shrink:0;text-align:right;font-size:0.9rem;font-weight:800">$${monto.toLocaleString()}</div>
+      <div style="width:100px;flex-shrink:0;text-align:right;font-size:0.9rem;font-weight:800;padding-right:1.2rem">$${monto.toLocaleString()}</div>
       <!-- Progreso -->
-      <div style="width:130px;flex-shrink:0;padding-left:0.8rem">
+      <div style="width:150px;flex-shrink:0;padding-left:0.8rem">
         <div style="display:flex;align-items:center;gap:0.4rem">
           <div style="flex:1;height:5px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
             <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
           </div>
           <span style="font-size:0.65rem;color:var(--text3);white-space:nowrap">${pct}%</span>
         </div>
-        <div style="font-size:0.6rem;color:var(--text3);margin-top:0.15rem">trigger: ${triggerPct}%</div>
+        <button onclick="openTriggerModal('${b.id}','${p.id}')"
+          style="display:block;background:none;border:none;padding:0;font-size:0.6rem;color:var(--text3);cursor:pointer;font-family:var(--font);text-align:left;margin-top:0.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px"
+          onmouseover="this.style.color='var(--aire)'" onmouseout="this.style.color='var(--text3)'"
+          title="Cambiar trigger">${triggerLabel} ✏️</button>
       </div>
       <!-- Estado -->
-      <div style="width:90px;flex-shrink:0">
+      <div style="width:110px;flex-shrink:0;padding-left:1rem">
         <span class="cob-status-pill ${st.cls}" style="font-size:0.68rem">${st.label}</span>
       </div>
       <!-- Fecha proyectada -->
@@ -4304,7 +4501,8 @@ async function saveCobTablaField(brandId, pagoId, field, val){ markLocalChange("
   if(!pago) return;
   pago[field] = val;
   await upsert();
-  // Don't full re-render to preserve focus
+  // If fecha proyectada changed, refresh the cobranzas meta totals
+  if(field === 'fechaProyectada') syncCobrosToFin();
 }
 
 function expandAllCobros(){
