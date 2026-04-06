@@ -2756,10 +2756,13 @@ function deepMergeAppData(server, local){
   merged.papelera = [...localPap, ...serverPap.filter(x=>!papIds.has(x.id))];
 
   // ── scalar fields: local wins if user changed them, else server ──
-  const scalarKeys = ['template','finanzas','digitalTools','banners','calendarUrl','domoNames','cobros'];
+  const scalarKeys = ['template','finanzas','digitalTools','banners','calendarUrl','domoNames'];
   scalarKeys.forEach(k=>{
     merged[k] = _localChangedKeys.has(k) ? local[k] : (server[k] ?? local[k]);
   });
+
+  // cobros: local ALWAYS wins unconditionally — never take from server
+  merged.cobros = local.cobros ?? server.cobros ?? {};
 
   return merged;
 }
@@ -6728,11 +6731,12 @@ function subscribeRealtime(onUpdate){
         const raw = payload.new.data;
         const hasPendingChanges = _localChangedKeys.size > 0;
         const hasPendingDeletes = _localDeletedIds.brands.size > 0 || _localDeletedIds.members.size > 0 || _localDeletedIds.clientNotes.size > 0 || Object.values(_localDeletedPagoIds).some(s=>s.size>0);
+        const localCobros = appData.cobros; // always preserve local cobros
         if(hasPendingChanges || hasPendingDeletes){
           const merged = deepMergeAppData(raw, appData);
           Object.assign(appData, merged);
         } else {
-          // No local pending changes — safe to fully replace
+          // No local pending changes — safe to fully replace (except cobros)
           appData = {
             ...raw,
             brands:  Array.isArray(raw.brands)  ? raw.brands  : [],
@@ -6741,6 +6745,8 @@ function subscribeRealtime(onUpdate){
           if(!appData.domos)    appData.domos    = [];
           if(!appData.template) appData.template = defaultTemplate();
         }
+        // cobros: always keep local version
+        appData.cobros = localCobros;
         // Re-apply local deletes as safety net against stale realtime snapshots
         if(_localDeletedIds.brands.size)
           appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
