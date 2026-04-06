@@ -6687,7 +6687,7 @@ function renderMemberAreaGrid(selected){
   if(!grid) return;
   grid.innerHTML = AREAS.map(a=>`
     <label style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;border:1.5px solid ${a.id===selected?'var(--aire)':'var(--border)'};border-radius:10px;cursor:pointer;background:${a.id===selected?'var(--bg-card2)':'none'};transition:all 0.15s">
-      <input type="radio" name="m-area" value="${a.id}" ${a.id===selected?'checked':''} style="display:none" onchange="document.querySelectorAll('.area-opt').forEach(x=>x.style.borderColor='var(--border)');this.closest('label').style.borderColor='var(--aire)'">
+      <input type="radio" name="m-area" value="${a.id}" ${a.id===selected?'checked':''} style="display:none" onchange="renderMemberAreaGrid('${a.id}')">
       <span style="font-size:1rem">${a.emoji}</span>
       <span style="font-size:0.82rem;font-weight:600">${a.label}</span>
     </label>
@@ -6771,6 +6771,60 @@ function domoPartnerPill(brandId, viewingMemberId){
     </span>`;
   }).join('');
 }
+
+let _memberDragId = null;
+
+function memberDragStart(event, memberId){
+  _memberDragId = memberId;
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', memberId);
+  setTimeout(()=>{
+    const card = document.getElementById('mcard-'+memberId);
+    if(card) card.style.opacity = '0.4';
+  }, 0);
+}
+
+function memberDragOver(event, targetId){
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  if(targetId === _memberDragId) return;
+  // Show drop indicator
+  document.querySelectorAll('.member-card').forEach(c=>c.style.outline='none');
+  const card = document.getElementById('mcard-'+targetId);
+  if(card) card.style.outline = '2px solid var(--aire)';
+}
+
+function memberDragLeave(event, targetId){
+  const card = document.getElementById('mcard-'+targetId);
+  if(card && !card.contains(event.relatedTarget)) card.style.outline = 'none';
+}
+
+function memberDragEnd(){
+  document.querySelectorAll('.member-card').forEach(c=>{
+    c.style.opacity = '';
+    c.style.outline = 'none';
+  });
+  _memberDragId = null;
+}
+
+async function memberDrop(event, targetId){
+  event.preventDefault();
+  document.querySelectorAll('.member-card').forEach(c=>{ c.style.outline='none'; c.style.opacity=''; });
+  if(!_memberDragId || _memberDragId === targetId) return;
+  const members = appData.members||[];
+  const fromIdx = members.findIndex(m=>m.id===_memberDragId);
+  const toIdx   = members.findIndex(m=>m.id===targetId);
+  if(fromIdx<0 || toIdx<0) return;
+  // Reorder
+  const [moved] = members.splice(fromIdx, 1);
+  members.splice(toIdx, 0, moved);
+  appData.members = members;
+  markLocalChange('members');
+  renderMembersGrid();
+  await upsert();
+  showStatus('Orden guardado ✓');
+}
+
 
 function getMemberHitos(memberId) {
   ensureTeamData();
@@ -7124,9 +7178,17 @@ function renderMembersGrid(){
     const avatarHTML = m.photo ? `<img src="${m.photo}" alt="">` : (m.emoji||'👤');
     const gradient = getMemberGradient(m.id);
     const myDomos = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id||(b.domo.helpers||[]).includes(m.id))).map(b=>b.name);
-    return `<div class="member-card" onclick="selectMember('${m.id}');switchEquipoTab('grid')">
+    return `<div class="member-card" id="mcard-${m.id}"
+      draggable="true"
+      ondragstart="memberDragStart(event,'${m.id}')"
+      ondragover="memberDragOver(event,'${m.id}')"
+      ondragleave="memberDragLeave(event,'${m.id}')"
+      ondrop="memberDrop(event,'${m.id}')"
+      ondragend="memberDragEnd()"
+      onclick="selectMember('${m.id}');switchEquipoTab('grid')">
       <!-- Hero (foto + nombre + estado) -->
       <div class="member-card-hero" style="background:${gradient}">
+        <div style="position:absolute;top:0.5rem;right:0.5rem;cursor:grab;color:rgba(255,255,255,0.4);font-size:0.75rem;line-height:1;user-select:none;z-index:2" title="Arrastra para reordenar" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()">⠿</div>
         <div class="member-card-hero-content">
           <div class="member-avatar">${avatarHTML}</div>
           <div style="min-width:0;flex:1" onclick="event.stopPropagation()">
