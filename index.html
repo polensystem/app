@@ -2647,6 +2647,8 @@ async function loadData(){
       // Auto-assign colors to brands missing one
       const _autoColors=['#e85d5d','#e87f3a','#e8c23a','#5db85d','#3a9ee8','#6b5de8','#c45de8','#e85d9e','#5de8d0','#5d8ce8','#e8825d','#a0e85d'];
       (appData.brands||[]).forEach((b,i)=>{ if(!b.color) b.color=_autoColors[i%_autoColors.length]; });
+      // Sync brand stages from actual activity completion (fix stale stage field)
+      (appData.brands||[]).forEach(b=>syncBrandStage(b));
     }
     showStatus('Datos cargados ✓');
   }catch(e){
@@ -4807,6 +4809,20 @@ function renderArchivo(){
 }
 
 /* ═══ DASHBOARD ═══ */
+function syncBrandStage(brand){
+  // Compute the correct stage from actual activity completion
+  const stageOrder = ['aire','agua','tierra','fuego'];
+  const computed = stageOrder.find(s=>{
+    const acts = brand.cronograma?.[s]||[];
+    return acts.length > 0 && acts.some(a=>a.status!=='completada');
+  }) || stageOrder.find(s=>(brand.cronograma?.[s]||[]).length > 0);
+  if(computed && computed !== brand.stage){
+    brand.stage = computed;
+    return true; // changed
+  }
+  return false;
+}
+
 function brandProgress(brand){
   if(!brand.cronograma)return 0;
   const all=Object.values(brand.cronograma).flat();
@@ -5344,6 +5360,13 @@ async function toggleStageAll(brandId, stage){
   if(!acts.length) return;
   const allDone = acts.every(a=>a.status==='completada');
   acts.forEach(a=>{ a.status = allDone ? 'pendiente' : 'completada'; });
+  // Re-sync brand.stage from completed activities
+  const stageOrder=['aire','agua','tierra','fuego'];
+  const computedStage = stageOrder.find(s=>{
+    const sa = brand.cronograma[s]||[];
+    return sa.length > 0 && sa.some(a=>a.status!=='completada');
+  }) || stageOrder.find(s=>(brand.cronograma[s]||[]).length > 0) || brand.stage;
+  if(computedStage) brand.stage = computedStage;
   markLocalChange('brands');
   renderBrandCrono(brand);
   await upsert();
@@ -5482,16 +5505,17 @@ async function cycleStatus(brandId,stage,actId){
   const states=['pendiente','en progreso','completada'];
   act.status=states[(states.indexOf(act.status)+1)%states.length];
 
-  // Auto-advance stage: when all acts in current stage complete, move to next
+  // Auto-advance stage: compute correct stage from completed activities
   const stageOrder=['aire','agua','tierra','fuego'];
-  const stageActs=brand.cronograma[stage]||[];
-  const allDone=stageActs.length>0&&stageActs.every(a=>a.status==='completada');
-  if(allDone){
-    const nextStage=stageOrder[stageOrder.indexOf(brand.stage)+1];
-    if(nextStage && brand.stage===stage){
-      brand.stage=nextStage;
-      showStatus(`🎉 Etapa ${stage} completada → avanzando a ${nextStage}`);
-    }
+  // A stage is "done" when ALL its activities are completada
+  // The brand should be in the first stage that still has incomplete activities
+  const computedStage = stageOrder.find(s=>{
+    const acts = brand.cronograma[s]||[];
+    return acts.length > 0 && acts.some(a=>a.status!=='completada');
+  }) || stageOrder.find(s=>(brand.cronograma[s]||[]).length > 0) || brand.stage;
+  if(computedStage && computedStage !== brand.stage){
+    brand.stage = computedStage;
+    showStatus(`🎉 Etapa completada → avanzando a ${computedStage}`);
   }
 
   renderBrandCrono(brand);
