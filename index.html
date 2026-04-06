@@ -2706,22 +2706,22 @@ function markLocalDelete(type, id){ if(_localDeletedIds[type]) _localDeletedIds[
 function deepMergeAppData(server, local){
   const merged = {...server};
 
-  // ── brands: merge by id ──
+  // ── brands: merge by id, respecting local deletions ──
   const serverBrands = Array.isArray(server.brands) ? server.brands : [];
   const localBrands  = Array.isArray(local.brands)  ? local.brands  : [];
   const deletedBrandIds = _localDeletedIds.brands;
   const brandMap = {};
   serverBrands.forEach(b=>{ if(!deletedBrandIds.has(b.id)) brandMap[b.id] = {...b}; });
-  localBrands.forEach(b=>{ brandMap[b.id] = brandMap[b.id] ? {...brandMap[b.id], ...b} : {...b}; });
+  localBrands.forEach(b=>{ if(!deletedBrandIds.has(b.id)) brandMap[b.id] = brandMap[b.id] ? {...brandMap[b.id], ...b} : {...b}; });
   merged.brands = Object.values(brandMap);
 
-  // ── members: merge by id ──
+  // ── members: merge by id, respecting local deletions ──
   const serverMembers = Array.isArray(server.members) ? server.members : [];
   const localMembers  = Array.isArray(local.members)  ? local.members  : [];
   const deletedMemberIds = _localDeletedIds.members;
   const memberMap = {};
   serverMembers.forEach(m=>{ if(!deletedMemberIds.has(m.id)) memberMap[m.id] = {...m}; });
-  localMembers.forEach(m=>{ memberMap[m.id] = memberMap[m.id] ? {...memberMap[m.id], ...m} : {...m}; });
+  localMembers.forEach(m=>{ if(!deletedMemberIds.has(m.id)) memberMap[m.id] = memberMap[m.id] ? {...memberMap[m.id], ...m} : {...m}; });
   merged.members = Object.values(memberMap);
 
   // ── cobros: merge by brandId → by pagoId (concurrency-safe) ──
@@ -2754,7 +2754,7 @@ function deepMergeAppData(server, local){
   const deletedNoteIds = _localDeletedIds.clientNotes;
   const noteMap = {};
   serverNotes.forEach(n=>{ if(!deletedNoteIds.has(n.id)) noteMap[n.id] = {...n}; });
-  localNotes.forEach(n=>{ noteMap[n.id] = {...(noteMap[n.id]||{}), ...n}; });
+  localNotes.forEach(n=>{ if(!deletedNoteIds.has(n.id)) noteMap[n.id] = {...(noteMap[n.id]||{}), ...n}; });
   merged.clientNotes = Object.values(noteMap).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
 
   // ── domos: union by key (never lose created domos) ──
@@ -2807,22 +2807,26 @@ async function upsert(){
       const serverData = data?.data;
       const toWrite = serverData ? deepMergeAppData(serverData, appData) : appData;
 
-      // 3. Update local appData to merged state — re-apply local deletes as safety net
+      // 3. Update local appData to merged state — re-apply all local deletes as safety net
       Object.assign(appData, toWrite);
-      if(_localDeletedIds.brands.size)
+      if(_localDeletedIds.brands.size){
         appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
-      if(_localDeletedIds.members.size)
+        toWrite.brands = appData.brands;
+      }
+      if(_localDeletedIds.members.size){
         appData.members = (appData.members||[]).filter(m=>!_localDeletedIds.members.has(m.id));
-      if(_localDeletedIds.clientNotes.size)
+        toWrite.members = appData.members;
+      }
+      if(_localDeletedIds.clientNotes.size){
         appData.clientNotes = (appData.clientNotes||[]).filter(n=>!_localDeletedIds.clientNotes.has(n.id));
-      // Re-apply deleted pagos
+        toWrite.clientNotes = appData.clientNotes;
+      }
+      // Re-apply deleted pagos to both appData and toWrite
       Object.entries(_localDeletedPagoIds).forEach(([bid, deletedIds])=>{
-        if(deletedIds.size && appData.cobros?.[bid])
+        if(!deletedIds.size) return;
+        if(appData.cobros?.[bid])
           appData.cobros[bid].pagos = (appData.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
-      });
-      // Also ensure toWrite reflects deleted pagos before writing to Supabase
-      Object.entries(_localDeletedPagoIds).forEach(([bid, deletedIds])=>{
-        if(deletedIds.size && toWrite.cobros?.[bid])
+        if(toWrite.cobros?.[bid])
           toWrite.cobros[bid].pagos = (toWrite.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
       });
 
