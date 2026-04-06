@@ -3357,53 +3357,48 @@ async function calDrop(event, newDateStr){
     const oldEndDate = act.endDate;
     const oldDays = act.days || 1;
     act.endDate = newDateStr;
-    // Recalculate startDate from new endDate
     act.startDate = shiftWD(newDateStr, -(oldDays - 1));
 
     if(_calFreeMode){
-      // Free mode: freeze revision where it currently is so it doesn't follow the hito
       if(!act.revDateOverride) act.revDateOverride = shiftWD(oldEndDate, -2);
-      // (if already has override, it stays put — nothing to do)
     } else {
-      // Linked mode: clear any rev override so it recomputes relative to new endDate
       if(act.revDateOverride) delete act.revDateOverride;
     }
 
-    if(!_calFreeMode && oldEndDate){
-      // Count workday delta between old and new endDate (timezone-safe)
-      const oldD = parseLocalDate(oldEndDate);
-      const newD = parseLocalDate(newDateStr);
-      const sign = newD > oldD ? 1 : -1;
-      let wdDelta = 0;
-      const cursor = new Date(oldD);
-      for(let i=0; i<400; i++){
-        cursor.setDate(cursor.getDate()+sign);
-        if(!isWeekend(cursor)) wdDelta += sign;
-        if(cursor.getFullYear()===newD.getFullYear() && cursor.getMonth()===newD.getMonth() && cursor.getDate()===newD.getDate()) break;
-      }
+    if(oldEndDate && oldEndDate !== newDateStr){
+      const wdDelta = wdDeltaBetween(oldEndDate, newDateStr);
 
       if(wdDelta !== 0){
-        ['aire','agua','tierra','fuego'].forEach(st=>{
-          (brand.cronograma[st]||[]).forEach(a=>{
-            if(a.id === dragActId) return;
-            // Don't shift activities that end before (or on) the original hito date
-            if(a.endDate && a.endDate <= oldEndDate) return;
-            if(a.startDate) a.startDate = shiftWD(a.startDate, wdDelta);
-            if(a.endDate)   a.endDate   = shiftWD(a.endDate,   wdDelta);
-            if(a.revDateOverride) a.revDateOverride = shiftWD(a.revDateOverride, wdDelta);
-          });
-        });
+        const hasLater = ['aire','agua','tierra','fuego'].some(st=>
+          (brand.cronograma[st]||[]).some(a=> a.id!==dragActId && a.endDate && a.endDate > oldEndDate)
+        );
+
+        // Render immediately so user sees the moved event
+        if(currentBrandId===brand.id) renderBrandCrono(brand);
+        const activeTab = window._eqTab;
+        if(activeTab==='week') renderEqWeek(); else renderEqMonth();
+
+        if(hasLater){
+          const cascade = await confirmModal(
+            `¿Ajustar también las fechas de todas las actividades posteriores a esta (${wdDelta>0?'+':''}${wdDelta} días hábiles)?`,
+            'Sí, ajustar todo',
+            'background:var(--aire);color:#fff;border:none'
+          );
+          if(cascade){
+            cascadeAfterDate(brand, oldEndDate, wdDelta, dragActId);
+            showStatus('Fechas del cronograma actualizadas ✓');
+          }
+        }
       }
     }
   }
 
-  // Render immediately (optimistic)
-  const activeTab = window._eqTab;
-  if(activeTab==='week') renderEqWeek();
-  else renderEqMonth();
-  if(currentBrandId===brand.id){ const s=document.getElementById('brand-crono-summary'); if(s) renderBrandCrono(brand); }
-
-  upsert().then(ok=>showStatus(ok?'Fecha actualizada ✓':'Error al guardar ❌', !ok));
+  // Render and save
+  if(currentBrandId===brand.id) renderBrandCrono(brand);
+  const activeTab2 = window._eqTab;
+  if(activeTab2==='week') renderEqWeek(); else renderEqMonth();
+  markLocalChange('brands');
+  upsert().then(ok=>{ if(!ok) showStatus('Error al guardar ❌', true); });
 }
 
 async function toggleHitoFreeMode(brandId, stage, actId){
@@ -5465,6 +5460,34 @@ function startInlineDays(e, brandId, stage, actId){
 }
 
 /* ── Edit a single date inline ── */
+// Shift all activities whose endDate > referenceDate by wdDelta workdays, skipping actId
+function cascadeAfterDate(brand, referenceDate, wdDelta, skipActId){
+  ['aire','agua','tierra','fuego'].forEach(st=>{
+    (brand.cronograma[st]||[]).forEach(a=>{
+      if(a.id === skipActId) return;
+      if(a.endDate && a.endDate <= referenceDate) return;
+      if(a.startDate)      a.startDate      = shiftWD(a.startDate, wdDelta);
+      if(a.endDate)        a.endDate        = shiftWD(a.endDate, wdDelta);
+      if(a.revDateOverride) a.revDateOverride = shiftWD(a.revDateOverride, wdDelta);
+    });
+  });
+}
+
+// Count workday delta between two YYYY-MM-DD strings
+function wdDeltaBetween(oldDateStr, newDateStr){
+  const oldD = parseLocalDate(oldDateStr);
+  const newD = parseLocalDate(newDateStr);
+  const sign = newD > oldD ? 1 : -1;
+  let delta = 0;
+  const cursor = new Date(oldD);
+  for(let i=0; i<800; i++){
+    cursor.setDate(cursor.getDate()+sign);
+    if(!isWeekend(cursor)) delta += sign;
+    if(fmtLocalDate(cursor) === newDateStr) break;
+  }
+  return delta;
+}
+
 function editDate(e,brandId,stage,actId,field){
   const span=e.currentTarget;
   const brand=appData.brands.find(b=>b.id===brandId);
@@ -5472,24 +5495,60 @@ function editDate(e,brandId,stage,actId,field){
   const act=brand.cronograma[stage].find(a=>a.id===actId);
   if(!act)return;
   const current=act[field]||new Date().toISOString().slice(0,10);
-  // Replace span with input date
   const input=document.createElement('input');
   input.type='date'; input.value=current;
   input.className='act-date';
   input.style.padding='0.1rem 0.3rem';
   span.replaceWith(input);
   input.focus();
-  const save=async()=>{
-    const val=input.value;
-    if(val){
-      act[field]=val;
-      await upsert();
-      showStatus('Fecha actualizada ✓');
+
+  let _saved = false;
+  const save = async()=>{
+    if(_saved) return;
+    _saved = true;
+    const val = input.value;
+    if(!val || val===current){ renderBrandCrono(brand); return; }
+
+    const oldEndDate = act.endDate;
+    act[field] = val;
+
+    if(field==='endDate'){
+      act.startDate = shiftWD(val, -((act.days||1)-1));
+      const delta = wdDeltaBetween(oldEndDate, val);
+      if(delta !== 0){
+        const hasLater = ['aire','agua','tierra','fuego'].some(st=>
+          (brand.cronograma[st]||[]).some(a=> a.id!==actId && a.endDate && a.endDate > oldEndDate)
+        );
+        if(hasLater){
+          renderBrandCrono(brand);
+          // Small delay so the input is fully removed before modal opens
+          await new Promise(r=>setTimeout(r, 50));
+          const cascade = await confirmModal(
+            `¿Ajustar también las fechas de las actividades posteriores a esta? (${delta>0?'+':''}${delta} días hábiles)`,
+            'Sí, ajustar todo',
+            'background:var(--aire);color:#fff;border:none'
+          );
+          if(cascade){
+            cascadeAfterDate(brand, oldEndDate, delta, actId);
+          }
+        }
+      }
     }
+
     renderBrandCrono(brand);
+    markLocalChange('brands');
+    await upsert();
+    showStatus('Fecha actualizada ✓');
   };
-  input.addEventListener('blur',save);
-  input.addEventListener('keydown',ev=>{if(ev.key==='Enter')input.blur();if(ev.key==='Escape'){input.value=current;input.blur();}});
+
+  // Use 'change' event instead of blur — fires when user picks a date
+  input.addEventListener('change', ()=>{ setTimeout(save, 0); });
+  input.addEventListener('keydown',ev=>{
+    if(ev.key==='Enter'){ setTimeout(save, 0); }
+    if(ev.key==='Escape'){ _saved=true; renderBrandCrono(brand); }
+  });
+  // blur as fallback with delay to allow change to fire first
+  input.addEventListener('blur',()=>{ setTimeout(save, 200); });
 }
 
 /* ── Shift ALL dates by N workdays ── */
