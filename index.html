@@ -2120,7 +2120,7 @@ body.portal-mode .main{ height:100vh; }
               <div style="flex:1;min-width:120px">NOTAS</div>
             </div>
             <!-- Scrollable body -->
-            <div id="cob-tabla-body" style="overflow-y:auto;max-height:420px;scrollbar-width:thin;scrollbar-color:var(--border) transparent"></div>
+            <div id="cob-tabla-body" style="overflow-y:auto;max-height:680px;scrollbar-width:thin;scrollbar-color:var(--border) transparent"></div>
           </div>
         </div>
       </div>
@@ -4281,14 +4281,14 @@ function renderCobCard(brandId){
     const st = cobStatus(p, pagos, b);
     const triggerLabel = getCobTriggerLabel(p, b);
     const montoVal = useTotal ? montoIndividual : (p.monto||'');
-    return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;align-items:flex-start;gap:0.7rem;padding:0.55rem 1rem;border-bottom:1px solid var(--border)">
+    return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;align-items:flex-start;gap:0.7rem;padding:0.55rem 1rem;border-bottom:1px solid var(--border)" onmouseenter="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0.45'" onmouseleave="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0'">
       <div class="cob-check ${p.cobrado?'checked':''}" onclick="event.stopPropagation();toggleCobPago('${b.id}','${p.id}')" style="margin-top:3px;flex-shrink:0">${p.cobrado?'✓':''}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:0.35rem;min-width:0">
           <span style="font-size:0.84rem;font-weight:600;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.nombre||'Pago sin nombre'}</span>
           <button onclick="event.stopPropagation();editCobNombre('${b.id}','${p.id}')"
-            style="background:none;border:none;cursor:pointer;font-size:0.6rem;padding:0.1rem 0.2rem;opacity:0;flex-shrink:0;filter:grayscale(1)"
-            onmouseover="this.style.opacity=0.5" onmouseout="this.style.opacity=0"
+            class="cob-edit-btn"
+            style="background:none;border:none;cursor:pointer;font-size:0.6rem;padding:0.1rem 0.2rem;opacity:0;flex-shrink:0;filter:grayscale(1);transition:opacity 0.15s"
             title="Editar nombre">✏️</button>
         </div>
         <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.2rem;flex-wrap:wrap">
