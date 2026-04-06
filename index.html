@@ -2104,8 +2104,6 @@ body.portal-mode .main{ height:100vh; }
               <button class="cob-sort-btn" id="cob-sort-marca" onclick="setCobSort('marca')">🏷 Marca</button>
               <button class="cob-sort-btn" id="cob-sort-monto" onclick="setCobSort('monto')">💰 Monto</button>
               <button class="cob-sort-btn" id="cob-sort-npago" onclick="setCobSort('npago')"># Pago</button>
-              <div style="width:1px;height:16px;background:var(--border);margin:0 0.25rem"></div>
-              <button class="cob-sort-btn" id="cob-hide-cobrado-btn" onclick="toggleHideCobrado()" style="gap:0.3rem">👁 Ocultar cobrados</button>
             </div>
           </div>
           <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden">
@@ -2122,7 +2120,7 @@ body.portal-mode .main{ height:100vh; }
               <div style="flex:1;min-width:120px">NOTAS</div>
             </div>
             <!-- Scrollable body -->
-            <div id="cob-tabla-body" style="overflow-y:auto;max-height:680px;scrollbar-width:thin;scrollbar-color:var(--border) transparent"></div>
+            <div id="cob-tabla-body" style="overflow-y:auto;max-height:420px;scrollbar-width:thin;scrollbar-color:var(--border) transparent"></div>
           </div>
         </div>
       </div>
@@ -2697,7 +2695,6 @@ let _pendingUndoEntry = null;
 // Keys that the LOCAL user changed since last server sync — used to prefer local over server
 let _localChangedKeys = new Set();
 let _localDeletedIds = { brands: new Set(), members: new Set(), clientNotes: new Set() };
-const _localDeletedPagoIds = {}; // { brandId: Set of deleted pagoIds }
 
 // Call this when user mutates a top-level key so merge prefers local for that key
 function markLocalChange(...keys){ keys.forEach(k=>_localChangedKeys.add(k)); }
@@ -2706,28 +2703,29 @@ function markLocalDelete(type, id){ if(_localDeletedIds[type]) _localDeletedIds[
 function deepMergeAppData(server, local){
   const merged = {...server};
 
-  // ── brands: merge by id, respecting local deletions ──
+  // ── brands: merge by id ──
   const serverBrands = Array.isArray(server.brands) ? server.brands : [];
   const localBrands  = Array.isArray(local.brands)  ? local.brands  : [];
   const deletedBrandIds = _localDeletedIds.brands;
   const brandMap = {};
   serverBrands.forEach(b=>{ if(!deletedBrandIds.has(b.id)) brandMap[b.id] = {...b}; });
-  localBrands.forEach(b=>{ if(!deletedBrandIds.has(b.id)) brandMap[b.id] = brandMap[b.id] ? {...brandMap[b.id], ...b} : {...b}; });
+  localBrands.forEach(b=>{ brandMap[b.id] = brandMap[b.id] ? {...brandMap[b.id], ...b} : {...b}; });
   merged.brands = Object.values(brandMap);
 
-  // ── members: merge by id, respecting local deletions ──
+  // ── members: merge by id ──
   const serverMembers = Array.isArray(server.members) ? server.members : [];
   const localMembers  = Array.isArray(local.members)  ? local.members  : [];
   const deletedMemberIds = _localDeletedIds.members;
   const memberMap = {};
   serverMembers.forEach(m=>{ if(!deletedMemberIds.has(m.id)) memberMap[m.id] = {...m}; });
-  localMembers.forEach(m=>{ if(!deletedMemberIds.has(m.id)) memberMap[m.id] = memberMap[m.id] ? {...memberMap[m.id], ...m} : {...m}; });
+  localMembers.forEach(m=>{ memberMap[m.id] = memberMap[m.id] ? {...memberMap[m.id], ...m} : {...m}; });
   merged.members = Object.values(memberMap);
 
   // ── cobros: merge by brandId → by pagoId (concurrency-safe) ──
   const serverCob = server.cobros || {};
   const localCob  = local.cobros  || {};
   const mergedCob = {};
+  // Start with all brand IDs from both
   const allBrandIds = new Set([...Object.keys(serverCob), ...Object.keys(localCob)]);
   allBrandIds.forEach(bid=>{
     const sCob = serverCob[bid];
@@ -2737,10 +2735,9 @@ function deepMergeAppData(server, local){
     // Both have data — merge pagos by pagoId, prefer local for fields touched
     const sPagos = sCob.pagos||[];
     const lPagos = lCob.pagos||[];
-    const deletedPagos = _localDeletedPagoIds[bid] || new Set();
     const pagoMap = {};
-    sPagos.forEach(p=>{ if(!deletedPagos.has(p.id)) pagoMap[p.id] = {...p}; });
-    lPagos.forEach(p=>{ if(!deletedPagos.has(p.id)) pagoMap[p.id] = {...(pagoMap[p.id]||{}), ...p}; });
+    sPagos.forEach(p=>{ pagoMap[p.id] = {...p}; });
+    lPagos.forEach(p=>{ pagoMap[p.id] = {...(pagoMap[p.id]||{}), ...p}; });
     mergedCob[bid] = {
       ...sCob, ...lCob,
       pagos: Object.values(pagoMap),
@@ -2754,7 +2751,7 @@ function deepMergeAppData(server, local){
   const deletedNoteIds = _localDeletedIds.clientNotes;
   const noteMap = {};
   serverNotes.forEach(n=>{ if(!deletedNoteIds.has(n.id)) noteMap[n.id] = {...n}; });
-  localNotes.forEach(n=>{ if(!deletedNoteIds.has(n.id)) noteMap[n.id] = {...(noteMap[n.id]||{}), ...n}; });
+  localNotes.forEach(n=>{ noteMap[n.id] = {...(noteMap[n.id]||{}), ...n}; });
   merged.clientNotes = Object.values(noteMap).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
 
   // ── domos: union by key (never lose created domos) ──
@@ -2807,28 +2804,14 @@ async function upsert(){
       const serverData = data?.data;
       const toWrite = serverData ? deepMergeAppData(serverData, appData) : appData;
 
-      // 3. Update local appData to merged state — re-apply all local deletes as safety net
+      // 3. Update local appData to merged state — re-apply local deletes as safety net
       Object.assign(appData, toWrite);
-      if(_localDeletedIds.brands.size){
+      if(_localDeletedIds.brands.size)
         appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
-        toWrite.brands = appData.brands;
-      }
-      if(_localDeletedIds.members.size){
+      if(_localDeletedIds.members.size)
         appData.members = (appData.members||[]).filter(m=>!_localDeletedIds.members.has(m.id));
-        toWrite.members = appData.members;
-      }
-      if(_localDeletedIds.clientNotes.size){
+      if(_localDeletedIds.clientNotes.size)
         appData.clientNotes = (appData.clientNotes||[]).filter(n=>!_localDeletedIds.clientNotes.has(n.id));
-        toWrite.clientNotes = appData.clientNotes;
-      }
-      // Re-apply deleted pagos to both appData and toWrite
-      Object.entries(_localDeletedPagoIds).forEach(([bid, deletedIds])=>{
-        if(!deletedIds.size) return;
-        if(appData.cobros?.[bid])
-          appData.cobros[bid].pagos = (appData.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
-        if(toWrite.cobros?.[bid])
-          toWrite.cobros[bid].pagos = (toWrite.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
-      });
 
       // 4. Strip large base64 images before writing (Supabase 500 = payload too large)
       const toWriteSafe = JSON.parse(JSON.stringify(toWrite, (key, val) => {
@@ -4185,15 +4168,47 @@ function renderCobros(){
     const brandCol = getBrandColor(b);
     const logo = b.image ? `<img src="${b.image}">` : b.name.charAt(0);
     const isExp = cob.expanded;
+
     const useTotal = !!cob.useTotal;
-    const valorTotal = cob.valorTotal||0;
-    const montoInd = useTotal && pagos.length ? Math.round((valorTotal/pagos.length)*100)/100 : null;
+    const valorTotal = cob.valorTotal || 0;
+    const montoIndividual = useTotal && pagos.length ? Math.round((valorTotal / pagos.length) * 100) / 100 : null;
     const totalDisplay = useTotal ? valorTotal : pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
-    const totalCobrado = pagos.filter(p=>p.cobrado).reduce((s,p)=>s+(useTotal?montoInd:(parseFloat(p.monto)||0)),0);
+    const totalCobrado = pagos.filter(p=>p.cobrado).reduce((s,p)=>s+(useTotal ? montoIndividual : (parseFloat(p.monto)||0)),0);
     const pct = totalDisplay ? Math.round(totalCobrado/totalDisplay*100) : 0;
 
+    const pagosHTML = pagos.map((p,pi)=>{
+      const st = cobStatus(p, pagos, b);
+      const triggerLabel = getCobTriggerLabel(p, b);
+      const montoVal = useTotal ? montoIndividual : (p.monto||'');
+      return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;align-items:flex-start;gap:0.7rem;padding:0.55rem 1rem;border-bottom:1px solid var(--border)">
+        <div class="cob-check ${p.cobrado?'checked':''}" onclick="toggleCobPago('${b.id}','${p.id}')" style="margin-top:3px;flex-shrink:0">${p.cobrado?'✓':''}</div>
+        <div style="flex:1;min-width:0">
+          <input value="${p.nombre||''}" placeholder="Nombre del pago"
+            style="background:none;border:none;outline:none;font-family:var(--font);font-size:0.84rem;font-weight:600;color:var(--text);width:100%;display:block"
+            onblur="saveCobField('${b.id}','${p.id}','nombre',this.value)"
+            onkeydown="if(event.key==='Enter')this.blur()">
+          <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.2rem;flex-wrap:wrap">
+            <span class="cob-status-pill ${st.cls}">${st.label}</span>
+            <button onclick="openTriggerModal('${b.id}','${p.id}')"
+              style="display:inline-flex;align-items:center;gap:0.2rem;background:none;border:1px dashed var(--border);border-radius:6px;padding:0.1rem 0.45rem;font-size:0.62rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+              onmouseover="this.style.borderColor='var(--aire)';this.style.color='var(--aire)'"
+              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'"
+              title="Cambiar trigger">${triggerLabel} ✏️</button>
+          </div>
+        </div>
+        <input type="number" value="${montoVal}" placeholder="0"
+          ${useTotal ? 'disabled style="background:none;border:none;outline:none;font-family:var(--font);font-size:0.9rem;font-weight:700;color:var(--text3);width:72px;text-align:right;flex-shrink:0;margin-top:2px;cursor:not-allowed"' : `style="background:none;border:none;outline:none;font-family:var(--font);font-size:0.9rem;font-weight:700;color:var(--text);width:72px;text-align:right;flex-shrink:0;margin-top:2px"
+          onblur="saveCobField('${b.id}','${p.id}','monto',this.value)"
+          onkeydown="if(event.key==='Enter')this.blur()"`}>
+        <button onclick="deleteCobPago('${b.id}','${p.id}')"
+          style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.75rem;flex-shrink:0;margin-top:3px;padding:0 0.2rem;opacity:0.3"
+          onmouseover="this.style.opacity=1;this.style.color='#ef4444'"
+          onmouseout="this.style.opacity=0.3;this.style.color='var(--text3)'">✕</button>
+      </div>`;
+    }).join('');
+
     return `<div class="cob-brand-card" id="cob-card-${b.id}">
-      <div class="cob-brand-header" onclick="toggleCobCard(event,'${b.id}')">
+      <div class="cob-brand-header" onclick="toggleCobCard('${b.id}')">
         <div class="cob-brand-logo" style="border-color:${brandCol}">${logo}</div>
         <div style="flex:1;min-width:0">
           <div class="cob-brand-name">${b.name}</div>
@@ -4202,11 +4217,29 @@ function renderCobros(){
         <span class="cob-pct" style="color:${brandCol}">${pct}%</span>
         <span class="cob-arrow" style="transform:${isExp?'rotate(0)':'rotate(-90deg)'}">▼</span>
       </div>
+      ${isExp ? `<div class="cob-body">
+        ${pagosHTML}
+        <div class="cob-footer" onclick="event.stopPropagation()">
+          <button class="cob-add-btn" onclick="addCobPago('${b.id}')">+ Agregar pago</button>
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <label style="display:flex;align-items:center;gap:0.25rem;cursor:pointer;user-select:none;font-size:0.6rem;color:var(--text3);white-space:nowrap" title="Distribuir equitativamente">
+              <input type="checkbox" ${useTotal?'checked':''} onchange="toggleCobUseTotal('${b.id}',this.checked)"
+                style="accent-color:var(--aire);width:11px;height:11px;cursor:pointer">
+              dividir
+            </label>
+            <div class="cob-total">Total:
+              ${useTotal
+                ? `<input type="number" value="${valorTotal||''}" placeholder="0"
+                    style="background:none;border:none;border-bottom:1px dashed var(--border);outline:none;font-family:var(--font);font-size:0.84rem;font-weight:800;color:var(--text);width:70px;text-align:right"
+                    onblur="saveCobTotal('${b.id}',this.value)"
+                    onkeydown="if(event.key==='Enter')this.blur()">`
+                : `<strong>$${totalDisplay.toLocaleString()}</strong>`}
+            </div>
+          </div>
+        </div>
+      </div>` : ''}
     </div>`;
   }).join('');
-
-  // Render expanded bodies
-  brands.forEach(b=>{ if(appData.cobros[b.id]?.expanded) renderCobCard(b.id); });
   renderCobTabla();
 }
 
@@ -4223,8 +4256,7 @@ async function toggleCobUseTotal(brandId, checked){
     }
   }
   markLocalChange('cobros');
-  renderCobCard(brandId);
-  renderCobTabla();
+  renderCobros();
   await upsert();
 }
 
@@ -4233,134 +4265,25 @@ async function saveCobTotal(brandId, val){
   const cob = appData.cobros[brandId];
   cob.valorTotal = parseFloat(val)||0;
   markLocalChange('cobros');
-  renderCobCard(brandId);
-  renderCobTabla();
+  renderCobros();
   syncCobrosToFin();
   await upsert();
 }
 
 
-function toggleCobCard(event, brandId){
-  event.stopPropagation();
+async function toggleCobCard(brandId){
   ensureCobrosData();
-  const cob = appData.cobros[brandId];
-  if(!cob) return;
-  cob.expanded = !cob.expanded;
-  markLocalChange('cobros');
-  // Toggle DOM directly — no full re-render
-  const card = document.getElementById('cob-card-'+brandId);
-  if(!card) return;
-  const arrow = card.querySelector('.cob-arrow');
-  let body = card.querySelector('.cob-body');
-  if(cob.expanded){
-    if(arrow) arrow.style.transform = 'rotate(0)';
-    if(!body){
-      // Build and inject the body
-      renderCobCard(brandId);
-    }
-  } else {
-    if(arrow) arrow.style.transform = 'rotate(-90deg)';
-    if(body) body.remove();
-  }
-  upsert();
+  renderCobros();
+    markLocalChange('cobros');
+await upsert();
 }
-
-function renderCobCard(brandId){
-  // Re-renders just one brand's cobros card body
-  ensureCobrosData();
-  const b = (appData.brands||[]).find(b=>b.id===brandId);
-  const card = document.getElementById('cob-card-'+brandId);
-  if(!b || !card) return;
-  const cob = appData.cobros[brandId];
-  const pagos = cob.pagos||[];
-  const useTotal = !!cob.useTotal;
-  const valorTotal = cob.valorTotal||0;
-  const montoIndividual = useTotal && pagos.length ? Math.round((valorTotal/pagos.length)*100)/100 : null;
-  const totalDisplay = useTotal ? valorTotal : pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
-  const totalCobrado = pagos.filter(p=>p.cobrado).reduce((s,p)=>s+(useTotal?montoIndividual:(parseFloat(p.monto)||0)),0);
-  const pct = totalDisplay ? Math.round(totalCobrado/totalDisplay*100) : 0;
-  const brandCol = getBrandColor(b);
-
-  // Update header sub
-  const sub = card.querySelector('.cob-brand-sub');
-  if(sub) sub.textContent = `${pagos.filter(p=>p.cobrado).length}/${pagos.length} cobrados · $${totalDisplay.toLocaleString()}`;
-  const pctEl = card.querySelector('.cob-pct');
-  if(pctEl){ pctEl.textContent = pct+'%'; pctEl.style.color = brandCol; }
-
-  // Remove old body if exists
-  const oldBody = card.querySelector('.cob-body');
-  if(oldBody) oldBody.remove();
-
-  if(!cob.expanded) return;
-
-  const pagosHTML = pagos.map((p)=>{
-    const st = cobStatus(p, pagos, b);
-    const triggerLabel = getCobTriggerLabel(p, b);
-    const montoVal = useTotal ? montoIndividual : (p.monto||'');
-    return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;align-items:flex-start;gap:0.7rem;padding:0.55rem 1rem;border-bottom:1px solid var(--border)" onmouseenter="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0.45'" onmouseleave="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0'">
-      <div class="cob-check ${p.cobrado?'checked':''}" onclick="event.stopPropagation();toggleCobPago('${b.id}','${p.id}')" style="margin-top:3px;flex-shrink:0">${p.cobrado?'✓':''}</div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:0.35rem;min-width:0">
-          <span style="font-size:0.84rem;font-weight:600;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.nombre||'Pago sin nombre'}</span>
-          <button onclick="event.stopPropagation();editCobNombre('${b.id}','${p.id}')"
-            class="cob-edit-btn"
-            style="background:none;border:none;cursor:pointer;font-size:0.6rem;padding:0.1rem 0.2rem;opacity:0;flex-shrink:0;filter:grayscale(1);transition:opacity 0.15s"
-            title="Editar nombre">✏️</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.2rem;flex-wrap:wrap">
-          <span class="cob-status-pill ${st.cls}">${st.label}</span>
-          <button onclick="event.stopPropagation();openTriggerModal('${b.id}','${p.id}')"
-            style="display:inline-flex;align-items:center;gap:0.2rem;background:none;border:1px dashed var(--border);border-radius:6px;padding:0.1rem 0.45rem;font-size:0.62rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-            onmouseover="this.style.borderColor='var(--aire)';this.style.color='var(--aire)'"
-            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'"
-            title="Cambiar trigger">${triggerLabel} ✏️</button>
-        </div>
-      </div>
-      <input type="number" value="${montoVal}" placeholder="0"
-        ${useTotal ? 'disabled style="background:none;border:none;outline:none;font-family:var(--font);font-size:0.9rem;font-weight:700;color:var(--text3);width:72px;text-align:right;flex-shrink:0;margin-top:2px;cursor:not-allowed"'
-                   : `style="background:none;border:none;outline:none;font-family:var(--font);font-size:0.9rem;font-weight:700;color:var(--text);width:72px;text-align:right;flex-shrink:0;margin-top:2px"
-                      onblur="saveCobField('${b.id}','${p.id}','monto',this.value)"
-                      onkeydown="if(event.key==='Enter')this.blur()"`}>
-      <button onclick="event.stopPropagation();deleteCobPago('${b.id}','${p.id}')"
-        style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.75rem;flex-shrink:0;margin-top:3px;padding:0 0.2rem;opacity:0.3"
-        onmouseover="this.style.opacity=1;this.style.color='#ef4444'"
-        onmouseout="this.style.opacity=0.3;this.style.color='var(--text3)'">✕</button>
-    </div>`;
-  }).join('');
-
-  const body = document.createElement('div');
-  body.className = 'cob-body';
-  body.innerHTML = `${pagosHTML}
-    <div class="cob-footer" onclick="event.stopPropagation()">
-      <button class="cob-add-btn" onclick="event.stopPropagation();addCobPago('${b.id}')">+ Agregar pago</button>
-      <div style="display:flex;align-items:center;gap:0.5rem">
-        <label style="display:flex;align-items:center;gap:0.25rem;cursor:pointer;user-select:none;font-size:0.6rem;color:var(--text3);white-space:nowrap" title="Distribuir equitativamente">
-          <input type="checkbox" ${useTotal?'checked':''} onchange="event.stopPropagation();toggleCobUseTotal('${b.id}',this.checked)"
-            style="accent-color:var(--aire);width:11px;height:11px;cursor:pointer">
-          dividir
-        </label>
-        <div class="cob-total">Total:
-          ${useTotal
-            ? `<input type="number" value="${valorTotal||''}" placeholder="0"
-                style="background:none;border:none;border-bottom:1px dashed var(--border);outline:none;font-family:var(--font);font-size:0.84rem;font-weight:800;color:var(--text);width:70px;text-align:right"
-                onblur="saveCobTotal('${b.id}',this.value)"
-                onkeydown="if(event.key==='Enter')this.blur()">`
-            : `<strong>$${totalDisplay.toLocaleString()}</strong>`}
-        </div>
-      </div>
-    </div>`;
-  card.appendChild(body);
-}
-
-
 
 async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanzas");
   ensureCobrosData();
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
   pago.cobrado = !pago.cobrado;
-  renderCobCard(brandId);
-  renderCobTabla();
+  renderCobros();
   syncCobrosToFin();
   await upsert();
   checkAutoArchive(brandId);
@@ -4369,30 +4292,14 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
   }
 }
 
-async function editCobNombre(brandId, pagoId){
-  ensureCobrosData();
-  const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
-  if(!pago) return;
-  const val = await askModal({ label:'Nombre del pago', defaultValue: pago.nombre||'' });
-  if(val === null) return;
-  pago.nombre = val.trim() || pago.nombre;
-  markLocalChange('cobros');
-  renderCobCard(brandId);
-  await upsert();
-  showStatus('Nombre actualizado ✓');
-}
-
-async function saveCobField(brandId, pagoId, field, val){
+async function saveCobField(brandId, pagoId, field, val){ markLocalChange("cobros");
   ensureCobrosData();
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
   pago[field] = field==='monto' ? (parseFloat(val)||0) : val;
-  markLocalChange("cobros");
-  if(field === 'monto'){
-    renderCobCard(brandId);
-    renderCobTabla();
-    await upsert();
-  }
+  await upsert();
+  renderCobros();
+  renderCobTabla();
 }
 
 async function addCobPago(brandId){
@@ -4402,32 +4309,19 @@ async function addCobPago(brandId){
   pagos.push(newPago);
   markLocalChange('cobros');
   await upsert();
-  renderCobCard(brandId);
-  renderCobTabla();
+  renderCobros();
+  // Open trigger modal immediately so user can pick the event
+  setTimeout(()=>openTriggerModal(brandId, newPago.id), 200);
 }
 
-const _deletingPagoIds = new Set();
-
 async function deleteCobPago(brandId, pagoId){
-  if(_deletingPagoIds.has(pagoId)) return;
-  _deletingPagoIds.add(pagoId);
-  // Track deleted pagoId so merge doesn't resurrect it
-  if(!_localDeletedPagoIds[brandId]) _localDeletedPagoIds[brandId] = new Set();
-  _localDeletedPagoIds[brandId].add(pagoId);
   ensureCobrosData();
   const cob = appData.cobros[brandId];
-  if(!cob){ _deletingPagoIds.delete(pagoId); return; }
   cob.pagos = cob.pagos.filter(p=>p.id!==pagoId);
   markLocalChange('cobros');
-  renderCobCard(brandId);
-  renderCobTabla();
+  renderCobros();
   const saved = await upsert();
   if(!saved) showStatus('❌ Error al eliminar pago — recarga e intenta de nuevo.', true);
-  // Clear the deleted tracking after a buffer window
-  setTimeout(()=>{
-    _deletingPagoIds.delete(pagoId);
-    _localDeletedPagoIds[brandId]?.delete(pagoId);
-  }, 5000);
 }
 
 function calcCobradoMes(month, year){
@@ -4457,21 +4351,6 @@ function syncCobrosToFin(){
 
 /* ═══ COBROS TABLA ═══ */
 let _cobSort = 'proximo';
-let _hideCobrado = false;
-
-function toggleHideCobrado(){
-  _hideCobrado = !_hideCobrado;
-  const btn = document.getElementById('cob-hide-cobrado-btn');
-  if(btn){
-    btn.textContent = _hideCobrado ? '👁 Mostrar cobrados' : '👁 Ocultar cobrados';
-    btn.classList.toggle('active', _hideCobrado);
-  }
-  renderCobTabla();
-  // Also hide/show in the cards grid
-  document.querySelectorAll('.cobrado-row').forEach(r=>{
-    r.style.display = _hideCobrado ? 'none' : '';
-  });
-}
 
 function setCobSort(mode){
   _cobSort = mode;
@@ -4496,7 +4375,6 @@ function renderCobTabla(){
     const pagos = cob.pagos||[];
     const total = pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
     pagos.forEach((p,pi)=>{
-      if(_hideCobrado && p.cobrado) return; // filter out cobrados
       const st = cobStatus(p, pagos, b);
       rows.push({
         brand: b,
@@ -6751,7 +6629,7 @@ function subscribeRealtime(onUpdate){
       if(payload.new?.data){
         const raw = payload.new.data;
         const hasPendingChanges = _localChangedKeys.size > 0;
-        const hasPendingDeletes = _localDeletedIds.brands.size > 0 || _localDeletedIds.members.size > 0 || _localDeletedIds.clientNotes.size > 0 || Object.values(_localDeletedPagoIds).some(s=>s.size>0);
+        const hasPendingDeletes = _localDeletedIds.brands.size > 0 || _localDeletedIds.members.size > 0 || _localDeletedIds.clientNotes.size > 0;
         if(hasPendingChanges || hasPendingDeletes){
           const merged = deepMergeAppData(raw, appData);
           Object.assign(appData, merged);
@@ -6765,18 +6643,13 @@ function subscribeRealtime(onUpdate){
           if(!appData.domos)    appData.domos    = [];
           if(!appData.template) appData.template = defaultTemplate();
         }
-        // Re-apply local deletes as safety net against stale realtime snapshots
+        // Always re-apply local deletes as safety net against stale realtime snapshots
         if(_localDeletedIds.brands.size)
           appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
         if(_localDeletedIds.members.size)
           appData.members = (appData.members||[]).filter(m=>!_localDeletedIds.members.has(m.id));
         if(_localDeletedIds.clientNotes.size)
           appData.clientNotes = (appData.clientNotes||[]).filter(n=>!_localDeletedIds.clientNotes.has(n.id));
-        // Re-apply deleted pagos
-        Object.entries(_localDeletedPagoIds).forEach(([bid, deletedIds])=>{
-          if(deletedIds.size && appData.cobros?.[bid])
-            appData.cobros[bid].pagos = (appData.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
-        });
         if(onUpdate) onUpdate();
         else { try { renderCurrentPage(); } catch(e){ console.error('realtime render error:',e); } showStatus('🔄 Actualizado en tiempo real'); }
       }
