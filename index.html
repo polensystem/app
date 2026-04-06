@@ -2695,6 +2695,7 @@ let _pendingUndoEntry = null;
 // Keys that the LOCAL user changed since last server sync — used to prefer local over server
 let _localChangedKeys = new Set();
 let _localDeletedIds = { brands: new Set(), members: new Set(), clientNotes: new Set() };
+const _localDeletedPagoIds = {}; // { brandId: Set of deleted pagoIds }
 
 // Call this when user mutates a top-level key so merge prefers local for that key
 function markLocalChange(...keys){ keys.forEach(k=>_localChangedKeys.add(k)); }
@@ -2731,13 +2732,13 @@ function deepMergeAppData(server, local){
     const lCob = localCob[bid];
     if(!lCob){ mergedCob[bid] = sCob; return; }
     if(!sCob){ mergedCob[bid] = lCob; return; }
-    // Both have data — merge pagos by pagoId, prefer local
+    // Both have data — merge pagos by pagoId, prefer local for fields touched
     const sPagos = sCob.pagos||[];
     const lPagos = lCob.pagos||[];
-    const deletedPagoIds = new Set(lCob._deletedPagoIds||[]);
+    const deletedPagos = _localDeletedPagoIds[bid] || new Set();
     const pagoMap = {};
-    sPagos.forEach(p=>{ if(!deletedPagoIds.has(p.id)) pagoMap[p.id] = {...p}; });
-    lPagos.forEach(p=>{ pagoMap[p.id] = {...(pagoMap[p.id]||{}), ...p}; });
+    sPagos.forEach(p=>{ if(!deletedPagos.has(p.id)) pagoMap[p.id] = {...p}; });
+    lPagos.forEach(p=>{ if(!deletedPagos.has(p.id)) pagoMap[p.id] = {...(pagoMap[p.id]||{}), ...p}; });
     mergedCob[bid] = {
       ...sCob, ...lCob,
       pagos: Object.values(pagoMap),
@@ -4283,9 +4284,13 @@ function renderCobCard(brandId){
     return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;align-items:flex-start;gap:0.7rem;padding:0.55rem 1rem;border-bottom:1px solid var(--border)">
       <div class="cob-check ${p.cobrado?'checked':''}" onclick="event.stopPropagation();toggleCobPago('${b.id}','${p.id}')" style="margin-top:3px;flex-shrink:0">${p.cobrado?'✓':''}</div>
       <div style="flex:1;min-width:0">
-        <input value="${p.nombre||''}" placeholder="Nombre del pago"
-          style="background:none;border:none;outline:none;font-family:var(--font);font-size:0.84rem;font-weight:600;color:var(--text);width:100%;display:block"
-          onkeydown="if(event.key==='Enter'){saveCobField('${b.id}','${p.id}','nombre',this.value);this.blur();}">
+        <div style="display:flex;align-items:center;gap:0.35rem;min-width:0">
+          <span style="font-size:0.84rem;font-weight:600;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.nombre||'Pago sin nombre'}</span>
+          <button onclick="event.stopPropagation();editCobNombre('${b.id}','${p.id}')"
+            style="background:none;border:none;cursor:pointer;font-size:0.6rem;padding:0.1rem 0.2rem;opacity:0;flex-shrink:0;filter:grayscale(1)"
+            onmouseover="this.style.opacity=0.5" onmouseout="this.style.opacity=0"
+            title="Editar nombre">✏️</button>
+        </div>
         <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.2rem;flex-wrap:wrap">
           <span class="cob-status-pill ${st.cls}">${st.label}</span>
           <button onclick="event.stopPropagation();openTriggerModal('${b.id}','${p.id}')"
@@ -4301,7 +4306,6 @@ function renderCobCard(brandId){
                       onblur="saveCobField('${b.id}','${p.id}','monto',this.value)"
                       onkeydown="if(event.key==='Enter')this.blur()"`}>
       <button onclick="event.stopPropagation();deleteCobPago('${b.id}','${p.id}')"
-        tabindex="-1"
         style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.75rem;flex-shrink:0;margin-top:3px;padding:0 0.2rem;opacity:0.3"
         onmouseover="this.style.opacity=1;this.style.color='#ef4444'"
         onmouseout="this.style.opacity=0.3;this.style.color='var(--text3)'">✕</button>
@@ -4349,16 +4353,29 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
   }
 }
 
+async function editCobNombre(brandId, pagoId){
+  ensureCobrosData();
+  const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
+  if(!pago) return;
+  const val = await askModal({ label:'Nombre del pago', defaultValue: pago.nombre||'' });
+  if(val === null) return;
+  pago.nombre = val.trim() || pago.nombre;
+  markLocalChange('cobros');
+  renderCobCard(brandId);
+  await upsert();
+  showStatus('Nombre actualizado ✓');
+}
+
 async function saveCobField(brandId, pagoId, field, val){
-  markLocalChange("cobros");
   ensureCobrosData();
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
   pago[field] = field==='monto' ? (parseFloat(val)||0) : val;
-  await upsert();
+  markLocalChange("cobros");
   if(field === 'monto'){
     renderCobCard(brandId);
     renderCobTabla();
+    await upsert();
   }
 }
 
@@ -4378,24 +4395,22 @@ const _deletingPagoIds = new Set();
 async function deleteCobPago(brandId, pagoId){
   if(_deletingPagoIds.has(pagoId)) return;
   _deletingPagoIds.add(pagoId);
+  // Track deleted pagoId so merge doesn't resurrect it
+  if(!_localDeletedPagoIds[brandId]) _localDeletedPagoIds[brandId] = new Set();
+  _localDeletedPagoIds[brandId].add(pagoId);
   ensureCobrosData();
   const cob = appData.cobros[brandId];
-  if(!cob) { _deletingPagoIds.delete(pagoId); return; }
-  // Track deleted pagoId so merge doesn't resurrect it from server
-  cob._deletedPagoIds = [...new Set([...(cob._deletedPagoIds||[]), pagoId])];
+  if(!cob){ _deletingPagoIds.delete(pagoId); return; }
   cob.pagos = cob.pagos.filter(p=>p.id!==pagoId);
   markLocalChange('cobros');
   renderCobCard(brandId);
   renderCobTabla();
   const saved = await upsert();
   if(!saved) showStatus('❌ Error al eliminar pago — recarga e intenta de nuevo.', true);
-  // Clean up after a safe delay
+  // Clear the deleted tracking after a buffer window
   setTimeout(()=>{
     _deletingPagoIds.delete(pagoId);
-    // Remove from _deletedPagoIds after server has updated
-    if(appData.cobros[brandId]){
-      appData.cobros[brandId]._deletedPagoIds = (appData.cobros[brandId]._deletedPagoIds||[]).filter(id=>id!==pagoId);
-    }
+    _localDeletedPagoIds[brandId]?.delete(pagoId);
   }, 5000);
 }
 
@@ -6704,7 +6719,7 @@ function subscribeRealtime(onUpdate){
       if(payload.new?.data){
         const raw = payload.new.data;
         const hasPendingChanges = _localChangedKeys.size > 0;
-        const hasPendingDeletes = _localDeletedIds.brands.size > 0 || _localDeletedIds.members.size > 0 || _localDeletedIds.clientNotes.size > 0;
+        const hasPendingDeletes = _localDeletedIds.brands.size > 0 || _localDeletedIds.members.size > 0 || _localDeletedIds.clientNotes.size > 0 || Object.values(_localDeletedPagoIds).some(s=>s.size>0);
         if(hasPendingChanges || hasPendingDeletes){
           const merged = deepMergeAppData(raw, appData);
           Object.assign(appData, merged);
@@ -6718,13 +6733,18 @@ function subscribeRealtime(onUpdate){
           if(!appData.domos)    appData.domos    = [];
           if(!appData.template) appData.template = defaultTemplate();
         }
-        // Always re-apply local deletes as safety net against stale realtime snapshots
+        // Re-apply local deletes as safety net against stale realtime snapshots
         if(_localDeletedIds.brands.size)
           appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
         if(_localDeletedIds.members.size)
           appData.members = (appData.members||[]).filter(m=>!_localDeletedIds.members.has(m.id));
         if(_localDeletedIds.clientNotes.size)
           appData.clientNotes = (appData.clientNotes||[]).filter(n=>!_localDeletedIds.clientNotes.has(n.id));
+        // Re-apply deleted pagos
+        Object.entries(_localDeletedPagoIds).forEach(([bid, deletedIds])=>{
+          if(deletedIds.size && appData.cobros?.[bid])
+            appData.cobros[bid].pagos = (appData.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
+        });
         if(onUpdate) onUpdate();
         else { try { renderCurrentPage(); } catch(e){ console.error('realtime render error:',e); } showStatus('🔄 Actualizado en tiempo real'); }
       }
