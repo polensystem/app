@@ -216,7 +216,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .act-item-name.done-name{text-decoration:line-through;color:var(--text3);}
 .act-days-badge{font-size:0.7rem;color:var(--text3);background:var(--bg-card2);padding:0.15rem 0.5rem;border-radius:6px;flex-shrink:0;}
 /* Status cycle button */
-.act-status{border:none;border-radius:99px;padding:0.22rem 0.7rem;font-size:0.68rem;font-weight:700;cursor:pointer;transition:all var(--transition);font-family:var(--font);flex-shrink:0;}
+.act-smart-status{display:inline-flex;align-items:center;font-size:0.6rem;font-weight:700;border-radius:99px;padding:0.1rem 0.45rem;white-space:nowrap;flex-shrink:0;}
+.act-smart-status.por-iniciar{background:rgba(148,163,184,0.15);color:var(--text3);}
+.act-smart-status.en-curso{background:rgba(59,158,221,0.15);color:var(--aire);}
+.act-smart-status.atrasado{background:rgba(239,68,68,0.13);color:#ef4444;}
+.act-smart-status.terminado{background:rgba(90,170,53,0.15);color:var(--tierra);}
 .act-status.pendiente{background:var(--pending-bg);color:var(--text3);}
 .act-status.progreso{background:var(--progress-bg);color:var(--aire);}
 .act-status.completada{background:var(--done-bg);color:var(--tierra);}
@@ -1546,6 +1550,11 @@ body.portal-mode .main{ height:100vh; }
             <button class="btn-back" onclick="goTo('dashboard')">← Volver</button>
             <button class="btn-ghost" onclick="openEditBrandModal()" style="font-size:0.78rem;padding:0.4rem 0.8rem">✏️ Editar</button>
             <button class="btn-ghost" onclick="openDomoModal(currentBrandId)" style="font-size:0.78rem;padding:0.4rem 0.8rem">🔗 Domo</button>
+            <label id="brand-pause-toggle-wrap" onclick="event.stopPropagation()" title="Pausar / reactivar proyecto" style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;background:none;border:1px solid var(--border);border-radius:99px;padding:0.35rem 0.75rem;font-size:0.75rem;font-weight:700;color:var(--text2);transition:all 0.15s;user-select:none" onmouseover="this.style.borderColor='#f59e0b'" onmouseout="this.style.borderColor='var(--border)'">
+              <span id="brand-pause-icon">⏸</span>
+              <span id="brand-pause-label">En pausa</span>
+              <input type="checkbox" id="brand-pause-check" onchange="toggleBrandPause()" style="display:none">
+            </label>
             <button class="btn-ghost" onclick="manualArchiveBrand()" style="font-size:0.78rem;padding:0.4rem 0.8rem;color:var(--tierra);border-color:rgba(90,170,53,0.35)" title="Archivar proyecto manualmente">📦 Archivar</button>
             <button class="btn-ghost" onclick="deleteBrandCurrent()" style="font-size:0.78rem;padding:0.4rem 0.8rem;color:#ff5c72;border-color:rgba(255,92,114,0.3)">🗑</button>
           </div>
@@ -3378,7 +3387,7 @@ async function calDrop(event, newDateStr){
         const activeTab = window._eqTab;
         if(activeTab==='week') renderEqWeek(); else renderEqMonth();
 
-        if(hasLater){
+        if(hasLater && !_calFreeMode){
           const cascade = await confirmModal(
             `¿Ajustar también las fechas de todas las actividades posteriores a esta (${wdDelta>0?'+':''}${wdDelta} días hábiles)?`,
             'Sí, ajustar todo',
@@ -4971,12 +4980,15 @@ function renderDashboard(){
     const pct=brandProgress(b);
     const brandCol = getBrandColor(b);
     const logoHTML = b.image ? `<img src="${b.image}" alt="${b.name}">` : b.name.charAt(0);
-    return`<div class="brand-card" onclick="openBrand('${b.id}')">
+    return`<div class="brand-card" onclick="openBrand('${b.id}')" style="${b.paused?'opacity:0.65;':''}">
       <div class="brand-card-body">
         <div class="brand-card-logo">${logoHTML}</div>
         <div class="brand-card-info">
-          <div class="brand-card-name">${b.name}</div>
-          <div class="brand-card-meta" style="display:flex;align-items:center;gap:0.3rem;flex-wrap:nowrap;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:0.35rem">
+            <span class="brand-card-name" style="margin-bottom:0;flex:1;min-width:0">${b.name}</span>
+            ${b.paused?`<span style="font-size:0.55rem;font-weight:700;color:#b45309;background:rgba(245,158,11,0.15);border-radius:99px;padding:0.1rem 0.35rem;white-space:nowrap;flex-shrink:0">⏸ Pausa</span>`:''}
+          </div>
+          <div class="brand-card-meta" style="display:flex;align-items:center;gap:0.3rem;flex-wrap:nowrap;overflow:hidden;margin-top:0.35rem">
             <span class="stage-pill ${b.stage}" style="font-size:0.56rem;padding:0.06rem 0.3rem;white-space:nowrap;flex-shrink:0">${s.e} ${s.l}</span>
             <span class="prio-pill ${b.prioridad||'media'}" style="font-size:0.56rem;padding:0.06rem 0.28rem;white-space:nowrap;flex-shrink:0">${pi[b.prioridad||'media']}</span>
             <span style="font-size:0.68rem;color:var(--text3);font-weight:600;margin-left:auto;flex-shrink:0;white-space:nowrap">${pct}%</span>
@@ -4984,7 +4996,7 @@ function renderDashboard(){
         </div>
         <button class="btn-delete" onclick="event.stopPropagation();deleteBrand('${b.id}')" style="opacity:0;transition:opacity 0.15s;font-size:0.75rem;background:none;border:none;cursor:pointer;padding:0.2rem;color:var(--text3);flex-shrink:0" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">🗑</button>
       </div>
-      <div style="height:3px;background:${brandCol};width:100%"></div>
+      <div style="height:3px;background:${b.paused?'#f59e0b':brandCol};width:100%"></div>
     </div>`;
   }).join('');
 }
@@ -5167,6 +5179,28 @@ async function renderBrandPage(){
   (document.getElementById('header-title')||{}).textContent=brand.name;
   updateGlobalBreadcrumb('brand', brand.name);
 
+  // Sync pause toggle
+  const pauseCheck = document.getElementById('brand-pause-check');
+  const pauseWrap  = document.getElementById('brand-pause-toggle-wrap');
+  const pauseIcon  = document.getElementById('brand-pause-icon');
+  const pauseLabel = document.getElementById('brand-pause-label');
+  if(pauseCheck){
+    pauseCheck.checked = !!brand.paused;
+    if(brand.paused){
+      pauseWrap.style.background = 'rgba(245,158,11,0.12)';
+      pauseWrap.style.borderColor = '#f59e0b';
+      pauseWrap.style.color = '#b45309';
+      pauseIcon.textContent = '▶';
+      pauseLabel.textContent = 'Reactivar';
+    } else {
+      pauseWrap.style.background = 'none';
+      pauseWrap.style.borderColor = 'var(--border)';
+      pauseWrap.style.color = 'var(--text2)';
+      pauseIcon.textContent = '⏸';
+      pauseLabel.textContent = 'En pausa';
+    }
+  }
+
   // Hero: set gradient on the new v2 wrap based on stage
   const heroWrap = document.getElementById('brand-hero-wrap');
   const brandCol = getBrandColor(brand);
@@ -5263,7 +5297,29 @@ function openPortalPreview(){
   window.open(getPortalUrl(currentBrandId), '_blank');
 }
 
-/* ── Cronograma (brand) ── */
+function getActivitySmartStatus(act){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = act.startDate ? parseLocalDate(act.startDate) : null;
+  const end   = act.endDate   ? parseLocalDate(act.endDate)   : null;
+
+  if(act.status === 'completada') return { key:'terminado', label:'Terminado', cls:'terminado' };
+
+  if(act.status === 'en progreso'){
+    if(end && today > end) return { key:'atrasado', label:'Atrasado', cls:'atrasado' };
+    return { key:'en-curso', label:'En curso', cls:'en-curso' };
+  }
+
+  // pendiente
+  if(!start || today < start) return { key:'por-iniciar', label:'Por iniciar', cls:'por-iniciar' };
+  return { key:'atrasado', label:'Atrasado', cls:'atrasado' };
+}
+
+function actSmartStatusPill(act){
+  const s = getActivitySmartStatus(act);
+  return `<span class="act-smart-status ${s.cls}">${s.label}</span>`;
+}
+
+
 function renderBrandCrono(brand){
   if(!brand.cronograma){
     (document.getElementById('brand-crono-stages')||{innerHTML:''}).innerHTML='<div style="color:var(--text3);font-size:0.84rem">Sin cronograma.</div>';
@@ -5318,6 +5374,7 @@ function renderBrandCrono(brand){
             onclick="cycleStatus('${brand.id}','${stage}','${a.id}')"
             title="Click para marcar avance">${a.name}</span>
           <span class="act-days-inline" id="days-badge-${a.id}" onclick="startInlineDays(event,'${brand.id}','${stage}','${a.id}')" title="Click para editar duración">${a.days}d</span>
+          ${actSmartStatusPill(a)}
           <span class="act-date" title="Fecha inicio — click para editar" onclick="editDate(event,'${brand.id}','${stage}','${a.id}','startDate')">📅 ${fmtDateDisplay(a.startDate)}</span>
           <span style="font-size:0.68rem;color:var(--text3)">→</span>
           <span class="act-date" title="Fecha fin — click para editar" onclick="editDate(event,'${brand.id}','${stage}','${a.id}','endDate')">🏁 ${fmtDateDisplay(a.endDate)}</span>
@@ -7166,12 +7223,17 @@ function renderEqGrid(){
       const logoHTML = brand?.image ? `<img src="${brand.image}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">` : (brand?.name?.charAt(0)||'?');
       const revHTML = h.revDate ? `<div class="eq-hito-rev">🔍 ${fmtDateDisplay(h.revDate)} · Rev. Interna · ${h.name}</div>` : '';
       const partnerPill = domoPartnerPill(h.brandId, currentMemberId);
+      // Find the actual activity to get smart status
+      const hAct = (appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
+      const smartSt = hAct ? getActivitySmartStatus(hAct) : null;
+      const statusPill = (smartSt && smartSt.key==='atrasado') ? `<span class="act-smart-status atrasado" style="font-size:0.58rem">Atrasado</span>` : '';
       return `<div class="eq-hito-card">
         <div class="eq-hito-brand-img">${logoHTML}</div>
         <div class="eq-hito-info">
           <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
             <span class="eq-hito-brand-name" style="margin-bottom:0">${brand?.name||'—'}</span>
             ${partnerPill}
+            ${statusPill}
           </div>
           <div class="eq-hito-date">⭐ ${fmtDateDisplay(h.date)} · ${h.name}</div>
           ${revHTML}
@@ -7295,10 +7357,14 @@ function renderMembersGrid(){
               const _isRev=h.type==='revision';
               const _partnerId=_br?.domo?(_br.domo.m1===m.id?_br.domo.m2:_br.domo.m1):null;
               const _partner=_partnerId?(appData.members||[]).find(x=>x.id===_partnerId):null;
+              const _hAct=_br?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
+              const _hSt=_hAct?getActivitySmartStatus(_hAct):null;
+              const _atrasadoPill=(_hSt&&_hSt.key==='atrasado')?'<span class="act-smart-status atrasado" style="font-size:0.57rem">Atrasado</span>':'';
               return `<div style="background:rgba(${_r},${_g},${_bv},0.06);border:1px solid rgba(${_r},${_g},${_bv},0.2);border-radius:10px;padding:0.5rem 0.7rem;border-left:3px solid rgb(${_r},${_g},${_bv});${_isRev?'background:repeating-linear-gradient(-45deg,rgba('+_r+','+_g+','+_bv+',0.04) 0,rgba('+_r+','+_g+','+_bv+',0.04) 4px,transparent 4px,transparent 10px);':''}">
                 <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.2rem;flex-wrap:nowrap;min-width:0">
                   <span style="font-size:0.68rem;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">${_br?.name||'—'}</span>
                   ${_partner?`<span style="font-size:0.61rem;background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.05rem 0.4rem;color:var(--text2);white-space:nowrap;flex-shrink:0">${_partner.emoji||'👤'} ${_partner.apodo||_partner.nombre}</span>`:''}
+                  ${_atrasadoPill}
                   <span style="font-size:0.63rem;font-weight:700;color:rgb(${_r},${_g},${_bv});background:rgba(${_r},${_g},${_bv},0.12);border-radius:6px;padding:0.1rem 0.4rem;white-space:nowrap;flex-shrink:0">${_isRev?'🔍':'⭐'} ${fmtDateDisplay(h.date)}</span>
                 </div>
                 <div style="font-size:0.72rem;color:var(--text2);line-height:1.35">${h.name.replace('🔍 Rev. interna: ','')}</div>
@@ -7387,6 +7453,7 @@ function renderEqWeek(){
               <span class="eq-free-toggle" onclick="event.stopPropagation();toggleHitoFreeMode('${h.brandId}','${h.stage}','${h.actId}')" style="font-size:0.6rem;cursor:pointer;opacity:0.7">${_wFree?'🔓':'🔗'}</span>
             </div>
             <div class="eq-event-act" style="color:var(--text3)">${h.name}</div>
+            ${(()=>{ const _wa=(appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId); const _ws=_wa?getActivitySmartStatus(_wa):null; return (_ws&&_ws.key==='atrasado')?'<span class="act-smart-status atrasado" style="margin-top:0.15rem;font-size:0.57rem">Atrasado</span>':''; })()}
             ${partnerPillW2 ? `<div style="margin-top:0.2rem">${partnerPillW2}</div>` : ''}
           </div>`;
         }
@@ -7478,6 +7545,7 @@ function renderEqMonth(){
                   style="font-size:0.6rem;cursor:pointer;opacity:0.7;flex-shrink:0;padding:0 2px">${_isFree?'🔓':'🔗'}</span>
               </div>
               <div class="eq-event-act" style="color:var(--text3)">${h.name}</div>
+              ${(()=>{ const _ma=(appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId); const _ms=_ma?getActivitySmartStatus(_ma):null; return (_ms&&_ms.key==='atrasado')?'<span class="act-smart-status atrasado" style="margin-top:0.15rem;font-size:0.57rem">Atrasado</span>':''; })()}
               ${partnerPillM2 ? `<div style="margin-top:0.2rem">${partnerPillM2}</div>` : ''}
             </div>`;
           }
@@ -8429,14 +8497,22 @@ function renderBrandsTable(){
       deadlineHTML = `<span style="color:${urgencyColor};font-weight:700;white-space:nowrap">${urgencyIcon}${dsc.label} ${d.getDate()}/${monthAbbr[d.getMonth()]}</span>`;
     }
 
-    // Status
-    const statusKey = getBrandStatus(b);
-    const statusCfg = {
-      pausa:      { label:'En pausa',           color:'var(--text3)',  bg:'rgba(90,85,120,0.15)' },
-      proximo:    { label:'Próximo a entregar',  color:'var(--fuego)',  bg:'rgba(232,98,42,0.12)' },
-      desarrollo: { label:'En desarrollo',       color:'var(--agua)',   bg:'rgba(45,195,179,0.12)' },
-    }[statusKey];
-
+    // Smart status — based on activity dates (or pause flag)
+    const allActs = ['aire','agua','tierra','fuego'].flatMap(s=>(b.cronograma?.[s]||[]));
+    let brandSmartStatus;
+    if(b.paused){
+      brandSmartStatus = { label:'En pausa', color:'#b45309', bg:'rgba(245,158,11,0.1)' };
+    } else {
+      const statuses = allActs.map(a=>getActivitySmartStatus(a).key);
+      if(statuses.every(k=>k==='terminado'))
+        brandSmartStatus = { label:'Terminado',   color:'var(--tierra)', bg:'rgba(90,170,53,0.12)' };
+      else if(statuses.some(k=>k==='atrasado'))
+        brandSmartStatus = { label:'Atrasado',     color:'#ef4444',       bg:'rgba(239,68,68,0.1)'  };
+      else if(statuses.some(k=>k==='en-curso'))
+        brandSmartStatus = { label:'En curso',     color:'var(--aire)',   bg:'rgba(59,158,221,0.1)' };
+      else
+        brandSmartStatus = { label:'Por iniciar',  color:'var(--text3)',  bg:'rgba(148,163,184,0.1)'};
+    }
     const pct = brandProgress(b);
     const num = String(idx+1).padStart(2,'0');
 
@@ -8460,7 +8536,7 @@ function renderBrandsTable(){
       </td>
       <td style="padding:0.7rem 1rem;white-space:nowrap">${deadlineHTML}</td>
       <td style="padding:0.7rem 1rem">
-        <span style="display:inline-block;background:${statusCfg.bg};color:${statusCfg.color};border-radius:6px;padding:0.22rem 0.65rem;font-size:0.72rem;font-weight:700;white-space:nowrap;border:1px solid ${statusCfg.color}33">• ${statusCfg.label}</span>
+        <span style="display:inline-block;background:${brandSmartStatus.bg};color:${brandSmartStatus.color};border-radius:6px;padding:0.22rem 0.65rem;font-size:0.72rem;font-weight:700;white-space:nowrap;border:1px solid ${brandSmartStatus.color}33">• ${brandSmartStatus.label}</span>
       </td>
     </tr>`;
   }).join('');
@@ -10519,6 +10595,32 @@ async function executeBrandArchive(brandId){
   showStatus('📦 Proyecto archivado correctamente');
   goTo('dashboard');
 }
+
+async function toggleBrandPause(){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand) return;
+  brand.paused = !brand.paused;
+  markLocalChange('brands');
+  // Re-sync toggle UI
+  const pauseWrap  = document.getElementById('brand-pause-toggle-wrap');
+  const pauseIcon  = document.getElementById('brand-pause-icon');
+  const pauseLabel = document.getElementById('brand-pause-label');
+  const pauseCheck = document.getElementById('brand-pause-check');
+  if(pauseCheck) pauseCheck.checked = brand.paused;
+  if(brand.paused){
+    if(pauseWrap){ pauseWrap.style.background='rgba(245,158,11,0.12)'; pauseWrap.style.borderColor='#f59e0b'; pauseWrap.style.color='#b45309'; }
+    if(pauseIcon)  pauseIcon.textContent = '▶';
+    if(pauseLabel) pauseLabel.textContent = 'Reactivar';
+    showStatus('Proyecto pausado ⏸');
+  } else {
+    if(pauseWrap){ pauseWrap.style.background='none'; pauseWrap.style.borderColor='var(--border)'; pauseWrap.style.color='var(--text2)'; }
+    if(pauseIcon)  pauseIcon.textContent = '⏸';
+    if(pauseLabel) pauseLabel.textContent = 'En pausa';
+    showStatus('Proyecto reactivado ▶');
+  }
+  await upsert();
+}
+
 
 async function manualArchiveBrand(){
   const brand = (appData.brands||[]).find(b=>b.id===currentBrandId);
