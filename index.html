@@ -1675,10 +1675,17 @@ body.portal-mode .main{ height:100vh; }
           <div class="section-head">
             <div class="section-head-left">
               <div class="section-head-title">🌐 Portal del cliente</div>
-              <div class="section-head-sub">Comparte este enlace con tu cliente — verá su cronograma y branding points en tiempo real</div>
+              <div class="section-head-sub">Comparte este enlace con tu cliente — verá su información en tiempo real</div>
             </div>
           </div>
           <div class="section-body">
+            <!-- Visibility toggle -->
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
+              <span style="font-size:0.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px">Mostrar al cliente:</span>
+              <button id="portal-show-both" onclick="setPortalShow('both')" class="cob-sort-btn" style="font-size:0.72rem">📅+🏆 Ambos</button>
+              <button id="portal-show-crono" onclick="setPortalShow('crono')" class="cob-sort-btn" style="font-size:0.72rem">📅 Solo cronograma</button>
+              <button id="portal-show-bp" onclick="setPortalShow('bp')" class="cob-sort-btn" style="font-size:0.72rem">🏆 Solo branding points</button>
+            </div>
             <div id="portal-link-box" style="display:flex;align-items:center;gap:0.7rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--r-sm);padding:0.8rem 1rem">
               <span style="font-size:0.85rem;color:var(--text2);flex:1;word-break:break-all;font-family:monospace" id="portal-link-text"></span>
               <button onclick="copyPortalLink()" style="background:var(--text);color:var(--bg);border:none;border-radius:99px;padding:0.4rem 1rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap;flex-shrink:0">Copiar enlace</button>
@@ -5616,6 +5623,23 @@ function renderPortalTab(){
   const url = getPortalUrl(currentBrandId);
   const el = document.getElementById('portal-link-text');
   if(el) el.textContent = url;
+  // Sync visibility buttons
+  const brand = (appData.brands||[]).find(b=>b.id===currentBrandId);
+  const show = brand?.portalShow || 'both';
+  ['both','crono','bp'].forEach(v=>{
+    const btn = document.getElementById('portal-show-'+v);
+    if(btn) btn.classList.toggle('active', show===v);
+  });
+}
+
+async function setPortalShow(value){
+  const brand = (appData.brands||[]).find(b=>b.id===currentBrandId);
+  if(!brand) return;
+  brand.portalShow = value;
+  markLocalChange('brands');
+  renderPortalTab();
+  await upsert();
+  showStatus('Visibilidad del portal actualizada ✓');
 }
 
 function getPortalUrl(brandId){
@@ -5699,23 +5723,30 @@ function renderBrandCrono(brand){
       ${acts.map(a=>`
         <div class="act-item ${a.isHito?'hito':''} ${a.status==='completada'?'done':''}"
           id="act-row-${a.id}"
-          draggable="true"
-          ondragstart="actDragStart(event,'${brand.id}','${stage}','${a.id}')"
           ondragover="actDragOver(event,'${a.id}')"
           ondragleave="actDragLeave(event,'${a.id}')"
           ondrop="actDrop(event,'${brand.id}','${stage}','${a.id}')"
           ondragend="actDragEnd()"
           style="${a.status==='completada'?'opacity:0.65':''}">
-          <span class="act-drag" title="Arrastra para reordenar">⠿</span>
+          <span class="act-drag" title="Arrastra para reordenar"
+            draggable="true"
+            ondragstart="actDragStart(event,'${brand.id}','${stage}','${a.id}')"
+            style="cursor:grab">⠿</span>
           <div class="act-check ${a.status==='completada'?'checked':a.status==='en progreso'?'progress':''}"
             onclick="cycleStatus('${brand.id}','${stage}','${a.id}')" title="Marcar avance">
             ${a.status==='completada'?'✓':a.status==='en progreso'?'◑':''}
           </div>
           <span class="act-hito-star ${a.isHito?'on':''}" onclick="toggleHito('${brand.id}','${stage}','${a.id}')" title="${a.isHito?'Quitar hito':'Marcar como hito'}" style="cursor:pointer">⭐</span>
-          ${a.isHito ? `<span title="${a.isInterno?'Quitar revisión interna':'Marcar como necesita revisión interna previa'}" onclick="toggleInterno('${brand.id}','${stage}','${a.id}')" style="font-size:0.78rem;cursor:pointer;flex-shrink:0;opacity:${a.isInterno?1:0.2};filter:${a.isInterno?'none':'grayscale(1)'};transition:all 0.15s" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=${a.isInterno?1:0.2}">🔍</span>` : ''}
+          <button onclick="toggleInterno('${brand.id}','${stage}','${a.id}')" title="${a.isInterno?'Quitar revisión interna':'Marcar como necesita revisión interna previa'}" style="background:none;border:none;cursor:pointer;font-size:0.8rem;flex-shrink:0;padding:0 0.1rem;opacity:${a.isInterno?'1':'0.2'};filter:${a.isInterno?'none':'grayscale(1)'};transition:opacity 0.15s">🔍</button>
           <span class="act-item-name ${a.isHito?'hito-name':''} ${a.status==='completada'?'done-name':''}"
-            onclick="cycleStatus('${brand.id}','${stage}','${a.id}')"
-            title="Click para marcar avance">${a.name}</span>
+            contenteditable="true"
+            spellcheck="false"
+            onblur="saveActName('${brand.id}','${stage}','${a.id}',this.textContent.trim())"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+            onclick="event.stopPropagation()"
+            style="cursor:text;outline:none;border-bottom:1px dashed transparent;transition:border-color 0.15s"
+            onfocus="this.style.borderColor='var(--aire)'"
+            title="Click para editar nombre">${a.name}</span>
           <span class="act-days-inline" id="days-badge-${a.id}" onclick="startInlineDays(event,'${brand.id}','${stage}','${a.id}')" title="Click para editar duración">${a.days}d</span>
           ${actSmartStatusPill(a)}
           <span class="act-date" title="Fecha inicio — click para editar" onclick="editDate(event,'${brand.id}','${stage}','${a.id}','startDate')">📅 ${fmtDateDisplay(a.startDate)}</span>
@@ -5754,6 +5785,7 @@ let _actDragId = null, _actDragBrand = null, _actDragStage = null;
 function actDragStart(event, brandId, stage, actId){
   _actDragId = actId; _actDragBrand = brandId; _actDragStage = stage;
   event.dataTransfer.effectAllowed = 'move';
+  event.stopPropagation();
   setTimeout(()=>{ const el = document.getElementById('act-row-'+actId); if(el) el.style.opacity='0.35'; }, 0);
 }
 function actDragOver(event, targetId){
@@ -5796,6 +5828,7 @@ let _tplActDragId = null, _tplActDragStage = null;
 function tplActDragStart(event, stage, actId){
   _tplActDragId = actId; _tplActDragStage = stage;
   event.dataTransfer.effectAllowed = 'move';
+  event.stopPropagation();
   setTimeout(()=>{ const el = document.getElementById('tpl-act-row-'+actId); if(el) el.style.opacity='0.35'; }, 0);
 }
 function tplActDragOver(event, targetId){
@@ -5828,6 +5861,25 @@ function tplActDrop(event, stage, targetId){
 }
 
 
+async function saveActName(brandId, stage, actId, newName){
+  if(!newName) return;
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand?.cronograma?.[stage]) return;
+  const act = brand.cronograma[stage].find(a=>a.id===actId);
+  if(!act || act.name === newName) return;
+  act.name = newName;
+  markLocalChange('brands');
+  await upsert();
+}
+
+function tplSaveActName(stage, actId, newName){
+  if(!newName) return;
+  const act = appData.template?.cronograma?.[stage]?.find(a=>a.id===actId);
+  if(!act || act.name === newName) return;
+  act.name = newName;
+}
+
+
 async function toggleInterno(brandId, stage, actId){
   const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand?.cronograma?.[stage]) return;
@@ -5848,10 +5900,12 @@ function tplToggleInterno(stage, id){
 
 async function toggleHito(brandId, stage, actId){
   const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand?.cronograma?.[stage]) return;
+  const act = brand.cronograma[stage].find(a=>a.id===actId);
   if(!act) return;
   act.isHito = !act.isHito;
-    markLocalChange('brands');
-await upsert();
+  markLocalChange('brands');
+  await upsert();
   renderBrandCrono(brand);
 }
 
@@ -6597,6 +6651,29 @@ async function saveBrand(){ markLocalChange("brands");
     };
     if(!Array.isArray(appData.brands))appData.brands=[];
     appData.brands.push(newBrand);
+
+    // Auto-create cobros structure from cronograma hitos
+    ensureCobrosData();
+    const hitos = ['aire','agua','tierra','fuego'].flatMap(s=>
+      (cronograma[s]||[]).filter(a=>a.isHito).map(a=>({...a,stage:s}))
+    );
+    if(hitos.length > 0){
+      const pagos = [
+        {id:uid(), nombre:'Primer pago', monto:0, cobrado:false, triggerType:'inicio'},
+        ...hitos.slice(0,4).map((h,i)=>({
+          id:uid(),
+          nombre:`Pago ${i+2}`,
+          monto:0,
+          cobrado:false,
+          triggerType:'evento',
+          triggerActName:h.name,
+          triggerActId:h.id,
+          fechaProyectada:h.endDate||''
+        }))
+      ];
+      appData.cobros[newBrand.id] = { expanded:false, pagos };
+    }
+    markLocalChange('cobros');
   }
 
   let saveErr=null;
@@ -6710,16 +6787,24 @@ function renderTplStage(stage){
     ${acts.map(a=>`
       <div class="tpl-act-row ${a.isHito?'hito-row':''}"
         id="tpl-act-row-${a.id}"
-        draggable="true"
-        ondragstart="tplActDragStart(event,'${stage}','${a.id}')"
         ondragover="tplActDragOver(event,'${a.id}')"
         ondragleave="tplActDragLeave(event,'${a.id}')"
         ondrop="tplActDrop(event,'${stage}','${a.id}')"
         ondragend="tplActDragEnd()">
-        <span class="act-drag" title="Arrastra para reordenar">⠿</span>
+        <span class="act-drag" title="Arrastra para reordenar"
+          draggable="true"
+          ondragstart="tplActDragStart(event,'${stage}','${a.id}')"
+          style="cursor:grab">⠿</span>
         <button class="tpl-act-hito ${a.isHito?'on':''}" onclick="tplToggleHito('${stage}','${a.id}')">⭐</button>
-        ${a.isHito ? `<button title="${a.isInterno?'Quitar revisión interna':'Necesita revisión interna'}" onclick="tplToggleInterno('${stage}','${a.id}')" style="background:none;border:none;cursor:pointer;font-size:0.78rem;opacity:${a.isInterno?1:0.2};filter:${a.isInterno?'none':'grayscale(1)'};padding:0;flex-shrink:0;transition:all 0.15s">🔍</button>` : '<span style="width:1.1rem;flex-shrink:0"></span>'}
-        <span class="tpl-act-name ${a.isHito?'hito-name':''}">${a.name}${a.isNaming?'<span class="act-naming-tag">naming</span>':''}</span>
+        <button title="${a.isInterno?'Quitar revisión interna':'Necesita revisión interna'}" onclick="tplToggleInterno('${stage}','${a.id}')" style="background:none;border:none;cursor:pointer;font-size:0.78rem;opacity:${a.isInterno?1:0.2};filter:${a.isInterno?'none':'grayscale(1)'};padding:0;flex-shrink:0;transition:all 0.15s">🔍</button>
+        <span class="tpl-act-name ${a.isHito?'hito-name':''}"
+          contenteditable="true" spellcheck="false"
+          onblur="tplSaveActName('${stage}','${a.id}',this.textContent.trim())"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+          onclick="event.stopPropagation()"
+          style="cursor:text;outline:none;border-bottom:1px dashed transparent;transition:border-color 0.15s"
+          onfocus="this.style.borderColor='var(--aire)'"
+          >${a.name}${a.isNaming?'<span class="act-naming-tag">naming</span>':''}</span>
         <div class="act-days-wrap">
           <input class="act-days" type="number" min="0" value="${a.days}" onchange="tplUpdateDays('${stage}','${a.id}',this.value)">
           <span class="act-days-lbl">d</span>
@@ -7683,13 +7768,12 @@ function renderEqGrid(){
       const h=item.h;
       const brand = (appData.brands||[]).find(b=>b.id===h.brandId);
       const logoHTML = brand?.image ? `<img src="${brand.image}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">` : (brand?.name?.charAt(0)||'?');
-      const revHTML = h.revDate ? `<div class="eq-hito-rev">🔍 ${fmtDateDisplay(h.revDate)} · Rev. Interna · ${h.name}</div>` : '';
       const partnerPill = domoPartnerPill(h.brandId, currentMemberId);
-      // Find the actual activity to get smart status
       const hAct = (appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
       const smartSt = hAct ? getActivitySmartStatus(hAct) : null;
       const statusPill = (smartSt && smartSt.key==='atrasado') ? `<span class="act-smart-status atrasado" style="font-size:0.58rem">Atrasado</span>` : '';
-      return `<div class="eq-hito-card">
+      const isRevision = h.type === 'revision';
+      return `<div class="eq-hito-card" style="${isRevision?'border-style:dashed':''}">
         <div class="eq-hito-brand-img">${logoHTML}</div>
         <div class="eq-hito-info">
           <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
@@ -7697,8 +7781,7 @@ function renderEqGrid(){
             ${partnerPill}
             ${statusPill}
           </div>
-          <div class="eq-hito-date">⭐ ${fmtDateDisplay(h.date)} · ${h.name}</div>
-          ${revHTML}
+          <div class="eq-hito-date">${isRevision?'🔍':'⭐'} ${fmtDateDisplay(h.date)} · ${h.name.replace('🔍 Rev. interna: ','')}</div>
         </div>
       </div>`;
     }).join('');
@@ -8513,6 +8596,7 @@ function renderPortal(brandId){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   const main = document.querySelector('.main');
   if(!main) return;
+  const show = brand?.portalShow || 'both';
 
   if(!brand){
     main.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--text3);font-size:1rem">Marca no encontrada.</div>`;
@@ -8575,15 +8659,15 @@ function renderPortal(brandId){
         </div>
 
         <!-- Cronograma -->
-        <div class="card" style="padding:1.5rem">
+        ${(show==='both'||show==='crono') ? `<div class="card" style="padding:1.5rem">
           <div class="portal-section-title">📅 Cronograma del proyecto</div>
           ${cronoHTML || '<div style="color:var(--text3);font-size:0.84rem">Sin cronograma aún.</div>'}
-        </div>
+        </div>` : ''}
 
         <!-- Branding Points -->
-        <div class="card" style="padding:1.5rem" id="portal-bp-wrap">
+        ${(show==='both'||show==='bp') ? `<div class="card" style="padding:1.5rem" id="portal-bp-wrap">
           ${bpHTML}
-        </div>
+        </div>` : ''}
 
         <div class="portal-powered">Powered by Polen System ✦</div>
       </div>
