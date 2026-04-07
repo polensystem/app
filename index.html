@@ -1254,6 +1254,9 @@ body.portal-mode .main{ height:100vh; }
     <button class="nav-item" id="nav-archivo" onclick="goTo('archivo')">
       <span class="nav-icon">🗄️</span><span class="nav-text">Archivo</span>
     </button>
+    <button class="nav-item" id="nav-backup" onclick="goTo('backup')">
+      <span class="nav-icon">💾</span><span class="nav-text">Backup</span>
+    </button>
   </div>
   <!-- Interno toggle -->
   <button class="nav-item" onclick="toggleInternoNav()" id="nav-interno-toggle" style="justify-content:space-between">
@@ -1858,11 +1861,51 @@ body.portal-mode .main{ height:100vh; }
           <div id="bp-cats"></div>
         </div>
       </div>
+
     </div>
   </div>
 
 
 
+
+  <!-- PAGE: BACKUP -->
+  <div class="page" id="page-backup">
+    <div class="content">
+      <div style="margin-bottom:1.5rem">
+        <div style="font-size:1.3rem;font-weight:800;letter-spacing:-0.5px">💾 Backup</div>
+        <div style="font-size:0.82rem;color:var(--text3);margin-top:0.3rem">Copia de seguridad y restauración de datos</div>
+      </div>
+
+      <!-- Export -->
+      <div class="section-card" style="margin-bottom:1.2rem">
+        <div class="section-head">
+          <div class="section-head-left">
+            <div class="section-head-title">💾 Exportar backup</div>
+            <div class="section-head-sub">Descarga todos los datos del sistema como archivo .json</div>
+          </div>
+        </div>
+        <div class="section-body">
+          <div style="font-size:0.82rem;color:var(--text2);margin-bottom:0.8rem">Incluye marcas, cronogramas, miembros, cobros, finanzas, notas y toda la configuración. <strong>Hazlo antes de cada actualización.</strong></div>
+          <button onclick="exportBackup()" style="background:var(--text);color:var(--bg);border:none;border-radius:10px;padding:0.6rem 1.4rem;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:var(--font)">💾 Descargar backup ahora</button>
+        </div>
+      </div>
+
+      <!-- Restore -->
+      <div class="section-card" style="border-color:rgba(232,98,42,0.35)">
+        <div class="section-head">
+          <div class="section-head-left">
+            <div class="section-head-title" style="color:var(--fuego)">🔄 Restaurar backup</div>
+            <div class="section-head-sub">Carga un archivo .json de backup — requiere PIN</div>
+          </div>
+        </div>
+        <div class="section-body">
+          <div style="font-size:0.82rem;color:var(--text2);margin-bottom:0.5rem">⚠️ <strong style="color:var(--fuego)">Reemplaza absolutamente todos los datos actuales en Supabase</strong> con los del archivo de backup.</div>
+          <div style="font-size:0.78rem;color:var(--text3);margin-bottom:1rem">Solo usa esto si perdiste datos o necesitas volver a un estado anterior.</div>
+          <button onclick="importBackupProtected()" style="background:rgba(232,98,42,0.12);color:var(--fuego);border:1.5px solid rgba(232,98,42,0.5);border-radius:10px;padding:0.6rem 1.4rem;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:var(--font)">🔄 Restaurar desde archivo…</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- PAGE: EQUIPO (unified — no separate member page) -->
   <div class="page" id="page-equipo">
@@ -2624,34 +2667,12 @@ async function loadData(){
     }
 
     if(!data||!data.data){
-      if(lsub) lsub.textContent = 'Primera vez — creando datos…';
-      const _tpl = defaultTemplate();
-      const _today = new Date().toISOString().slice(0,10);
-      const _m1id = uid();
-      const _m2id = uid();
-      const _b1id = uid();
-      const _b2id = uid();
+      if(lsub) lsub.textContent = 'Primera vez — iniciando…';
       appData={
-        template: _tpl,
-        members: [
-          {id:_m1id, nombre:'Ana García', apodo:'Anita', cargo:'Directora Creativa', area:'direccion', emoji:'⭐', color:'#6b5de8', status:'', photo:null},
-          {id:_m2id, nombre:'Carlos Ruiz', apodo:'Caro', cargo:'Diseñador', area:'diseno', emoji:'✏️', color:'#3a9ee8', status:'', photo:null},
-        ],
-        brands: [
-          {id:_b1id, name:'Studio Norte', stage:'agua', industria:'Consultoría', prioridad:'alta', color:'#e85d9e',
-           image:null, includeNaming:true, createdAt:new Date().toISOString(),
-           domo:{m1:_m1id, m2:_m2id, helpers:[]},
-           rondas:[{id:uid(),label:'R1',done:true},{id:uid(),label:'R2',done:false},{id:uid(),label:'R3',done:false}],
-           cronograma:buildCronoFromTemplate({..._tpl,includeNaming:true},_today),
-           brandingPoints:buildBpFromTemplate(_tpl)},
-          {id:_b2id, name:'Café Origen', stage:'aire', industria:'Restaurantes', prioridad:'media', color:'#e87f3a',
-           image:null, includeNaming:false, createdAt:new Date().toISOString(),
-           domo:{m1:_m2id, m2:_m1id, helpers:[]},
-           rondas:[{id:uid(),label:'R1',done:false},{id:uid(),label:'R2',done:false},{id:uid(),label:'R3',done:false}],
-           cronograma:buildCronoFromTemplate({..._tpl,includeNaming:false},_today),
-           brandingPoints:buildBpFromTemplate(_tpl)},
-        ],
-        domos:[], banners:[]
+        template: defaultTemplate(),
+        members: [],
+        brands: [],
+        domos:[], banners:[], cobros:{}, domoNames:{}, tareas:[]
       };
       await upsert();
     }else{
@@ -2872,6 +2893,73 @@ async function upsert(){
 
   return _saveQueue;
 }
+
+function exportBackup(){
+  // Full data backup — includes everything in appData (same as what's in Supabase)
+  const backup = {
+    _polenBackup: true,
+    _version: 281,
+    _exportedAt: new Date().toISOString(),
+    _rec_id: REC_ID,
+    data: appData
+  };
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'polen-backup-' + new Date().toISOString().slice(0,16).replace('T','-').replace(/:/g,'-') + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showStatus('💾 Backup descargado ✓ — guárdalo en un lugar seguro');
+}
+
+async function importBackupProtected(){
+  // Ask for PIN first
+  const pin = await askModal({ label:'🔒 Ingresa el PIN para restaurar backup', placeholder:'••••', defaultValue:'' });
+  if(pin === null) return;
+  if(pin !== '7771'){ showStatus('PIN incorrecto ❌', true); return; }
+  await importBackup();
+}
+
+
+async function importBackup(){
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async(e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    try{
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if(!parsed._polenBackup || !parsed.data){
+        showStatus('❌ Archivo inválido — no es un backup de Polen', true);
+        return;
+      }
+      const ok = await confirmModal(
+        `¿Restaurar backup del ${new Date(parsed._exportedAt).toLocaleString('es-EC')}?\n\nEsto reemplazará TODOS los datos actuales en Supabase.`,
+        '🔄 Sí, restaurar',
+        'background:var(--fuego);color:#fff;border:none'
+      );
+      if(!ok) return;
+      showStatus('Restaurando backup…');
+      appData = parsed.data;
+      markLocalChange('brands','members','cobros','finanzas','template','clientNotes','domos','tareas','banners','digitalTools','calendarUrl','domoNames','papelera');
+      const saved = await upsert();
+      if(saved){
+        showStatus('✅ Backup restaurado correctamente');
+        renderCurrentPage();
+      } else {
+        showStatus('❌ Error al restaurar — intenta de nuevo', true);
+      }
+    } catch(err){
+      showStatus('❌ Error al leer el archivo: ' + err.message, true);
+    }
+  };
+  input.click();
+}
+
 
 async function reloadData(){
   const btn=document.getElementById('btn-reload');
@@ -4841,6 +4929,7 @@ function renderCurrentPage(){
     if(currentPage==='dashboard')renderDashboard();
     if(currentPage==='brand')renderBrandPage();
     if(currentPage==='template')renderTemplate();
+    if(currentPage==='backup'){} // static page, no render needed
     if(currentPage==='equipo'||currentPage==='member'){currentPage='equipo';renderEquipo();}
     if(currentPage==='equipo')renderTeamPage();
     if(currentPage==='member')renderMemberProfile();
