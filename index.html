@@ -5692,12 +5692,21 @@ function renderBrandCrono(brand){
       </div>
       ${acts.map(a=>`
         <div class="act-item ${a.isHito?'hito':''} ${a.status==='completada'?'done':''}"
+          id="act-row-${a.id}"
+          draggable="true"
+          ondragstart="actDragStart(event,'${brand.id}','${stage}','${a.id}')"
+          ondragover="actDragOver(event,'${a.id}')"
+          ondragleave="actDragLeave(event,'${a.id}')"
+          ondrop="actDrop(event,'${brand.id}','${stage}','${a.id}')"
+          ondragend="actDragEnd()"
           style="${a.status==='completada'?'opacity:0.65':''}">
+          <span class="act-drag" title="Arrastra para reordenar">⠿</span>
           <div class="act-check ${a.status==='completada'?'checked':a.status==='en progreso'?'progress':''}"
             onclick="cycleStatus('${brand.id}','${stage}','${a.id}')" title="Marcar avance">
             ${a.status==='completada'?'✓':a.status==='en progreso'?'◑':''}
           </div>
           <span class="act-hito-star ${a.isHito?'on':''}" onclick="toggleHito('${brand.id}','${stage}','${a.id}')" title="${a.isHito?'Quitar hito':'Marcar como hito'}" style="cursor:pointer">⭐</span>
+          ${a.isHito ? `<span title="${a.isInterno?'Quitar revisión interna':'Marcar como necesita revisión interna previa'}" onclick="toggleInterno('${brand.id}','${stage}','${a.id}')" style="font-size:0.78rem;cursor:pointer;flex-shrink:0;opacity:${a.isInterno?1:0.2};filter:${a.isInterno?'none':'grayscale(1)'};transition:all 0.15s" onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=${a.isInterno?1:0.2}">🔍</span>` : ''}
           <span class="act-item-name ${a.isHito?'hito-name':''} ${a.status==='completada'?'done-name':''}"
             onclick="cycleStatus('${brand.id}','${stage}','${a.id}')"
             title="Click para marcar avance">${a.name}</span>
@@ -5733,10 +5742,106 @@ function renderBrandCrono(brand){
 }
 
 
+/* ── Cronograma activity drag-and-drop (brand) ── */
+let _actDragId = null, _actDragBrand = null, _actDragStage = null;
+
+function actDragStart(event, brandId, stage, actId){
+  _actDragId = actId; _actDragBrand = brandId; _actDragStage = stage;
+  event.dataTransfer.effectAllowed = 'move';
+  setTimeout(()=>{ const el = document.getElementById('act-row-'+actId); if(el) el.style.opacity='0.35'; }, 0);
+}
+function actDragOver(event, targetId){
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  if(targetId === _actDragId) return;
+  document.querySelectorAll('.act-item').forEach(el=>el.style.outline='none');
+  const el = document.getElementById('act-row-'+targetId);
+  if(el) el.style.outline = '2px solid var(--aire)';
+}
+function actDragLeave(event, targetId){
+  const el = document.getElementById('act-row-'+targetId);
+  if(el && !el.contains(event.relatedTarget)) el.style.outline = 'none';
+}
+function actDragEnd(){
+  document.querySelectorAll('.act-item').forEach(el=>{ el.style.opacity=''; el.style.outline='none'; });
+  _actDragId = null; _actDragBrand = null; _actDragStage = null;
+}
+async function actDrop(event, brandId, stage, targetId){
+  event.preventDefault();
+  document.querySelectorAll('.act-item').forEach(el=>{ el.style.outline='none'; el.style.opacity=''; });
+  if(!_actDragId || _actDragId === targetId || _actDragBrand !== brandId || _actDragStage !== stage) return;
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand?.cronograma?.[stage]) return;
+  const acts = brand.cronograma[stage];
+  const fromIdx = acts.findIndex(a=>a.id===_actDragId);
+  const toIdx   = acts.findIndex(a=>a.id===targetId);
+  if(fromIdx<0||toIdx<0) return;
+  const [moved] = acts.splice(fromIdx, 1);
+  acts.splice(toIdx, 0, moved);
+  renderBrandCrono(brand);
+  markLocalChange('brands');
+  await upsert();
+  showStatus('Orden guardado ✓');
+}
+
+/* ── Cronograma activity drag-and-drop (template) ── */
+let _tplActDragId = null, _tplActDragStage = null;
+
+function tplActDragStart(event, stage, actId){
+  _tplActDragId = actId; _tplActDragStage = stage;
+  event.dataTransfer.effectAllowed = 'move';
+  setTimeout(()=>{ const el = document.getElementById('tpl-act-row-'+actId); if(el) el.style.opacity='0.35'; }, 0);
+}
+function tplActDragOver(event, targetId){
+  event.preventDefault();
+  if(targetId === _tplActDragId) return;
+  document.querySelectorAll('.tpl-act-row').forEach(el=>el.style.outline='none');
+  const el = document.getElementById('tpl-act-row-'+targetId);
+  if(el) el.style.outline = '2px solid var(--aire)';
+}
+function tplActDragLeave(event, targetId){
+  const el = document.getElementById('tpl-act-row-'+targetId);
+  if(el && !el.contains(event.relatedTarget)) el.style.outline = 'none';
+}
+function tplActDragEnd(){
+  document.querySelectorAll('.tpl-act-row').forEach(el=>{ el.style.opacity=''; el.style.outline='none'; });
+  _tplActDragId = null; _tplActDragStage = null;
+}
+function tplActDrop(event, stage, targetId){
+  event.preventDefault();
+  document.querySelectorAll('.tpl-act-row').forEach(el=>{ el.style.outline='none'; el.style.opacity=''; });
+  if(!_tplActDragId || _tplActDragId === targetId || _tplActDragStage !== stage) return;
+  const acts = appData.template.cronograma[stage];
+  if(!acts) return;
+  const fromIdx = acts.findIndex(a=>a.id===_tplActDragId);
+  const toIdx   = acts.findIndex(a=>a.id===targetId);
+  if(fromIdx<0||toIdx<0) return;
+  const [moved] = acts.splice(fromIdx, 1);
+  acts.splice(toIdx, 0, moved);
+  renderTplStage(stage);
+}
+
+
+async function toggleInterno(brandId, stage, actId){
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand?.cronograma?.[stage]) return;
+  const act = brand.cronograma[stage].find(a=>a.id===actId);
+  if(!act) return;
+  act.isInterno = !act.isInterno;
+  markLocalChange('brands');
+  await upsert();
+  renderBrandCrono(brand);
+}
+
+function tplToggleInterno(stage, id){
+  const a = appData.template.cronograma[stage]?.find(x=>x.id===id);
+  if(a) a.isInterno = !a.isInterno;
+  renderTplStage(stage);
+}
+
+
 async function toggleHito(brandId, stage, actId){
   const brand = appData.brands.find(b=>b.id===brandId);
-  if(!brand?.cronograma) return;
-  const act = (brand.cronograma[stage]||[]).find(a=>a.id===actId);
   if(!act) return;
   act.isHito = !act.isHito;
     markLocalChange('brands');
@@ -6597,9 +6702,17 @@ function renderTplStage(stage){
       <span style="font-size:0.7rem;color:var(--text3)">${acts.length} actividades</span>
     </div>
     ${acts.map(a=>`
-      <div class="tpl-act-row ${a.isHito?'hito-row':''}">
-        <span class="act-drag">⠿</span>
+      <div class="tpl-act-row ${a.isHito?'hito-row':''}"
+        id="tpl-act-row-${a.id}"
+        draggable="true"
+        ondragstart="tplActDragStart(event,'${stage}','${a.id}')"
+        ondragover="tplActDragOver(event,'${a.id}')"
+        ondragleave="tplActDragLeave(event,'${a.id}')"
+        ondrop="tplActDrop(event,'${stage}','${a.id}')"
+        ondragend="tplActDragEnd()">
+        <span class="act-drag" title="Arrastra para reordenar">⠿</span>
         <button class="tpl-act-hito ${a.isHito?'on':''}" onclick="tplToggleHito('${stage}','${a.id}')">⭐</button>
+        ${a.isHito ? `<button title="${a.isInterno?'Quitar revisión interna':'Necesita revisión interna'}" onclick="tplToggleInterno('${stage}','${a.id}')" style="background:none;border:none;cursor:pointer;font-size:0.78rem;opacity:${a.isInterno?1:0.2};filter:${a.isInterno?'none':'grayscale(1)'};padding:0;flex-shrink:0;transition:all 0.15s">🔍</button>` : '<span style="width:1.1rem;flex-shrink:0"></span>'}
         <span class="tpl-act-name ${a.isHito?'hito-name':''}">${a.name}${a.isNaming?'<span class="act-naming-tag">naming</span>':''}</span>
         <div class="act-days-wrap">
           <input class="act-days" type="number" min="0" value="${a.days}" onchange="tplUpdateDays('${stage}','${a.id}',this.value)">
@@ -7314,21 +7427,23 @@ function getMemberHitos(memberId) {
           status: act.status,
         });
 
-        // Internal review: use override if free mode, else 2 workdays before endDate
-        const revDate = act.revDateOverride || subtractWorkdays(act.endDate, 2);
-        const revD = new Date(revDate); revD.setHours(0,0,0,0);
-        results.push({
-          type: 'revision',
-          name: '🔍 Rev. interna: ' + act.name,
-          brandName: brand.name,
-          brandId: brand.id,
-          actId: act.id,
-          stage,
-          date: revDate,
-          dateObj: revD,
-          status: act.status,
-          freeMode: !!act.revDateOverride,
-        });
+        // Internal review: only if act.isInterno is set
+        if(act.isInterno){
+          const revDate = act.revDateOverride || subtractWorkdays(act.endDate, 2);
+          const revD = new Date(revDate); revD.setHours(0,0,0,0);
+          results.push({
+            type: 'revision',
+            name: '🔍 Rev. interna: ' + act.name,
+            brandName: brand.name,
+            brandId: brand.id,
+            actId: act.id,
+            stage,
+            date: revDate,
+            dateObj: revD,
+            status: act.status,
+            freeMode: !!act.revDateOverride,
+          });
+        }
       });
     });
   });
@@ -9955,11 +10070,14 @@ function renderClientHub(){
 
   list.innerHTML = notes.map(note=>{
     const urg    = HUB_URGENCY[note.urgency] || HUB_URGENCY.moderada;
-    const brand  = (appData.brands||[]).find(b=>b.id===note.brandId);
+    const isGeneral = note.brandId === '__general__';
+    const brand  = isGeneral ? null : (appData.brands||[]).find(b=>b.id===note.brandId);
     const brandCol = brand ? getBrandColor(brand) : 'var(--text3)';
-    const logoHTML = brand?.image
-      ? `<img src="${brand.image}" style="width:100%;height:100%;object-fit:cover;border-radius:5px">`
-      : `<span style="font-size:0.65rem;font-weight:800;color:${brandCol}">${(brand?.name||'?').charAt(0)}</span>`;
+    const logoHTML = isGeneral
+      ? `<span style="font-size:0.75rem">🌐</span>`
+      : brand?.image
+        ? `<img src="${brand.image}" style="width:100%;height:100%;object-fit:cover;border-radius:5px">`
+        : `<span style="font-size:0.65rem;font-weight:800;color:${brandCol}">${(brand?.name||'?').charAt(0)}</span>`;
     const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short'}) : '';
     const assignees = (note.assignees||[]).map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
     const assigneesInline = assignees.map(m=>{
@@ -10216,6 +10334,7 @@ function openHubModal(noteId=null){
   const sel = document.getElementById('hub-input-brand');
   if(!sel) return;
   if(sel) sel.innerHTML = '<option value="">— Seleccionar marca —</option>' +
+    '<option value="__general__">🌐 General</option>' +
     (appData.brands||[]).map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
 
   if(noteId){
