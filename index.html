@@ -4490,14 +4490,15 @@ function renderCobTabla(){
     const cob = appData.cobros[b.id];
     if(!cob) return;
     const pagos = cob.pagos||[];
-    const total = pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+    const useTotal = !!cob.useTotal;
+    const total = useTotal ? (cob.valorTotal||0) : pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
     pagos.forEach((p,pi)=>{
-      if(_hideCobrado && p.cobrado) return; // filter out cobrados
+      if(_hideCobrado && p.cobrado) return;
       const st = cobStatus(p, pagos, b);
       rows.push({
         brand: b,
         pago: p,
-        pagoIdx: pi,   // 0-based index = "número de pago"
+        pagoIdx: pi,
         total,
         status: st,
       });
@@ -4532,10 +4533,15 @@ function renderCobTabla(){
   body.innerHTML = rows.map(({brand:b, pago:p, pagoIdx:pi, total, status:st})=>{
     const col = getBrandColor(b);
     const logo = b.image ? `<img src="${b.image}" style="width:100%;height:100%;object-fit:cover;border-radius:7px">` : `<span style="font-size:0.9rem;font-weight:800;color:${col}">${b.name.charAt(0)}</span>`;
-    const monto = parseFloat(p.monto)||0;
-    const pagos = appData.cobros[b.id]?.pagos||[];
-    const totalCobrado = pagos.filter(x=>x.cobrado).reduce((s,x)=>s+(parseFloat(x.monto)||0),0);
-    const pct = total ? Math.round(totalCobrado/total*100) : 0;
+    const cob = appData.cobros[b.id]||{};
+    const pagos = cob.pagos||[];
+    const useTotal = !!cob.useTotal;
+    const valorTotal = cob.valorTotal||0;
+    const montoInd = useTotal && pagos.length ? Math.round((valorTotal/pagos.length)*100)/100 : null;
+    const monto = useTotal ? montoInd : (parseFloat(p.monto)||0);
+    const totalCobrado = pagos.filter(x=>x.cobrado).reduce((s,x)=>s+(useTotal?montoInd:(parseFloat(x.monto)||0)),0);
+    const totalVal = useTotal ? valorTotal : total;
+    const pct = totalVal ? Math.round(totalCobrado/totalVal*100) : 0;
     const triggerLabel = getCobTriggerLabel(p, b);
 
     return `<div class="cob-tabla-row ${p.cobrado?'cobrado-row':''}">
@@ -4552,7 +4558,7 @@ function renderCobTabla(){
         </div>
       </div>
       <!-- Contrato -->
-      <div style="width:90px;flex-shrink:0;text-align:right;font-size:0.82rem;color:var(--text3)">$${total.toLocaleString()}</div>
+      <div style="width:90px;flex-shrink:0;text-align:right;font-size:0.82rem;color:var(--text3)">$${totalVal.toLocaleString()}</div>
       <!-- Monto -->
       <div style="width:100px;flex-shrink:0;text-align:right;font-size:0.9rem;font-weight:800;padding-right:1.2rem">$${monto.toLocaleString()}</div>
       <!-- Progreso -->
