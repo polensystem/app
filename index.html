@@ -6328,14 +6328,13 @@ function startInlineDays(e, brandId, stage, actId){
         acts[i].startDate = addWorkdays(acts[i-1].endDate, 1);
         acts[i].endDate = addWorkdays(acts[i].startDate, (acts[i].days||1)-1);
       }
-      renderBrandCrono(brand);
-      markLocalChange('brands');
-      // Preguntar cascade a otras etapas
-      if(delta !== 0){
+      // Preguntar cascade a etapas siguientes
+      if(delta !== 0 && oldEndDate){
         const hasLater = ['aire','agua','tierra','fuego'].some(st=>
-          (brand.cronograma[st]||[]).some(a=> a.id!==actId && a.endDate && a.endDate > oldEndDate)
+          (brand.cronograma[st]||[]).some(a=> a.id!==actId && a.startDate && a.startDate > oldEndDate)
         );
         if(hasLater){
+          renderBrandCrono(brand);
           await new Promise(r=>setTimeout(r,80));
           const cascade = await confirmModal(
             `¿Ajustar también las fechas de las actividades posteriores? (${delta>0?'+':''}${delta} días hábiles)`,
@@ -6345,10 +6344,11 @@ function startInlineDays(e, brandId, stage, actId){
           );
           if(cascade){
             cascadeAfterDate(brand, oldEndDate, delta, actId);
-            renderBrandCrono(brand);
           }
         }
       }
+      renderBrandCrono(brand);
+      markLocalChange('brands');
       await upsert();
       showStatus('Duración actualizada ✓');
     } else {
@@ -6361,14 +6361,16 @@ function startInlineDays(e, brandId, stage, actId){
 }
 
 /* ── Edit a single date inline ── */
-// Shift all activities whose endDate > referenceDate by wdDelta workdays, skipping actId
+// Shift all activities whose startDate OR endDate > referenceDate by wdDelta workdays, skipping actId
 function cascadeAfterDate(brand, referenceDate, wdDelta, skipActId){
   ['aire','agua','tierra','fuego'].forEach(st=>{
     (brand.cronograma[st]||[]).forEach(a=>{
       if(a.id === skipActId) return;
-      if(a.endDate && a.endDate <= referenceDate) return;
-      if(a.startDate)      a.startDate      = shiftWD(a.startDate, wdDelta);
-      if(a.endDate)        a.endDate        = shiftWD(a.endDate, wdDelta);
+      // Mover si el startDate de la actividad es posterior a la fecha de referencia
+      const ref = a.startDate || a.endDate;
+      if(!ref || ref <= referenceDate) return;
+      if(a.startDate)       a.startDate       = shiftWD(a.startDate, wdDelta);
+      if(a.endDate)         a.endDate         = shiftWD(a.endDate, wdDelta);
       if(a.revDateOverride) a.revDateOverride = shiftWD(a.revDateOverride, wdDelta);
     });
   });
@@ -6411,7 +6413,9 @@ function editDate(e,brandId,stage,actId,field){
     const val = input.value;
     if(!val || val===current){ renderBrandCrono(brand); return; }
 
+    // Guardar estado original por si hay que revertir
     const oldEndDate = act.endDate;
+    const oldStartDate = act.startDate;
 
     if(field==='endDate'){
       act.endDate = val;
@@ -6424,15 +6428,13 @@ function editDate(e,brandId,stage,actId,field){
     if(!oldEndDate){ renderBrandCrono(brand); markLocalChange('brands'); await upsert(); showStatus('Fecha actualizada ✓'); return; }
     const delta = wdDeltaBetween(oldEndDate, act.endDate);
 
-    // Render primero, guardar después del modal si aplica
-    renderBrandCrono(brand);
-    markLocalChange('brands');
-
     if(delta !== 0){
       const hasLater = ['aire','agua','tierra','fuego'].some(st=>
         (brand.cronograma[st]||[]).some(a=> a.id!==actId && a.endDate && a.endDate > oldEndDate)
       );
       if(hasLater){
+        // Renderizar para mostrar el cambio en la actividad editada
+        renderBrandCrono(brand);
         await new Promise(r=>setTimeout(r, 80));
         const cascade = await confirmModal(
           `¿Ajustar también las fechas de las actividades posteriores? (${delta>0?'+':''}${delta} días hábiles)`,
@@ -6441,12 +6443,19 @@ function editDate(e,brandId,stage,actId,field){
           'No'
         );
         if(cascade){
+          // Mover TODAS las actividades posteriores al oldEndDate en todo el cronograma
           cascadeAfterDate(brand, oldEndDate, delta, actId);
-          renderBrandCrono(brand);
         }
+        // Si dijo No, solo se mueve la actividad editada (ya está modificada arriba)
+        renderBrandCrono(brand);
+      } else {
+        renderBrandCrono(brand);
       }
+    } else {
+      renderBrandCrono(brand);
     }
 
+    markLocalChange('brands');
     await upsert();
     showStatus('Fecha actualizada ✓');
   };
