@@ -928,7 +928,7 @@ body.portal-mode .main{ height:100vh; }
   border:none;
   border-right:1px solid var(--border);
   padding:0.4rem 0.5rem;
-  height:208px;
+  height:320px;
   display:flex;flex-direction:column;
 }
 .eq-month-day:last-child{border-right:none;}
@@ -2002,6 +2002,11 @@ body.portal-mode .main{ height:100vh; }
 
         <!-- Tab: Month (multi-week view) -->
         <div class="eq-panel" id="eq-panel-month">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.4rem 0.5rem;border-bottom:1px solid var(--border)">
+            <button class="eq-nav-btn" onclick="eqShiftMonth(-1)">←</button>
+            <span id="eq-month-label" style="font-size:0.82rem;font-weight:700;color:var(--text)"></span>
+            <button class="eq-nav-btn" onclick="eqShiftMonth(1)">→</button>
+          </div>
           <div id="eq-month-content"></div>
         </div>
 
@@ -8112,24 +8117,32 @@ function renderEqMonth(){
   const fmt = d=>{const ms=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return `${d.getDate()} ${ms[d.getMonth()]}`;};
   const fmtFull = d=>{const ds=['L','M','X','J','V'];const ms=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return `${ds[d.getDay()===0?6:d.getDay()-1]} ${d.getDate()} ${ms[d.getMonth()]}`;};
 
-  // Get monday of NEXT week (skip current — already in week view)
-  const dow = today.getDay();
-  const nextMonday = new Date(today); 
-  nextMonday.setDate(today.getDate()-(dow===0?6:dow-1)+7+_eqMonthOffset*7);
-
-  const weekLabels=['Próxima semana','En 2 semanas','En 3 semanas','En 4 semanas'];
+  // Calcular el primer día del mes objetivo
+  const refMonth = new Date(today.getFullYear(), today.getMonth() + _eqMonthOffset, 1);
+  const ms2=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const el = document.getElementById('eq-month-content');
   if(!el) return;
-  // Also include current week at top with same styling
-  const currentMonday = new Date(today); 
-  currentMonday.setDate(today.getDate()-(dow===0?6:dow-1)+_eqMonthOffset*7);
-  const allWeeks = [
-    {monday: currentMonday, label: 'Esta semana'},
-    ...Array.from({length:4},(_,wi)=>{
-      const m=new Date(nextMonday); m.setDate(nextMonday.getDate()+wi*7);
-      return {monday:m, label:weekLabels[wi]};
-    })
-  ];
+  // Update label
+  const labelEl = document.getElementById('eq-month-label');
+  if(labelEl) labelEl.textContent = `${ms2[refMonth.getMonth()]} ${refMonth.getFullYear()}`;
+
+  // Encontrar el lunes de la primera semana del mes
+  const firstDay = new Date(refMonth);
+  const firstDow = firstDay.getDay();
+  const firstMonday = new Date(firstDay);
+  firstMonday.setDate(firstDay.getDate() - (firstDow === 0 ? 6 : firstDow - 1));
+
+  // Generar todas las semanas que toquen el mes
+  const allWeeks = [];
+  const cur = new Date(firstMonday);
+  while(true){
+    const friday = new Date(cur); friday.setDate(cur.getDate()+4);
+    // Incluir si lunes o viernes están en el mes objetivo
+    if(cur.getMonth() > refMonth.getMonth() && cur.getFullYear() >= refMonth.getFullYear()) break;
+    allWeeks.push({monday: new Date(cur)});
+    cur.setDate(cur.getDate()+7);
+    if(allWeeks.length > 6) break; // seguridad
+  };
   el.innerHTML = allWeeks.map(({monday: wMonday, label})=>{
     const wFriday = new Date(wMonday); wFriday.setDate(wMonday.getDate()+4);
     const days = Array.from({length:5},(_,di)=>{
