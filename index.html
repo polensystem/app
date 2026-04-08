@@ -112,15 +112,15 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .tierra .stage-value{color:var(--tierra);}.fuego .stage-value{color:var(--fuego);}
 .stage-sub{font-size:0.72rem;color:var(--text3);}
 .brands-section-label{font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);}
-.brands-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;}
+.brands-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;}
 .brand-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;box-shadow:0 1px 6px rgba(0,0,0,0.06);overflow:hidden;transition:all var(--transition);cursor:pointer;}
 .brand-card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,0.14);border-color:rgba(255,255,255,0.16);}
 .brand-card-img{display:none;}
-.brand-card-body{padding:1rem 1rem 0.7rem;display:flex;align-items:center;gap:0.8rem;}
-.brand-card-logo{width:48px;height:48px;border-radius:12px;background:var(--bg-card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0;overflow:hidden;}
-.brand-card-logo img{width:100%;height:100%;object-fit:cover;border-radius:11px;}
+.brand-card-body{padding:0.8rem 0.8rem 0.6rem;display:flex;align-items:center;gap:0.6rem;}
+.brand-card-logo{width:42px;height:42px;border-radius:10px;background:var(--bg-card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;overflow:hidden;}
+.brand-card-logo img{width:100%;height:100%;object-fit:cover;border-radius:9px;}
 .brand-card-info{flex:1;min-width:0;}
-.brand-card-name{font-size:1rem;font-weight:700;margin-bottom:0.35rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.brand-card-name{font-size:0.95rem;font-weight:700;margin-bottom:0.35rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .brand-card-meta{display:flex;align-items:center;gap:0.4rem;flex-wrap:nowrap;}
 .stage-pill{display:inline-flex;align-items:center;gap:0.3rem;font-size:0.7rem;font-weight:600;padding:0.25rem 0.65rem;border-radius:99px;}
 .stage-pill.aire{background:rgba(59,158,221,0.15);color:var(--aire);}
@@ -565,7 +565,7 @@ body.portal-mode .main{ height:100vh; }
 .area-opt input{accent-color:var(--aire);}
 
 /* ── TEAM PAGE ── */
-.team-grid{display:grid;grid-template-columns:repeat(auto-fill,325px);gap:0.8rem;align-content:start;}
+.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.8rem;align-content:start;}
 .member-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;cursor:pointer;transition:all var(--transition);}
 .member-card:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,0.22);border-color:rgba(255,255,255,0.14);}
 .member-card-top{padding:1.2rem 1.2rem 0.8rem;display:flex;align-items:center;gap:0.9rem;}
@@ -1223,7 +1223,7 @@ body.portal-mode .main{ height:100vh; }
 .cob-tabla-note{background:none;border:none;outline:none;font-family:var(--font);font-size:0.75rem;color:var(--text3);width:100%;resize:none;height:32px;cursor:text;border-bottom:1px solid transparent;transition:border-color 0.15s;overflow:hidden;}
 .cob-tabla-note:focus{border-bottom-color:var(--border);color:var(--text2);}
 .cob-total strong{font-size:0.95rem;color:var(--text);display:block;}
-.cob-brands-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;}
+.cob-brands-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.8rem;}
 </style>
 </head>
 <body>
@@ -4674,6 +4674,29 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
   pago.cobrado = !pago.cobrado;
+
+  // ── Sync cobros → crono ──
+  // Si el pago tiene nombre que coincide con una actividad del cronograma → sync
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(brand){
+    const pagoNombre = pago.nombre||'';
+    ['aire','agua','tierra','fuego'].forEach(st=>{
+      (brand.cronograma?.[st]||[]).forEach(a=>{
+        if(a.name?.toLowerCase().includes('pago') &&
+          (a.name===pagoNombre || a.name===pago.triggerActName)){
+          if(pago.cobrado && a.status!=='completada'){
+            a.status = 'completada';
+          } else if(!pago.cobrado && a.status==='completada'){
+            a.status = 'pendiente';
+          }
+        }
+      });
+    });
+    markLocalChange('brands');
+    syncBrandStage(brand);
+    if(currentBrandId===brandId) renderBrandCrono(brand);
+  }
+
   renderCobCard(brandId);
   renderCobTabla();
   syncCobrosToFin();
@@ -4932,6 +4955,25 @@ async function toggleCobPagoTabla(brandId, pagoId){ markLocalChange("cobros","fi
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
   pago.cobrado = !pago.cobrado;
+
+  // ── Sync cobros → crono ──
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(brand){
+    const pagoNombre = pago.nombre||'';
+    ['aire','agua','tierra','fuego'].forEach(st=>{
+      (brand.cronograma?.[st]||[]).forEach(a=>{
+        if(a.name?.toLowerCase().includes('pago') &&
+          (a.name===pagoNombre || a.name===pago.triggerActName)){
+          if(pago.cobrado && a.status!=='completada') a.status='completada';
+          else if(!pago.cobrado && a.status==='completada') a.status='pendiente';
+        }
+      });
+    });
+    markLocalChange('brands');
+    syncBrandStage(brand);
+    if(currentBrandId===brandId) renderBrandCrono(brand);
+  }
+
   renderCobros();
   renderCobTabla();
   syncCobrosToFin();
@@ -5996,9 +6038,11 @@ function getActivitySmartStatus(act){
     return { key:'en-curso', label:'En curso', cls:'en-curso' };
   }
 
-  // pendiente
+  // pendiente: atrasado solo si HOY es POSTERIOR al endDate (un día después del deadline)
+  if(end && today > end) return { key:'atrasado', label:'Atrasado', cls:'atrasado' };
   if(!start || today < start) return { key:'por-iniciar', label:'Por iniciar', cls:'por-iniciar' };
-  return { key:'atrasado', label:'Atrasado', cls:'atrasado' };
+  // Está dentro del rango start→end y no completada → en curso
+  return { key:'en-curso', label:'En curso', cls:'en-curso' };
 }
 
 function actSmartStatusPill(act){
@@ -6366,9 +6410,9 @@ function cascadeAfterDate(brand, referenceDate, wdDelta, skipActId){
   ['aire','agua','tierra','fuego'].forEach(st=>{
     (brand.cronograma[st]||[]).forEach(a=>{
       if(a.id === skipActId) return;
-      // Mover si el startDate de la actividad es posterior a la fecha de referencia
+      // Mover toda actividad que empiece DESPUÉS de la fecha de referencia (o el mismo día)
       const ref = a.startDate || a.endDate;
-      if(!ref || ref <= referenceDate) return;
+      if(!ref || ref < referenceDate) return;
       if(a.startDate)       a.startDate       = shiftWD(a.startDate, wdDelta);
       if(a.endDate)         a.endDate         = shiftWD(a.endDate, wdDelta);
       if(a.revDateOverride) a.revDateOverride = shiftWD(a.revDateOverride, wdDelta);
@@ -6512,6 +6556,35 @@ async function cycleStatus(brandId,stage,actId){
   // Also update hero meta
   renderBrandPage();
   markLocalChange('brands');
+
+  // ── Sync crono → cobros ──
+  // 1. Si esta actividad ES un pago → sync su cobro correspondiente
+  if(act.name?.toLowerCase().includes('pago')){
+    ensureCobrosData();
+    const cob = appData.cobros[brandId];
+    if(cob){
+      const pago = cob.pagos?.find(p=>
+        p.nombre===act.name || p.triggerActName===act.name || p.trigger===act.name
+      );
+      if(pago && act.status==='completada' && !pago.cobrado){
+        pago.cobrado = true;
+        markLocalChange('cobros','finanzas');
+        syncCobrosToFin();
+        if(document.getElementById('cob-content')?.style.display!=='none') renderCobCard(brandId);
+      } else if(pago && act.status!=='completada' && pago.cobrado){
+        pago.cobrado = false;
+        markLocalChange('cobros','finanzas');
+        syncCobrosToFin();
+        if(document.getElementById('cob-content')?.style.display!=='none') renderCobCard(brandId);
+      }
+    }
+  }
+  // 2. Si esta actividad es el TRIGGER de algún cobro → re-renderizar cobros para actualizar estatus
+  if(document.getElementById('cob-content')?.style.display!=='none'){
+    renderCobCard(brandId);
+    renderCobTabla();
+  }
+
   await upsert();
   if(act.status==='completada'){
     showStatus('✓ Completada');
