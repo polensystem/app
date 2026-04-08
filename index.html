@@ -1363,6 +1363,10 @@ body.portal-mode .main{ height:100vh; }
           </div>
           <!-- Filters + view toggle + export -->
           <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+            <!-- Búsqueda rápida -->
+            <input id="brands-search-cards" oninput="renderBrandsGrid()" placeholder="🔍 Buscar…"
+              style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.75rem;font-size:0.75rem;color:var(--text);font-family:var(--font);outline:none;width:130px;transition:border-color 0.18s"
+              onfocus="this.style.borderColor='var(--aire)'" onblur="this.style.borderColor='var(--border)'">
             <!-- Filter by member -->
             <select id="brands-member-filter" onchange="setBrandsMemberFilter(this.value)"
               style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.6rem;font-size:0.72rem;color:var(--text2);font-family:var(--font);font-weight:600;cursor:pointer;outline:none">
@@ -1935,6 +1939,7 @@ body.portal-mode .main{ height:100vh; }
         <button class="eq-tab-btn" id="eqtab-week-btn" onclick="switchEquipoTab('week')">📅 Semana</button>
         <button class="eq-tab-btn" id="eqtab-month-btn" onclick="switchEquipoTab('month')">🗓 Mes</button>
         <button class="eq-tab-btn" id="eqtab-domos-btn" onclick="switchEquipoTab('domos')">🏠 Domos</button>
+        <button class="eq-tab-btn" id="eqtab-pm-btn" onclick="switchEquipoTab('pm')">🎯 PM</button>
       </div>
 
       <!-- Actions -->
@@ -2039,6 +2044,113 @@ body.portal-mode .main{ height:100vh; }
             </div>
             <!-- Domos grid -->
             <div id="domos-main-grid" style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start"></div>
+          </div>
+        </div>
+
+        <!-- Tab: PM -->
+        <div class="eq-panel" id="eq-panel-pm" style="padding:0">
+          <!-- PIN screen -->
+          <div id="pm-pin-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem 1.5rem;gap:1rem">
+            <div style="font-size:2rem">🎯</div>
+            <div style="font-size:1rem;font-weight:800;color:var(--text)">Vista Project Manager</div>
+            <div style="font-size:0.78rem;color:var(--text3);margin-bottom:0.5rem">Ingresa el PIN para continuar</div>
+            <input id="pm-pin-input" type="password" maxlength="4" placeholder="••••"
+              style="width:120px;text-align:center;font-size:1.5rem;letter-spacing:0.4rem;padding:0.6rem;border:2px solid var(--border);border-radius:12px;background:var(--bg-card2);color:var(--text);font-family:var(--font);outline:none;transition:border-color 0.2s"
+              onfocus="this.style.borderColor='var(--aire)'" onblur="this.style.borderColor='var(--border)'"
+              onkeydown="if(event.key==='Enter')checkPmPin()">
+            <button onclick="checkPmPin()" style="background:var(--aire);color:#fff;border:none;border-radius:10px;padding:0.5rem 1.4rem;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:var(--font)">Entrar</button>
+            <div id="pm-pin-error" style="color:#dc2626;font-size:0.75rem;display:none">PIN incorrecto ❌</div>
+          </div>
+          <!-- PM content (hidden until PIN ok) -->
+          <div id="pm-content" style="display:none;padding:1.4rem;overflow-y:auto">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.4rem">
+              <div>
+                <div style="font-size:1.1rem;font-weight:800;color:var(--text)">🎯 Vista Project Manager</div>
+                <div style="font-size:0.72rem;color:var(--text3)">Resumen operativo del equipo</div>
+              </div>
+              <button onclick="lockPmView()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.35rem 0.8rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔒 Bloquear</button>
+            </div>
+
+            <!-- Carga esta semana — ancho completo -->
+            <div style="margin-bottom:1rem;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.3rem;cursor:pointer" onclick="switchEquipoTab('domos')">
+              <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.8rem">⚡ Carga esta semana <span style="font-size:0.6rem;font-weight:400;opacity:0.6">— clic para ver Domos</span></div>
+              <div id="pm-workload-bars"></div>
+            </div>
+
+            <!-- Fila: Sin domo + Por cerrar -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.3rem;cursor:pointer" onclick="switchEquipoTab('domos')">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.8rem">🏚️ Sin domo <span style="font-size:0.6rem;font-weight:400;opacity:0.6">— clic para asignar</span></div>
+                <div id="pm-sin-domo"></div>
+              </div>
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.3rem">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.8rem">🏁 Por cerrar (≥90%)</div>
+                <div id="pm-por-cerrar"></div>
+              </div>
+            </div>
+
+            <!-- Fila: Atrasadas + Conflictos -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.6rem">
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.3rem">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.8rem">⚠️ Marcas atrasadas</div>
+                <div id="pm-atrasadas"></div>
+              </div>
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.3rem">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.8rem">🚦 Conflicto de deadlines</div>
+                <div id="pm-conflictos"></div>
+              </div>
+            </div>
+
+            <!-- Divider analytics -->
+            <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:1.2rem">
+              <div style="flex:1;height:1px;background:var(--border)"></div>
+              <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3)">Analytics del estudio</span>
+              <div style="flex:1;height:1px;background:var(--border)"></div>
+            </div>
+
+            <!-- Fila: Tiempo + Ritmo -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.6rem">
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.3rem">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.8rem">📅 Tiempos — proyecto y etapas</div>
+                <div id="pm-tiempo-proyecto"></div>
+              </div>
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.3rem">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.8rem">📈 Ritmo de producción</div>
+                <div id="pm-ritmo"></div>
+              </div>
+            </div>
+
+            <!-- Divider productividad -->
+            <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:1.2rem">
+              <div style="flex:1;height:1px;background:var(--border)"></div>
+              <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3)">Productividad</span>
+              <div style="flex:1;height:1px;background:var(--border)"></div>
+            </div>
+
+            <!-- Fila: Domo + Miembro -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.3rem">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
+                  <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">🏠 Hitos por domo</div>
+                  <div style="display:flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;overflow:hidden">
+                    <button id="pm-domo-mes-btn" onclick="setPmProdPeriod('domo','mes')" style="padding:0.2rem 0.55rem;border:none;font-size:0.65rem;font-weight:700;cursor:pointer;font-family:var(--font);background:var(--aire);color:#fff">Mes</button>
+                    <button id="pm-domo-trim-btn" onclick="setPmProdPeriod('domo','trim')" style="padding:0.2rem 0.55rem;border:none;font-size:0.65rem;font-weight:700;cursor:pointer;font-family:var(--font);background:none;color:var(--text3)">Trimestre</button>
+                  </div>
+                </div>
+                <div id="pm-prod-domo"></div>
+              </div>
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.3rem">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
+                  <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">👤 Hitos por miembro</div>
+                  <div style="display:flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;overflow:hidden">
+                    <button id="pm-miem-mes-btn" onclick="setPmProdPeriod('miem','mes')" style="padding:0.2rem 0.55rem;border:none;font-size:0.65rem;font-weight:700;cursor:pointer;font-family:var(--font);background:var(--aire);color:#fff">Mes</button>
+                    <button id="pm-miem-trim-btn" onclick="setPmProdPeriod('miem','trim')" style="padding:0.2rem 0.55rem;border:none;font-size:0.65rem;font-weight:700;cursor:pointer;font-family:var(--font);background:none;color:var(--text3)">Trimestre</button>
+                  </div>
+                </div>
+                <div id="pm-prod-miembro"></div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -2703,6 +2815,14 @@ async function loadData(){
       (appData.brands||[]).forEach(b=>syncBrandStage(b));
     }
     showStatus('Datos cargados ✓');
+    // Auto-backup en localStorage como red de seguridad
+    try{
+      if((appData.brands||[]).length>0){
+        localStorage.setItem('polen-autobackup', JSON.stringify({data:appData, savedAt:new Date().toISOString()}));
+      }
+    }catch(e){ console.warn('Auto-backup localStorage falló:', e); }
+    // Badge de hitos esta semana
+    _updateHitosBadge();
   }catch(e){
     clearTimeout(timeoutId);
     if(lsub) lsub.innerHTML = '❌ Error de red:<br><span style="font-size:0.72rem;color:#ff5c72">'+(e.message||String(e))+'</span>';
@@ -2823,8 +2943,44 @@ function deepMergeAppData(server, local){
 
 let _saveQueue = Promise.resolve(); // Serialise saves to prevent race within same tab
 
+function _updateHitosBadge(){
+  try{
+    const today=new Date(); today.setHours(0,0,0,0);
+    const friday=new Date(today); friday.setDate(today.getDate()+(4-(today.getDay()||7)+7)%7);
+    const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const todayStr=fmtD(today), friStr=fmtD(friday);
+    let count=0;
+    (appData.brands||[]).forEach(b=>{
+      ['aire','agua','tierra','fuego'].forEach(e=>{
+        (b.cronograma?.[e]||[]).forEach(a=>{
+          if(a.isHito && a.status!=='completada' && a.endDate>=todayStr && a.endDate<=friStr) count++;
+        });
+      });
+    });
+    const badge=document.getElementById('hitos-badge');
+    const countEl=document.getElementById('hitos-badge-count');
+    if(badge&&countEl){
+      countEl.textContent=count;
+      badge.style.display=count>0?'inline-flex':'none';
+    }
+  }catch(e){}
+}
+
 async function upsert(){
-  // If a snap was registered before this mutation, push it onto the undo stack
+  // Protección anti-vaciado: no guardar si brands tiene menos de 3 elementos y había más antes
+  if((appData.brands||[]).length < 3){
+    try{
+      const backup = localStorage.getItem('polen-autobackup');
+      if(backup){
+        const parsed = JSON.parse(backup);
+        if((parsed.data?.brands||[]).length >= 3){
+          console.warn('⚠️ upsert cancelado: brands tiene', appData.brands?.length, 'elementos, backup tiene', parsed.data.brands.length);
+          showStatus('⚠️ Guardado cancelado — datos incompletos detectados', true);
+          return false;
+        }
+      }
+    }catch(e){}
+  }
 
   // Serialise: wait for any in-flight save to finish first
   _saveQueue = _saveQueue.then(async ()=>{
@@ -4209,9 +4365,30 @@ function ensureCobrosData(){
   // Ensure every active brand has a cobros entry
   (appData.brands||[]).forEach(b=>{
     if(!appData.cobros[b.id]){
+      // Leer actividades de pago del cronograma
+      const pagosDelCrono=[];
+      ['aire','agua','tierra','fuego'].forEach(e=>{
+        (b.cronograma?.[e]||[]).forEach(a=>{
+          if(a.name?.toLowerCase().includes('pago')){
+            pagosDelCrono.push({
+              id:uid(),
+              nombre:a.name,
+              monto:0,
+              cobrado:false,
+              triggerType: e==='aire'&&a.name?.toLowerCase().includes('primer') ? 'inicio' : 'evento',
+              triggerActName:a.name,
+              trigger:a.name,
+              nota:'',
+              fechaProyectada:'',
+              ultimoSeguimiento:''
+            });
+          }
+        });
+      });
+      // Si el cronograma no tiene pagos, usar 3 genéricos como fallback
       appData.cobros[b.id] = {
         expanded: false,
-        pagos: [
+        pagos: pagosDelCrono.length > 0 ? pagosDelCrono : [
           {id:uid(), nombre:'Primer pago',  monto:0, cobrado:false, triggerType:'inicio'},
           {id:uid(), nombre:'Segundo pago', monto:0, cobrado:false, triggerType:'evento', triggerActName:'Presentación de propuesta de marca'},
           {id:uid(), nombre:'Tercer pago',  monto:0, cobrado:false, triggerType:'evento', triggerActName:'Empaquetado de recursos'},
@@ -5364,6 +5541,7 @@ function renderDashboard(){
   renderBanners();
   renderDigitalTools();
   renderClientHub();
+  _updateHitosBadge();
   // Set calendar URL if saved
   const iframe = document.getElementById('gcal-iframe');
   if(iframe && appData.calendarUrl){
@@ -5392,6 +5570,9 @@ function renderDashboard(){
   let filteredBrands = brands;
   if(_brandsStageFilter !== 'all') filteredBrands = filteredBrands.filter(b => b.stage === _brandsStageFilter);
   if(_brandsMemberFilter) filteredBrands = filteredBrands.filter(b => b.domo && (b.domo.m1===_brandsMemberFilter || b.domo.m2===_brandsMemberFilter || (b.domo.helpers||[]).includes(_brandsMemberFilter)));
+  // Búsqueda rápida
+  const searchVal2 = (document.getElementById('brands-search-cards')?.value||'').toLowerCase().trim();
+  if(searchVal2) filteredBrands = filteredBrands.filter(b=>(b.name||'').toLowerCase().includes(searchVal2)||(b.industria||'').toLowerCase().includes(searchVal2));
 
   // Update subtitle
   const brandsSub = document.getElementById('brands-section-sub');
@@ -5410,6 +5591,7 @@ function renderDashboard(){
   }
   const si={aire:{l:'Aire',e:'🌬️'},agua:{l:'Agua',e:'💧'},tierra:{l:'Tierra',e:'🌱'},fuego:{l:'Fuego',e:'🔥'}};
   const pi={alta:'🔴 Alta',media:'🟡 Media',baja:'🟢 Baja'};
+  const today2=new Date(); today2.setHours(0,0,0,0);
   grid.innerHTML=filteredBrands.map(b=>{
     const s=si[b.stage]||si.aire;
     const pct=brandProgress(b);
@@ -7806,7 +7988,7 @@ function renderEquipoMiniCard(memberId){
 
 function switchEquipoTab(tab, skipRender){
   window._eqTab = tab;
-  ['grid','week','month','domos'].forEach(t=>{
+  ['grid','week','month','domos','pm'].forEach(t=>{
     const panel = document.getElementById('eq-panel-'+t);
     const btn = document.getElementById('eqtab-'+t+'-btn');
     if(panel){ if(t===tab){ panel.classList.add('active'); } else { panel.classList.remove('active'); } }
@@ -7825,6 +8007,416 @@ function renderEquipoTabContent(tab){
   if(tab==='week') renderEqWeek();
   if(tab==='month') renderEqMonth();
   if(tab==='domos') renderEqDomos();
+  if(tab==='pm') renderPmTab();
+}
+
+let _pmUnlocked = false;
+
+function checkPmPin(){
+  const input = document.getElementById('pm-pin-input');
+  const err = document.getElementById('pm-pin-error');
+  if(!input) return;
+  if(input.value === '1235'){
+    _pmUnlocked = true;
+    document.getElementById('pm-pin-screen').style.display='none';
+    document.getElementById('pm-content').style.display='block';
+    renderPmContent();
+    input.value='';
+    if(err) err.style.display='none';
+  } else {
+    if(err) err.style.display='block';
+    input.value='';
+    input.focus();
+  }
+}
+
+function lockPmView(){
+  _pmUnlocked=false;
+  document.getElementById('pm-pin-screen').style.display='flex';
+  document.getElementById('pm-content').style.display='none';
+  const input=document.getElementById('pm-pin-input');
+  if(input){ input.value=''; input.focus(); }
+}
+
+function renderPmTab(){
+  if(!_pmUnlocked){
+    document.getElementById('pm-pin-screen').style.display='flex';
+    document.getElementById('pm-content').style.display='none';
+    setTimeout(()=>{ const i=document.getElementById('pm-pin-input'); if(i) i.focus(); },100);
+  } else {
+    renderPmContent();
+  }
+}
+
+function renderPmContent(){
+  const brands=appData.brands||[];
+  const members=appData.members||[];
+  const today=new Date(); today.setHours(0,0,0,0);
+  const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const todayStr=fmtD(today);
+  const dow=today.getDay();
+  const monday=new Date(today); monday.setDate(today.getDate()-(dow===0?6:dow-1));
+  const friday=new Date(monday); friday.setDate(monday.getDate()+4);
+  const monStr=fmtD(monday), friStr=fmtD(friday);
+  const diffDays=(a,b)=>Math.round((new Date(b)-new Date(a))/(1000*60*60*24));
+  const fmtDate2=s=>{if(!s)return'—';const[y,m,d]=s.split('-');const ms=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return `${parseInt(d)} ${ms[parseInt(m)-1]}`;};
+
+  // ── Carga de trabajo ──
+  const wlEl=document.getElementById('pm-workload-bars');
+  if(wlEl){
+    const rolesExcluidos=['director creativo','directora creativa','director creative','directora creative','asistente comercial','directora comercial','director comercial','asistente general'];
+    const esExcluido=m=>{
+      const rol=(m.rol||'').toLowerCase().trim();
+      return rolesExcluidos.some(r=>rol.includes(r));
+    };
+    const membersActivos=members.filter(m=>!esExcluido(m));
+    const loads=membersActivos.map(m=>{
+      const hitos=getMemberHitos(m.id).filter(h=>h.date>=monStr&&h.date<=friStr&&h.type==='oficial');
+      return {m,count:hitos.length,hitos};
+    }).sort((a,b)=>b.count-a.count);
+    const max=loads.filter(x=>x.count>0)[0]?.count||1;
+    if(!loads.length){wlEl.innerHTML='<div style="font-size:0.78rem;color:var(--tierra)">Sin equipo asignado</div>';}
+    else wlEl.innerHTML=loads.map(({m,count,hitos})=>{
+      const col=m.color||'var(--aire)';
+      const pct=count>0?Math.round(count/max*100):0;
+      const brandNames=count>0?[...new Set(hitos.map(h=>(brands.find(b=>b.id===h.brandId)?.name||'?')))].join(', '):'Sin hitos esta semana';
+      const nameStyle=count===0?'opacity:0.45':'';
+      return `<div style="margin-bottom:0.7rem;${nameStyle}">
+        <div style="display:flex;align-items:center;gap:0.7rem;margin-bottom:0.2rem">
+          <span style="font-size:0.75rem;font-weight:700;color:var(--text);width:75px;flex-shrink:0">${m.apodo||m.nombre}</span>
+          <div style="flex:1;height:10px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
+          </div>
+          <span style="font-size:0.75rem;font-weight:800;color:${count>0?col:'var(--text3)'};width:20px;text-align:right;flex-shrink:0">${count}</span>
+        </div>
+        <div style="font-size:0.65rem;color:var(--text3);padding-left:83px">${brandNames}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Marcas atrasadas ──
+  const atEl=document.getElementById('pm-atrasadas');
+  if(atEl){
+    const atrasadas=brands.map(b=>{
+      const acts=Object.values(b.cronograma||{}).flat();
+      const vencidas=acts.filter(a=>a.status!=='completada'&&a.endDate&&a.endDate<todayStr);
+      return {b,count:vencidas.length};
+    }).filter(x=>x.count>0).sort((a,b)=>b.count-a.count);
+    if(!atrasadas.length){atEl.innerHTML='<div style="font-size:0.78rem;color:var(--tierra)">✅ Sin marcas atrasadas</div>';}
+    else atEl.innerHTML=atrasadas.map(({b,count})=>{
+      const col=getBrandColor(b);
+      const m1=(appData.members||[]).find(m=>m.id===b.domo?.m1);
+      const m2=(appData.members||[]).find(m=>m.id===b.domo?.m2);
+      const domo=[m1,m2].filter(Boolean).map(m=>m.apodo||m.nombre).join(' + ')||'Sin domo';
+      return `<div style="display:flex;align-items:center;gap:0.7rem;padding:0.5rem 0;border-bottom:1px solid var(--border2);cursor:pointer" onclick="openBrand('${b.id}');setTimeout(()=>switchTab('crono'),100)">
+        <div style="width:10px;height:10px;border-radius:50%;background:${col};flex-shrink:0"></div>
+        <span style="font-size:0.82rem;font-weight:700;color:var(--text);flex:1">${b.name}</span>
+        <span style="font-size:0.7rem;color:var(--text3)">${domo}</span>
+        <span style="font-size:0.72rem;font-weight:700;color:#dc2626;background:rgba(220,38,38,0.1);border-radius:6px;padding:0.1rem 0.5rem">${count} atrasada${count>1?'s':''}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Marcas por cerrar ──
+  const pcEl=document.getElementById('pm-por-cerrar');
+  if(pcEl){
+    const porCerrar=brands.filter(b=>brandProgress(b)>=90).sort((a,b)=>brandProgress(b)-brandProgress(a));
+    if(!porCerrar.length){pcEl.innerHTML='<div style="font-size:0.78rem;color:var(--text3)">Ninguna por ahora</div>';}
+    else pcEl.innerHTML=porCerrar.map(b=>{
+      const col=getBrandColor(b);
+      const pct=brandProgress(b);
+      return `<div style="display:flex;align-items:center;gap:0.7rem;padding:0.5rem 0;border-bottom:1px solid var(--border2);cursor:pointer" onclick="openBrand('${b.id}');setTimeout(()=>switchTab('crono'),100)">
+        <div style="width:10px;height:10px;border-radius:50%;background:${col};flex-shrink:0"></div>
+        <span style="font-size:0.82rem;font-weight:700;color:var(--text);flex:1">${b.name}</span>
+        <span style="font-size:0.72rem;font-weight:700;color:var(--tierra);background:rgba(90,170,53,0.12);border-radius:6px;padding:0.1rem 0.5rem">${pct}%</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Marcas sin domo ──
+  const sdEl=document.getElementById('pm-sin-domo');
+  if(sdEl){
+    const sinDomo=brands.filter(b=>!b.domo||(!b.domo.m1&&!b.domo.m2));
+    if(!sinDomo.length){sdEl.innerHTML='<div style="font-size:0.78rem;color:var(--tierra)">✅ Todas las marcas tienen domo asignado</div>';}
+    else sdEl.innerHTML=sinDomo.map(b=>{
+      const col=getBrandColor(b);
+      const s={aire:'🌬️ Aire',agua:'💧 Agua',tierra:'🌱 Tierra',fuego:'🔥 Fuego'}[b.stage]||b.stage;
+      return `<div style="display:flex;align-items:center;gap:0.7rem;padding:0.45rem 0;border-bottom:1px solid var(--border2);cursor:pointer" onclick="openBrand('${b.id}')">
+        <div style="width:10px;height:10px;border-radius:50%;background:${col};flex-shrink:0"></div>
+        <span style="font-size:0.82rem;font-weight:700;color:var(--text);flex:1">${b.name}</span>
+        <span style="font-size:0.7rem;color:var(--text3)">${s}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Conflicto de deadlines ──
+  const cfEl=document.getElementById('pm-conflictos');
+  if(cfEl){
+    const hitosByDate={};
+    brands.forEach(b=>{
+      ['aire','agua','tierra','fuego'].forEach(e=>{
+        (b.cronograma?.[e]||[]).forEach(a=>{
+          if(a.isHito&&a.status!=='completada'&&a.endDate&&a.endDate>=todayStr){
+            if(!hitosByDate[a.endDate]) hitosByDate[a.endDate]=[];
+            hitosByDate[a.endDate].push({brand:b,act:a});
+          }
+        });
+      });
+    });
+    const conflictos=Object.entries(hitosByDate).filter(([,h])=>h.length>=4).sort(([a],[b])=>a.localeCompare(b));
+    if(!conflictos.length){cfEl.innerHTML='<div style="font-size:0.78rem;color:var(--tierra)">✅ Sin días con conflicto de deadlines</div>';}
+    else cfEl.innerHTML=conflictos.map(([date,hitos])=>{
+      const names=hitos.map(h=>h.brand.name).join(', ');
+      return `<div style="padding:0.55rem 0;border-bottom:1px solid var(--border2)">
+        <div style="display:flex;align-items:center;gap:0.7rem">
+          <span style="font-size:0.82rem;font-weight:800;color:#dc2626;flex-shrink:0">${fmtDate2(date)}</span>
+          <span style="font-size:0.72rem;font-weight:700;color:#dc2626;background:rgba(220,38,38,0.1);border-radius:6px;padding:0.1rem 0.45rem;flex-shrink:0">${hitos.length} hitos</span>
+        </div>
+        <div style="font-size:0.68rem;color:var(--text3);margin-top:0.2rem">${names}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Tiempo promedio por proyecto + etapas vs template (unificado) ──
+  const tpEl=document.getElementById('pm-tiempo-proyecto');
+  if(tpEl){
+    const completados=brands.filter(b=>{
+      const pct=brandProgress(b);
+      const fuegoActs=b.cronograma?.fuego||[];
+      const fuegoCompleto=fuegoActs.length>0&&fuegoActs.every(a=>a.status==='completada');
+      return pct>=95||fuegoCompleto;
+    }).map(b=>{
+      const all=Object.values(b.cronograma||{}).flat();
+      const primero=all.filter(a=>a.startDate).sort((x,y)=>x.startDate.localeCompare(y.startDate))[0];
+      const ultimo=all.filter(a=>a.status==='completada'&&a.endDate).sort((x,y)=>y.endDate.localeCompare(x.endDate))[0];
+      if(!primero||!ultimo) return null;
+      return {b,dias:diffDays(primero.startDate,ultimo.endDate),pct:brandProgress(b)};
+    }).filter(Boolean).filter(x=>x.dias>0);
+    if(!completados.length){
+      tpEl.innerHTML='<div style="font-size:0.78rem;color:var(--text3);padding:0.5rem 0">Sin proyectos cerrados aún — aparecerá cuando una marca tenga ≥95% o Fuego completo.</div>';
+      return;
+    }
+    const avg=Math.round(completados.reduce((s,x)=>s+x.dias,0)/completados.length);
+    const semanas=Math.round(avg/7*10)/10;
+
+    // Etapa vs template
+    const tpl=appData.template?.cronograma;
+    const etapas2=['aire','agua','tierra','fuego'];
+    const templateDias={};
+    etapas2.forEach(e=>{ templateDias[e]=(tpl?.[e]||[]).reduce((s,a)=>s+(a.days||0),0); });
+    const realDias={aire:[],agua:[],tierra:[],fuego:[]};
+    brands.forEach(b=>{
+      etapas2.forEach(e=>{
+        const acts=b.cronograma?.[e]||[];
+        if(!acts.length) return;
+        const completadas=acts.filter(a=>a.status==='completada'&&a.startDate&&a.endDate);
+        if(completadas.length===acts.length&&acts.length>0){
+          const start=completadas.sort((x,y)=>x.startDate.localeCompare(y.startDate))[0].startDate;
+          const end=completadas.sort((x,y)=>y.endDate.localeCompare(x.endDate))[0].endDate;
+          realDias[e].push(diffDays(start,end));
+        }
+      });
+    });
+
+    let html=`<div style="display:flex;gap:0.8rem;margin-bottom:1rem">
+      <div style="flex:1;text-align:center;padding:0.7rem 0.5rem;background:var(--bg-card2);border-radius:10px;border:1px solid var(--border)">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--aire)">${avg??'—'}</div>
+        <div style="font-size:0.65rem;color:var(--text3)">días prom.</div>
+      </div>
+      <div style="flex:1;text-align:center;padding:0.7rem 0.5rem;background:var(--bg-card2);border-radius:10px;border:1px solid var(--border)">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--agua)">${semanas??'—'}</div>
+        <div style="font-size:0.65rem;color:var(--text3)">semanas prom.</div>
+      </div>
+      <div style="flex:1;text-align:center;padding:0.7rem 0.5rem;background:var(--bg-card2);border-radius:10px;border:1px solid var(--border)">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--tierra)">${completados.length}</div>
+        <div style="font-size:0.65rem;color:var(--text3)">proyectos</div>
+      </div>
+    </div>`;
+
+    html+='<div style="font-size:0.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:0.4rem">Etapa real vs template</div>';
+    html+=etapas2.map(e=>{
+      const avg2=realDias[e].length?Math.round(realDias[e].reduce((s,x)=>s+x,0)/realDias[e].length):null;
+      const tplD=templateDias[e]||0;
+      const diff=avg2!==null?avg2-tplD:null;
+      const et={aire:'🌬️',agua:'💧',tierra:'🌱',fuego:'🔥'}[e];
+      const col=diff===null?'var(--text3)':diff>3?'#dc2626':diff<-3?'var(--tierra)':'var(--agua)';
+      const diffStr=diff===null?'—':diff>0?`+${diff}d`:`${diff}d`;
+      return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--border2)">
+        <span style="font-size:0.75rem;width:70px;flex-shrink:0">${et} ${e.charAt(0).toUpperCase()+e.slice(1)}</span>
+        <span style="font-size:0.7rem;color:var(--text3);flex:1">tpl: ${tplD}d → real: ${avg2!==null?avg2+'d':'—'}</span>
+        <span style="font-size:0.75rem;font-weight:800;color:${col}">${diffStr}</span>
+      </div>`;
+    }).join('');
+    html+='<div style="font-size:0.6rem;color:var(--text3);margin-top:0.4rem">Negativo = más rápido que el template</div>';
+    tpEl.innerHTML=html;
+  }
+
+  // ── Ritmo de producción ──
+  const rEl=document.getElementById('pm-ritmo');
+  if(rEl){
+    const meses={};
+    brands.forEach(b=>{
+      const fuegoActs=b.cronograma?.fuego||[];
+      const lastCompleted=fuegoActs.filter(a=>a.status==='completada'&&a.endDate).sort((x,y)=>y.endDate.localeCompare(x.endDate))[0];
+      if(lastCompleted&&brandProgress(b)>=80){
+        const mes=lastCompleted.endDate.slice(0,7);
+        meses[mes]=(meses[mes]||0)+1;
+      }
+    });
+    const sorted=Object.entries(meses).sort(([a],[b])=>a.localeCompare(b)).slice(-6);
+    if(!sorted.length){rEl.innerHTML='<div style="font-size:0.78rem;color:var(--text3)">Sin datos suficientes aún</div>';}
+    else{
+      const maxV=Math.max(...sorted.map(([,v])=>v),1);
+      const ms2=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      rEl.innerHTML=`<div style="display:flex;align-items:flex-end;gap:0.5rem;height:80px;padding-bottom:0.3rem">
+        ${sorted.map(([mes,count])=>{
+          const pct=Math.round(count/maxV*100);
+          const [,m]=mes.split('-');
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:0.3rem">
+            <span style="font-size:0.65rem;font-weight:700;color:var(--aire)">${count}</span>
+            <div style="width:100%;background:var(--aire);border-radius:4px 4px 0 0;height:${pct}%;min-height:4px;transition:height 0.4s"></div>
+            <span style="font-size:0.6rem;color:var(--text3)">${ms2[parseInt(m)-1]}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+  }
+
+  // ── Productividad por domo ──
+  const now=new Date();
+  const mesStr=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const trimStart=new Date(now.getFullYear(), Math.floor(now.getMonth()/3)*3, 1);
+  const trimStr=fmtD(trimStart);
+
+  window._pmProdData={domo:[],miem:[]};
+
+  // Calcular datos domo
+  const domoMap={};
+  brands.forEach(b=>{
+    if(!b.domo||(!b.domo.m1&&!b.domo.m2)) return;
+    const key=[b.domo.m1,b.domo.m2].filter(Boolean).sort().join('_');
+    if(!domoMap[key]) domoMap[key]={key,m1:b.domo.m1,m2:b.domo.m2,hitosMes:0,hitosTrim:0};
+    Object.values(b.cronograma||{}).flat().forEach(a=>{
+      if(a.isHito&&a.status==='completada'&&a.endDate){
+        if(a.endDate.slice(0,7)===mesStr) domoMap[key].hitosMes++;
+        if(a.endDate>=trimStr) domoMap[key].hitosTrim++;
+      }
+    });
+  });
+  window._pmProdData.domo=Object.values(domoMap).sort((a,b)=>b.hitosTrim-a.hitosTrim);
+
+  // Calcular datos miembro
+  window._pmProdData.miem=members.map(m=>{
+    const myBrands=brands.filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id));
+    let hitosMes=0,hitosTrim=0;
+    myBrands.forEach(b=>{
+      Object.values(b.cronograma||{}).flat().forEach(a=>{
+        if(a.isHito&&a.status==='completada'&&a.endDate){
+          if(a.endDate.slice(0,7)===mesStr) hitosMes++;
+          if(a.endDate>=trimStr) hitosTrim++;
+        }
+      });
+    });
+    return {m,hitosMes,hitosTrim};
+  }).sort((a,b)=>b.hitosTrim-a.hitosTrim);
+
+  window._pmProdPeriod={domo:'mes',miem:'mes'};
+  renderPmProdDomo();
+  renderPmProdMiem();
+}
+
+function setPmProdPeriod(tipo, periodo){
+  if(!window._pmProdPeriod) return;
+  window._pmProdPeriod[tipo]=periodo;
+  const prefix=tipo==='domo'?'pm-domo':'pm-miem';
+  const actCol='var(--aire)';
+  document.getElementById(prefix+'-mes-btn').style.background=periodo==='mes'?actCol:'none';
+  document.getElementById(prefix+'-mes-btn').style.color=periodo==='mes'?'#fff':'var(--text3)';
+  document.getElementById(prefix+'-trim-btn').style.background=periodo==='trim'?actCol:'none';
+  document.getElementById(prefix+'-trim-btn').style.color=periodo==='trim'?'#fff':'var(--text3)';
+  if(tipo==='domo') renderPmProdDomo();
+  else renderPmProdMiem();
+}
+
+function renderPmProdDomo(){
+  const pdEl=document.getElementById('pm-prod-domo');
+  if(!pdEl||!window._pmProdData) return;
+  const periodo=window._pmProdPeriod?.domo||'mes';
+  const domos=window._pmProdData.domo;
+  const key=periodo==='mes'?'hitosMes':'hitosTrim';
+  const sorted=[...domos].sort((a,b)=>b[key]-a[key]).filter(d=>d[key]>0);
+  const maxH=sorted[0]?.[key]||1;
+  if(!sorted.length){pdEl.innerHTML='<div style="font-size:0.78rem;color:var(--text3)">Sin hitos este '+(periodo==='mes'?'mes':'trimestre')+'</div>';return;}
+  pdEl.innerHTML=sorted.map(d=>{
+    const m1=(appData.members||[]).find(m=>m.id===d.m1);
+    const m2=(appData.members||[]).find(m=>m.id===d.m2);
+    const name=[m1,m2].filter(Boolean).map(m=>m.apodo||m.nombre).join(' + ')||'Domo';
+    const col=m1?.color||'var(--aire)';
+    const pct=Math.round(d[key]/maxH*100);
+    return `<div style="display:flex;align-items:center;gap:0.7rem;margin-bottom:0.5rem">
+      <span style="font-size:0.72rem;font-weight:700;color:var(--text);width:90px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>
+      <div style="flex:1;height:7px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
+      </div>
+      <span style="font-size:0.75rem;font-weight:800;color:${col};min-width:20px;text-align:right">${d[key]}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderPmProdMiem(){
+  const pmEl=document.getElementById('pm-prod-miembro');
+  if(!pmEl||!window._pmProdData) return;
+  const periodo=window._pmProdPeriod?.miem||'mes';
+  const key=periodo==='mes'?'hitosMes':'hitosTrim';
+  const sorted=[...window._pmProdData.miem].sort((a,b)=>b[key]-a[key]).filter(x=>x[key]>0);
+  const maxH=sorted[0]?.[key]||1;
+  if(!sorted.length){pmEl.innerHTML='<div style="font-size:0.78rem;color:var(--text3)">Sin hitos este '+(periodo==='mes'?'mes':'trimestre')+'</div>';return;}
+  pmEl.innerHTML=sorted.map(({m,hitosMes,hitosTrim})=>{
+    const val=periodo==='mes'?hitosMes:hitosTrim;
+    const col=m.color||'var(--aire)';
+    const pct=Math.round(val/maxH*100);
+    return `<div style="display:flex;align-items:center;gap:0.7rem;margin-bottom:0.5rem">
+      <span style="font-size:0.72rem;font-weight:700;color:var(--text);width:75px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.apodo||m.nombre}</span>
+      <div style="flex:1;height:7px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
+      </div>
+      <span style="font-size:0.75rem;font-weight:800;color:${col};min-width:20px;text-align:right">${val}</span>
+    </div>`;
+  }).join('');
+// cierre de renderPmContent quitado — va debajo
+}
+
+function renderWorkload(){
+  const wrap = document.getElementById('eq-workload');
+  const bars = document.getElementById('eq-workload-bars');
+  if(!wrap||!bars) return;
+  const members = appData.members||[];
+  if(!members.length){ wrap.style.display='none'; return; }
+  const today=new Date(); today.setHours(0,0,0,0);
+  const dow=today.getDay();
+  const monday=new Date(today); monday.setDate(today.getDate()-(dow===0?6:dow-1));
+  const friday=new Date(monday); friday.setDate(monday.getDate()+4);
+  const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const monStr=fmtD(monday), friStr=fmtD(friday);
+  const loads = members.map(m=>{
+    const hitos = getMemberHitos(m.id).filter(h=>h.date>=monStr&&h.date<=friStr&&h.type==='oficial');
+    return {m, count:hitos.length};
+  }).filter(x=>x.count>0).sort((a,b)=>b.count-a.count);
+  if(!loads.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  const max=loads[0].count||1;
+  bars.innerHTML=loads.map(({m,count})=>{
+    const col=m.color||'var(--aire)';
+    const pct=Math.round(count/max*100);
+    const label=m.apodo||m.nombre;
+    return `<div style="display:flex;align-items:center;gap:0.7rem;margin-bottom:0.45rem">
+      <span style="font-size:0.72rem;font-weight:600;color:var(--text);width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0">${label}</span>
+      <div style="flex:1;height:8px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${col};border-radius:99px;transition:width 0.4s"></div>
+      </div>
+      <span style="font-size:0.72rem;font-weight:700;color:${col};width:20px;text-align:right;flex-shrink:0">${count}</span>
+    </div>`;
+  }).join('');
 }
 
 /* ── Cards/Grid view ── */
