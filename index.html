@@ -426,9 +426,16 @@ body.portal-mode .main{ height:100vh; }
 .portal-bp-pts.valued{ color:var(--fuego); }
 .portal-powered{ text-align:center;font-size:0.7rem;color:var(--text3);padding:1rem 0;opacity:0.5; }
 /* ── STATUS ── */
-.status-bar{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.4rem 1.1rem;font-size:0.75rem;color:var(--text2);box-shadow:var(--shadow);z-index:50;opacity:0;transition:opacity 0.3s;white-space:nowrap;pointer-events:none;}
+.status-bar{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%) translateY(0);background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.4rem 1.1rem;font-size:0.75rem;color:var(--text2);box-shadow:var(--shadow);z-index:50;opacity:0;transition:opacity 0.3s;white-space:nowrap;pointer-events:none;}
 .status-bar.show{opacity:1;}
 .status-bar.error{color:#ff5c72;border-color:rgba(255,92,114,0.3);}
+/* Toast */
+#polen-toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(20px);background:#1a1a2e;color:#fff;border-radius:14px;padding:0.7rem 1.4rem;font-size:0.82rem;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,0.25);z-index:9999;opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none;display:flex;align-items:center;gap:0.6rem;white-space:nowrap;}
+#polen-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#polen-toast.error{background:#7f1d1d;}
+/* Dot conexión */
+#conn-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;box-shadow:0 0 6px #22c55e;transition:all 0.4s;}
+#conn-dot.offline{background:#ef4444;box-shadow:0 0 6px #ef4444;}
 
 /* ── LOADING ── */
 #loading-screen{position:fixed;inset:0;z-index:999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;transition:opacity 0.4s ease;}
@@ -1228,6 +1235,7 @@ body.portal-mode .main{ height:100vh; }
   <button id="loading-skip-btn" onclick="forceSkipLoading()" style="display:none;margin-top:0.5rem;background:none;border:1px solid rgba(255,255,255,0.2);border-radius:99px;padding:0.4rem 1rem;color:rgba(255,255,255,0.5);font-size:0.78rem;cursor:pointer;font-family:var(--font)">Continuar de todas formas →</button>
 </div>
 <div class="status-bar" id="status-bar"></div>
+<div id="polen-toast"></div>
 
 <!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
@@ -1291,6 +1299,7 @@ body.portal-mode .main{ height:100vh; }
         <button class="theme-btn" id="btn-light" onclick="setTheme('light')">☀️ Light</button>
       </div>
       <button class="btn-reload" id="btn-reload" onclick="reloadData()">↻ Recargar</button>
+      <span id="conn-dot" title="Conectado a Supabase"></span>
       <button class="btn-add" id="btn-nueva-marca" onclick="openModal()">+ Nueva marca</button>
       <button class="btn-add" id="btn-nuevo-miembro" onclick="openMemberModal()" style="display:none;background:var(--agua)">+ Nuevo miembro</button>
     </div>
@@ -2632,7 +2641,7 @@ function askModal({ label='', placeholder='', defaultValue='', type='text', opti
 }
 
 /* confirmModal — simple yes/no, returns true if confirmed */
-function confirmModal(label, confirmLabel='Confirmar', confirmStyle='background:var(--fuego);color:#fff;border:none'){
+function confirmModal(label, confirmLabel='Confirmar', confirmStyle='background:var(--fuego);color:#fff;border:none', cancelLabel='Cancelar'){
   return new Promise(resolve=>{
     const overlay = document.getElementById('ask-modal-overlay');
     const lbl     = document.getElementById('ask-modal-label');
@@ -2645,7 +2654,7 @@ function confirmModal(label, confirmLabel='Confirmar', confirmStyle='background:
     body.innerHTML = '';
     okBtn.textContent = confirmLabel;
     okBtn.style.cssText = confirmStyle+';padding:0.55rem 1.3rem;border-radius:99px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:var(--font)';
-    cancelBtn.textContent = 'Cancelar';
+    cancelBtn.textContent = cancelLabel;
     overlay.classList.remove('hidden');
 
     function finish(val){
@@ -2751,10 +2760,32 @@ function defaultTemplate(){
 /* ═══ STATUS ═══ */
 let _st=null;
 function showStatus(msg,err=false){
+  // Toast mejorado
+  const toast=document.getElementById('polen-toast');
+  if(toast){
+    toast.innerHTML='<span>'+(err?'❌':'✅')+'</span><span>'+msg+'</span>';
+    toast.className='show'+(err?' error':'');
+    clearTimeout(toast._t);
+    toast._t=setTimeout(()=>{ toast.className=''; },err?4000:2500);
+  }
+  // Status bar legacy
   const el=document.getElementById('status-bar');
-  el.textContent=msg;el.className='status-bar show'+(err?' error':'');
-  clearTimeout(_st);_st=setTimeout(()=>el.classList.remove('show'),3200);
+  if(el){ el.textContent=msg; el.className='status-bar show'+(err?' error':''); clearTimeout(_st); _st=setTimeout(()=>el.classList.remove('show'),3200); }
 }
+
+let _connOnline=true;
+function setConnDot(online){
+  if(_connOnline===online) return;
+  _connOnline=online;
+  const dot=document.getElementById('conn-dot');
+  if(dot){ dot.className=online?'':'offline'; dot.title=online?'Conectado a Supabase':'Sin conexión — los cambios pueden no guardarse'; }
+}
+setInterval(async()=>{
+  try{
+    const r=await fetch('https://abfgnaavzqvfhmyyfvpn.supabase.co/rest/v1/',{method:'HEAD',headers:{'apikey':'sb_publishable_KO-VfFgz6IyXKVtjPSR2ug_yJAkTU6M'}});
+    setConnDot(r.ok||r.status===400||r.status===401);
+  }catch(e){ setConnDot(false); }
+},30000);
 
 /* ═══ SUPABASE I/O ═══ */
 async function loadData(){
@@ -2821,6 +2852,13 @@ async function loadData(){
         localStorage.setItem('polen-autobackup', JSON.stringify({data:appData, savedAt:new Date().toISOString()}));
       }
     }catch(e){ console.warn('Auto-backup localStorage falló:', e); }
+    // Restaurar miembro guardado en este dispositivo
+    try{
+      const savedMember = localStorage.getItem('polen-last-member');
+      if(savedMember && (appData.members||[]).find(m=>m.id===savedMember)){
+        currentMemberId = savedMember;
+      }
+    }catch(e){}
     // Badge de hitos esta semana
     _updateHitosBadge();
   }catch(e){
@@ -3133,7 +3171,7 @@ async function reloadData(){
 function isWeekend(d){const day=d.getDay();return day===0||day===6;}
 
 // Timezone-safe: parse YYYY-MM-DD as LOCAL date, never UTC
-function parseLocalDate(str){ const [y,m,d]=str.split('-').map(Number); return new Date(y,m-1,d); }
+function parseLocalDate(str){ if(!str||typeof str!=='string') return new Date(); const [y,m,d]=str.split('-').map(Number); return new Date(y,m-1,d); }
 function fmtLocalDate(d){ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
 
 // Shift a YYYY-MM-DD string by n workdays (n can be negative)
@@ -3150,12 +3188,14 @@ function shiftWD(dateStr, n){
 }
 
 function addWorkdays(startDate,days){
-  let d=new Date(startDate);let added=0;
+  if(!startDate) return '';
+  let d=new Date(typeof startDate==='string'?startDate+'T00:00:00':startDate);
+  let added=0;
   while(added<days){
     d.setDate(d.getDate()+1);
     if(!isWeekend(d))added++;
   }
-  return d;
+  return fmtLocalDate(d);
 }
 
 function shiftWorkdays(dateStr,delta){
@@ -3174,8 +3214,9 @@ function fmtDate(d){
 }
 
 function fmtDateDisplay(str){
-  if(!str)return'—';
+  if(!str||typeof str!=='string')return'—';
   const[y,m,d]=str.split('-');
+  if(!y||!m||!d)return'—';
   const months=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   return d+' '+months[parseInt(m)-1]+' '+y;
 }
@@ -3659,8 +3700,9 @@ async function calDrop(event, newDateStr){
         if(hasLater && !_calFreeMode){
           const cascade = await confirmModal(
             `¿Ajustar también las fechas de todas las actividades posteriores a esta (${wdDelta>0?'+':''}${wdDelta} días hábiles)?`,
-            'Sí, ajustar todo',
-            'background:var(--aire);color:#fff;border:none'
+            'Sí, cambiar',
+            'background:var(--aire);color:#fff;border:none',
+            'No'
           );
           if(cascade){
             cascadeAfterDate(brand, oldEndDate, wdDelta, dragActId);
@@ -5872,6 +5914,17 @@ function switchTab(tab){
   if(activeExport){ const el=document.getElementById(activeExport); if(el) el.style.display=''; }
 
   if(tab==='domo') renderBrandDomo();
+  if(tab==='crono'){
+    // Scroll al primer hito pendiente o actividad activa
+    setTimeout(()=>{
+      const panel=document.getElementById('tab-crono');
+      if(!panel) return;
+      const activa=panel.querySelector('.act-smart-status.activa, .tpl-act-row:not(.completada) .act-status-pill');
+      const primeraHito=panel.querySelector('.hito-row:not(.completada)');
+      const target=activa?.closest('.tpl-act-row')||primeraHito;
+      if(target) target.scrollIntoView({behavior:'smooth',block:'center'});
+    },200);
+  }
   if(tab==='rondas'){
     const brand=appData.brands.find(b=>b.id===currentBrandId);
     if(brand)renderRondas(brand);
@@ -6266,16 +6319,38 @@ function startInlineDays(e, brandId, stage, actId){
   const commit = async()=>{
     const v = parseInt(inp.value);
     if(!isNaN(v) && v > 0 && v !== act.days){
-
+      const oldEndDate = act.endDate;
       act.days = v;
       act.endDate = addWorkdays(act.startDate, act.days - 1);
+      const delta = oldEndDate ? wdDeltaBetween(oldEndDate, act.endDate) : 0;
+      // Recalcular resto de la misma etapa
       for(let i=idx+1;i<acts.length;i++){
         acts[i].startDate = addWorkdays(acts[i-1].endDate, 1);
         acts[i].endDate = addWorkdays(acts[i].startDate, (acts[i].days||1)-1);
       }
+      renderBrandCrono(brand);
+      markLocalChange('brands');
+      // Preguntar cascade a otras etapas
+      if(delta !== 0){
+        const hasLater = ['aire','agua','tierra','fuego'].some(st=>
+          (brand.cronograma[st]||[]).some(a=> a.id!==actId && a.endDate && a.endDate > oldEndDate)
+        );
+        if(hasLater){
+          await new Promise(r=>setTimeout(r,80));
+          const cascade = await confirmModal(
+            `¿Ajustar también las fechas de las actividades posteriores? (${delta>0?'+':''}${delta} días hábiles)`,
+            'Sí, cambiar',
+            'background:var(--aire);color:#fff;border:none',
+            'No'
+          );
+          if(cascade){
+            cascadeAfterDate(brand, oldEndDate, delta, actId);
+            renderBrandCrono(brand);
+          }
+        }
+      }
       await upsert();
       showStatus('Duración actualizada ✓');
-      renderBrandCrono(brand);
     } else {
       badge.classList.remove('editing');
       badge.innerHTML = act.days+'d';
@@ -6301,6 +6376,7 @@ function cascadeAfterDate(brand, referenceDate, wdDelta, skipActId){
 
 // Count workday delta between two YYYY-MM-DD strings
 function wdDeltaBetween(oldDateStr, newDateStr){
+  if(!oldDateStr||!newDateStr) return 0;
   const oldD = parseLocalDate(oldDateStr);
   const newD = parseLocalDate(newDateStr);
   const sign = newD > oldD ? 1 : -1;
@@ -6336,33 +6412,41 @@ function editDate(e,brandId,stage,actId,field){
     if(!val || val===current){ renderBrandCrono(brand); return; }
 
     const oldEndDate = act.endDate;
-    act[field] = val;
 
     if(field==='endDate'){
-      act.startDate = shiftWD(val, -((act.days||1)-1));
-      const delta = wdDeltaBetween(oldEndDate, val);
-      if(delta !== 0){
-        const hasLater = ['aire','agua','tierra','fuego'].some(st=>
-          (brand.cronograma[st]||[]).some(a=> a.id!==actId && a.endDate && a.endDate > oldEndDate)
+      act.endDate = val;
+      act.startDate = act.startDate ? shiftWD(val, -((act.days||1)-1)) : val;
+    } else {
+      act.startDate = val;
+      act.endDate = addWorkdays(val, (act.days||1)-1);
+    }
+
+    if(!oldEndDate){ renderBrandCrono(brand); markLocalChange('brands'); await upsert(); showStatus('Fecha actualizada ✓'); return; }
+    const delta = wdDeltaBetween(oldEndDate, act.endDate);
+
+    // Render primero, guardar después del modal si aplica
+    renderBrandCrono(brand);
+    markLocalChange('brands');
+
+    if(delta !== 0){
+      const hasLater = ['aire','agua','tierra','fuego'].some(st=>
+        (brand.cronograma[st]||[]).some(a=> a.id!==actId && a.endDate && a.endDate > oldEndDate)
+      );
+      if(hasLater){
+        await new Promise(r=>setTimeout(r, 80));
+        const cascade = await confirmModal(
+          `¿Ajustar también las fechas de las actividades posteriores? (${delta>0?'+':''}${delta} días hábiles)`,
+          'Sí, cambiar',
+          'background:var(--aire);color:#fff;border:none',
+          'No'
         );
-        if(hasLater){
+        if(cascade){
+          cascadeAfterDate(brand, oldEndDate, delta, actId);
           renderBrandCrono(brand);
-          // Small delay so the input is fully removed before modal opens
-          await new Promise(r=>setTimeout(r, 50));
-          const cascade = await confirmModal(
-            `¿Ajustar también las fechas de las actividades posteriores a esta? (${delta>0?'+':''}${delta} días hábiles)`,
-            'Sí, ajustar todo',
-            'background:var(--aire);color:#fff;border:none'
-          );
-          if(cascade){
-            cascadeAfterDate(brand, oldEndDate, delta, actId);
-          }
         }
       }
     }
 
-    renderBrandCrono(brand);
-    markLocalChange('brands');
     await upsert();
     showStatus('Fecha actualizada ✓');
   };
@@ -7911,6 +7995,7 @@ function toggleMemberDropdown(){
 
 function selectMember(id){
   currentMemberId = id;
+  localStorage.setItem('polen-last-member', id||'');
   const dd = document.getElementById('member-dropdown');
   if(dd) dd.classList.remove('open');
   renderEquipo();
