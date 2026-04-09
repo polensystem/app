@@ -10224,7 +10224,7 @@ function renderPortal(brandId){
         return `<div style="display:flex;align-items:center;gap:0.7rem;padding:0.55rem 1.2rem;border-bottom:1px solid var(--border2);${isDone?'opacity:0.6':''}">
           <span style="font-size:0.85rem">${isDone?'✅':isProgress?'🔄':isHito?'⭐':'○'}</span>
           <span style="flex:1;font-size:0.84rem;${isDone?'text-decoration:line-through;color:var(--text3)':''}${isHito?';font-weight:700':''}">${a.name}</span>
-          <span style="font-size:0.72rem;color:var(--text3)">${a.endDate?fmtDateDisplay(a.endDate):''}</span>
+          <span style="font-size:0.72rem;color:var(--text3)">${a.startDate?fmtDateDisplay(a.startDate):''}</span>
         </div>`;
       }).join('')}
     </div>`;
