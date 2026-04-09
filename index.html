@@ -1176,13 +1176,13 @@ body.portal-mode .main{ height:100vh; }
 .fin-tabla-cell input:focus{border-bottom:1.5px solid var(--aire)!important;padding-bottom:1px;}
 
 /* ── Cobros por marca ── */
-.cob-brand-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:0.8rem;}
+.cob-brand-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
 .cob-brand-header{display:flex;align-items:center;gap:0.8rem;padding:0.85rem 1rem;cursor:pointer;user-select:none;}
 .cob-brand-logo{width:40px;height:40px;border-radius:10px;background:var(--bg-card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;overflow:hidden;}
 .cob-brand-logo img{width:100%;height:100%;object-fit:cover;border-radius:9px;}
-.cob-brand-name{font-size:0.9rem;font-weight:700;color:var(--text);}
+.cob-brand-name{font-size:0.9rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .cob-brand-sub{font-size:0.7rem;color:var(--text3);margin-top:0.1rem;}
-.cob-pct{font-size:0.85rem;font-weight:800;color:var(--aire);}
+.cob-pct{font-size:0.85rem;font-weight:800;color:var(--text2);}
 .cob-arrow{font-size:0.65rem;color:var(--text3);transition:transform 0.2s;margin-left:0.3rem;}
 .cob-body{border-top:1px solid var(--border);}
 .cob-pago-row{display:flex;align-items:flex-start;gap:0.7rem;padding:0.6rem 1rem;border-bottom:1px solid var(--border);}
@@ -1208,7 +1208,7 @@ body.portal-mode .main{ height:100vh; }
 .cob-add-btn:hover{border-color:var(--aire);color:var(--aire);}
 .cob-total{font-size:0.78rem;color:var(--text3);text-align:right;}
 /* ── COB TABLA ── */
-.cob-sort-btn{background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.32rem 0.8rem;font-size:0.75rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s;}
+.cob-sort-btn{background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.22rem 0.65rem;font-size:0.7rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s;}
 .cob-sort-btn:hover{color:var(--text);}
 .cob-sort-btn.active{background:var(--aire);color:#fff;border-color:var(--aire);}
 .cob-tabla-header{display:flex;align-items:center;padding:0.55rem 1rem;background:var(--bg-card2);border-bottom:1px solid var(--border);font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);}
@@ -1223,7 +1223,7 @@ body.portal-mode .main{ height:100vh; }
 .cob-tabla-note{background:none;border:none;outline:none;font-family:var(--font);font-size:0.75rem;color:var(--text3);width:100%;resize:none;height:32px;cursor:text;border-bottom:1px solid transparent;transition:border-color 0.15s;overflow:hidden;}
 .cob-tabla-note:focus{border-bottom-color:var(--border);color:var(--text2);}
 .cob-total strong{font-size:0.95rem;color:var(--text);display:block;}
-.cob-brands-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.8rem;}
+.cob-brands-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0.4rem;}
 </style>
 </head>
 <body>
@@ -1705,6 +1705,9 @@ body.portal-mode .main{ height:100vh; }
               <span class="pts-total-val" id="brand-bp-total-label">—</span>
             </div>
             <div id="brand-bp-cats"></div>
+            <div style="padding:0.5rem 1rem 0.8rem">
+              <button class="btn-add-item" onclick="addBrandBpCat(currentBrandId)" style="width:100%">+ Agregar categoría</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1896,6 +1899,9 @@ body.portal-mode .main{ height:100vh; }
             <input class="pts-total-input" type="number" id="bp-total" min="1" value="15" onchange="onBpTotalChange()">
           </div>
           <div id="bp-cats"></div>
+          <div style="padding:0.5rem 1rem 0.8rem">
+            <button class="btn-add-item" onclick="tplAddBpCat()" style="width:100%">+ Agregar categoría</button>
+          </div>
         </div>
       </div>
 
@@ -2281,57 +2287,64 @@ body.portal-mode .main{ height:100vh; }
 
         <!-- Cobros por marca -->
         <div style="margin-top:1.5rem">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.8rem">
             <div>
               <div style="font-size:1rem;font-weight:800;color:var(--text)">Control de cobros por marca</div>
               <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem">Cada marca activa con su estado de pagos</div>
             </div>
-            <button onclick="expandAllCobros()" id="btn-expand-cobros" style="font-size:0.72rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.35rem 0.75rem;color:var(--text3);cursor:pointer;font-family:var(--font)">▾ Expandir todas</button>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+              <div style="display:flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:7px;overflow:hidden">
+                <button id="cobcards-sort-default" onclick="setCobCardsSort('default')" style="padding:0.26rem 0.6rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--aire);color:#fff;border-right:1px solid var(--border)">Reciente</button>
+                <button id="cobcards-sort-az" onclick="setCobCardsSort('az')" style="padding:0.26rem 0.6rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);border-right:1px solid var(--border)">A → Z</button>
+                <button id="cobcards-sort-za" onclick="setCobCardsSort('za')" style="padding:0.26rem 0.6rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);border-right:1px solid var(--border)">Z → A</button>
+                <button id="cobcards-sort-oldest" onclick="setCobCardsSort('oldest')" style="padding:0.26rem 0.6rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3)">Más antigua</button>
+              </div>
+              <button onclick="expandAllCobros()" id="btn-expand-cobros" style="font-size:0.72rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.35rem 0.75rem;color:var(--text3);cursor:pointer;font-family:var(--font)">▾ Expandir todas</button>
+            </div>
           </div>
           <div id="cob-brands-grid" class="cob-brands-grid"></div>
         </div>
 
         <!-- Tabla detallada de cobros -->
         <div style="margin-top:1.5rem">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.7rem;margin-bottom:0.8rem">
-            <div style="display:flex;align-items:center;gap:0.8rem">
+          <!-- Toolbar tabla -->
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px 14px 0 0;border-bottom:none">
+            <!-- Fila 1: título + acciones -->
+            <div style="padding:0.7rem 1rem 0.5rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
               <div>
-                <div style="font-size:1rem;font-weight:800;color:var(--text)">Tabla de cobros</div>
-                <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem">Vista detallada · sincronizada en tiempo real</div>
+                <span style="font-size:0.95rem;font-weight:800;color:var(--text)">Tabla de cobros</span>
+                <span style="font-size:0.65rem;color:var(--text3);margin-left:0.6rem">Vista detallada · tiempo real</span>
               </div>
-              <div class="export-wrap">
-                <button class="btn-export-inline" onclick="toggleInlineExport(this)">⬇ Exportar vista</button>
-                <div class="export-dropdown">
-                  <button class="export-opt" onclick="runExport('cob_tabla_pdf')">📄 PDF</button>
-                  <button class="export-opt" onclick="runExport('cob_tabla_xlsx')">📊 Excel</button>
+              <div style="display:flex;align-items:center;gap:0.4rem">
+                <button class="cob-sort-btn" id="cob-hide-cobrado-btn" onclick="toggleHideCobrado()">👁 Ocultar cobrados</button>
+                <div class="export-wrap">
+                  <button class="btn-export-inline" onclick="toggleInlineExport(this)">⬇ Exportar</button>
+                  <div class="export-dropdown">
+                    <button class="export-opt" onclick="runExport('cob_tabla_pdf')">📄 PDF</button>
+                    <button class="export-opt" onclick="runExport('cob_tabla_xlsx')">📊 Excel</button>
+                  </div>
                 </div>
               </div>
             </div>
-            <div style="display:flex;flex-direction:column;gap:0.5rem">
-              <!-- Filtros de período/estado -->
-              <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
-                <span style="font-size:0.7rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Filtrar:</span>
-                <button class="cob-sort-btn active" id="cob-filter-todos" onclick="setCobFilter('todos')">📋 Todos</button>
-                <button class="cob-sort-btn" id="cob-filter-mes" onclick="setCobFilter('mes')">📅 Mes actual</button>
-                <button class="cob-sort-btn" id="cob-filter-cobrar" onclick="setCobFilter('cobrar')">🟠 Por cobrar</button>
-                <button class="cob-sort-btn" id="cob-filter-atrasado" onclick="setCobFilter('atrasado')">🔴 Atrasados</button>
-                <button class="cob-sort-btn" id="cob-filter-cobrado" onclick="setCobFilter('cobrado')">✅ Cobrados</button>
-                <button class="cob-sort-btn" id="cob-filter-futuro" onclick="setCobFilter('futuro')">🔵 Futuros</button>
-                <div style="width:1px;height:16px;background:var(--border);margin:0 0.1rem"></div>
-                <button class="cob-sort-btn" id="cob-hide-cobrado-btn" onclick="toggleHideCobrado()">👁 Ocultar cobrados</button>
-              </div>
-              <!-- Orden -->
-              <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
-                <span style="font-size:0.7rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Ordenar:</span>
-                <button class="cob-sort-btn active" id="cob-sort-proximo" onclick="setCobSort('proximo')">🕐 Más próximos</button>
-                <button class="cob-sort-btn" id="cob-sort-marca" onclick="setCobSort('marca')">🏷 Marca</button>
-                <button class="cob-sort-btn" id="cob-sort-monto" onclick="setCobSort('monto')">💰 Monto</button>
-                <button class="cob-sort-btn" id="cob-sort-npago" onclick="setCobSort('npago')"># Pago</button>
-                <button class="cob-sort-btn" id="cob-sort-fecha" onclick="setCobSort('fecha')">📅 Fecha proyectada</button>
-              </div>
+            <!-- Fila 2: filtros + orden -->
+            <div style="padding:0.5rem 1rem;display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;justify-content:flex-end">
+              <span style="font-size:0.6rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.8px">Ver</span>
+              <button class="cob-sort-btn active" id="cob-filter-todos" onclick="setCobFilter('todos')">Todos</button>
+              <button class="cob-sort-btn" id="cob-filter-mes" onclick="setCobFilter('mes')">📅 Mes actual</button>
+              <button class="cob-sort-btn" id="cob-filter-cobrar" onclick="setCobFilter('cobrar')">🟠 Por cobrar</button>
+              <button class="cob-sort-btn" id="cob-filter-atrasado" onclick="setCobFilter('atrasado')">🔴 Atrasados</button>
+              <button class="cob-sort-btn" id="cob-filter-cobrado" onclick="setCobFilter('cobrado')">✅ Cobrados</button>
+              <button class="cob-sort-btn" id="cob-filter-futuro" onclick="setCobFilter('futuro')">🔵 Futuros</button>
+              <div style="width:1px;height:18px;background:var(--border);margin:0 0.2rem"></div>
+              <span style="font-size:0.6rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.8px">Ordenar</span>
+              <button class="cob-sort-btn active" id="cob-sort-proximo" onclick="setCobSort('proximo')">🕐 Próximos</button>
+              <button class="cob-sort-btn" id="cob-sort-marca" onclick="setCobSort('marca')">Marca</button>
+              <button class="cob-sort-btn" id="cob-sort-monto" onclick="setCobSort('monto')">Monto</button>
+              <button class="cob-sort-btn" id="cob-sort-npago" onclick="setCobSort('npago')"># Pago</button>
+              <button class="cob-sort-btn" id="cob-sort-fecha" onclick="setCobSort('fecha')">Fecha</button>
             </div>
           </div>
-          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden">
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 14px 14px;box-shadow:var(--shadow);overflow:hidden">
             <!-- Header -->
             <div class="cob-tabla-header">
               <div style="width:32px;flex-shrink:0"></div>
@@ -2360,13 +2373,14 @@ body.portal-mode .main{ height:100vh; }
       </div>
       <!-- Tabs -->
       <div class="tabs-bar" style="margin-bottom:1.5rem">
-        <button class="tab-btn active" id="arch-tab-proyectos-btn" onclick="switchArchivoTab('proyectos')">🗄️ Archivo</button>
+        <button class="tab-btn active" id="arch-tab-papelera-btn" onclick="switchArchivoTab('papelera')">🗑️ Papelera <span id="papelera-count-badge" style="display:none;background:var(--fuego);color:#fff;border-radius:99px;font-size:0.6rem;padding:0.1rem 0.45rem;margin-left:0.3rem;font-weight:700"></span></button>
+        <button class="tab-btn" id="arch-tab-proyectos-btn" onclick="switchArchivoTab('proyectos')">🗄️ Archivo</button>
         <button class="tab-btn" id="arch-tab-notas-btn" onclick="switchArchivoTab('notas')">📋 Notas archivadas</button>
-        <button class="tab-btn" id="arch-tab-papelera-btn" onclick="switchArchivoTab('papelera')">🗑️ Papelera <span id="papelera-count-badge" style="display:none;background:var(--fuego);color:#fff;border-radius:99px;font-size:0.6rem;padding:0.1rem 0.45rem;margin-left:0.3rem;font-weight:700"></span></button>
+        <button class="tab-btn" id="arch-tab-cobros-btn" onclick="switchArchivoTab('cobros')">💰 Cobranzas</button>
       </div>
 
       <!-- Tab: Proyectos archivados -->
-      <div id="arch-tab-proyectos">
+      <div id="arch-tab-proyectos" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;flex-wrap:wrap;gap:0.7rem">
           <div style="font-size:0.8rem;color:var(--text3)">Proyectos con cronograma 100% completado y cobros pagados al 100%</div>
           <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
@@ -2415,8 +2429,27 @@ body.portal-mode .main{ height:100vh; }
         <div id="arch-notas-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0.8rem"></div>
       </div>
 
+      <!-- Tab: Cobranzas archivadas -->
+      <div id="arch-tab-cobros" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;flex-wrap:wrap;gap:0.7rem">
+          <div style="font-size:0.8rem;color:var(--text3)">Marcas con todos sus cobros marcados como cobrados</div>
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <button id="arch-cob-money-toggle" onclick="toggleArchCobMoney()"
+              style="display:flex;align-items:center;gap:0.4rem;padding:0.38rem 0.85rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:all 0.2s">
+              🔒 Ver montos
+            </button>
+          </div>
+        </div>
+        <div id="arch-cob-empty" style="display:none;text-align:center;padding:4rem 2rem;color:var(--text3)">
+          <div style="font-size:3rem;margin-bottom:1rem;opacity:0.3">💰</div>
+          <div style="font-size:1rem;font-weight:600;margin-bottom:0.4rem">Sin cobros completados aún</div>
+          <div style="font-size:0.8rem">Cuando una marca tenga todos sus pagos cobrados, aparecerá aquí.</div>
+        </div>
+        <div id="arch-cob-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem"></div>
+      </div>
+
       <!-- Tab: Papelera -->
-      <div id="arch-tab-papelera" style="display:none">
+      <div id="arch-tab-papelera">
         <div style="font-size:0.8rem;color:var(--text3);margin-bottom:1.2rem">Los elementos borrados se eliminan definitivamente después de 30 días.</div>
         <div id="papelera-empty" style="display:none;text-align:center;padding:4rem 2rem;color:var(--text3)">
           <div style="font-size:3rem;margin-bottom:1rem;opacity:0.3">🗑️</div>
@@ -4628,12 +4661,31 @@ function cobStatus(pago, allPagos, brand){
   // "Futuro": la actividad anterior aún no está completada
   return {label:'Futuro', cls:'pendiente'};
 }
+let _cobCardsSort = 'default';
+
+function setCobCardsSort(mode){
+  _cobCardsSort = mode;
+  ['default','az','za','oldest'].forEach(k=>{
+    const btn = document.getElementById('cobcards-sort-'+k);
+    if(!btn) return;
+    btn.style.background = k===mode ? 'var(--aire)' : 'none';
+    btn.style.color      = k===mode ? '#fff' : 'var(--text3)';
+  });
+  renderCobros();
+}
+
 function renderCobros(){
   ensureCobrosData();
   const grid = document.getElementById('cob-brands-grid');
   if(!grid) return;
-  const brands = appData.brands||[];
+  let brands = [...(appData.brands||[])];
   if(!brands.length){ grid.innerHTML='<div style="color:var(--text3);font-size:0.82rem">No hay marcas activas.</div>'; return; }
+
+  // Sort
+  if(_cobCardsSort === 'az')      brands.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  else if(_cobCardsSort === 'za') brands.sort((a,b)=>(b.name||'').localeCompare(a.name||''));
+  else if(_cobCardsSort === 'oldest') brands.sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
+  else brands.reverse(); // default = más reciente primero
 
   grid.innerHTML = brands.map(b=>{
     const cob = appData.cobros[b.id];
@@ -4646,17 +4698,21 @@ function renderCobros(){
     const montoInd = useTotal && pagos.length ? Math.round((valorTotal/pagos.length)*100)/100 : null;
     const totalDisplay = useTotal ? valorTotal : pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
     const totalCobrado = pagos.filter(p=>p.cobrado).reduce((s,p)=>s+(useTotal?montoInd:(parseFloat(p.monto)||0)),0);
-    const pct = totalDisplay ? Math.round(totalCobrado/totalDisplay*100) : 0;
+    // % por cantidad de pagos cobrados (no por monto, para evitar distorsión cuando hay pagos en $0)
+    const pct = pagos.length ? Math.round(pagos.filter(p=>p.cobrado).length/pagos.length*100) : 0;
 
     return `<div class="cob-brand-card" id="cob-card-${b.id}">
       <div class="cob-brand-header" onclick="toggleCobCard(event,'${b.id}')">
         <div class="cob-brand-logo" style="border-color:${brandCol}">${logo}</div>
-        <div style="flex:1;min-width:0">
-          <div class="cob-brand-name">${b.name}</div>
+        <div style="flex:1;min-width:0;overflow:hidden">
+          <div class="cob-brand-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
           <div class="cob-brand-sub">${pagos.filter(p=>p.cobrado).length}/${pagos.length} cobrados · $${totalDisplay.toLocaleString()}</div>
         </div>
-        <span class="cob-pct" style="color:${brandCol}">${pct}%</span>
+        <span class="cob-pct">${pct}%</span>
         <span class="cob-arrow" style="transform:${isExp?'rotate(0)':'rotate(-90deg)'}">▼</span>
+      </div>
+      <div style="height:3px;background:var(--bg-card2)">
+        <div style="height:100%;width:${pct}%;background:${brandCol};transition:width 0.4s ease;border-radius:0 2px 2px 0"></div>
       </div>
     </div>`;
   }).join('');
@@ -4753,7 +4809,7 @@ function renderCobCard(brandId){
     const st = cobStatus(p, pagos, b);
     const triggerLabel = getCobTriggerLabel(p, b);
     const montoVal = useTotal ? montoIndividual : (p.monto||'');
-    return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;align-items:flex-start;gap:0.7rem;padding:0.55rem 1rem;border-bottom:1px solid var(--border)" onmouseenter="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0.45'" onmouseleave="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0'">
+    return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;align-items:flex-start;gap:0.7rem;padding:0.85rem 1rem;border-bottom:1px solid var(--border)" onmouseenter="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0.45'" onmouseleave="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0'">
       <div class="cob-check ${p.cobrado?'checked':''}" onclick="event.stopPropagation();toggleCobPago('${b.id}','${p.id}')" style="margin-top:3px;flex-shrink:0">${p.cobrado?'✓':''}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:0.35rem;min-width:0">
@@ -5011,9 +5067,10 @@ function toggleHideCobrado(){
 
 function setCobFilter(filter){
   _cobFilter = filter;
-  document.querySelectorAll('[id^="cob-filter-"]').forEach(b=>b.classList.remove('active'));
-  const btn = document.getElementById('cob-filter-'+filter);
-  if(btn) btn.classList.add('active');
+  ['todos','mes','cobrar','atrasado','cobrado','futuro'].forEach(k=>{
+    const b = document.getElementById('cob-filter-'+k);
+    if(b) b.classList.toggle('active', k===filter);
+  });
   renderCobTabla();
 }
 
@@ -5043,9 +5100,11 @@ function _pasaCobFilter(p, pagos, brand){
 
 function setCobSort(mode){
   _cobSort = mode;
-  document.querySelectorAll('.cob-sort-btn').forEach(b=>b.classList.remove('active'));
+  ['proximo','marca','monto','npago','fecha'].forEach(k=>{
+    const b = document.getElementById('cob-sort-'+k);
+    if(b) b.classList.toggle('active', k===mode);
+  });
   const btn = document.getElementById('cob-sort-'+mode);
-  if(btn) btn.classList.add('active');
   renderCobTabla();
 }
 
@@ -5458,13 +5517,13 @@ function renderCurrentPage(){
 /* ═══ ARCHIVO ═══ */
 let _archivoSort = 'fecha';
 let _archivoMoneyUnlocked = false;
-let _archivoActiveTab = 'proyectos';
+let _archivoActiveTab = 'papelera';
 const ARCHIVO_PIN = '7771';
 const PAPELERA_DIAS = 30;
 
 function switchArchivoTab(tab){
   _archivoActiveTab = tab;
-  ['proyectos','notas','papelera'].forEach(t=>{
+  ['proyectos','notas','cobros','papelera'].forEach(t=>{
     const panel = document.getElementById('arch-tab-'+t);
     const btn   = document.getElementById('arch-tab-'+t+'-btn');
     if(panel) panel.style.display = t===tab ? 'block' : 'none';
@@ -5472,6 +5531,7 @@ function switchArchivoTab(tab){
   });
   if(tab==='papelera') renderPapelera();
   else if(tab==='notas') renderArchivoNotas();
+  else if(tab==='cobros') renderArchCobros();
   else renderArchivo();
 }
 
@@ -5608,6 +5668,74 @@ function renderPapelera(){
   }).join('');
 }
 
+let _archCobMoneyUnlocked = false;
+
+function toggleArchCobMoney(){
+  if(_archCobMoneyUnlocked){
+    _archCobMoneyUnlocked = false;
+    renderArchCobros();
+    const btn = document.getElementById('arch-cob-money-toggle');
+    if(btn){ btn.textContent='🔒 Ver montos'; btn.style.background='var(--bg-card2)'; btn.style.color='var(--text2)'; btn.style.borderColor='var(--border)'; }
+  } else {
+    // Reutilizar el modal de PIN del archivo
+    document.getElementById('modal-archivo-pin').classList.remove('hidden');
+    (document.getElementById('archivo-pin-input')||{}).value='';
+    (document.getElementById('archivo-pin-error')||{style:{}}).style.display='none';
+    // Al verificar, activar arch-cob en vez de archivo
+    _archPinTarget = 'cob';
+    setTimeout(()=>document.getElementById('archivo-pin-input').focus(),80);
+  }
+}
+
+function renderArchCobros(){
+  ensureCobrosData();
+  const grid  = document.getElementById('arch-cob-grid');
+  const empty = document.getElementById('arch-cob-empty');
+  if(!grid) return;
+
+  // Solo marcas con cronograma 100% completado Y todos los cobros pagados
+  const brands = (appData.brands||[]).filter(b=>{
+    // Condición 1: cronograma 100% completado
+    const allActs = ['aire','agua','tierra','fuego'].flatMap(s=>b.cronograma?.[s]||[]);
+    if(!allActs.length) return false;
+    const cronoDone = allActs.every(a=>a.status==='completada');
+    if(!cronoDone) return false;
+    // Condición 2: todos los cobros pagados y hay al menos uno
+    const pagos = appData.cobros?.[b.id]?.pagos||[];
+    return pagos.length > 0 && pagos.every(p=>p.cobrado);
+  });
+
+  if(!brands.length){
+    grid.style.display='none'; empty.style.display='block'; return;
+  }
+  grid.style.display='grid'; empty.style.display='none';
+
+  grid.innerHTML = brands.map(b=>{
+    const col = getBrandColor(b);
+    const cob = appData.cobros[b.id]||{};
+    const pagos = cob.pagos||[];
+    const useTotal = !!cob.useTotal;
+    const valorTotal = cob.valorTotal||0;
+    const totalCobrado = useTotal ? valorTotal : pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+    const logo = b.image
+      ? '<img src="'+b.image+'" style="width:100%;height:100%;object-fit:cover;border-radius:9px">'
+      : '<span style="font-size:1.4rem;font-weight:800;color:'+col+'">'+b.name.charAt(0)+'</span>';
+
+    const montoHTML = _archCobMoneyUnlocked
+      ? '<span style="font-size:1rem;font-weight:800;color:var(--tierra)">$'+totalCobrado.toLocaleString()+'</span>'
+      : '<span style="font-size:0.8rem;color:var(--text3);letter-spacing:2px">••••</span>';
+
+    return '<div style="background:var(--bg-card);border:1px solid rgba(90,170,53,0.3);border-radius:14px;padding:1rem;display:flex;align-items:center;gap:0.9rem">'
+      + '<div style="width:44px;height:44px;border-radius:10px;border:2px solid '+col+';background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">'+logo+'</div>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:0.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+b.name+'</div>'
+      + '<div style="font-size:0.65rem;color:var(--text3);margin-top:0.1rem">'+pagos.length+' pago'+(pagos.length!==1?'s':'')+' · todos cobrados ✓</div>'
+      + '</div>'
+      + '<div style="text-align:right;flex-shrink:0">'+montoHTML+'</div>'
+      + '</div>';
+  }).join('');
+}
+
 function toggleArchivoMoney(){
   if(_archivoMoneyUnlocked){
     // Lock again
@@ -5628,15 +5756,25 @@ function closeArchivoPinModal(){
   document.getElementById('modal-archivo-pin').classList.add('hidden');
 }
 
+let _archPinTarget = 'archivo';
+
 function checkArchivoPin(){
   const val = document.getElementById('archivo-pin-input').value;
   const ARCHIVO_PIN_REAL = (appData.finanzas&&appData.finanzas.archivoPin) || ARCHIVO_PIN;
   if(val === ARCHIVO_PIN_REAL || val === '1379'){
-    _archivoMoneyUnlocked = true;
     closeArchivoPinModal();
-    renderArchivo();
-    const btn = document.getElementById('arch-money-toggle');
-    if(btn){ btn.textContent='👁 Ocultar montos'; btn.style.background='rgba(90,170,53,0.15)'; btn.style.color='var(--tierra)'; btn.style.borderColor='var(--tierra)'; }
+    if(_archPinTarget === 'cob'){
+      _archCobMoneyUnlocked = true;
+      renderArchCobros();
+      const btn = document.getElementById('arch-cob-money-toggle');
+      if(btn){ btn.textContent='👁 Ocultar montos'; btn.style.background='rgba(90,170,53,0.15)'; btn.style.color='var(--tierra)'; btn.style.borderColor='var(--tierra)'; }
+    } else {
+      _archivoMoneyUnlocked = true;
+      renderArchivo();
+      const btn = document.getElementById('arch-money-toggle');
+      if(btn){ btn.textContent='👁 Ocultar montos'; btn.style.background='rgba(90,170,53,0.15)'; btn.style.color='var(--tierra)'; btn.style.borderColor='var(--tierra)'; }
+    }
+    _archPinTarget = 'archivo';
   } else {
     (document.getElementById('archivo-pin-error')||{style:{}}).style.display='block';
     (document.getElementById('archivo-pin-input')||{}).value='';
@@ -7082,12 +7220,15 @@ function renderBrandBp(brand){
 
   (document.getElementById('brand-bp-cats')||{innerHTML:''}).innerHTML=(bp.categories||[]).map((cat,ci)=>`
     <div class="bp-cat">
-      <div class="bp-cat-head" onclick="toggleBrandBpCat('${brand.id}',${ci})">
-        <div>
-          <span class="bp-cat-name">${cat.name}</span>
+      <div class="bp-cat-head">
+        <div style="display:flex;align-items:center;gap:0.5rem;flex:1" onclick="toggleBrandBpCat('${brand.id}',${ci})">
+          <input value="${cat.name}" onclick="event.stopPropagation()"
+            onchange="renameBrandBpCat('${brand.id}',${ci},this.value)"
+            style="background:none;border:none;outline:none;font-size:0.88rem;font-weight:700;color:var(--text);cursor:text;padding:0;font-family:var(--font);width:auto;min-width:60px;max-width:180px">
           <span class="bp-cat-meta">${cat.items.filter(i=>i.selected).length} sel. · ${cat.items.filter(i=>i.selected&&i.pts!=null).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0)} pts</span>
         </div>
-        <span style="font-size:0.75rem;color:var(--text3)">${cat.open!==false?'▲':'▼'}</span>
+        <button onclick="event.stopPropagation();deleteBrandBpCat('${brand.id}',${ci})" title="Eliminar categoría" style="background:none;border:none;cursor:pointer;font-size:0.75rem;color:var(--text3);padding:0.1rem 0.25rem;border-radius:4px;opacity:0.4;transition:all 0.15s" onmouseover="this.style.opacity=1;this.style.color='#ef4444'" onmouseout="this.style.opacity=0.4;this.style.color='var(--text3)'">🗑</button>
+        <span style="font-size:0.75rem;color:var(--text3);cursor:pointer" onclick="toggleBrandBpCat('${brand.id}',${ci})">${cat.open!==false?'▲':'▼'}</span>
       </div>
       <div class="bp-cat-body ${cat.open===false?'hidden':''}">
         ${cat.items.map((item,ii)=>`
@@ -7686,6 +7827,7 @@ function renderTplBpCats(){
             style="background:none;border:none;outline:none;font-size:0.88rem;font-weight:700;color:var(--text);cursor:text;padding:0;width:auto;min-width:60px;max-width:180px;font-family:var(--font)">
           <span class="bp-cat-meta">${cat.items.filter(i=>i.selected).length} sel. · ${cat.items.filter(i=>i.selected).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0)} pts</span>
         </div>
+        <button onclick="event.stopPropagation();tplDeleteBpCat(${ci})" title="Eliminar categoría" style="background:none;border:none;cursor:pointer;font-size:0.75rem;color:var(--text3);padding:0.1rem 0.25rem;border-radius:4px;opacity:0.4;transition:all 0.15s" onmouseover="this.style.opacity=1;this.style.color='#ef4444'" onmouseout="this.style.opacity=0.4;this.style.color='var(--text3)'">🗑</button>
         <span style="font-size:0.75rem;color:var(--text3);cursor:pointer" onclick="tplToggleBpCat(${ci})">${cat.open!==false?'▲':'▼'}</span>
       </div>
       <div class="bp-cat-body ${cat.open===false?'hidden':''}">
@@ -7727,6 +7869,69 @@ function tplUpdateBpPts(ci,ii,val){appData.template.brandingPoints.categories[ci
 function tplUpdateBpQty(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].qty=parseInt(val)||1;renderTplBpCats();}
 function tplDeleteBpItem(ci,ii){appData.template.brandingPoints.categories[ci].items.splice(ii,1);renderTplBpCats();}
 async function tplAddBpItem(ci){const name=await askModal({label:'Nombre del entregable',placeholder:'Ej: Manual de marca'});if(!name||!name.trim())return;const ptsStr=await askModal({label:`Branding points para "${name}"`,type:'number',defaultValue:'1'});const pts=parseInt(ptsStr)||1;appData.template.brandingPoints.categories[ci].items.push({id:uid(),name:name.trim(),pts,qty:1,selected:false});renderTplBpCats();}
+
+async function tplAddBpCat(){
+  const name = await askModal({label:'Nombre de la nueva categoría', placeholder:'Ej: Fotografía'});
+  if(!name||!name.trim()) return;
+  appData.template.brandingPoints.categories.push({id:uid(), name:name.trim(), open:true, items:[]});
+  renderTplBpCats();
+  markLocalChange('template');
+  await upsert();
+  showStatus('Categoría creada ✓');
+}
+
+function tplDeleteBpCat(ci){
+  if(appData.template.brandingPoints.categories[ci].items.length > 0){
+    confirmModal(`¿Eliminar la categoría "${appData.template.brandingPoints.categories[ci].name}" y todos sus entregables?`, 'Eliminar', 'background:#ef4444;color:#fff;border:none').then(ok=>{
+      if(!ok) return;
+      appData.template.brandingPoints.categories.splice(ci,1);
+      renderTplBpCats();
+      markLocalChange('template');
+      upsert();
+    });
+  } else {
+    appData.template.brandingPoints.categories.splice(ci,1);
+    renderTplBpCats();
+    markLocalChange('template');
+    upsert();
+  }
+}
+
+async function addBrandBpCat(brandId){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand?.brandingPoints) return;
+  const name = await askModal({label:'Nombre de la nueva categoría', placeholder:'Ej: Fotografía'});
+  if(!name||!name.trim()) return;
+  brand.brandingPoints.categories.push({id:uid(), name:name.trim(), open:true, items:[]});
+  renderBrandBp(brand);
+  markLocalChange('brands');
+  await upsert();
+  showStatus('Categoría creada ✓');
+}
+
+async function deleteBrandBpCat(brandId, ci){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand?.brandingPoints) return;
+  const cat = brand.brandingPoints.categories[ci];
+  if(cat.items.length > 0){
+    const ok = await confirmModal(`¿Eliminar la categoría "${cat.name}" y todos sus entregables?`, 'Eliminar', 'background:#ef4444;color:#fff;border:none');
+    if(!ok) return;
+  }
+  brand.brandingPoints.categories.splice(ci,1);
+  renderBrandBp(brand);
+  markLocalChange('brands');
+  await upsert();
+  showStatus('Categoría eliminada ✓');
+}
+
+async function renameBrandBpCat(brandId, ci, val){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand?.brandingPoints?.categories[ci]) return;
+  brand.brandingPoints.categories[ci].name = val.trim()||brand.brandingPoints.categories[ci].name;
+  markLocalChange('brands');
+  await upsert();
+}
+
   function onBpTotalChange(){appData.template.brandingPoints.total=parseInt(document.getElementById('bp-total').value)||0;renderTplBpCats();}
 
 async function saveTemplate(){
