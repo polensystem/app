@@ -3189,11 +3189,14 @@ function shiftWD(dateStr, n){
 
 function addWorkdays(startDate,days){
   if(!startDate) return '';
-  let d=new Date(typeof startDate==='string'?startDate+'T00:00:00':startDate);
-  let added=0;
-  while(added<days){
+  if(!days || days <= 0) return startDate.slice ? startDate.slice(0,10) : fmtLocalDate(startDate);
+  let d = new Date(typeof startDate==='string' ? startDate+'T00:00:00' : startDate);
+  let added = 0;
+  let safety = 0;
+  while(added < days && safety < 1000){
     d.setDate(d.getDate()+1);
-    if(!isWeekend(d))added++;
+    if(!isWeekend(d)) added++;
+    safety++;
   }
   return fmtLocalDate(d);
 }
@@ -3256,14 +3259,17 @@ function buildCronoFromTemplate(tpl,startDateStr){
 
 // String-based addWorkdays (returns string, no Date confusion)
 function addWorkdaysStr(dateStr, days){
+  if(!dateStr) return dateStr;
   if(!days||days<=0) return dateStr;
-  let d = new Date(dateStr);
+  let d = new Date(dateStr+'T00:00:00');
   let added = 0;
-  while(added < days){
+  let safety = 0;
+  while(added < days && safety < 1000){
     d.setDate(d.getDate()+1);
     if(!isWeekend(d)) added++;
+    safety++;
   }
-  return d.toISOString().slice(0,10);
+  return fmtLocalDate(d);
 }
 
 function buildBpFromTemplate(tpl){
@@ -3721,10 +3727,47 @@ async function calDrop(event, newDateStr){
   upsert().then(ok=>{ if(!ok) showStatus('Error al guardar ❌', true); });
 }
 
+async function moveSinUbicar(brandId, actId, stage){
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand?.cronograma) return;
+  const idx = (brand.cronograma._sinUbicar||[]).findIndex(a=>a.id===actId);
+  if(idx===-1) return;
+  const act = brand.cronograma._sinUbicar.splice(idx,1)[0];
+  // Remove internal flags
+  delete act._sinUbicar;
+  // Add to chosen stage
+  if(!brand.cronograma[stage]) brand.cronograma[stage]=[];
+  brand.cronograma[stage].push(act);
+  // Update cobros trigger to point to this activity in the right stage
+  if(act._cobPago && appData.cobros?.[brandId]){
+    const pago = appData.cobros[brandId].pagos.find(p=>p.triggerActId===actId);
+    if(pago){
+      pago.triggerActName = act.name;
+      pago.triggerType = 'evento';
+    }
+    markLocalChange('cobros');
+  }
+  markLocalChange('brands');
+  await upsert();
+  renderBrandCrono(brand);
+  showStatus(`"${act.name}" movido a ${stage} ✓`);
+}
+
+async function deleteSinUbicar(brandId, actId){
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand?.cronograma?._sinUbicar) return;
+  brand.cronograma._sinUbicar = brand.cronograma._sinUbicar.filter(a=>a.id!==actId);
+  markLocalChange('brands');
+  await upsert();
+  renderBrandCrono(brand);
+}
+
+
 async function toggleHitoFreeMode(brandId, stage, actId){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
-  if(!brand?.cronograma?.[stage]) return;
-  const act = brand.cronograma[stage].find(a=>a.id===actId);
+  if(!brand) return;
+  const acts = brand.cronograma?.[stage] || [];
+  const act = acts.find(a=>a.id===actId);
   if(!act) return;
   if(act.revDateOverride){
     // Re-link: remove override
@@ -4342,10 +4385,13 @@ function lockCobranzas(){
 let _cobrosAllExpanded = false;
 
 function getCobTriggerLabel(pago, brand){
-  if(pago.triggerType === 'inicio') return '🚀 Al iniciar el proyecto';
-  if(pago.triggerType === 'evento' && pago.triggerActName) return `📅 ${pago.triggerActName}`;
-  if(pago.trigger) return pago.trigger; // legacy
-  return '— Sin trigger —';
+  if(pago.triggerType === 'manual') return '— Por definir';
+  if(!brand?.cronograma) return '🚀 Inicio de proyecto';
+  const allActs = ['aire','agua','tierra','fuego'].flatMap(s=>(brand.cronograma[s]||[]));
+  const pagoActIdx = allActs.findIndex(a => a.id === pago.triggerActId || a.name === pago.nombre);
+  if(pagoActIdx <= 0) return '🚀 Inicio de proyecto';
+  const trigger = allActs[pagoActIdx - 1];
+  return '📅 ' + (trigger.name || '—');
 }
 
 function getBrandActivities(brand){
@@ -4404,89 +4450,75 @@ async function openTriggerModal(brandId, pagoId){
 
 function ensureCobrosData(){
   if(!appData.cobros) appData.cobros = {};
-  // Ensure every active brand has a cobros entry
   (appData.brands||[]).forEach(b=>{
     if(!appData.cobros[b.id]){
-      // Leer actividades de pago del cronograma
-      const pagosDelCrono=[];
-      ['aire','agua','tierra','fuego'].forEach(e=>{
-        (b.cronograma?.[e]||[]).forEach(a=>{
-          if(a.name?.toLowerCase().includes('pago')){
-            pagosDelCrono.push({
-              id:uid(),
-              nombre:a.name,
-              monto:0,
-              cobrado:false,
-              triggerType: e==='aire'&&a.name?.toLowerCase().includes('primer') ? 'inicio' : 'evento',
-              triggerActName:a.name,
-              trigger:a.name,
-              nota:'',
-              fechaProyectada:'',
-              ultimoSeguimiento:''
-            });
-          }
-        });
-      });
-      // Si el cronograma no tiene pagos, usar 3 genéricos como fallback
-      appData.cobros[b.id] = {
-        expanded: false,
-        pagos: pagosDelCrono.length > 0 ? pagosDelCrono : [
-          {id:uid(), nombre:'Primer pago',  monto:0, cobrado:false, triggerType:'inicio'},
-          {id:uid(), nombre:'Segundo pago', monto:0, cobrado:false, triggerType:'evento', triggerActName:'Presentación de propuesta de marca'},
-          {id:uid(), nombre:'Tercer pago',  monto:0, cobrado:false, triggerType:'evento', triggerActName:'Empaquetado de recursos'},
-        ]
-      };
+      const pagos = buildPagosFromCrono(b);
+      appData.cobros[b.id] = { expanded:false, pagos };
     }
   });
 }
 
-function cobStatus(pago, allPagos, brand){
-  // Cobrado: already paid
-  if(pago.cobrado) return {label:'Cobrado', cls:'cobrado'};
-
-  // Find the trigger activity for this pago
-  const getTriggerAct = (p)=>{
-    if(!brand?.cronograma) return null;
-    if(p.triggerType === 'inicio') return null; // special: brand creation
-    if(p.triggerType === 'evento' && p.triggerActName){
-      for(const st of ['aire','agua','tierra','fuego']){
-        const found = (brand.cronograma[st]||[]).find(a=>a.name===p.triggerActName);
-        if(found) return found;
-      }
-    }
-    return null;
-  };
-
-  const triggerAct = getTriggerAct(pago);
-
-  // "Cobrar": trigger is reached — either it's the inicio trigger (brand exists)
-  // or the trigger activity is completada
-  if(pago.triggerType === 'inicio'){
-    // First pago always starts as "Cobrar" once the brand exists
-    return {label:'Cobrar', cls:'acobrar'};
-  }
-
-  if(triggerAct && triggerAct.status === 'completada'){
-    return {label:'Cobrar', cls:'acobrar'};
-  }
-
-  // "Próximo": the activity immediately BEFORE the trigger activity is completada
-  if(triggerAct){
-    // Find all activities across all stages in order
-    const allActs = ['aire','agua','tierra','fuego'].flatMap(s=>(brand.cronograma[s]||[]));
-    const triggerIdx = allActs.findIndex(a=>a.id===triggerAct.id);
-    if(triggerIdx > 0){
-      const prevAct = allActs[triggerIdx - 1];
-      if(prevAct && prevAct.status === 'completada'){
-        return {label:'Próximo', cls:'proximo'};
-      }
-    }
-  }
-
-  // "Futuro": haven't reached the trigger yet
-  return {label:'Futuro', cls:'pendiente'};
+// Build pagos array strictly from cronograma hitos — no generics
+function _actIsPago(act){
+  return /pago/i.test(act.name||'');
 }
 
+function buildPagosFromCrono(brand){
+  const pagos = [];
+  ['aire','agua','tierra','fuego'].forEach(stage=>{
+    (brand.cronograma?.[stage]||[]).forEach(a=>{
+      if(_actIsPago(a)){
+        pagos.push({
+          id: uid(),
+          nombre: a.name,
+          monto: 0,
+          cobrado: false,
+          triggerType: 'evento',
+          triggerActName: a.name,
+          triggerActId: a.id,
+          fechaProyectada: a.endDate||'',
+          nota: '',
+          ultimoSeguimiento: ''
+        });
+      }
+    });
+  });
+  return pagos;
+}
+
+function cobStatus(pago, allPagos, brand){
+  // Cobrado: ya fue marcado como cobrado manualmente
+  if(pago.cobrado) return {label:'Cobrado', cls:'cobrado'};
+
+  // Pago manual sin trigger definido aún
+  if(pago.triggerType === 'manual') return {label:'Futuro', cls:'pendiente'};
+
+  if(!brand?.cronograma) return {label:'Futuro', cls:'pendiente'};
+
+  // Lista plana de todas las actividades en orden cronológico
+  const allActs = ['aire','agua','tierra','fuego'].flatMap(s=>(brand.cronograma[s]||[]));
+
+  // Encontrar la actividad "pago" en el cronograma por id o por nombre
+  const pagoActIdx = allActs.findIndex(a =>
+    a.id === pago.triggerActId || a.name === pago.nombre
+  );
+  if(pagoActIdx < 0) return {label:'Futuro', cls:'pendiente'};
+
+  // El trigger es la actividad INMEDIATAMENTE ANTERIOR al pago en el cronograma
+  if(pagoActIdx === 0){
+    // El pago es la primera actividad — no hay anterior, siempre listo para cobrar
+    return {label:'Cobrar', cls:'acobrar'};
+  }
+  const triggerAct = allActs[pagoActIdx - 1];
+
+  // "Cobrar": la actividad anterior está completada
+  if(triggerAct.status === 'completada'){
+    return {label:'Cobrar', cls:'acobrar'};
+  }
+
+  // "Futuro": la actividad anterior aún no está completada
+  return {label:'Futuro', cls:'pendiente'};
+}
 function renderCobros(){
   ensureCobrosData();
   const grid = document.getElementById('cob-brands-grid');
@@ -4624,11 +4656,7 @@ function renderCobCard(brandId){
         </div>
         <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.2rem;flex-wrap:wrap">
           <span class="cob-status-pill ${st.cls}">${st.label}</span>
-          <button onclick="event.stopPropagation();openTriggerModal('${b.id}','${p.id}')"
-            style="display:inline-flex;align-items:center;gap:0.2rem;background:none;border:1px dashed var(--border);border-radius:6px;padding:0.1rem 0.45rem;font-size:0.62rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-            onmouseover="this.style.borderColor='var(--aire)';this.style.color='var(--aire)'"
-            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'"
-            title="Cambiar trigger">${triggerLabel} ✏️</button>
+          <span style="display:inline-flex;align-items:center;gap:0.2rem;border-radius:6px;padding:0.1rem 0.45rem;font-size:0.62rem;color:var(--text3);font-family:var(--font);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Actividad que activa este cobro">${triggerLabel}</span>
         </div>
       </div>
       <input type="number" value="${montoVal}" placeholder="0"
@@ -4713,9 +4741,22 @@ async function editCobNombre(brandId, pagoId){
   if(!pago) return;
   const val = await askModal({ label:'Nombre del pago', defaultValue: pago.nombre||'' });
   if(val === null) return;
-  pago.nombre = val.trim() || pago.nombre;
+  const nuevoNombre = val.trim() || pago.nombre;
+  pago.nombre = nuevoNombre;
+  // Sincronizar nombre en el cronograma de la marca
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(brand){
+    const todasLasActs = ['aire','agua','tierra','fuego'].flatMap(s=>brand.cronograma?.[s]||[]);
+    const actCrono = todasLasActs.find(a => a.id === pago.triggerActId);
+    if(actCrono) actCrono.name = nuevoNombre;
+    const sinUbicar = brand.cronograma?._sinUbicar||[];
+    const actSin = sinUbicar.find(a => a.id === pago.triggerActId);
+    if(actSin) actSin.name = nuevoNombre;
+    markLocalChange('brands');
+  }
   markLocalChange('cobros');
   renderCobCard(brandId);
+  if(brand) renderBrandCrono(brand);
   await upsert();
   showStatus('Nombre actualizado ✓');
 }
@@ -4736,12 +4777,28 @@ async function saveCobField(brandId, pagoId, field, val){
 async function addCobPago(brandId){
   ensureCobrosData();
   const pagos = appData.cobros[brandId].pagos;
-  const newPago = {id:uid(), nombre:`Pago ${pagos.length+1}`, monto:0, cobrado:false, triggerType:'evento', triggerActName:''};
+  const newId = uid();
+  const nombre = `Pago ${pagos.length+1}`;
+  const newPago = {id:newId, nombre, monto:0, cobrado:false, triggerType:'manual', triggerActName:'', triggerActId:newId};
   pagos.push(newPago);
+  // Add unlocated activity to brand cronograma so it can be placed
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(brand){
+    if(!brand.cronograma) brand.cronograma = {aire:[],agua:[],tierra:[],fuego:[]};
+    if(!brand.cronograma._sinUbicar) brand.cronograma._sinUbicar = [];
+    brand.cronograma._sinUbicar.push({
+      id:newId, name:nombre, days:1, isHito:true,
+      status:'pendiente', startDate:'', endDate:'',
+      _cobPago:true, _sinUbicar:true
+    });
+    markLocalChange('brands');
+  }
   markLocalChange('cobros');
   await upsert();
   renderCobCard(brandId);
   renderCobTabla();
+  if(brand) renderBrandCrono(brand);
+  showStatus(`"${nombre}" agregado a cobros y al cronograma de ${brand?.name||''} como actividad sin ubicar`);
 }
 
 const _deletingPagoIds = new Set();
@@ -4911,10 +4968,7 @@ function renderCobTabla(){
           </div>
           <span style="font-size:0.65rem;color:var(--text3);white-space:nowrap">${pct}%</span>
         </div>
-        <button onclick="openTriggerModal('${b.id}','${p.id}')"
-          style="display:block;background:none;border:none;padding:0;font-size:0.6rem;color:var(--text3);cursor:pointer;font-family:var(--font);text-align:left;margin-top:0.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px"
-          onmouseover="this.style.color='var(--aire)'" onmouseout="this.style.color='var(--text3)'"
-          title="Cambiar trigger">${triggerLabel} ✏️</button>
+        <span style="display:block;font-size:0.6rem;color:var(--text3);font-family:var(--font);text-align:left;margin-top:0.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px" title="Actividad que activa este cobro">${triggerLabel}</span>
       </div>
       <!-- Estado -->
       <div style="width:110px;flex-shrink:0;padding-left:1rem">
@@ -6065,7 +6119,28 @@ function renderBrandCrono(brand){
     <span class="shift-label">Mover todo el cronograma (días hábiles)</span>
   </div>`;
 
-  (document.getElementById('brand-crono-stages')||{innerHTML:''}).innerHTML=shiftHTML+stages.map(stage=>{
+  // Sin ubicar section
+  const sinUbicar = brand.cronograma._sinUbicar||[];
+  const sinUbicarHTML = sinUbicar.length ? `
+    <div style="margin-bottom:1rem;border:2px dashed var(--fuego);border-radius:var(--r-sm);overflow:hidden;opacity:0.95">
+      <div style="background:rgba(232,98,42,0.08);padding:0.6rem 1rem;display:flex;align-items:center;gap:0.6rem;border-bottom:1px dashed var(--fuego)">
+        <span style="font-size:0.8rem;font-weight:800;color:var(--fuego)">📍 Sin ubicar</span>
+        <span style="font-size:0.72rem;color:var(--text3)">${sinUbicar.length} item${sinUbicar.length>1?'s':''} pendiente${sinUbicar.length>1?'s':''} de asignar a una etapa</span>
+      </div>
+      ${sinUbicar.map(a=>`
+        <div style="display:flex;align-items:center;gap:0.7rem;padding:0.5rem 1rem;background:var(--bg-card2)">
+          <span style="font-size:0.82rem;font-weight:700;flex:1;color:var(--fuego)">${a.name}</span>
+          <span style="font-size:0.7rem;color:var(--text3)">Mover a:</span>
+          ${['aire','agua','tierra','fuego'].map(s=>`
+            <button onclick="moveSinUbicar('${brand.id}','${a.id}','${s}')"
+              style="background:rgba(${s==='aire'?'59,158,221':s==='agua'?'45,195,179':s==='tierra'?'122,182,72':'232,98,42'},0.15);border:1px solid rgba(${s==='aire'?'59,158,221':s==='agua'?'45,195,179':s==='tierra'?'122,182,72':'232,98,42'},0.4);color:var(--${s});border-radius:6px;padding:0.2rem 0.5rem;font-size:0.68rem;font-weight:700;cursor:pointer;font-family:var(--font)">
+              ${s==='aire'?'✈️ Aire':s==='agua'?'💧 Agua':s==='tierra'?'🌱 Tierra':'🔥 Fuego'}
+            </button>`).join('')}
+          <button onclick="deleteSinUbicar('${brand.id}','${a.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.75rem;opacity:0.5" title="Eliminar">✕</button>
+        </div>`).join('')}
+    </div>` : '';
+
+  (document.getElementById('brand-crono-stages')||{innerHTML:''}).innerHTML=shiftHTML+sinUbicarHTML+stages.map(stage=>{
     const acts=brand.cronograma[stage]||[];
     if(!acts.length)return'';
     const total=acts.length;
@@ -6123,12 +6198,13 @@ function renderBrandCrono(brand){
           <span class="act-days-inline" id="days-badge-${a.id}" onclick="startInlineDays(event,'${brand.id}','${stage}','${a.id}')" title="Click para editar duración">${a.days}d</span>
           ${actSmartStatusPill(a)}
           <span class="act-date" title="Fecha inicio — click para editar" onclick="editDate(event,'${brand.id}','${stage}','${a.id}','startDate')">📅 ${fmtDateDisplay(a.startDate)}</span>
-          <span style="font-size:0.68rem;color:var(--text3)">→</span>
-          <span class="act-date" title="Fecha fin — click para editar" onclick="editDate(event,'${brand.id}','${stage}','${a.id}','endDate')">🏁 ${fmtDateDisplay(a.endDate)}</span>
           <button onclick="deleteCronoActivity('${brand.id}','${stage}','${a.id}')" title="Eliminar actividad" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:0.75rem;color:var(--text3);padding:0.1rem 0.3rem;border-radius:4px;opacity:0.4;transition:opacity 0.15s" onmouseover="this.style.opacity=1;this.style.color='#ef4444'" onmouseout="this.style.opacity=0.4;this.style.color='var(--text3)'">🗑</button>
         </div>`).join('')}
-      <div style="padding:0.4rem 1.2rem 0.6rem">
-        <button onclick="addCronoActivity('${brand.id}','${stage}')" style="display:flex;align-items:center;gap:0.4rem;background:none;border:1px dashed var(--border);border-radius:8px;padding:0.3rem 0.8rem;font-size:0.75rem;color:var(--text3);cursor:pointer;width:100%;justify-content:center;font-family:var(--font);transition:all 0.15s" onmouseover="this.style.borderColor='var(--aire)';this.style.color='var(--aire)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
+      <div style="padding:0.4rem 1.2rem 0.6rem"
+        ondragover="actStageDropZoneOver(event,'${stage}')"
+        ondragleave="actStageDropZoneLeave(event,'${stage}')"
+        ondrop="actDropToStage(event,'${brand.id}','${stage}')">
+        <button onclick="addCronoActivity('${brand.id}','${stage}')" id="add-act-btn-${stage}-${brand.id}" style="display:flex;align-items:center;gap:0.4rem;background:none;border:1px dashed var(--border);border-radius:8px;padding:0.3rem 0.8rem;font-size:0.75rem;color:var(--text3);cursor:pointer;width:100%;justify-content:center;font-family:var(--font);transition:all 0.15s" onmouseover="this.style.borderColor='var(--aire)';this.style.color='var(--aire)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
           + Agregar actividad
         </button>
       </div>
@@ -6177,22 +6253,103 @@ function actDragEnd(){
   document.querySelectorAll('.act-item').forEach(el=>{ el.style.opacity=''; el.style.outline='none'; });
   _actDragId = null; _actDragBrand = null; _actDragStage = null;
 }
-async function actDrop(event, brandId, stage, targetId){
+async function actDrop(event, brandId, targetStage, targetId){
   event.preventDefault();
   document.querySelectorAll('.act-item').forEach(el=>{ el.style.outline='none'; el.style.opacity=''; });
-  if(!_actDragId || _actDragId === targetId || _actDragBrand !== brandId || _actDragStage !== stage) return;
+  if(!_actDragId || _actDragId === targetId || _actDragBrand !== brandId) return;
   const brand = appData.brands.find(b=>b.id===brandId);
-  if(!brand?.cronograma?.[stage]) return;
-  const acts = brand.cronograma[stage];
-  const fromIdx = acts.findIndex(a=>a.id===_actDragId);
-  const toIdx   = acts.findIndex(a=>a.id===targetId);
-  if(fromIdx<0||toIdx<0) return;
-  const [moved] = acts.splice(fromIdx, 1);
-  acts.splice(toIdx, 0, moved);
+  if(!brand?.cronograma) return;
+  const srcStage = _actDragStage;
+
+  if(srcStage === targetStage){
+    // Reordenar dentro de la misma etapa
+    const acts = brand.cronograma[srcStage];
+    const fromIdx = acts.findIndex(a=>a.id===_actDragId);
+    const toIdx   = acts.findIndex(a=>a.id===targetId);
+    if(fromIdx<0||toIdx<0) return;
+    const [moved] = acts.splice(fromIdx, 1);
+    acts.splice(toIdx, 0, moved);
+  } else {
+    // Mover a otra etapa: insertar antes de targetId
+    const srcActs = brand.cronograma[srcStage];
+    const dstActs = brand.cronograma[targetStage];
+    const fromIdx = srcActs.findIndex(a=>a.id===_actDragId);
+    const toIdx   = dstActs.findIndex(a=>a.id===targetId);
+    if(fromIdx<0) return;
+    const [moved] = srcActs.splice(fromIdx, 1);
+    const insertAt = toIdx >= 0 ? toIdx : dstActs.length;
+    dstActs.splice(insertAt, 0, moved);
+    // Recalcular fechas en etapa destino
+    _rechainStage(brand, targetStage);
+    // Recalcular fechas en etapa origen (brecha que quedó)
+    _rechainStage(brand, srcStage);
+  }
   renderBrandCrono(brand);
   markLocalChange('brands');
   await upsert();
-  showStatus('Orden guardado ✓');
+  showStatus('Actividad movida ✓');
+}
+
+// Soltar al FINAL de una etapa (zona debajo de las actividades)
+async function actDropToStage(event, brandId, targetStage){
+  event.preventDefault();
+  event.stopPropagation();
+  const btn = document.getElementById('add-act-btn-'+targetStage+'-'+brandId);
+  if(btn){ btn.style.borderColor=''; btn.style.color=''; }
+  if(!_actDragId || _actDragBrand !== brandId) return;
+  if(_actDragStage === targetStage) return; // ya está en esa etapa — no hacer nada
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand?.cronograma) return;
+  const srcActs = brand.cronograma[_actDragStage];
+  const dstActs = brand.cronograma[targetStage];
+  const fromIdx = srcActs.findIndex(a=>a.id===_actDragId);
+  if(fromIdx<0) return;
+  const [moved] = srcActs.splice(fromIdx, 1);
+  dstActs.push(moved);
+  _rechainStage(brand, targetStage);
+  _rechainStage(brand, _actDragStage);
+  document.querySelectorAll('.act-item').forEach(el=>{ el.style.outline='none'; el.style.opacity=''; });
+  renderBrandCrono(brand);
+  markLocalChange('brands');
+  await upsert();
+  showStatus('Actividad movida al final de la etapa ✓');
+}
+
+function actStageDropZoneOver(event, stage){
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  // Solo resaltar si viene de otra etapa
+  if(_actDragStage && _actDragStage !== stage){
+    const btn = document.getElementById('add-act-btn-'+stage+'-'+_actDragBrand);
+    if(btn){ btn.style.borderColor='var(--aire)'; btn.style.color='var(--aire)'; }
+  }
+}
+function actStageDropZoneLeave(event, stage){
+  const btn = document.getElementById('add-act-btn-'+stage+'-'+_actDragBrand);
+  if(btn){ btn.style.borderColor=''; btn.style.color=''; }
+}
+
+// Recalcular fechas encadenadas de una etapa
+function _rechainStage(brand, stage){
+  const acts = brand.cronograma[stage]||[];
+  if(!acts.length) return;
+  // Buscar la última fecha de la etapa anterior como punto de partida
+  const stageOrder = ['aire','agua','tierra','fuego'];
+  const stageIdx = stageOrder.indexOf(stage);
+  let prevEnd = null;
+  for(let i = stageIdx-1; i >= 0; i--){
+    const prev = brand.cronograma[stageOrder[i]]||[];
+    const last = [...prev].reverse().find(a=>a.endDate);
+    if(last){ prevEnd = last.endDate; break; }
+  }
+  acts.forEach((a, i)=>{
+    if(i === 0){
+      a.startDate = prevEnd ? addWorkdays(prevEnd, 1) : (a.startDate||new Date().toISOString().slice(0,10));
+    } else {
+      a.startDate = addWorkdays(acts[i-1].endDate, 1);
+    }
+    a.endDate = addWorkdays(a.startDate, (a.days||1)-1);
+  });
 }
 
 /* ── Cronograma activity drag-and-drop (template) ── */
@@ -6314,7 +6471,22 @@ async function addCronoActivity(brandId, stage){
   const startDate = lastAct?.endDate ? addWorkdays(lastAct.endDate, 1) : new Date().toISOString().slice(0,10);
   const endDate = addWorkdays(startDate, days-1);
   acts.push({id:uid(), name, days, startDate, endDate, status:'pendiente', isHito:false});
+  const newAct = acts[acts.length-1];
   brand.cronograma[stage] = acts;
+  // Si el nombre contiene "pago", sincronizar con cobros
+  if(_actIsPago(newAct)){
+    if(!appData.cobros) appData.cobros = {};
+    if(!appData.cobros[brandId]) appData.cobros[brandId] = {expanded:false, pagos:[]};
+    const yaExiste = appData.cobros[brandId].pagos.find(p=>p.triggerActId===newAct.id);
+    if(!yaExiste){
+      appData.cobros[brandId].pagos.push({
+        id: uid(), nombre: newAct.name, monto: 0, cobrado: false,
+        triggerType: 'evento', triggerActName: newAct.name, triggerActId: newAct.id,
+        fechaProyectada: newAct.endDate||'', nota: '', ultimoSeguimiento: ''
+      });
+      markLocalChange('cobros');
+    }
+  }
     markLocalChange('brands');
 await upsert();
   showStatus('Actividad añadida ✓');
@@ -6339,6 +6511,14 @@ async function deleteCronoActivity(brandId, stage, actId){
     }
   }
   brand.cronograma[stage] = acts;
+  // Si la actividad eliminada era un pago, removerlo de cobros
+  if(_actIsPago(removed) && appData.cobros?.[brandId]){
+    const antes = appData.cobros[brandId].pagos.length;
+    appData.cobros[brandId].pagos = appData.cobros[brandId].pagos.filter(
+      p => p.triggerActId !== removed.id
+    );
+    if(appData.cobros[brandId].pagos.length !== antes) markLocalChange('cobros');
+  }
   markLocalChange('brands');
   renderBrandCrono(brand);
   const saved = await upsert();
@@ -6457,17 +6637,10 @@ function editDate(e,brandId,stage,actId,field){
     const val = input.value;
     if(!val || val===current){ renderBrandCrono(brand); return; }
 
-    // Guardar estado original por si hay que revertir
+    // Solo editamos startDate; endDate se deriva de startDate + days
     const oldEndDate = act.endDate;
-    const oldStartDate = act.startDate;
-
-    if(field==='endDate'){
-      act.endDate = val;
-      act.startDate = act.startDate ? shiftWD(val, -((act.days||1)-1)) : val;
-    } else {
-      act.startDate = val;
-      act.endDate = addWorkdays(val, (act.days||1)-1);
-    }
+    act.startDate = val;
+    act.endDate = addWorkdays(val, Math.max((act.days||1)-1, 0));
 
     if(!oldEndDate){ renderBrandCrono(brand); markLocalChange('brands'); await upsert(); showStatus('Fecha actualizada ✓'); return; }
     const delta = wdDeltaBetween(oldEndDate, act.endDate);
@@ -7094,27 +7267,9 @@ async function saveBrand(){ markLocalChange("brands");
     if(!Array.isArray(appData.brands))appData.brands=[];
     appData.brands.push(newBrand);
 
-    // Auto-create cobros structure from cronograma hitos
-    ensureCobrosData();
-    const hitos = ['aire','agua','tierra','fuego'].flatMap(s=>
-      (cronograma[s]||[]).filter(a=>a.isHito).map(a=>({...a,stage:s}))
-    );
-    if(hitos.length > 0){
-      const pagos = [
-        {id:uid(), nombre:'Primer pago', monto:0, cobrado:false, triggerType:'inicio'},
-        ...hitos.slice(0,4).map((h,i)=>({
-          id:uid(),
-          nombre:`Pago ${i+2}`,
-          monto:0,
-          cobrado:false,
-          triggerType:'evento',
-          triggerActName:h.name,
-          triggerActId:h.id,
-          fechaProyectada:h.endDate||''
-        }))
-      ];
-      appData.cobros[newBrand.id] = { expanded:false, pagos };
-    }
+    // Auto-create cobros structure from cronograma hitos only
+    const pagos = buildPagosFromCrono(newBrand);
+    appData.cobros[newBrand.id] = { expanded:false, pagos };
     markLocalChange('cobros');
   }
 
@@ -11050,7 +11205,7 @@ function renderClientHub(){
 
     // ── Archive-request note: special card ──
     if(note.type === 'archive-request'){
-      return `<div style="display:flex;flex-direction:column;gap:0.5rem;padding:0.85rem;background:rgba(90,170,53,0.07);border:1.5px solid rgba(90,170,53,0.35);border-radius:10px">
+      return `<div style="display:flex;flex-direction:column;gap:0.5rem;padding:0.85rem;background:rgba(90,170,53,0.07);border:1.5px solid rgba(90,170,53,0.35);border-radius:10px;min-width:0">
         <div style="display:flex;align-items:center;gap:0.5rem">
           <span style="font-size:1rem">📦</span>
           <span style="font-size:0.78rem;font-weight:800;color:var(--tierra)">Proyecto listo para archivar</span>
@@ -11074,7 +11229,7 @@ function renderClientHub(){
       </div>`;
     }
 
-    return `<div style="display:flex;flex-direction:column;gap:0.4rem;padding:0.75rem;background:${note.done?'var(--glass)':urg.bg};border:1px solid ${note.done?'var(--border)':urg.border};border-radius:10px;transition:all 0.18s;${note.done?'opacity:0.55':''}">
+    return `<div style="display:flex;flex-direction:column;gap:0.4rem;padding:0.75rem;background:${note.done?'var(--glass)':urg.bg};border:1px solid ${note.done?'var(--border)':urg.border};border-radius:10px;transition:all 0.18s;min-width:0;${note.done?'opacity:0.55':''}">
       <div style="display:flex;align-items:center;gap:0.35rem">
         <button type="button" onclick="toggleHubNote('${note.id}')"
           style="width:18px;height:18px;border-radius:5px;border:2px solid ${note.done?'var(--tierra)':urg.color};background:${note.done?'var(--tierra)':'transparent'};cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#fff;transition:all 0.15s">${note.done?'✓':''}</button>
