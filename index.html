@@ -1399,6 +1399,15 @@ body.portal-mode .main{ height:100vh; }
                 style="padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:none;color:var(--text3)">
                 ☰ Tabla
               </button>
+              <button id="view-btn-etapa" onclick="setBrandsView('etapa')"
+                style="padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:none;color:var(--text3)">
+                ◫ Etapa
+              </button>
+              <button id="view-btn-miembro" onclick="setBrandsView('miembro')"
+                style="padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:none;color:var(--text3)">
+                👥 Miembro
+              </button>
+
             </div>
             <div class="export-wrap">
               <button class="btn-export-inline" onclick="toggleInlineExport(this)">⬇ Exportar</button>
@@ -1447,9 +1456,24 @@ body.portal-mode .main{ height:100vh; }
         </div>
 
         <!-- Cards view -->
-        <div id="brands-view-cards" style="padding:1.2rem;background:transparent">
-          <div class="brands-grid" id="brands-grid"></div>
+        <div id="brands-view-cards" style="background:transparent">
+          <div style="padding:0.7rem 1.2rem 0;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+            <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3)">Orden</span>
+            <div style="display:flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:7px;overflow:hidden">
+              <button id="csort-default" onclick="setCardsSort('default')" style="padding:0.26rem 0.6rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--aire);color:#fff;border-right:1px solid var(--border)">Reciente</button>
+              <button id="csort-az" onclick="setCardsSort('az')" style="padding:0.26rem 0.6rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);border-right:1px solid var(--border)">A → Z</button>
+              <button id="csort-za" onclick="setCardsSort('za')" style="padding:0.26rem 0.6rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);border-right:1px solid var(--border)">Z → A</button>
+              <button id="csort-oldest" onclick="setCardsSort('oldest')" style="padding:0.26rem 0.6rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3)">Más antigua</button>
+            </div>
+          </div>
+          <div style="padding:1rem 1.2rem">
+            <div class="brands-grid" id="brands-grid"></div>
+          </div>
         </div>
+        <!-- Etapa view -->
+        <div id="brands-view-etapa" style="display:none;padding:1.2rem"></div>
+        <!-- Miembro view -->
+        <div id="brands-view-miembro" style="display:none;padding:1.2rem"></div>
         <!-- Table view -->
         <div id="brands-view-table" style="display:none;overflow-x:auto;overflow-y:auto;max-height:560px;background:var(--bg-card)">
           <table id="brands-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;min-width:900px">
@@ -2270,18 +2294,41 @@ body.portal-mode .main{ height:100vh; }
         <!-- Tabla detallada de cobros -->
         <div style="margin-top:1.5rem">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.7rem;margin-bottom:0.8rem">
-            <div>
-              <div style="font-size:1rem;font-weight:800;color:var(--text)">Tabla de cobros</div>
-              <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem">Vista detallada · sincronizada en tiempo real</div>
+            <div style="display:flex;align-items:center;gap:0.8rem">
+              <div>
+                <div style="font-size:1rem;font-weight:800;color:var(--text)">Tabla de cobros</div>
+                <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem">Vista detallada · sincronizada en tiempo real</div>
+              </div>
+              <div class="export-wrap">
+                <button class="btn-export-inline" onclick="toggleInlineExport(this)">⬇ Exportar vista</button>
+                <div class="export-dropdown">
+                  <button class="export-opt" onclick="runExport('cob_tabla_pdf')">📄 PDF</button>
+                  <button class="export-opt" onclick="runExport('cob_tabla_xlsx')">📊 Excel</button>
+                </div>
+              </div>
             </div>
-            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
-              <span style="font-size:0.7rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Ordenar:</span>
-              <button class="cob-sort-btn active" id="cob-sort-proximo" onclick="setCobSort('proximo')">🕐 Más próximos</button>
-              <button class="cob-sort-btn" id="cob-sort-marca" onclick="setCobSort('marca')">🏷 Marca</button>
-              <button class="cob-sort-btn" id="cob-sort-monto" onclick="setCobSort('monto')">💰 Monto</button>
-              <button class="cob-sort-btn" id="cob-sort-npago" onclick="setCobSort('npago')"># Pago</button>
-              <div style="width:1px;height:16px;background:var(--border);margin:0 0.25rem"></div>
-              <button class="cob-sort-btn" id="cob-hide-cobrado-btn" onclick="toggleHideCobrado()" style="gap:0.3rem">👁 Ocultar cobrados</button>
+            <div style="display:flex;flex-direction:column;gap:0.5rem">
+              <!-- Filtros de período/estado -->
+              <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
+                <span style="font-size:0.7rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Filtrar:</span>
+                <button class="cob-sort-btn active" id="cob-filter-todos" onclick="setCobFilter('todos')">📋 Todos</button>
+                <button class="cob-sort-btn" id="cob-filter-mes" onclick="setCobFilter('mes')">📅 Mes actual</button>
+                <button class="cob-sort-btn" id="cob-filter-cobrar" onclick="setCobFilter('cobrar')">🟠 Por cobrar</button>
+                <button class="cob-sort-btn" id="cob-filter-atrasado" onclick="setCobFilter('atrasado')">🔴 Atrasados</button>
+                <button class="cob-sort-btn" id="cob-filter-cobrado" onclick="setCobFilter('cobrado')">✅ Cobrados</button>
+                <button class="cob-sort-btn" id="cob-filter-futuro" onclick="setCobFilter('futuro')">🔵 Futuros</button>
+                <div style="width:1px;height:16px;background:var(--border);margin:0 0.1rem"></div>
+                <button class="cob-sort-btn" id="cob-hide-cobrado-btn" onclick="toggleHideCobrado()">👁 Ocultar cobrados</button>
+              </div>
+              <!-- Orden -->
+              <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
+                <span style="font-size:0.7rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Ordenar:</span>
+                <button class="cob-sort-btn active" id="cob-sort-proximo" onclick="setCobSort('proximo')">🕐 Más próximos</button>
+                <button class="cob-sort-btn" id="cob-sort-marca" onclick="setCobSort('marca')">🏷 Marca</button>
+                <button class="cob-sort-btn" id="cob-sort-monto" onclick="setCobSort('monto')">💰 Monto</button>
+                <button class="cob-sort-btn" id="cob-sort-npago" onclick="setCobSort('npago')"># Pago</button>
+                <button class="cob-sort-btn" id="cob-sort-fecha" onclick="setCobSort('fecha')">📅 Fecha proyectada</button>
+              </div>
             </div>
           </div>
           <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden">
@@ -4764,6 +4811,12 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
   pago.cobrado = !pago.cobrado;
+  if(pago.cobrado){
+    pago.fechaCobrado = new Date().toISOString().slice(0,10);
+    if(!pago.fechaProyectada) pago.fechaProyectada = pago.fechaCobrado;
+  } else {
+    delete pago.fechaCobrado;
+  }
 
   // ── Sync cobros → crono ──
   // Si el pago tiene nombre que coincide con una actividad del cronograma → sync
@@ -4909,8 +4962,10 @@ async function deleteCobPago(brandId, pagoId){
 }
 
 function calcCobradoMes(month, year){
-  // Suma cobros donde cobrado=true Y fechaProyectada cae en el mes/año dado
-  // Excluye pagos marcados como manuales (triggerType:'manual') del cómputo automático
+  // Suma cobros donde cobrado=true Y la fecha de cobro real cae en el mes/año dado.
+  // Usa fechaCobrado (fecha en que se marcó cobrado) como criterio principal.
+  // Si no existe fechaCobrado, usa fechaProyectada como fallback.
+  // Excluye pagos con triggerType:'manual' del cómputo automático.
   ensureCobrosData();
   return Object.values(appData.cobros||{}).reduce((s, cob)=>{
     const pagos = cob.pagos||[];
@@ -4918,9 +4973,10 @@ function calcCobradoMes(month, year){
     const montoInd = useTotal && pagos.length ? (cob.valorTotal||0) / pagos.length : null;
     return s + pagos.filter(p=>{
       if(!p.cobrado) return false;
-      if(p.triggerType === 'manual') return false; // pagos manuales no cuentan automáticamente
-      if(!p.fechaProyectada) return false;
-      const d = new Date(p.fechaProyectada+'T00:00:00');
+      if(p.triggerType === 'manual') return false;
+      const fechaRef = p.fechaCobrado || p.fechaProyectada;
+      if(!fechaRef) return false;
+      const d = new Date(fechaRef+'T00:00:00');
       return d.getFullYear()===year && d.getMonth()===month;
     }).reduce((ss,p)=>ss+(useTotal ? montoInd : (parseFloat(p.monto)||0)), 0);
   }, 0);
@@ -4938,6 +4994,7 @@ function syncCobrosToFin(){
 /* ═══ COBROS TABLA ═══ */
 let _cobSort = 'proximo';
 let _hideCobrado = false;
+let _cobFilter = 'todos';
 
 function toggleHideCobrado(){
   _hideCobrado = !_hideCobrado;
@@ -4947,10 +5004,41 @@ function toggleHideCobrado(){
     btn.classList.toggle('active', _hideCobrado);
   }
   renderCobTabla();
-  // Also hide/show in the cards grid
   document.querySelectorAll('.cobrado-row').forEach(r=>{
     r.style.display = _hideCobrado ? 'none' : '';
   });
+}
+
+function setCobFilter(filter){
+  _cobFilter = filter;
+  document.querySelectorAll('[id^="cob-filter-"]').forEach(b=>b.classList.remove('active'));
+  const btn = document.getElementById('cob-filter-'+filter);
+  if(btn) btn.classList.add('active');
+  renderCobTabla();
+}
+
+function _pasaCobFilter(p, pagos, brand){
+  if(_cobFilter === 'todos') return true;
+  const now = new Date();
+  const curM = now.getMonth(), curY = now.getFullYear();
+  const st = cobStatus(p, pagos, brand);
+  if(_cobFilter === 'cobrado') return p.cobrado;
+  if(_cobFilter === 'cobrar') return !p.cobrado && st.cls === 'acobrar';
+  if(_cobFilter === 'futuro') return !p.cobrado && st.cls === 'pendiente';
+  if(_cobFilter === 'mes'){
+    const fechaRef = p.fechaCobrado || p.fechaProyectada;
+    if(!fechaRef) return false;
+    const d = new Date(fechaRef+'T00:00:00');
+    return d.getFullYear()===curY && d.getMonth()===curM;
+  }
+  if(_cobFilter === 'atrasado'){
+    if(p.cobrado) return false;
+    const fecha = p.fechaProyectada;
+    if(!fecha) return false;
+    const d = new Date(fecha+'T00:00:00');
+    return d < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+  return true;
 }
 
 function setCobSort(mode){
@@ -4979,6 +5067,7 @@ function renderCobTabla(){
     pagos.forEach((p,pi)=>{
       if(_hideCobrado && p.cobrado) return;
       const st = cobStatus(p, pagos, b);
+      if(!_pasaCobFilter(p, pagos, b)) return;
       rows.push({
         brand: b,
         pago: p,
@@ -5002,15 +5091,28 @@ function renderCobTabla(){
   } else if(_cobSort === 'monto'){
     rows.sort((a,b)=>(parseFloat(b.pago.monto)||0)-(parseFloat(a.pago.monto)||0));
   } else if(_cobSort === 'npago'){
-    // Group by pago number, within each group sort by monto desc
     rows.sort((a,b)=>{
       if(a.pagoIdx !== b.pagoIdx) return a.pagoIdx - b.pagoIdx;
       return (parseFloat(b.pago.monto)||0)-(parseFloat(a.pago.monto)||0);
     });
+  } else if(_cobSort === 'fecha'){
+    rows.sort((a,b)=>{
+      const fa = a.pago.fechaProyectada||'9999';
+      const fb = b.pago.fechaProyectada||'9999';
+      return fa.localeCompare(fb);
+    });
   }
 
   if(!rows.length){
-    body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--text3);font-size:0.84rem">Sin cobros registrados.</div>';
+    const msgs = {
+      todos: 'Sin cobros registrados.',
+      mes: 'Sin cobros en el mes actual.',
+      cobrar: 'Sin pagos listos para cobrar.',
+      atrasado: 'Sin pagos atrasados. ✓',
+      cobrado: 'Sin pagos cobrados aún.',
+      futuro: 'Sin pagos futuros.'
+    };
+    body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--text3);font-size:0.84rem">'+(msgs[_cobFilter]||'Sin resultados.')+'</div>';
     return;
   }
 
@@ -5022,7 +5124,8 @@ function renderCobTabla(){
     const useTotal = !!cob.useTotal;
     const valorTotal = cob.valorTotal||0;
     const montoInd = useTotal && pagos.length ? Math.round((valorTotal/pagos.length)*100)/100 : null;
-    const monto = useTotal ? montoInd : (parseFloat(p.monto)||0);
+    // Monto a mostrar: si useTotal, dividir valorTotal; si no, monto individual del pago
+    const monto = useTotal ? (montoInd||0) : (parseFloat(p.monto)||0);
     const totalCobrado = pagos.filter(x=>x.cobrado).reduce((s,x)=>s+(useTotal?montoInd:(parseFloat(x.monto)||0)),0);
     const totalVal = useTotal ? valorTotal : total;
     const pct = totalVal ? Math.round(totalCobrado/totalVal*100) : 0;
@@ -5094,6 +5197,12 @@ async function toggleCobPagoTabla(brandId, pagoId){ markLocalChange("cobros","fi
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
   pago.cobrado = !pago.cobrado;
+  if(pago.cobrado){
+    pago.fechaCobrado = new Date().toISOString().slice(0,10);
+    if(!pago.fechaProyectada) pago.fechaProyectada = pago.fechaCobrado;
+  } else {
+    delete pago.fechaCobrado;
+  }
 
   // ── Sync cobros → crono ──
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
@@ -5796,6 +5905,13 @@ function renderDashboard(){
   // Búsqueda rápida
   const searchVal2 = (document.getElementById('brands-search-cards')?.value||'').toLowerCase().trim();
   if(searchVal2) filteredBrands = filteredBrands.filter(b=>(b.name||'').toLowerCase().includes(searchVal2)||(b.industria||'').toLowerCase().includes(searchVal2));
+
+  // ── Sort de tarjetas ──
+  if(_brandsCardSort === 'az')      filteredBrands = [...filteredBrands].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  else if(_brandsCardSort === 'za') filteredBrands = [...filteredBrands].sort((a,b)=>(b.name||'').localeCompare(a.name||''));
+  else if(_brandsCardSort === 'oldest') filteredBrands = [...filteredBrands].sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
+  // 'default' = orden de creación (más reciente primero = orden en array invertido)
+  else filteredBrands = [...filteredBrands].reverse();
 
   // Update subtitle
   const brandsSub = document.getElementById('brands-section-sub');
@@ -9958,6 +10074,18 @@ async function portalAddBpItem(brandId, ci){
 }
 /* ═══ BRANDS VIEW TOGGLE + FILTERS ═══ */
 let _brandsView        = 'cards';
+let _brandsCardSort    = 'default';
+
+function setCardsSort(mode){
+  _brandsCardSort = mode;
+  ['default','az','za','oldest'].forEach(k=>{
+    const btn = document.getElementById('csort-'+k);
+    if(!btn) return;
+    btn.style.background = k===mode ? 'var(--aire)' : 'none';
+    btn.style.color      = k===mode ? '#fff' : 'var(--text3)';
+  });
+  renderDashboard();
+}
 let _tableSort         = 'num';
 let _tableStageFilter  = 'all';
 let _brandsMemberFilter = ''; // memberId or ''
@@ -9996,31 +10124,22 @@ function syncBrandsMemberDropdown(){
 
 function setBrandsView(mode){
   _brandsView = mode;
-  const cardsWrap   = document.getElementById('brands-view-cards');
-  const tableWrap   = document.getElementById('brands-view-table');
-  const filtersBar  = document.getElementById('brands-table-filters');
-  const btnCards    = document.getElementById('view-btn-cards');
-  const btnTable    = document.getElementById('view-btn-table');
-  if(!cardsWrap || !tableWrap) return;
-
-  const activeStyle  = 'padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.12)';
+  const views = ['cards','table','etapa','miembro'];
+  const activeStyle   = 'padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.12)';
   const inactiveStyle = 'padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:none;color:var(--text3)';
+  const filtersBar = document.getElementById('brands-table-filters');
 
-  if(mode === 'table'){
-    cardsWrap.style.display  = 'none';
-    tableWrap.style.display  = 'block';
-    if(filtersBar) filtersBar.style.display = 'flex';
-    if(btnCards) btnCards.style.cssText = inactiveStyle;
-    if(btnTable) btnTable.style.cssText  = activeStyle;
-    syncTableFilterButtons();
-    renderBrandsTable();
-  } else {
-    cardsWrap.style.display  = 'block';
-    tableWrap.style.display  = 'none';
-    if(filtersBar) filtersBar.style.display = 'none';
-    if(btnCards) btnCards.style.cssText = activeStyle;
-    if(btnTable) btnTable.style.cssText  = inactiveStyle;
-  }
+  views.forEach(v=>{
+    const wrap = document.getElementById('brands-view-'+v);
+    const btn  = document.getElementById('view-btn-'+v);
+    if(wrap) wrap.style.display = v===mode ? (v==='table'?'block':'block') : 'none';
+    if(btn)  btn.style.cssText  = v===mode ? activeStyle : inactiveStyle;
+  });
+  if(filtersBar) filtersBar.style.display = mode==='table' ? 'flex' : 'none';
+
+  if(mode==='table'){ syncTableFilterButtons(); renderBrandsTable(); }
+  else if(mode==='etapa')   renderBrandsEtapa();
+  else if(mode==='miembro') renderBrandsMiembro();
 }
 
 function setTableSort(key){
@@ -10079,6 +10198,112 @@ function getBrandStatus(b){
   if(b.paused) return 'pausa';
   if(pct >= 90) return 'proximo';
   return 'desarrollo';
+}
+
+
+/* ── Vista: Por Etapa (Kanban) ── */
+function renderBrandsEtapa(){
+  const el = document.getElementById('brands-view-etapa');
+  if(!el) return;
+  const brands = (appData.brands||[]);
+  const SC = {
+    aire:  {col:'var(--aire)',   bg:'rgba(59,158,221,0.08)',  border:'rgba(59,158,221,0.25)',  emoji:'🌬️', label:'Aire'},
+    agua:  {col:'var(--agua)',   bg:'rgba(45,195,179,0.08)',  border:'rgba(45,195,179,0.25)',  emoji:'💧',  label:'Agua'},
+    tierra:{col:'var(--tierra)', bg:'rgba(90,170,53,0.08)',   border:'rgba(90,170,53,0.25)',   emoji:'🌱',  label:'Tierra'},
+    fuego: {col:'var(--fuego)',  bg:'rgba(232,98,42,0.08)',   border:'rgba(232,98,42,0.25)',   emoji:'🔥',  label:'Fuego'},
+  };
+  el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem">' +
+    ['aire','agua','tierra','fuego'].map(stage=>{
+      const sc = SC[stage];
+      const sb = brands.filter(b=>b.stage===stage);
+      return `<div style="background:${sc.bg};border:1px solid ${sc.border};border-radius:14px;padding:1rem">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.9rem;padding-bottom:0.7rem;border-bottom:1px solid ${sc.border}">
+          <span style="font-size:1.1rem">${sc.emoji}</span>
+          <span style="font-size:0.82rem;font-weight:800;color:${sc.col};text-transform:uppercase;letter-spacing:0.5px">${sc.label}</span>
+          <span style="margin-left:auto;background:${sc.col};color:#fff;font-size:0.65rem;font-weight:700;border-radius:99px;padding:0.1rem 0.5rem">${sb.length}</span>
+        </div>
+        ${sb.length ? sb.map(b=>{
+          const pct = brandProgress(b);
+          const col = getBrandColor(b);
+          const logo = b.image ? `<img src="${b.image}" style="width:100%;height:100%;object-fit:cover;border-radius:5px">` : `<span style="font-size:0.7rem;font-weight:800;color:${col}">${b.name.charAt(0)}</span>`;
+          const next = getNextHito(b);
+          return `<div onclick="openBrand('${b.id}')" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.7rem;margin-bottom:0.5rem;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='${sc.col}'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+              <div style="width:26px;height:26px;border-radius:7px;border:1.5px solid ${col};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
+              <div style="min-width:0;flex:1">
+                <div style="font-size:0.8rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
+                ${b.industria?`<div style="font-size:0.65rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.industria}</div>`:''}
+              </div>
+              <span style="font-size:0.7rem;font-weight:700;color:${pct>=90?'var(--tierra)':pct>0?'var(--aire)':'var(--text3)'}">${pct}%</span>
+            </div>
+            <div style="height:3px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
+            </div>
+            ${next?`<div style="margin-top:0.45rem;font-size:0.63rem;color:var(--text3)">📅 ${next.name} · ${fmtDateDisplay(next.dateStr)}</div>`:''}
+          </div>`;
+        }).join('') : `<div style="text-align:center;padding:1.5rem 0;color:var(--text3);font-size:0.78rem">Sin marcas</div>`}
+      </div>`;
+    }).join('') + '</div>';
+}
+
+/* ── Vista: Por Miembro ── */
+function renderBrandsMiembro(){
+  const el = document.getElementById('brands-view-miembro');
+  if(!el) return;
+  const brands = appData.brands||[];
+  const members = appData.members||[];
+  const SC = {aire:'🌬️',agua:'💧',tierra:'🌱',fuego:'🔥'};
+  const SCOL = {aire:'var(--aire)',agua:'var(--agua)',tierra:'var(--tierra)',fuego:'var(--fuego)'};
+
+  const groups = [];
+  members.forEach(m=>{
+    const mb = brands.filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id||(b.domo.helpers||[]).includes(m.id)));
+    if(mb.length) groups.push({member:m, brands:mb});
+  });
+  const asignadas = new Set(brands.filter(b=>b.domo&&(b.domo.m1||b.domo.m2)).map(b=>b.id));
+  const sinAsignar = brands.filter(b=>!asignadas.has(b.id));
+  if(sinAsignar.length) groups.push({member:null, brands:sinAsignar});
+
+  if(!groups.length){
+    el.innerHTML='<div style="text-align:center;padding:3rem;color:var(--text3)">Sin miembros asignados</div>';
+    return;
+  }
+
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.8rem">` +
+    groups.map(g=>{
+      const m = g.member;
+      const col = m?.color||'var(--text3)';
+      const av = m?.photo
+        ? `<img src="${m.photo}" style="width:22px;height:22px;object-fit:cover;border-radius:50%;flex-shrink:0">`
+        : `<div style="width:22px;height:22px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:#fff;flex-shrink:0">${m?.emoji||(m?.apodo||'?').charAt(0)}</div>`;
+      return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+        <!-- Header miembro -->
+        <div style="padding:0.6rem 0.75rem;border-bottom:2px solid ${col};display:flex;align-items:center;gap:0.45rem;background:${col}10">
+          ${m ? av : `<div style="width:22px;height:22px;border-radius:50%;background:var(--bg-card2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:0.65rem;flex-shrink:0">?</div>`}
+          <div style="min-width:0;flex:1">
+            <div style="font-size:0.75rem;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m?m.apodo||m.nombre:'Sin asignar'}</div>
+            ${m?.cargo?`<div style="font-size:0.6rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.cargo}</div>`:''}
+          </div>
+          <span style="background:${col};color:#fff;font-size:0.6rem;font-weight:700;border-radius:99px;padding:0.08rem 0.4rem;flex-shrink:0">${g.brands.length}</span>
+        </div>
+        <!-- Lista de marcas compacta -->
+        <div style="padding:0.4rem 0">
+          ${g.brands.map(b=>{
+            const pct = brandProgress(b);
+            const bc = getBrandColor(b);
+            const logo = b.image
+              ? `<img src="${b.image}" style="width:100%;height:100%;object-fit:cover;border-radius:3px">`
+              : `<span style="font-size:0.55rem;font-weight:800;color:${bc}">${b.name.charAt(0)}</span>`;
+            return `<div onclick="openBrand('${b.id}')" style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0.75rem;cursor:pointer;transition:background 0.12s" onmouseover="this.style.background='var(--glass)'" onmouseout="this.style.background='transparent'">
+              <div style="width:16px;height:16px;border-radius:4px;border:1.5px solid ${bc};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
+              <span style="font-size:0.72rem;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</span>
+              <span style="font-size:0.6rem">${SC[b.stage]||'🌬️'}</span>
+              <span style="font-size:0.62rem;font-weight:700;color:${pct>=100?'var(--tierra)':pct>0?'var(--aire)':'var(--text3)'};min-width:26px;text-align:right">${pct}%</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('') + '</div>';
 }
 
 function renderBrandsTable(){
@@ -10260,6 +10485,8 @@ function runExport(id){
         fin_xlsx:         ()=>exportFinXLSX(),
         cob_pdf:          ()=>exportCobPDF(),
         cob_xlsx:         ()=>exportCobXLSX(),
+        cob_tabla_pdf:    ()=>exportCobTablaPDF(),
+        cob_tabla_xlsx:   ()=>exportCobTablaXLSX(),
         equipo_pdf:       ()=>exportEquipoPDF(),
         equipo_xlsx:      ()=>exportEquipoXLSX(),
         arch_pdf:         ()=>exportArchivoPDF(),
@@ -10380,39 +10607,194 @@ function exportDashXLSX(){
 function exportBrandCronoPDF(){
   const brand = appData.brands.find(b=>b.id===currentBrandId);
   if(!brand) return;
-  const doc = newPDF(`Cronograma — ${brand.name}`, `Progreso: ${brandProgress(brand)}%`);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const W = doc.internal.pageSize.getWidth();  // 210
+  const H = doc.internal.pageSize.getHeight(); // 297
+  const ML = 14, MR = 14, PW = W - ML - MR;
   const stages = ['aire','agua','tierra','fuego'];
-  let y = 24;
-  const W = doc.internal.pageSize.getWidth();
+  const SC = { aire:{col:EX.aire,emoji:'🌬',label:'Aire'}, agua:{col:EX.agua,emoji:'💧',label:'Agua'}, tierra:{col:EX.tierra,emoji:'🌱',label:'Tierra'}, fuego:{col:EX.fuego,emoji:'🔥',label:'Fuego'} };
+  const STATUS = { pendiente:{label:'Por iniciar',col:EX.text3}, 'en progreso':{label:'En curso',col:EX.aire}, completada:{label:'Completada',col:EX.tierra} };
+  const now = new Date();
+  const brandCol = hexToRgb(getBrandColor(brand)) || EX.aire;
+
+  // ── Página 1: Header de marca ──
+  // Franja superior de color marca
+  doc.setFillColor(...brandCol);
+  doc.rect(0, 0, W, 38, 'F');
+
+  // Logo / inicial
+  doc.setFillColor(255,255,255,0.15);
+  doc.roundedRect(ML, 7, 22, 22, 4, 4, 'F');
+  doc.setTextColor(...EX.white);
+  doc.setFontSize(14); doc.setFont(undefined,'bold');
+  doc.text((brand.name||'?').charAt(0).toUpperCase(), ML+11, 21, {align:'center'});
+
+  // Nombre y subtítulo
+  doc.setFontSize(18); doc.setFont(undefined,'bold');
+  doc.text(brand.name||'', ML+28, 17);
+  doc.setFontSize(8.5); doc.setFont(undefined,'normal');
+  doc.setTextColor(255,255,255,0.8);
+  const industria = brand.industria ? brand.industria + ' · ' : '';
+  doc.text(`${industria}Cronograma de proyecto`, ML+28, 24);
+
+  // Fecha de exportación (esquina derecha)
+  doc.setFontSize(7.5); doc.setTextColor(...EX.white);
+  doc.text(now.toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'}), W-MR, 13, {align:'right'});
+  doc.setFontSize(7); doc.setTextColor(255,255,255,0.7);
+  doc.text('Polen System', W-MR, 19, {align:'right'});
+
+  // ── Barra de progreso general ──
+  const allActs = stages.flatMap(s=>brand.cronograma?.[s]||[]);
+  const totalActs = allActs.length;
+  const doneActs  = allActs.filter(a=>a.status==='completada').length;
+  const pct = totalActs ? Math.round(doneActs/totalActs*100) : 0;
+  const firstDate = allActs.map(a=>a.startDate).filter(Boolean).sort()[0];
+  const lastDate  = allActs.map(a=>a.endDate).filter(Boolean).sort().pop();
+  const totalDays = allActs.reduce((s,a)=>s+(a.days||0),0);
+
+  // Fondo blanco suave bajo el header
+  doc.setFillColor(250,249,255);
+  doc.rect(0, 38, W, 22, 'F');
+
+  doc.setFontSize(7.5); doc.setFont(undefined,'normal'); doc.setTextColor(...EX.text2);
+  doc.text(`${doneActs}/${totalActs} actividades · ${totalDays} días hábiles` + (firstDate&&lastDate ? ` · ${fmtDateDisplay(firstDate)} → ${fmtDateDisplay(lastDate)}` : ''), ML, 46);
+
+  // Track de progreso
+  const barX=ML, barY=50, barW=PW, barH=4;
+  doc.setFillColor(220,217,240);
+  doc.roundedRect(barX, barY, barW, barH, 2, 2, 'F');
+  if(pct>0){
+    doc.setFillColor(...brandCol);
+    doc.roundedRect(barX, barY, Math.max(barW*pct/100,4), barH, 2, 2, 'F');
+  }
+  doc.setFontSize(8); doc.setFont(undefined,'bold'); doc.setTextColor(...brandCol);
+  doc.text(`${pct}%`, W-MR, barY+3.5, {align:'right'});
+
+  // Mini chips por etapa
+  let chipX = ML;
+  const chipY = 58;
+  stages.forEach(s=>{
+    const acts = brand.cronograma?.[s]||[];
+    if(!acts.length) return;
+    const sc = SC[s];
+    const done = acts.filter(a=>a.status==='completada').length;
+    const days = acts.reduce((sum,a)=>sum+(a.days||0),0);
+    const label = `${sc.label} ${done}/${acts.length} · ${days}d`;
+    const tw = doc.getStringUnitWidth(label)*7/doc.internal.scaleFactor + 6;
+    doc.setFillColor(...sc.col.map(c=>Math.round(c*0.15+240)));
+    doc.roundedRect(chipX, chipY-4, tw, 6, 1.5, 1.5, 'F');
+    doc.setFontSize(6.5); doc.setFont(undefined,'bold'); doc.setTextColor(...sc.col);
+    doc.text(label, chipX+3, chipY);
+    chipX += tw + 3;
+  });
+
+  // ── Etapas ──
+  let y = 70;
 
   stages.forEach(s=>{
     const acts = brand.cronograma?.[s]||[];
     if(!acts.length) return;
+    const sc = SC[s];
     const done = acts.filter(a=>a.status==='completada').length;
-    const col = stageColorHex(s);
+    const pctS = acts.length ? Math.round(done/acts.length*100) : 0;
 
-    // Stage header
-    if(y > 180){ doc.addPage(); y=14; }
-    doc.setFillColor(...col);
-    doc.roundedRect(14, y, W-28, 7, 2, 2, 'F');
-    doc.setTextColor(...EX.white); doc.setFontSize(8.5); doc.setFont(undefined,'bold');
-    doc.text(`${stageLabel(s)} — ${done}/${acts.length} completadas`, 18, y+5);
-    y += 10;
+    // Nueva página si no hay espacio
+    if(y > H - 40){ doc.addPage(); y = 16; }
 
-    const rows = acts.map(a=>[ a.isHito?'⭐':'○', a.name, {pendiente:'Pendiente','en progreso':'En progreso',completada:'Completada'}[a.status]||a.status, a.endDate||'—', a.days?`${a.days}d`:'—' ]);
-    doc.autoTable({
-      startY: y, margin:{left:14,right:14},
-      head:[['','Actividad','Status','Fecha entrega','Duración']],
-      body: rows,
-      styles:{fontSize:8, cellPadding:2.8, textColor:EX.text},
-      headStyles:{fillColor:[...col,180], textColor:EX.white, fontStyle:'bold', fontSize:7.5},
-      alternateRowStyles:{fillColor:[248,246,255]},
-      columnStyles:{0:{cellWidth:8,halign:'center'},2:{cellWidth:26},3:{cellWidth:28},4:{cellWidth:20,halign:'center'}},
-      didParseCell(data){ if(data.section==='body'&&data.column.index===2){ const st=acts[data.row.index]?.status; if(st==='completada') data.cell.styles.textColor=EX.tierra; else if(st==='en progreso') data.cell.styles.textColor=EX.aire; } },
+    // Header de etapa — rectángulo de color con esquinas redondeadas
+    doc.setFillColor(...sc.col);
+    doc.roundedRect(ML, y, PW, 9, 2.5, 2.5, 'F');
+    doc.setTextColor(...EX.white);
+    doc.setFontSize(9.5); doc.setFont(undefined,'bold');
+    doc.text(`${sc.label.toUpperCase()}`, ML+4, y+6.2);
+    doc.setFontSize(7.5); doc.setFont(undefined,'normal');
+    doc.text(`${done}/${acts.length} · ${pctS}%`, W-MR, y+6.2, {align:'right'});
+    y += 12;
+
+    // Filas de actividades
+    acts.forEach((a, idx)=>{
+      if(y > H-18){ doc.addPage(); y=16; }
+      const isAlt = idx%2===1;
+      const rowH = 8;
+
+      // Fondo alternado
+      if(isAlt){
+        doc.setFillColor(245,243,255);
+        doc.rect(ML, y, PW, rowH, 'F');
+      }
+
+      // Indicador de estado (circulo de color)
+      const stInfo = STATUS[a.status] || STATUS.pendiente;
+      doc.setFillColor(...stInfo.col);
+      doc.circle(ML+4, y+rowH/2, 1.8, 'F');
+
+      // Hito star
+      if(a.isHito){
+        doc.setFontSize(7); doc.setTextColor(245,197,66);
+        doc.text('★', ML+8.5, y+rowH/2+1);
+      }
+
+      // Nombre de actividad
+      const nameX = ML + 13;
+      const nameW = PW - 60;
+      doc.setFontSize(8);
+      doc.setFont(undefined, a.isHito ? 'bold' : 'normal');
+      const nameCol = a.status==='completada' ? EX.text3 : EX.text;
+      doc.setTextColor(...nameCol);
+      const name = doc.splitTextToSize(a.name||'', nameW)[0]; // solo primera línea
+      doc.text(name, nameX, y+rowH/2+1);
+
+      // Días
+      doc.setFontSize(7); doc.setFont(undefined,'normal'); doc.setTextColor(...EX.text3);
+      doc.text(`${a.days||1}d`, W-MR-52, y+rowH/2+1, {align:'right'});
+
+      // Fecha inicio
+      doc.setFontSize(7); doc.setTextColor(...EX.text2);
+      doc.text(a.startDate ? fmtDateDisplay(a.startDate) : '—', W-MR-38, y+rowH/2+1);
+
+      // Pill de estado
+      const pill = stInfo.label;
+      const pillW = 22, pillH = 4.5;
+      const pillX = W-MR-pillW;
+      const pillY = y+rowH/2-pillH/2;
+      doc.setFillColor(...stInfo.col.map(c=>Math.round(c*0.15+235)));
+      doc.roundedRect(pillX, pillY, pillW, pillH, 1.5, 1.5, 'F');
+      doc.setFontSize(6); doc.setFont(undefined,'bold'); doc.setTextColor(...stInfo.col);
+      doc.text(pill, pillX+pillW/2, pillY+pillH/2+0.8, {align:'center'});
+
+      // Línea separadora suave
+      doc.setDrawColor(225,222,245);
+      doc.setLineWidth(0.2);
+      doc.line(ML, y+rowH, W-MR, y+rowH);
+
+      y += rowH;
     });
-    y = doc.lastAutoTable.finalY + 8;
+
+    y += 7; // espacio entre etapas
   });
-  savePDF(doc, `Polen_Crono_${brand.name}_${new Date().toISOString().slice(0,10)}`);
+
+  // ── Footer ──
+  const pageCount = doc.internal.getNumberOfPages();
+  for(let i=1;i<=pageCount;i++){
+    doc.setPage(i);
+    doc.setFillColor(245,243,255);
+    doc.rect(0, H-10, W, 10, 'F');
+    doc.setFontSize(6.5); doc.setFont(undefined,'normal'); doc.setTextColor(...EX.text3);
+    doc.text('Polen System · Gestión de proyectos de branding', ML, H-4);
+    doc.text(`${i} / ${pageCount}`, W-MR, H-4, {align:'right'});
+  }
+
+  savePDF(doc, `Polen_Cronograma_${brand.name}_${new Date().toISOString().slice(0,10)}`);
+}
+
+// Helper: convertir color hex o rgb string a array [r,g,b]
+function hexToRgb(hex){
+  if(!hex) return null;
+  if(Array.isArray(hex)) return hex;
+  const m = hex.replace('#','');
+  if(m.length===6) return [parseInt(m.slice(0,2),16),parseInt(m.slice(2,4),16),parseInt(m.slice(4,6),16)];
+  return null;
 }
 
 function exportBrandCronoXLSX(){
@@ -10633,6 +11015,87 @@ function exportFinXLSX(){
 /* ════════════════════════════
    COBRANZAS
 ════════════════════════════ */
+// Obtener filas de la tabla respetando filtro y orden activos
+function _getCobTablaRows(){
+  ensureCobrosData();
+  const now = new Date();
+  const FILTER_LABELS = {todos:'Todos',mes:'Mes actual',cobrar:'Por cobrar',atrasado:'Atrasados',cobrado:'Cobrados',futuro:'Futuros'};
+  const rows = [];
+  (appData.brands||[]).forEach(b=>{
+    const cob = appData.cobros[b.id];
+    if(!cob) return;
+    const pagos = cob.pagos||[];
+    const useTotal = !!cob.useTotal;
+    const valorTotal = cob.valorTotal||0;
+    const montoInd = useTotal && pagos.length ? Math.round((valorTotal/pagos.length)*100)/100 : null;
+    pagos.forEach((p,pi)=>{
+      if(_hideCobrado && p.cobrado) return;
+      if(!_pasaCobFilter(p, pagos, b)) return;
+      const st = cobStatus(p, pagos, b);
+      const monto = useTotal ? (montoInd||0) : (parseFloat(p.monto)||0);
+      rows.push({ brand:b, pago:p, pagoIdx:pi, monto, status:st, pagos });
+    });
+  });
+  // Aplicar sort
+  if(_cobSort==='proximo') rows.sort((a,b)=>{ if(a.pago.cobrado!==b.pago.cobrado) return a.pago.cobrado?1:-1; if(a.pagoIdx!==b.pagoIdx) return a.pagoIdx-b.pagoIdx; return a.brand.name.localeCompare(b.brand.name); });
+  else if(_cobSort==='marca') rows.sort((a,b)=>a.brand.name.localeCompare(b.brand.name)||a.pagoIdx-b.pagoIdx);
+  else if(_cobSort==='monto') rows.sort((a,b)=>b.monto-a.monto);
+  else if(_cobSort==='npago') rows.sort((a,b)=>{ if(a.pagoIdx!==b.pagoIdx) return a.pagoIdx-b.pagoIdx; return b.monto-a.monto; });
+  else if(_cobSort==='fecha') rows.sort((a,b)=>(a.pago.fechaProyectada||'9999').localeCompare(b.pago.fechaProyectada||'9999'));
+  return rows;
+}
+
+function exportCobTablaPDF(){
+  const rows = _getCobTablaRows();
+  const FILTER_LABELS = {todos:'Todos',mes:'Mes actual',cobrar:'Por cobrar',atrasado:'Atrasados',cobrado:'Cobrados',futuro:'Futuros'};
+  const doc = newPDF('Tabla de Cobros', `Filtro: ${FILTER_LABELS[_cobFilter]||'Todos'} · ${rows.length} pagos`);
+  const tableRows = rows.map(({brand:b,pago:p,monto,status:st})=>[
+    b.name,
+    p.nombre||'—',
+    `$${monto.toLocaleString()}`,
+    st.label,
+    p.fechaProyectada||'—',
+    p.ultimoSeguimiento||'—',
+    p.nota||''
+  ]);
+  doc.autoTable({
+    startY:24,
+    head:[['Marca','Concepto','Monto','Estado','Fecha proyectada','Últ. seguimiento','Notas']],
+    body:tableRows,
+    styles:{fontSize:8, cellPadding:2.5, textColor:EX.text},
+    headStyles:{fillColor:EX.text, textColor:EX.white, fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[248,246,255]},
+    columnStyles:{2:{halign:'right'},6:{cellWidth:40}},
+    didParseCell(d){
+      if(d.section==='body'&&d.column.index===3){
+        const cls = rows[d.row.index]?.status?.cls;
+        d.cell.styles.textColor = cls==='cobrado'?EX.tierra:cls==='acobrar'?EX.fuego:EX.text3;
+        d.cell.styles.fontStyle='bold';
+      }
+    },
+  });
+  savePDF(doc, `Polen_Cobros_${_cobFilter}_${new Date().toISOString().slice(0,10)}`);
+}
+
+function exportCobTablaXLSX(){
+  const rows = _getCobTablaRows();
+  const FILTER_LABELS = {todos:'Todos',mes:'Mes actual',cobrar:'Por cobrar',atrasado:'Atrasados',cobrado:'Cobrados',futuro:'Futuros'};
+  const data = rows.map(({brand:b,pago:p,monto,status:st},i)=>({
+    '#': i+1,
+    'Marca': b.name,
+    'Concepto': p.nombre||'—',
+    'Monto': monto,
+    'Estado': st.label,
+    'Cobrado': p.cobrado ? 'Sí' : 'No',
+    'Fecha proyectada': p.fechaProyectada||'',
+    'Fecha cobrado': p.fechaCobrado||'',
+    'Último seguimiento': p.ultimoSeguimiento||'',
+    'Notas': p.nota||''
+  }));
+  saveXLSX(xlsxBook([{name:`Cobros - ${FILTER_LABELS[_cobFilter]||'Todos'}`, data}]),
+    `Polen_Cobros_${_cobFilter}_${new Date().toISOString().slice(0,10)}`);
+}
+
 function exportCobPDF(){
   ensureCobrosData();
   const brands = appData.brands||[];
