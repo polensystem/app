@@ -2844,6 +2844,31 @@ async function loadData(){
       (appData.brands||[]).forEach((b,i)=>{ if(!b.color) b.color=_autoColors[i%_autoColors.length]; });
       // Sync brand stages from actual activity completion (fix stale stage field)
       (appData.brands||[]).forEach(b=>syncBrandStage(b));
+      // ── Limpiar pagos fantasma en cobros ──
+      // Un pago es válido si: tiene monto, está cobrado, es manual,
+      // o su nombre coincide con una actividad-pago real del cronograma.
+      let _cobrosChanged = false;
+      (appData.brands||[]).forEach(brand=>{
+        const cob = appData.cobros?.[brand.id];
+        if(!cob?.pagos?.length) return;
+        const cronoNames = new Set(
+          ['aire','agua','tierra','fuego']
+            .flatMap(s=>(brand.cronograma?.[s]||[]).filter(a=>/pago/i.test(a.name||'')))
+            .map(a=>a.name)
+        );
+        const antes = cob.pagos.length;
+        cob.pagos = cob.pagos.filter(p=>
+          p.cobrado ||
+          parseFloat(p.monto) > 0 ||
+          p.triggerType === 'manual' ||
+          cronoNames.has(p.nombre)
+        );
+        if(cob.pagos.length !== antes){
+          console.log('[Polen] Cobros limpiados en ' + brand.name + ': ' + antes + ' -> ' + cob.pagos.length);
+          _cobrosChanged = true;
+        }
+      });
+      if(_cobrosChanged){ markLocalChange('cobros'); upsert(); }
     }
     showStatus('Datos cargados ✓');
     // Auto-backup en localStorage como red de seguridad
@@ -4452,9 +4477,53 @@ function ensureCobrosData(){
   if(!appData.cobros) appData.cobros = {};
   (appData.brands||[]).forEach(b=>{
     if(!appData.cobros[b.id]){
+      // Solo inicializar si la marca es completamente nueva (sin entrada en cobros)
       const pagos = buildPagosFromCrono(b);
       appData.cobros[b.id] = { expanded:false, pagos };
+    } else {
+      // Ya existe — reconciliar sin duplicar
+      _reconcilePagosWithCrono(b);
     }
+  });
+}
+
+// Reconcilia los pagos de cobros con las actividades-pago del cronograma.
+// Agrega los que faltan, elimina los huérfanos sin monto ni cobrado.
+function _reconcilePagosWithCrono(brand){
+  const cob = appData.cobros[brand.id];
+  if(!cob) return;
+  if(!Array.isArray(cob.pagos)) cob.pagos = [];
+
+  // Actividades del cronograma que son pagos
+  const cronoActs = ['aire','agua','tierra','fuego']
+    .flatMap(s => (brand.cronograma?.[s]||[]).filter(_actIsPago));
+
+  // 1. Agregar pagos faltantes (actividad existe en crono pero no en cobros)
+  cronoActs.forEach(a => {
+    const yaExiste = cob.pagos.find(p =>
+      p.triggerActId === a.id || p.nombre === a.name
+    );
+    if(!yaExiste){
+      cob.pagos.push({
+        id: uid(), nombre: a.name, monto: 0, cobrado: false,
+        triggerType: 'evento', triggerActName: a.name, triggerActId: a.id,
+        fechaProyectada: a.endDate||'', nota: '', ultimoSeguimiento: ''
+      });
+    }
+  });
+
+  // 2. Eliminar pagos huérfanos: no tienen actividad en el crono Y no tienen monto ni están cobrados
+  const cronoIds = new Set(cronoActs.map(a => a.id));
+  const cronoNames = new Set(cronoActs.map(a => a.name));
+  cob.pagos = cob.pagos.filter(p => {
+    // Conservar si tiene monto real o está cobrado
+    if(parseFloat(p.monto) > 0 || p.cobrado) return true;
+    // Conservar si es manual (creado desde cobros)
+    if(p.triggerType === 'manual') return true;
+    // Conservar si tiene actividad en el cronograma
+    if(cronoIds.has(p.triggerActId) || cronoNames.has(p.nombre)) return true;
+    // Es huérfano vacío — eliminar
+    return false;
   });
 }
 
@@ -4806,19 +4875,40 @@ const _deletingPagoIds = new Set();
 async function deleteCobPago(brandId, pagoId){
   if(_deletingPagoIds.has(pagoId)) return;
   _deletingPagoIds.add(pagoId);
-  // Track deleted pagoId so merge doesn't resurrect it
   if(!_localDeletedPagoIds[brandId]) _localDeletedPagoIds[brandId] = new Set();
   _localDeletedPagoIds[brandId].add(pagoId);
   ensureCobrosData();
   const cob = appData.cobros[brandId];
   if(!cob){ _deletingPagoIds.delete(pagoId); return; }
+  const pago = cob.pagos.find(p=>p.id===pagoId);
+  // Eliminar también la actividad del cronograma vinculada
+  if(pago){
+    const brand = (appData.brands||[]).find(b=>b.id===brandId);
+    if(brand){
+      let removedFromCrono = false;
+      ['aire','agua','tierra','fuego'].forEach(st=>{
+        const antes = (brand.cronograma?.[st]||[]).length;
+        brand.cronograma[st] = (brand.cronograma?.[st]||[]).filter(a=>a.id!==pago.triggerActId);
+        if(brand.cronograma[st].length !== antes) removedFromCrono = true;
+      });
+      // También de _sinUbicar
+      if(brand.cronograma?._sinUbicar){
+        const antes = brand.cronograma._sinUbicar.length;
+        brand.cronograma._sinUbicar = brand.cronograma._sinUbicar.filter(a=>a.id!==pago.triggerActId);
+        if(brand.cronograma._sinUbicar.length !== antes) removedFromCrono = true;
+      }
+      if(removedFromCrono){
+        markLocalChange('brands');
+        if(currentBrandId===brandId) renderBrandCrono(brand);
+      }
+    }
+  }
   cob.pagos = cob.pagos.filter(p=>p.id!==pagoId);
   markLocalChange('cobros');
   renderCobCard(brandId);
   renderCobTabla();
   const saved = await upsert();
   if(!saved) showStatus('❌ Error al eliminar pago — recarga e intenta de nuevo.', true);
-  // Clear the deleted tracking after a buffer window
   setTimeout(()=>{
     _deletingPagoIds.delete(pagoId);
     _localDeletedPagoIds[brandId]?.delete(pagoId);
@@ -4826,7 +4916,8 @@ async function deleteCobPago(brandId, pagoId){
 }
 
 function calcCobradoMes(month, year){
-  // Sum cobros where cobrado=true AND fechaProyectada is in the given month/year
+  // Suma cobros donde cobrado=true Y fechaProyectada cae en el mes/año dado
+  // Excluye pagos marcados como manuales (triggerType:'manual') del cómputo automático
   ensureCobrosData();
   return Object.values(appData.cobros||{}).reduce((s, cob)=>{
     const pagos = cob.pagos||[];
@@ -4834,8 +4925,9 @@ function calcCobradoMes(month, year){
     const montoInd = useTotal && pagos.length ? (cob.valorTotal||0) / pagos.length : null;
     return s + pagos.filter(p=>{
       if(!p.cobrado) return false;
+      if(p.triggerType === 'manual') return false; // pagos manuales no cuentan automáticamente
       if(!p.fechaProyectada) return false;
-      const d = new Date(p.fechaProyectada);
+      const d = new Date(p.fechaProyectada+'T00:00:00');
       return d.getFullYear()===year && d.getMonth()===month;
     }).reduce((ss,p)=>ss+(useTotal ? montoInd : (parseFloat(p.monto)||0)), 0);
   }, 0);
@@ -6511,18 +6603,23 @@ async function deleteCronoActivity(brandId, stage, actId){
     }
   }
   brand.cronograma[stage] = acts;
-  // Si la actividad eliminada era un pago, removerlo de cobros
-  if(_actIsPago(removed) && appData.cobros?.[brandId]){
-    const antes = appData.cobros[brandId].pagos.length;
-    appData.cobros[brandId].pagos = appData.cobros[brandId].pagos.filter(
-      p => p.triggerActId !== removed.id
+  // Eliminar de cobros cualquier pago vinculado a esta actividad (por id o por nombre)
+  if(appData.cobros?.[brandId]){
+    const cobrantes = appData.cobros[brandId];
+    const antes = cobrantes.pagos.length;
+    cobrantes.pagos = cobrantes.pagos.filter(p =>
+      p.triggerActId !== removed.id && p.nombre !== removed.name
     );
-    if(appData.cobros[brandId].pagos.length !== antes) markLocalChange('cobros');
+    if(cobrantes.pagos.length !== antes){
+      markLocalChange('cobros');
+      renderCobCard(brandId);
+      renderCobTabla();
+    }
   }
   markLocalChange('brands');
   renderBrandCrono(brand);
   const saved = await upsert();
-  showStatus(saved ? 'Actividad eliminada y fechas reencadenadas ✓' : '❌ Error al eliminar actividad — recarga e intenta de nuevo.', !saved);
+  showStatus(saved ? 'Actividad eliminada ✓' : '❌ Error al eliminar actividad — recarga e intenta de nuevo.', !saved);
 }
 
 
@@ -6731,24 +6828,24 @@ async function cycleStatus(brandId,stage,actId){
   markLocalChange('brands');
 
   // ── Sync crono → cobros ──
-  // 1. Si esta actividad ES un pago → sync su cobro correspondiente
-  if(act.name?.toLowerCase().includes('pago')){
+  // Si esta actividad tiene un pago vinculado → sync estado cobrado
+  {
     ensureCobrosData();
     const cob = appData.cobros[brandId];
     if(cob){
       const pago = cob.pagos?.find(p=>
-        p.nombre===act.name || p.triggerActName===act.name || p.trigger===act.name
+        p.triggerActId === act.id ||
+        p.nombre === act.name ||
+        p.triggerActName === act.name
       );
-      if(pago && act.status==='completada' && !pago.cobrado){
-        pago.cobrado = true;
-        markLocalChange('cobros','finanzas');
-        syncCobrosToFin();
-        if(document.getElementById('cob-content')?.style.display!=='none') renderCobCard(brandId);
-      } else if(pago && act.status!=='completada' && pago.cobrado){
-        pago.cobrado = false;
-        markLocalChange('cobros','finanzas');
-        syncCobrosToFin();
-        if(document.getElementById('cob-content')?.style.display!=='none') renderCobCard(brandId);
+      if(pago){
+        const shouldBeCobrado = act.status === 'completada';
+        if(shouldBeCobrado !== pago.cobrado){
+          pago.cobrado = shouldBeCobrado;
+          markLocalChange('cobros','finanzas');
+          syncCobrosToFin();
+          if(document.getElementById('cob-content')?.style.display!=='none') renderCobCard(brandId);
+        }
       }
     }
   }
