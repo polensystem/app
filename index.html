@@ -4809,7 +4809,7 @@ function renderCobCard(brandId){
     const st = cobStatus(p, pagos, b);
     const triggerLabel = getCobTriggerLabel(p, b);
     const montoVal = useTotal ? montoIndividual : (p.monto||'');
-    return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;align-items:flex-start;gap:0.7rem;padding:0.85rem 1rem;border-bottom:1px solid var(--border)" onmouseenter="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0.45'" onmouseleave="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0'">
+    return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;align-items:flex-start;gap:0.7rem;padding:1rem 1rem;border-bottom:1px solid var(--border)" onmouseenter="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0.45'" onmouseleave="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0'">
       <div class="cob-check ${p.cobrado?'checked':''}" onclick="event.stopPropagation();toggleCobPago('${b.id}','${p.id}')" style="margin-top:3px;flex-shrink:0">${p.cobrado?'✓':''}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:0.35rem;min-width:0">
