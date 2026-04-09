@@ -436,6 +436,8 @@ body.portal-mode .main{ height:100vh; }
 /* Dot conexión */
 #conn-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;box-shadow:0 0 6px #22c55e;transition:all 0.4s;}
 #conn-dot.offline{background:#ef4444;box-shadow:0 0 6px #ef4444;}
+#conn-dot.saving{background:#f59e0b;box-shadow:0 0 6px #f59e0b;animation:pulse-save 0.8s ease-in-out infinite alternate;}
+@keyframes pulse-save{from{opacity:0.5;}to{opacity:1;}}
 
 /* ── LOADING ── */
 #loading-screen{position:fixed;inset:0;z-index:999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;transition:opacity 0.4s ease;}
@@ -2886,6 +2888,21 @@ async function loadData(){
     if(lsub) lsub.textContent = 'Conectando con Supabase…';
     const {data,error}=await sb.from('polen_shared').select('data').eq('id',REC_ID).single();
     clearTimeout(timeoutId);
+    
+    // Si Supabase falla, intentar usar el backup local
+    if(error && error.code !== 'PGRST116'){
+      try{
+        const bak = localStorage.getItem('polen-localbak');
+        if(bak){
+          const parsed = JSON.parse(bak);
+          if(parsed?.data?.brands?.length > 0){
+            appData = parsed.data;
+            showStatus('⚠️ Cargando desde respaldo local — Supabase no disponible', true);
+            return;
+          }
+        }
+      }catch(le){}
+    }
     if(timedOut) return; // already showed error, boot() will still continue
 
     if(error && error.code !== 'PGRST116'){
@@ -3127,6 +3144,10 @@ async function upsert(){
   }
 
   // Serialise: wait for any in-flight save to finish first
+  // Indicar que hay un guardado en curso
+  const connDot = document.getElementById('conn-dot');
+  if(connDot){ connDot.className = 'saving'; connDot.title = 'Guardando…'; }
+
   _saveQueue = _saveQueue.then(async ()=>{
     try{
       // 1. Read current server state
@@ -3184,14 +3205,18 @@ async function upsert(){
       }
 
       // 5. Clear local change tracking after successful save
-      // NOTE: _localDeletedIds intentionally NOT cleared — they must persist
-      // until the deleted item's absence is confirmed stable in Supabase
       _localChangedKeys.clear();
+      // Guardar copia local como respaldo ante fallos futuros
+      try{ localStorage.setItem('polen-localbak', JSON.stringify({data:appData, savedAt:Date.now()})); }catch(e){}
+      // Actualizar dot a verde
+      setConnDot(true);
       return true;
 
     } catch(e){
-      showStatus('Error al guardar', true);
-      console.error(e);
+      showStatus('⚠️ Error al guardar — cambios en riesgo', true);
+      console.error('upsert error:', e);
+      // Intentar guardar en localStorage como fallback
+      try{ localStorage.setItem('polen-localbak', JSON.stringify({data:appData, savedAt:Date.now(), unsaved:true})); }catch(le){}
       return false;
     }
   });
