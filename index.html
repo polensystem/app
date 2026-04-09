@@ -4875,25 +4875,26 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
   }
 
   // ── Sync cobros → crono ──
-  // Si el pago tiene nombre que coincide con una actividad del cronograma → sync
+  // Buscar la actividad vinculada en el cronograma y sincronizar su estado
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(brand){
-    const pagoNombre = pago.nombre||'';
+    let actEncontrada = null;
     ['aire','agua','tierra','fuego'].forEach(st=>{
       (brand.cronograma?.[st]||[]).forEach(a=>{
-        if(a.name?.toLowerCase().includes('pago') &&
-          (a.name===pagoNombre || a.name===pago.triggerActName)){
-          if(pago.cobrado && a.status!=='completada'){
-            a.status = 'completada';
-          } else if(!pago.cobrado && a.status==='completada'){
-            a.status = 'pendiente';
-          }
+        if(a.id === pago.triggerActId || a.name === pago.nombre){
+          actEncontrada = a;
         }
       });
     });
-    markLocalChange('brands');
-    syncBrandStage(brand);
-    if(currentBrandId===brandId) renderBrandCrono(brand);
+    if(actEncontrada){
+      const deberiaEstar = pago.cobrado ? 'completada' : 'pendiente';
+      if(actEncontrada.status !== deberiaEstar){
+        actEncontrada.status = deberiaEstar;
+        markLocalChange('brands');
+        syncBrandStage(brand);
+        if(currentBrandId===brandId) renderBrandCrono(brand);
+      }
+    }
   }
 
   renderCobCard(brandId);
@@ -5266,19 +5267,23 @@ async function toggleCobPagoTabla(brandId, pagoId){ markLocalChange("cobros","fi
   // ── Sync cobros → crono ──
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(brand){
-    const pagoNombre = pago.nombre||'';
+    let actEncontrada = null;
     ['aire','agua','tierra','fuego'].forEach(st=>{
       (brand.cronograma?.[st]||[]).forEach(a=>{
-        if(a.name?.toLowerCase().includes('pago') &&
-          (a.name===pagoNombre || a.name===pago.triggerActName)){
-          if(pago.cobrado && a.status!=='completada') a.status='completada';
-          else if(!pago.cobrado && a.status==='completada') a.status='pendiente';
+        if(a.id === pago.triggerActId || a.name === pago.nombre){
+          actEncontrada = a;
         }
       });
     });
-    markLocalChange('brands');
-    syncBrandStage(brand);
-    if(currentBrandId===brandId) renderBrandCrono(brand);
+    if(actEncontrada){
+      const deberiaEstar = pago.cobrado ? 'completada' : 'pendiente';
+      if(actEncontrada.status !== deberiaEstar){
+        actEncontrada.status = deberiaEstar;
+        markLocalChange('brands');
+        syncBrandStage(brand);
+        if(currentBrandId===brandId) renderBrandCrono(brand);
+      }
+    }
   }
 
   renderCobros();
@@ -7075,20 +7080,25 @@ async function cycleStatus(brandId,stage,actId){
   markLocalChange('brands');
 
   // ── Sync crono → cobros ──
-  // Si esta actividad tiene un pago vinculado → sync estado cobrado
+  // Si esta actividad ES un pago (tiene pago vinculado) → sync estado cobrado
   {
     ensureCobrosData();
     const cob = appData.cobros[brandId];
     if(cob){
       const pago = cob.pagos?.find(p=>
         p.triggerActId === act.id ||
-        p.nombre === act.name ||
-        p.triggerActName === act.name
+        p.nombre === act.name
       );
       if(pago){
         const shouldBeCobrado = act.status === 'completada';
         if(shouldBeCobrado !== pago.cobrado){
           pago.cobrado = shouldBeCobrado;
+          if(shouldBeCobrado){
+            pago.fechaCobrado = new Date().toISOString().slice(0,10);
+            if(!pago.fechaProyectada) pago.fechaProyectada = pago.fechaCobrado;
+          } else {
+            delete pago.fechaCobrado;
+          }
           markLocalChange('cobros','finanzas');
           syncCobrosToFin();
           if(document.getElementById('cob-content')?.style.display!=='none') renderCobCard(brandId);
