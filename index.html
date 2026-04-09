@@ -2756,6 +2756,7 @@ function defaultTemplate(){
     industria:'',prioridad:'media',responsable:'',notas:'',includeNaming:true,
     cronograma:{
       aire:[
+        {id:uid(),name:'Pago 1',days:1,isHito:false,isNaming:false},
         {id:uid(),name:'Reunión de onboarding / equipo',days:1,isHito:true,isNaming:false},
         {id:uid(),name:'Presentación de metodología de investigación',days:1,isHito:true,isNaming:false},
         {id:uid(),name:'Búsqueda de insights y caminos creativos',days:3,isHito:false,isNaming:false},
@@ -2771,6 +2772,7 @@ function defaultTemplate(){
         {id:uid(),name:'Desarrollo de identidad visual',days:5,isHito:false,isNaming:false},
         {id:uid(),name:'Ajustes de dirección general y presentación interna',days:2,isHito:false,isNaming:false},
         {id:uid(),name:'Presentación de propuesta de marca',days:1,isHito:true,isNaming:false},
+        {id:uid(),name:'Pago 2',days:1,isHito:false,isNaming:false},
         {id:uid(),name:'Feedback cliente',days:3,isHito:false,isNaming:false},
         {id:uid(),name:'Entrega parcial de elementos de marca',days:1,isHito:false,isNaming:false},
       ],
@@ -2784,6 +2786,7 @@ function defaultTemplate(){
         {id:uid(),name:'Feedback cliente',days:1,isHito:false,isNaming:false},
         {id:uid(),name:'Ajustes, correcciones y restructuraciones',days:1,isHito:false,isNaming:false},
         {id:uid(),name:'Empaquetado de recursos',days:3,isHito:false,isNaming:false},
+        {id:uid(),name:'Pago 3',days:1,isHito:false,isNaming:false},
         {id:uid(),name:'Link y entrega de proyecto',days:1,isHito:true,isNaming:false},
       ]
     },
@@ -2924,17 +2927,22 @@ async function loadData(){
       (appData.brands||[]).forEach((b,i)=>{ if(!b.color) b.color=_autoColors[i%_autoColors.length]; });
       // Sync brand stages from actual activity completion (fix stale stage field)
       (appData.brands||[]).forEach(b=>syncBrandStage(b));
-      // ── Limpiar pagos fantasma en cobros ──
-      // Un pago es válido si: está cobrado, O tiene triggerActId real (vinculado al crono)
-      // Los pagos sin triggerActId son residuos de la lógica genérica antigua.
+      // ── Limpiar cobros: SOLO existen pagos que tienen actividad real en el cronograma ──
+      // Regla dura: si no hay actividad con ese id o nombre en el crono, se elimina.
       let _cobrosChanged = false;
       (appData.brands||[]).forEach(brand=>{
         const cob = appData.cobros?.[brand.id];
         if(!cob?.pagos?.length) return;
+        // Construir set de ids y nombres de actividades reales del cronograma
+        const cronoActs = ['aire','agua','tierra','fuego']
+          .flatMap(s=>(brand.cronograma?.[s]||[]));
+        const cronoIds   = new Set(cronoActs.map(a=>a.id));
+        const cronoNames = new Set(cronoActs.map(a=>a.name));
         const antes = cob.pagos.length;
         cob.pagos = cob.pagos.filter(p=>
-          p.cobrado ||
-          (p.triggerActId && p.triggerActId !== 'undefined')
+          p.triggerType === 'manual' ||  // creados manualmente desde cobros, conservar
+          cronoIds.has(p.triggerActId) ||
+          cronoNames.has(p.nombre)
         );
         if(cob.pagos.length !== antes){
           console.log('[Polen] Cobros limpiados en ' + brand.name + ': ' + antes + ' -> ' + cob.pagos.length);
@@ -4585,18 +4593,24 @@ function _reconcilePagosWithCrono(brand){
     }
   });
 
-  // 2. Eliminar pagos huérfanos: no tienen actividad en el crono Y no tienen monto ni están cobrados
-  const cronoIds = new Set(cronoActs.map(a => a.id));
-  const cronoNames = new Set(cronoActs.map(a => a.name));
+  // 2. Eliminar pagos que no tienen actividad real en el cronograma (regla dura)
+  const cronoAllActs = ['aire','agua','tierra','fuego']
+    .flatMap(s => (brand.cronograma?.[s]||[]));
+  const cronoIds = new Set(cronoAllActs.map(a => a.id));
+  const cronoNames = new Set(cronoAllActs.map(a => a.name));
   cob.pagos = cob.pagos.filter(p => {
-    // Conservar si tiene monto real o está cobrado
-    if(parseFloat(p.monto) > 0 || p.cobrado) return true;
-    // Conservar si es manual (creado desde cobros)
+    // Manuales se conservan (creados desde cobros, sin actividad en crono)
     if(p.triggerType === 'manual') return true;
-    // Conservar si tiene actividad en el cronograma
-    if(cronoIds.has(p.triggerActId) || cronoNames.has(p.nombre)) return true;
-    // Es huérfano vacío — eliminar
-    return false;
+    // Solo conservar si tiene actividad real en el cronograma
+    return cronoIds.has(p.triggerActId) || cronoNames.has(p.nombre);
+  });
+
+  // 3. Sincronizar nombres: si el triggerActId apunta a una actividad,
+  //    el nombre del pago debe coincidir con el nombre de esa actividad
+  cob.pagos.forEach(p => {
+    if(!p.triggerActId) return;
+    const act = cronoAllActs.find(a => a.id === p.triggerActId);
+    if(act && p.nombre !== act.name) p.nombre = act.name;
   });
 }
 
@@ -4766,10 +4780,7 @@ function toggleCobCard(event, brandId){
   let body = card.querySelector('.cob-body');
   if(cob.expanded){
     if(arrow) arrow.style.transform = 'rotate(0)';
-    if(!body){
-      // Build and inject the body
-      renderCobCard(brandId);
-    }
+    renderCobCard(brandId); // Siempre re-renderizar para aplicar sort actualizado
   } else {
     if(arrow) arrow.style.transform = 'rotate(-90deg)';
     if(body) body.remove();
@@ -4805,23 +4816,31 @@ function renderCobCard(brandId){
 
   if(!cob.expanded) return;
 
-  const pagosHTML = pagos.map((p)=>{
+  // Ordenar pagos según su posición en el cronograma
+  const _cronoActs = ['aire','agua','tierra','fuego'].flatMap(s=>(b.cronograma?.[s]||[]));
+  const _pagosSorted = [...pagos].sort((pa,pb)=>{
+    const ia = _cronoActs.findIndex(a=>a.id===pa.triggerActId||a.name===pa.nombre);
+    const ib = _cronoActs.findIndex(a=>a.id===pb.triggerActId||a.name===pb.nombre);
+    return (ia===-1?999:ia) - (ib===-1?999:ib);
+  });
+
+  const pagosHTML = _pagosSorted.map((p)=>{
     const st = cobStatus(p, pagos, b);
     const triggerLabel = getCobTriggerLabel(p, b);
     const montoVal = useTotal ? montoIndividual : (p.monto||'');
     return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;align-items:flex-start;gap:0.7rem;padding:1rem 1rem;border-bottom:1px solid var(--border)" onmouseenter="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0.45'" onmouseleave="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0'">
       <div class="cob-check ${p.cobrado?'checked':''}" onclick="event.stopPropagation();toggleCobPago('${b.id}','${p.id}')" style="margin-top:3px;flex-shrink:0">${p.cobrado?'✓':''}</div>
       <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:0.35rem;min-width:0">
-          <span style="font-size:0.84rem;font-weight:600;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.nombre||'Pago sin nombre'}</span>
+        <div style="display:flex;align-items:center;gap:0.4rem;min-width:0">
+          <span style="font-size:0.84rem;font-weight:600;color:var(--text);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.nombre||'Pago sin nombre'}</span>
+          <span class="cob-status-pill ${st.cls}" style="flex-shrink:0">${st.label}</span>
           <button onclick="event.stopPropagation();editCobNombre('${b.id}','${p.id}')"
             class="cob-edit-btn"
             style="background:none;border:none;cursor:pointer;font-size:0.6rem;padding:0.1rem 0.2rem;opacity:0;flex-shrink:0;filter:grayscale(1);transition:opacity 0.15s"
             title="Editar nombre">✏️</button>
         </div>
-        <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.2rem;flex-wrap:wrap">
-          <span class="cob-status-pill ${st.cls}">${st.label}</span>
-          <span style="display:inline-flex;align-items:center;gap:0.2rem;border-radius:6px;padding:0.1rem 0.45rem;font-size:0.62rem;color:var(--text3);font-family:var(--font);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Actividad que activa este cobro">${triggerLabel}</span>
+        <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.15rem">
+          <span style="display:inline-flex;align-items:center;gap:0.2rem;padding:0 0.1rem;font-size:0.62rem;color:var(--text3);font-family:var(--font);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Actividad que activa este cobro">${triggerLabel}</span>
         </div>
       </div>
       <input type="number" value="${montoVal}" placeholder="0"
@@ -5201,7 +5220,7 @@ function renderCobTabla(){
         <div style="width:30px;height:30px;border-radius:8px;background:var(--bg-card2);border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${logo}</div>
         <div style="min-width:0">
           <div style="font-size:0.82rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
-          <div style="font-size:0.68rem;color:var(--text3)">${p.nombre||'Pago '+(pi+1)} · ${Math.round((pi+1)/pagos.length*100)}%</div>
+          <div style="font-size:0.68rem;color:var(--text3)">${p.nombre||'Pago '+(pi+1)}</div>
         </div>
       </div>
       <!-- Contrato -->
