@@ -2845,23 +2845,16 @@ async function loadData(){
       // Sync brand stages from actual activity completion (fix stale stage field)
       (appData.brands||[]).forEach(b=>syncBrandStage(b));
       // ── Limpiar pagos fantasma en cobros ──
-      // Un pago es válido si: tiene monto, está cobrado, es manual,
-      // o su nombre coincide con una actividad-pago real del cronograma.
+      // Un pago es válido si: está cobrado, O tiene triggerActId real (vinculado al crono)
+      // Los pagos sin triggerActId son residuos de la lógica genérica antigua.
       let _cobrosChanged = false;
       (appData.brands||[]).forEach(brand=>{
         const cob = appData.cobros?.[brand.id];
         if(!cob?.pagos?.length) return;
-        const cronoNames = new Set(
-          ['aire','agua','tierra','fuego']
-            .flatMap(s=>(brand.cronograma?.[s]||[]).filter(a=>/pago/i.test(a.name||'')))
-            .map(a=>a.name)
-        );
         const antes = cob.pagos.length;
         cob.pagos = cob.pagos.filter(p=>
           p.cobrado ||
-          parseFloat(p.monto) > 0 ||
-          p.triggerType === 'manual' ||
-          cronoNames.has(p.nombre)
+          (p.triggerActId && p.triggerActId !== 'undefined')
         );
         if(cob.pagos.length !== antes){
           console.log('[Polen] Cobros limpiados en ' + brand.name + ': ' + antes + ' -> ' + cob.pagos.length);
