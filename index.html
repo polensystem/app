@@ -457,12 +457,12 @@ body.portal-mode .main{ height:100vh; }
 .shift-label{font-size:0.72rem;color:var(--text3);margin-left:0.2rem;}
 
 /* ══ TEAM MODULE ══ */
-.member-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(650px,1fr));gap:0.8rem;}
-.member-card{background:var(--bg-card);border:1px solid var(--border);border-radius:18px;box-shadow:0 2px 12px rgba(0,0,0,0.08);overflow:hidden;transition:all var(--transition);cursor:pointer;display:flex;flex-direction:column;}
+.member-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(650px,1fr));gap:0.8rem;align-items:stretch;}
+.member-card{background:var(--bg-card);border:1px solid var(--border);border-radius:18px;box-shadow:0 2px 12px rgba(0,0,0,0.08);overflow:hidden;display:flex;flex-direction:column;transition:all var(--transition);cursor:pointer;display:flex;flex-direction:column;}
 .member-card:hover{box-shadow:0 8px 32px rgba(0,0,0,0.16);border-color:rgba(255,255,255,0.15);}
 
 /* Gradient hero section of card */
-.member-card-hero{position:relative;padding:2rem 1.4rem 1.8rem;display:flex;align-items:center;gap:1.1rem;overflow:hidden;border-bottom:1px solid rgba(255,255,255,0.12);}
+.member-card-hero{position:relative;padding:2rem 1.4rem 1.8rem;display:flex;align-items:center;gap:1.1rem;overflow:hidden;border-bottom:1px solid rgba(255,255,255,0.12);flex:1;}
 .member-card-hero::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.1) 0%,rgba(0,0,0,0.15) 100%);pointer-events:none;}
 .member-card-hero-content{position:relative;z-index:1;display:flex;align-items:center;gap:0.85rem;width:100%;}
 
@@ -4367,6 +4367,7 @@ async function toggleCobManual(checked){
 
 function editFinMeta(field){
   ensureFinData();
+  const label = field==='facturacion' ? 'Meta de facturación' : 'Meta de cobranzas';
   const current = field==='facturacion' ? appData.finanzas.metaFacturacion : appData.finanzas.metaCobranzas;
   openFinModal('✏️ '+label, 'Meta ($)', current, async(val)=>{
     if(val===null||val==='') return;
