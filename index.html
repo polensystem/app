@@ -2889,7 +2889,8 @@ function setConnDot(online){
 }
 setInterval(async()=>{
   try{
-    const r=await fetch('https://abfgnaavzqvfhmyyfvpn.supabase.co/rest/v1/',{method:'HEAD',headers:{'apikey':'sb_publishable_KO-VfFgz6IyXKVtjPSR2ug_yJAkTU6M'}});
+    // Usar la misma anon key que el cliente Supabase para evitar 401
+    const r=await fetch('https://abfgnaavzqvfhmyyfvpn.supabase.co/rest/v1/',{method:'HEAD',headers:{'apikey':SB_KEY}});
     setConnDot(r.ok||r.status===400||r.status===401);
   }catch(e){ setConnDot(false); }
 },30000);
