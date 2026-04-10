@@ -4651,7 +4651,7 @@ function _reconcilePagosWithCrono(brand){
       monto: existing?.monto || 0,
       cobrado: existing?.cobrado || false,
       fechaCobrado: existing?.fechaCobrado,
-      fechaProyectada: existing?.fechaProyectada || a.endDate || '',
+      fechaProyectada: a.endDate || existing?.fechaProyectada || '', // Siempre del cronograma
       nota: existing?.nota || '',
       ultimoSeguimiento: existing?.ultimoSeguimiento || '',
       triggerType: 'evento',
