@@ -9424,15 +9424,15 @@ function renderMembersGrid(){
           <div style="min-width:0;flex:1" onclick="event.stopPropagation()">
             <div class="member-nickname">${m.apodo||m.nombre}</div>
             ${m.cargo?`<div style="font-size:0.68rem;color:rgba(255,255,255,0.75);margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.cargo}</div>`:''}
-            <input type="text" id="status-ed-${m.id}"
+            <textarea id="status-ed-${m.id}"
               onclick="event.stopPropagation()"
-              onfocus="event.stopPropagation();this.style.background='rgba(255,255,255,0.18)';this.style.borderColor='rgba(255,255,255,0.3)'"
+              onfocus="event.stopPropagation();this.style.background='rgba(255,255,255,0.12)';this.style.borderColor='rgba(255,255,255,0.3)'"
               onblur="this.style.background='transparent';this.style.borderColor='transparent';quickSaveMemberStatus('${m.id}',this.value)"
-              onkeydown="if(event.key==='Enter'){this.blur();}event.stopPropagation()"
-              value="${(m.status||'').replace(/<[^>]+>/g,'').trim()}"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}event.stopPropagation()"
+              rows="2"
               placeholder="Estado emocional…"
-              style="margin-top:0.4rem;width:100%;box-sizing:border-box;background:transparent;border:1px solid transparent;border-radius:6px;padding:0.28rem 0.5rem;font-size:0.76rem;color:#fff;font-family:var(--font);outline:none;transition:all 0.2s;cursor:text"
-            >
+              style="margin-top:0.35rem;width:100%;box-sizing:border-box;background:transparent;border:1px solid transparent;border-radius:6px;padding:0.25rem 0.5rem;font-size:0.76rem;color:#fff;font-family:var(--font);outline:none;transition:all 0.2s;cursor:text;resize:none;line-height:1.4;overflow:hidden"
+              >${(m.status||'').replace(/<[^>]+>/g,'').trim()}</textarea>
             <div id="rich-toolbar-${m.id}" style="display:none"></div>
           </div>
         </div>
