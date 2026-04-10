@@ -1397,7 +1397,7 @@ body.portal-mode .main{ height:100vh; }
           <!-- Filters + view toggle + export -->
           <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
             <!-- Búsqueda rápida -->
-            <input id="brands-search-cards" oninput="renderBrandsGrid()" placeholder="🔍 Buscar…"
+            <input id="brands-search-cards" oninput="renderDashboard()" placeholder="🔍 Buscar…"
               style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.75rem;font-size:0.75rem;color:var(--text);font-family:var(--font);outline:none;width:130px;transition:border-color 0.18s"
               onfocus="this.style.borderColor='var(--aire)'" onblur="this.style.borderColor='var(--border)'">
             <!-- Filter by member -->
@@ -1613,7 +1613,7 @@ body.portal-mode .main{ height:100vh; }
           <div class="brand-hero-actions">
             <button class="btn-back" onclick="goTo('dashboard')">← Volver</button>
             <button class="btn-ghost" onclick="openEditBrandModal()" style="font-size:0.78rem;padding:0.4rem 0.8rem">✏️ Editar</button>
-            <button class="btn-ghost" onclick="openDomoModal(currentBrandId)" style="font-size:0.78rem;padding:0.4rem 0.8rem">🔗 Domo</button>
+            <button class="btn-ghost" onclick="openBrandDomoModal(currentBrandId)" style="font-size:0.78rem;padding:0.4rem 0.8rem">🔗 Domo</button>
             <label id="brand-pause-toggle-wrap" onclick="event.stopPropagation()" title="Pausar / reactivar proyecto" style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;background:none;border:1px solid var(--border);border-radius:99px;padding:0.35rem 0.75rem;font-size:0.75rem;font-weight:700;color:var(--text2);transition:all 0.15s;user-select:none" onmouseover="this.style.borderColor='#f59e0b'" onmouseout="this.style.borderColor='var(--border)'">
               <span id="brand-pause-icon">⏸</span>
               <span id="brand-pause-label">En pausa</span>
@@ -3201,7 +3201,7 @@ async function upsert(){
       Object.entries(_localDeletedPagoIds).forEach(([bid, deletedIds])=>{
         if(!deletedIds.size) return;
         if(appData.cobros?.[bid])
-          appData.cobros[bid].pagos = (appData.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
+          if(appData.cobros[bid]) appData.cobros[bid].pagos = (appData.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
         if(toWrite.cobros?.[bid])
           toWrite.cobros[bid].pagos = (toWrite.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
       });
@@ -3902,7 +3902,7 @@ async function moveSinUbicar(brandId, actId, stage){
   brand.cronograma[stage].push(act);
   // Update cobros trigger to point to this activity in the right stage
   if(act._cobPago && appData.cobros?.[brandId]){
-    const pago = appData.cobros[brandId].pagos.find(p=>p.triggerActId===actId);
+    const pago = appData.cobros?.[brandId]?.pagos?.find(p=>p.triggerActId===actId);
     if(pago){
       pago.triggerActName = act.name;
       pago.triggerType = 'evento';
@@ -4611,7 +4611,7 @@ async function openTriggerModal(brandId, pagoId){
 
 
 function ensureCobrosData(){
-  if(!appData.cobros) appData.cobros = {};
+  if(!appData.cobros || typeof appData.cobros !== 'object') appData.cobros = {};
   (appData.brands||[]).forEach(b=>{
     if(!appData.cobros[b.id]){
       // Solo inicializar si la marca es completamente nueva (sin entrada en cobros)
@@ -4631,43 +4631,33 @@ function _reconcilePagosWithCrono(brand){
   if(!cob) return;
   if(!Array.isArray(cob.pagos)) cob.pagos = [];
 
-  // Actividades del cronograma que son pagos
+  // Actividades-pago del cronograma en orden
   const cronoActs = ['aire','agua','tierra','fuego']
     .flatMap(s => (brand.cronograma?.[s]||[]).filter(_actIsPago));
 
-  // 1. Agregar pagos faltantes (actividad existe en crono pero no en cobros)
-  cronoActs.forEach(a => {
-    const yaExiste = cob.pagos.find(p =>
-      p.triggerActId === a.id || p.nombre === a.name
-    );
-    if(!yaExiste){
-      cob.pagos.push({
-        id: uid(), nombre: a.name, monto: 0, cobrado: false,
-        triggerType: 'evento', triggerActName: a.name, triggerActId: a.id,
-        fechaProyectada: a.endDate||'', nota: '', ultimoSeguimiento: ''
-      });
-    }
+  if(!cronoActs.length) return;
+
+  // Reconstruir pagos desde el cronograma usando triggerActId como única fuente de verdad
+  const manuales = cob.pagos.filter(p => p.triggerType === 'manual');
+  const nuevosPagos = cronoActs.map(a => {
+    // Buscar SOLO por triggerActId — nunca por nombre (evita asignaciones incorrectas)
+    const existing = cob.pagos.find(p => p.triggerActId === a.id);
+    return {
+      id: existing?.id || uid(),
+      nombre: a.name,           // Siempre el nombre exacto del cronograma
+      monto: existing?.monto || 0,
+      cobrado: existing?.cobrado || false,
+      fechaCobrado: existing?.fechaCobrado,
+      fechaProyectada: existing?.fechaProyectada || a.endDate || '',
+      nota: existing?.nota || '',
+      ultimoSeguimiento: existing?.ultimoSeguimiento || '',
+      triggerType: 'evento',
+      triggerActName: a.name,
+      triggerActId: a.id,
+    };
   });
 
-  // 2. Eliminar pagos que no tienen actividad real en el cronograma (regla dura)
-  const cronoAllActs = ['aire','agua','tierra','fuego']
-    .flatMap(s => (brand.cronograma?.[s]||[]));
-  const cronoIds = new Set(cronoAllActs.map(a => a.id));
-  const cronoNames = new Set(cronoAllActs.map(a => a.name));
-  cob.pagos = cob.pagos.filter(p => {
-    // Manuales se conservan (creados desde cobros, sin actividad en crono)
-    if(p.triggerType === 'manual') return true;
-    // Solo conservar si tiene actividad real en el cronograma
-    return cronoIds.has(p.triggerActId) || cronoNames.has(p.nombre);
-  });
-
-  // 3. Sincronizar nombres: si el triggerActId apunta a una actividad,
-  //    el nombre del pago debe coincidir con el nombre de esa actividad
-  cob.pagos.forEach(p => {
-    if(!p.triggerActId) return;
-    const act = cronoAllActs.find(a => a.id === p.triggerActId);
-    if(act && p.nombre !== act.name) p.nombre = act.name;
-  });
+  cob.pagos = [...nuevosPagos, ...manuales];
 }
 
 // Build pagos array strictly from cronograma hitos — no generics
@@ -5023,7 +5013,7 @@ async function saveCobField(brandId, pagoId, field, val){
 
 async function addCobPago(brandId){
   ensureCobrosData();
-  const pagos = appData.cobros[brandId].pagos;
+  const pagos = appData.cobros?.[brandId]?.pagos||[];
   const newId = uid();
   const nombre = `Pago ${pagos.length+1}`;
   const newPago = {id:newId, nombre, monto:0, cobrado:false, triggerType:'manual', triggerActName:'', triggerActId:newId};
@@ -5033,7 +5023,8 @@ async function addCobPago(brandId){
   if(brand){
     if(!brand.cronograma) brand.cronograma = {aire:[],agua:[],tierra:[],fuego:[]};
     if(!brand.cronograma._sinUbicar) brand.cronograma._sinUbicar = [];
-    brand.cronograma._sinUbicar.push({
+    if(!brand.cronograma._sinUbicar) brand.cronograma._sinUbicar = [];
+  brand.cronograma._sinUbicar.push({
       id:newId, name:nombre, days:1, isHito:true,
       status:'pendiente', startDate:'', endDate:'',
       _cobPago:true, _sinUbicar:true
@@ -5380,7 +5371,7 @@ async function saveCobTablaField(brandId, pagoId, field, val){ markLocalChange("
 function expandAllCobros(){
   _cobrosAllExpanded = !_cobrosAllExpanded;
   ensureCobrosData();
-  Object.keys(appData.cobros).forEach(bid=>{ appData.cobros[bid].expanded = _cobrosAllExpanded; });
+  Object.keys(appData.cobros||{}).forEach(bid=>{ if(appData.cobros[bid]) appData.cobros[bid].expanded = _cobrosAllExpanded; });
   const btn = document.getElementById('btn-expand-cobros');
   if(btn) btn.textContent = _cobrosAllExpanded ? '▴ Colapsar todas' : '▾ Expandir todas';
   renderCobros();
@@ -6847,9 +6838,27 @@ async function saveActName(brandId, stage, actId, newName){
   if(!brand?.cronograma?.[stage]) return;
   const act = brand.cronograma[stage].find(a=>a.id===actId);
   if(!act || act.name === newName) return;
+  const oldName = act.name;
   act.name = newName;
+
+  // Si la actividad es un pago, sincronizar nombre en cobros
+  if(/pago/i.test(newName) || /pago/i.test(oldName)){
+    ensureCobrosData();
+    const cob = appData.cobros?.[brandId];
+    if(cob?.pagos){
+      const pago = cob.pagos.find(p => p.triggerActId === actId || p.nombre === oldName);
+      if(pago){
+        pago.nombre = newName;
+        pago.triggerActName = newName;
+        markLocalChange('cobros');
+      }
+    }
+  }
+
   markLocalChange('brands');
   await upsert();
+  // Re-renderizar cobros si está visible
+  if(document.getElementById('cob-content')?.style.display !== 'none') renderCobCard(brandId);
 }
 
 function tplSaveActName(stage, actId, newName){
@@ -8119,7 +8128,7 @@ function subscribeRealtime(onUpdate){
         // Re-apply deleted pagos
         Object.entries(_localDeletedPagoIds).forEach(([bid, deletedIds])=>{
           if(deletedIds.size && appData.cobros?.[bid])
-            appData.cobros[bid].pagos = (appData.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
+            if(appData.cobros[bid]) appData.cobros[bid].pagos = (appData.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
         });
         if(onUpdate) onUpdate();
         else { try { renderCurrentPage(); } catch(e){ console.error('realtime render error:',e); } showStatus('🔄 Actualizado en tiempo real'); }
@@ -9964,7 +9973,7 @@ function renderDomosTab(){
         ${m1?memberChip(m1,'principal'):'<span style="color:var(--text3);font-size:0.78rem">Sin M1</span>'}
         ${m2?memberChip(m2,'principal'):'<span style="color:var(--text3);font-size:0.78rem">Sin M2</span>'}
         ${helpers.map(h=>memberChip(h,'astronauta')).join('')}
-        <button class="btn-ghost" style="font-size:0.72rem;padding:0.25rem 0.6rem" onclick="openDomoModal('${brand.id}')">✏️ Editar</button>
+        <button class="btn-ghost" style="font-size:0.72rem;padding:0.25rem 0.6rem" onclick="openBrandDomoModal('${brand.id}')">✏️ Editar</button>
       </div>
     </div>`;
   }).join('');
@@ -10060,6 +10069,77 @@ function toggleAstronautasSection(){
   const isOpen=wrap.style.display==='flex';
   wrap.style.display=isOpen?'none':'flex';
   if(arrow)arrow.textContent=isOpen?'▶':'▼';
+}
+
+// ── Modal Domo (desde página de marca y desde domos grid) ──
+let _domoModalBrandId = null;
+
+function openBrandDomoModal(brandId){
+  _domoModalBrandId = brandId;
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand) return;
+  const members = appData.members||[];
+  const domo = brand.domo||{};
+
+  // Poblar nombre
+  const nameEl = document.getElementById('domo-modal-brand-name');
+  if(nameEl) nameEl.textContent = brand.name;
+
+  // Poblar selects m1/m2
+  const opts = '<option value="">— Sin asignar —</option>' +
+    members.map(m=>`<option value="${m.id}">${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
+  const sel1 = document.getElementById('domo-m1');
+  const sel2 = document.getElementById('domo-m2');
+  if(sel1){ sel1.innerHTML = opts; sel1.value = domo.m1||''; }
+  if(sel2){ sel2.innerHTML = opts; sel2.value = domo.m2||''; }
+
+  // Astronautas
+  const helpersWrap = document.getElementById('domo-helpers-wrap-modal');
+  if(helpersWrap){
+    helpersWrap.style.display = 'none';
+    helpersWrap.innerHTML = (domo.helpers||[]).map((hId,i)=>{
+      const m = members.find(x=>x.id===hId);
+      return `<div style="display:flex;align-items:center;gap:0.4rem">
+        <select class="form-select domo-helper-sel" style="flex:1">
+          ${opts}
+        </select>
+      </div>`;
+    }).join('');
+    // Set values
+    helpersWrap.querySelectorAll('.domo-helper-sel').forEach((sel,i)=>{
+      sel.value = (domo.helpers||[])[i]||'';
+    });
+  }
+
+  document.getElementById('modal-domo').classList.remove('hidden');
+}
+
+async function saveBrandDomoModal(){
+  const brand = (appData.brands||[]).find(b=>b.id===_domoModalBrandId);
+  if(!brand) return;
+  const m1 = document.getElementById('domo-m1')?.value||'';
+  const m2 = document.getElementById('domo-m2')?.value||'';
+  const helpers = [...document.querySelectorAll('#domo-helpers-wrap-modal .domo-helper-sel')]
+    .map(s=>s.value).filter(Boolean);
+  brand.domo = { m1, m2, helpers, principales:[m1,m2].filter(Boolean), astronautas:helpers };
+  markLocalChange('brands');
+  await upsert();
+  showStatus('Domo guardado ✓');
+  document.getElementById('modal-domo').classList.add('hidden');
+  if(currentBrandId === _domoModalBrandId) renderBrandDomo();
+  renderDashboard();
+}
+
+function addDomoModalAstronaut(){
+  const wrap = document.getElementById('domo-helpers-wrap-modal');
+  if(!wrap) return;
+  const members = appData.members||[];
+  const opts = '<option value="">— Sin asignar —</option>' +
+    members.map(m=>`<option value="${m.id}">${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;align-items:center;gap:0.4rem';
+  div.innerHTML = `<select class="form-select domo-helper-sel" style="flex:1">${opts}</select>`;
+  wrap.appendChild(div);
 }
 
 function toggleModalAstronautas(){
@@ -13338,11 +13418,11 @@ function checkAutoArchive(brandId){
         <span id="modal-astro-arrow">▶</span> 🚀 Astronautas (opcionales)
       </button>
       <div id="domo-helpers-wrap-modal" style="display:none;flex-direction:column;gap:0.4rem"></div>
-      <button id="modal-astro-add-btn" onclick="addDomoAstronaut()" class="btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.7rem;margin-top:0.4rem;display:none">+ Agregar astronauta</button>
+      <button id="modal-astro-add-btn" onclick="addDomoModalAstronaut()" class="btn-ghost" style="font-size:0.75rem;padding:0.3rem 0.7rem;margin-top:0.4rem;display:none">+ Agregar astronauta</button>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" onclick="document.getElementById('modal-domo').classList.add('hidden')">Cancelar</button>
-      <button class="btn-save" onclick="saveDomo()">Guardar domo</button>
+      <button class="btn-save" onclick="saveBrandDomoModal()">Guardar domo</button>
     </div>
   </div>
 </div>
