@@ -4936,7 +4936,7 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
   if(!pago) return;
   pago.cobrado = !pago.cobrado;
   if(pago.cobrado){
-    pago.fechaCobrado = new Date().toISOString().slice(0,10);
+    pago.fechaCobrado = todayStr();
     if(!pago.fechaProyectada) pago.fechaProyectada = pago.fechaCobrado;
   } else {
     delete pago.fechaCobrado;
@@ -5100,9 +5100,10 @@ function calcCobradoMes(month, year){
     return s + pagos.filter(p=>{
       if(!p.cobrado) return false;
       if(p.triggerType === 'manual') return false;
-      const fechaRef = p.fechaCobrado || p.fechaProyectada;
-      if(!fechaRef) return false;
-      const d = new Date(fechaRef+'T00:00:00');
+      // Solo usar fechaCobrado real — sin fallback a fechaProyectada
+      // para no contar en meses equivocados
+      if(!p.fechaCobrado) return false;
+      const d = new Date(p.fechaCobrado+'T00:00:00');
       return d.getFullYear()===year && d.getMonth()===month;
     }).reduce((ss,p)=>ss+(useTotal ? montoInd : (parseFloat(p.monto)||0)), 0);
   }, 0);
@@ -5327,7 +5328,7 @@ async function toggleCobPagoTabla(brandId, pagoId){ markLocalChange("cobros","fi
   if(!pago) return;
   pago.cobrado = !pago.cobrado;
   if(pago.cobrado){
-    pago.fechaCobrado = new Date().toISOString().slice(0,10);
+    pago.fechaCobrado = todayStr();
     if(!pago.fechaProyectada) pago.fechaProyectada = pago.fechaCobrado;
   } else {
     delete pago.fechaCobrado;
@@ -7053,6 +7054,22 @@ function startInlineDays(e, brandId, stage, actId){
 
 /* ── Edit a single date inline ── */
 // Shift all activities whose startDate OR endDate > referenceDate by wdDelta workdays, skipping actId
+// Cascade desde una posición específica en adelante (respeta orden de etapas)
+function _cascadeFrom(brand, fromStage, fromIdx, wdDelta){
+  const stageOrder = ['aire','agua','tierra','fuego'];
+  const fromStageIdx = stageOrder.indexOf(fromStage);
+  stageOrder.forEach((st, si) => {
+    if(si < fromStageIdx) return; // etapa anterior — no tocar
+    const acts = brand.cronograma[st]||[];
+    acts.forEach((a, ai) => {
+      if(si === fromStageIdx && ai < fromIdx) return; // antes en misma etapa — no tocar
+      if(a.startDate) a.startDate = shiftWD(a.startDate, wdDelta);
+      if(a.endDate)   a.endDate   = shiftWD(a.endDate,   wdDelta);
+      if(a.revDateOverride) a.revDateOverride = shiftWD(a.revDateOverride, wdDelta);
+    });
+  });
+}
+
 function cascadeAfterDate(brand, referenceDate, wdDelta, skipActId){
   ['aire','agua','tierra','fuego'].forEach(st=>{
     (brand.cronograma[st]||[]).forEach(a=>{
@@ -7072,10 +7089,19 @@ function wdDeltaBetween(oldDateStr, newDateStr){
   if(!oldDateStr||!newDateStr) return 0;
   const oldD = parseLocalDate(oldDateStr);
   const newD = parseLocalDate(newDateStr);
+  // Limitar delta máximo a ±365 días hábiles (~1.4 años) para evitar cascades destructivos
+  const calDays = Math.round((newD - oldD) / (1000*60*60*24));
+  if(Math.abs(calDays) > 500){
+    // Delta demasiado grande — probablemente error de tipeo en año
+    // Retornar 0 para no propagar el error
+    console.warn('[Polen] wdDeltaBetween: delta de '+calDays+' días ignorado (posible error de año)');
+    return 0;
+  }
   const sign = newD > oldD ? 1 : -1;
   let delta = 0;
   const cursor = new Date(oldD);
-  for(let i=0; i<800; i++){
+  const maxIter = Math.abs(calDays) + 10;
+  for(let i=0; i<maxIter; i++){
     cursor.setDate(cursor.getDate()+sign);
     if(!isWeekend(cursor)) delta += sign;
     if(fmtLocalDate(cursor) === newDateStr) break;
@@ -7103,6 +7129,14 @@ function editDate(e,brandId,stage,actId,field){
     _saved = true;
     const val = input.value;
     if(!val || val===current){ renderBrandCrono(brand); return; }
+    // Validar que el año sea razonable
+    const yearEntered = parseInt(val.slice(0,4));
+    const yearCurrent = parseInt((current||'2026').slice(0,4));
+    if(yearEntered < 2020 || yearEntered > 2035){
+      showStatus('⚠️ Año fuera de rango — verifica la fecha', true);
+      renderBrandCrono(brand);
+      return;
+    }
 
     // Solo editamos startDate; endDate se deriva de startDate + days
     const oldEndDate = act.endDate;
@@ -7113,11 +7147,22 @@ function editDate(e,brandId,stage,actId,field){
     const delta = wdDeltaBetween(oldEndDate, act.endDate);
 
     if(delta !== 0){
-      const hasLater = ['aire','agua','tierra','fuego'].some(st=>
-        (brand.cronograma[st]||[]).some(a=> a.id!==actId && a.endDate && a.endDate > oldEndDate)
-      );
+      // Solo considerar actividades POSTERIORES en orden de etapas (no por fecha)
+      // Esto evita que etapas anteriores con fechas distintas se muevan por error
+      const stageOrder = ['aire','agua','tierra','fuego'];
+      const stageIdx = stageOrder.indexOf(stage);
+      const actIdxInStage = (brand.cronograma[stage]||[]).findIndex(a=>a.id===actId);
+
+      const hasLater = stageOrder.some((st, si) => {
+        if(si < stageIdx) return false; // etapa anterior — nunca tocar
+        const acts = brand.cronograma[st]||[];
+        return acts.some((a, ai) => {
+          if(st === stage && ai <= actIdxInStage) return false; // antes o igual en misma etapa
+          return true;
+        });
+      });
+
       if(hasLater){
-        // Renderizar para mostrar el cambio en la actividad editada
         renderBrandCrono(brand);
         await new Promise(r=>setTimeout(r, 80));
         const cascade = await confirmModal(
@@ -7127,10 +7172,9 @@ function editDate(e,brandId,stage,actId,field){
           'No'
         );
         if(cascade){
-          // Mover TODAS las actividades posteriores al oldEndDate en todo el cronograma
-          cascadeAfterDate(brand, oldEndDate, delta, actId);
+          // Cascade solo desde esta etapa/índice en adelante
+          _cascadeFrom(brand, stage, actIdxInStage + 1, delta);
         }
-        // Si dijo No, solo se mueve la actividad editada (ya está modificada arriba)
         renderBrandCrono(brand);
       } else {
         renderBrandCrono(brand);
@@ -7212,7 +7256,7 @@ async function cycleStatus(brandId,stage,actId){
         if(shouldBeCobrado !== pago.cobrado){
           pago.cobrado = shouldBeCobrado;
           if(shouldBeCobrado){
-            pago.fechaCobrado = new Date().toISOString().slice(0,10);
+            pago.fechaCobrado = todayStr();
             if(!pago.fechaProyectada) pago.fechaProyectada = pago.fechaCobrado;
           } else {
             delete pago.fechaCobrado;
