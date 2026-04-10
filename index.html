@@ -3234,6 +3234,8 @@ async function upsert(){
       _localChangedKeys.clear();
       // Guardar copia local como respaldo ante fallos futuros
       try{ localStorage.setItem('polen-localbak', JSON.stringify({data:appData, savedAt:Date.now()})); }catch(e){}
+      // Registrar timestamp del upsert exitoso para ignorar el eco en realtime
+      _lastLocalUpsertAt = Date.now();
       // Actualizar dot a verde
       setConnDot(true);
       return true;
@@ -8138,29 +8140,43 @@ let collapsed=false;
 sideBtn.addEventListener('click',()=>{collapsed=!collapsed;sidebar.classList.toggle('collapsed',collapsed);sideBtn.textContent=collapsed?'›':'‹';});
 
 /* ═══ REALTIME ═══ */
+// Timestamp del último upsert local exitoso
+let _lastLocalUpsertAt = 0;
+
 function subscribeRealtime(onUpdate){
   sb.channel('polen_pm_v3')
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'polen_shared',filter:`id=eq.${REC_ID}`},
     payload=>{
       if(payload.new?.data){
         const raw = payload.new.data;
+
+        // Ignorar snapshots del servidor que son más viejos que nuestro último upsert
+        // Esto evita que el eco de nuestro propio upsert sobreescriba cambios recientes
+        const serverUpdatedAt = payload.new?.updated_at ? new Date(payload.new.updated_at).getTime() : 0;
+        const msSinceOurUpsert = Date.now() - _lastLocalUpsertAt;
+        if(msSinceOurUpsert < 5000 && serverUpdatedAt <= _lastLocalUpsertAt){
+          // Es el eco de nuestro propio upsert reciente — ignorar
+          console.log('[Polen] Realtime: eco propio ignorado');
+          return;
+        }
+
         const hasPendingChanges = _localChangedKeys.size > 0;
         const hasPendingDeletes = _localDeletedIds.brands.size > 0 || _localDeletedIds.members.size > 0 || _localDeletedIds.clientNotes.size > 0 || Object.values(_localDeletedPagoIds).some(s=>s.size>0);
-        const localCobros  = appData.cobros;  // always preserve local cobros
-        const localBrands  = appData.brands;  // preserve local brands
-        const localMembers = appData.members; // preserve local members
+
+        // Cobros SIEMPRE se preservan del local — nunca sobreescribir con el servidor
+        const localCobros  = appData.cobros;
+        const localBrands  = appData.brands;
+        const localMembers = appData.members;
+
         if(hasPendingChanges || hasPendingDeletes){
           const merged = deepMergeAppData(raw, appData);
           Object.assign(appData, merged);
         } else {
-          appData = { ...raw };
-          if(!appData.domos)    appData.domos    = [];
-          if(!appData.template) appData.template = defaultTemplate();
-          // Always restore local state for mutable collections
-          appData.brands  = localBrands  || (Array.isArray(raw.brands)  ? raw.brands  : []);
-          appData.members = localMembers || (Array.isArray(raw.members) ? raw.members : []);
+          // Sin cambios pendientes — aplicar servidor pero preservar cobros locales
+          const merged = deepMergeAppData(raw, appData);
+          Object.assign(appData, merged);
         }
-        // Always restore local cobros
+        // Cobros siempre del local — NUNCA del servidor en realtime
         appData.cobros = localCobros || raw.cobros || {};
         // Re-apply deleted ids as final safety net
         if(_localDeletedIds.brands.size)
