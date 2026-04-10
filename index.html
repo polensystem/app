@@ -9424,25 +9424,16 @@ function renderMembersGrid(){
           <div style="min-width:0;flex:1" onclick="event.stopPropagation()">
             <div class="member-nickname">${m.apodo||m.nombre}</div>
             ${m.cargo?`<div style="font-size:0.68rem;color:rgba(255,255,255,0.75);margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.cargo}</div>`:''}
-            <div contenteditable="true" id="status-ed-${m.id}"
+            <input type="text" id="status-ed-${m.id}"
               onclick="event.stopPropagation()"
-              onfocus="event.stopPropagation();this.style.background='rgba(255,255,255,0.18)';this.style.border='1px solid rgba(255,255,255,0.3)';showRichToolbar('${m.id}')"
-              onblur="this.style.background='transparent';this.style.border='1px solid transparent';quickSaveMemberStatus('${m.id}',this.innerHTML)"
-              style="margin-top:0.4rem;width:100%;min-height:1.5rem;background:transparent;border:1px solid transparent;border-radius:6px;padding:0.28rem 0.5rem;font-size:0.76rem;color:#fff;font-family:var(--font);outline:none;transition:all 0.2s;cursor:text;word-break:break-word"
-              >${m.status||''}</div>
-            ${!m.status?`<div style="position:absolute;pointer-events:none;margin-top:-1.3rem;padding:0.28rem 1rem;font-size:0.76rem;color:rgba(255,255,255,0.4);font-style:italic" id="status-ph-${m.id}">Estado emocional…</div>`:''}
-            <div id="rich-toolbar-${m.id}" style="display:none;gap:0.25rem;margin-top:0.3rem;flex-wrap:wrap">
-              <button onmousedown="event.preventDefault();document.execCommand('bold')" style="background:rgba(255,255,255,0.2);border:none;border-radius:4px;padding:0.1rem 0.4rem;color:#fff;font-size:0.68rem;cursor:pointer;font-weight:bold">B</button>
-              <button onmousedown="event.preventDefault();document.execCommand('italic')" style="background:rgba(255,255,255,0.2);border:none;border-radius:4px;padding:0.1rem 0.4rem;color:#fff;font-size:0.68rem;cursor:pointer;font-style:italic">I</button>
-              <button onmousedown="event.preventDefault();document.execCommand('underline')" style="background:rgba(255,255,255,0.2);border:none;border-radius:4px;padding:0.1rem 0.4rem;color:#fff;font-size:0.68rem;cursor:pointer;text-decoration:underline">U</button>
-              <button onmousedown="event.preventDefault();document.execCommand('fontSize',false,'5')" style="background:rgba(255,255,255,0.2);border:none;border-radius:4px;padding:0.1rem 0.35rem;color:#fff;font-size:0.68rem;cursor:pointer">A↑</button>
-              <button onmousedown="event.preventDefault();document.execCommand('fontSize',false,'2')" style="background:rgba(255,255,255,0.2);border:none;border-radius:4px;padding:0.1rem 0.35rem;color:#fff;font-size:0.68rem;cursor:pointer">A↓</button>
-              <button onmousedown="event.preventDefault();document.execCommand('foreColor',false,'#f5c542')" style="background:rgba(245,197,66,0.35);border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;flex-shrink:0"></button>
-              <button onmousedown="event.preventDefault();document.execCommand('foreColor',false,'#5de8d0')" style="background:rgba(93,232,208,0.5);border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;flex-shrink:0"></button>
-              <button onmousedown="event.preventDefault();document.execCommand('foreColor',false,'#ff8080')" style="background:rgba(255,128,128,0.5);border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;flex-shrink:0"></button>
-              <button onmousedown="event.preventDefault();document.execCommand('foreColor',false,'#c084fc')" style="background:rgba(192,132,252,0.5);border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;flex-shrink:0"></button>
-              <button onmousedown="event.preventDefault();document.execCommand('foreColor',false,'#ffffff')" style="background:rgba(255,255,255,0.5);border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;flex-shrink:0"></button>
-            </div>
+              onfocus="event.stopPropagation();this.style.background='rgba(255,255,255,0.18)';this.style.borderColor='rgba(255,255,255,0.3)'"
+              onblur="this.style.background='transparent';this.style.borderColor='transparent';quickSaveMemberStatus('${m.id}',this.value)"
+              onkeydown="if(event.key==='Enter'){this.blur();}event.stopPropagation()"
+              value="${(m.status||'').replace(/<[^>]+>/g,'').trim()}"
+              placeholder="Estado emocional…"
+              style="margin-top:0.4rem;width:100%;box-sizing:border-box;background:transparent;border:1px solid transparent;border-radius:6px;padding:0.28rem 0.5rem;font-size:0.76rem;color:#fff;font-family:var(--font);outline:none;transition:all 0.2s;cursor:text"
+            >
+            <div id="rich-toolbar-${m.id}" style="display:none"></div>
           </div>
         </div>
         <!-- Card actions -->
@@ -10009,6 +10000,8 @@ await upsert(); }
 }
 
 async function quickSaveMemberStatus(id,val){
+  // Limpiar cualquier HTML residual — solo texto plano
+  val = (val||'').replace(/<[^>]+>/g,'').trim();
   const m=(appData.members||[]).find(x=>x.id===id);
   if(!m) return;
   m.status=val;
