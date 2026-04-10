@@ -5099,9 +5099,9 @@ function calcCobradoMes(month, year){
     const montoInd = useTotal && pagos.length ? (cob.valorTotal||0) / pagos.length : null;
     return s + pagos.filter(p=>{
       if(!p.cobrado) return false;
-      if(p.triggerType === 'manual') return false;
-      // Solo usar fechaCobrado real — sin fallback a fechaProyectada
-      // para no contar en meses equivocados
+      // Manuales sin fechaCobrado se excluyen (no tienen fecha real de cobro)
+      // Manuales CON fechaCobrado sí cuentan — son pagos reales cobrados
+      if(p.triggerType === 'manual' && !p.fechaCobrado) return false;
       if(!p.fechaCobrado) return false;
       const d = new Date(p.fechaCobrado+'T00:00:00');
       return d.getFullYear()===year && d.getMonth()===month;
