@@ -3182,7 +3182,12 @@ async function upsert(){
 
       // 2. Merge server + local
       const serverData = data?.data;
+      // Preservar cobros locales ANTES del merge — son la fuente de verdad
+      const _cobrosAntesMerge = appData.cobros;
       const toWrite = serverData ? deepMergeAppData(serverData, appData) : appData;
+      // Restaurar cobros locales en toWrite — nunca usar los del servidor
+      toWrite.cobros = _cobrosAntesMerge;
+      appData.cobros = _cobrosAntesMerge;
 
       // 3. Update local appData to merged state — re-apply all local deletes as safety net
       Object.assign(appData, toWrite);
@@ -8160,24 +8165,17 @@ function subscribeRealtime(onUpdate){
           return;
         }
 
-        const hasPendingChanges = _localChangedKeys.size > 0;
-        const hasPendingDeletes = _localDeletedIds.brands.size > 0 || _localDeletedIds.members.size > 0 || _localDeletedIds.clientNotes.size > 0 || Object.values(_localDeletedPagoIds).some(s=>s.size>0);
+        // Snapshot completo de lo que queremos preservar ANTES de cualquier merge
+        const _snapCobros  = JSON.parse(JSON.stringify(appData.cobros  || {}));
+        const _snapBrands  = appData.brands;
+        const _snapMembers = appData.members;
 
-        // Cobros SIEMPRE se preservan del local — nunca sobreescribir con el servidor
-        const localCobros  = appData.cobros;
-        const localBrands  = appData.brands;
-        const localMembers = appData.members;
+        // Aplicar datos del servidor para campos no-cobros (brands, members, etc.)
+        const merged = deepMergeAppData(raw, appData);
+        Object.assign(appData, merged);
 
-        if(hasPendingChanges || hasPendingDeletes){
-          const merged = deepMergeAppData(raw, appData);
-          Object.assign(appData, merged);
-        } else {
-          // Sin cambios pendientes — aplicar servidor pero preservar cobros locales
-          const merged = deepMergeAppData(raw, appData);
-          Object.assign(appData, merged);
-        }
-        // Cobros siempre del local — NUNCA del servidor en realtime
-        appData.cobros = localCobros || raw.cobros || {};
+        // RESTAURAR cobros locales — siempre, sin excepción
+        appData.cobros = _snapCobros;
         // Re-apply deleted ids as final safety net
         if(_localDeletedIds.brands.size)
           appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
