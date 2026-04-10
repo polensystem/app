@@ -896,14 +896,16 @@ body.portal-mode .main{ height:100vh; }
 .eq-week-day.today{background:rgba(59,158,221,0.03);}
 .eq-week-day.empty-day{opacity:0.55;}
 .eq-week-day-label{
-  font-size:0.75rem;font-weight:700;letter-spacing:0.3px;
-  color:var(--text);margin-bottom:0.1rem;
+  font-size:0.72rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;
+  color:var(--text2);margin-bottom:0.05rem;
 }
 .eq-week-day.today .eq-week-day-label{color:var(--aire);}
 .eq-week-day-num{
-  font-size:0.78rem;color:var(--text3);
-  margin-bottom:0.6rem;display:flex;align-items:center;gap:0.4rem;
+  font-size:1rem;font-weight:800;color:var(--text);
+  margin-bottom:0.55rem;display:flex;align-items:center;gap:0.4rem;
+  padding-bottom:0.45rem;border-bottom:2px solid var(--border);
 }
+.eq-week-day.today .eq-week-day-num{border-bottom-color:var(--aire);}
 .today-pill{background:var(--aire);color:#fff;border-radius:99px;padding:0.05rem 0.45rem;font-size:0.58rem;font-weight:700;}
 .eq-week-empty{font-size:0.72rem;color:var(--text3);font-style:italic;margin-top:0.2rem;}
 
@@ -943,10 +945,11 @@ body.portal-mode .main{ height:100vh; }
 .eq-month-day:last-child{border-right:none;}
 .eq-month-day.today{background:rgba(59,158,221,0.04);}
 .eq-month-day-label{
-  font-size:0.65rem;font-weight:600;color:var(--text2);
-  margin-bottom:0.25rem;flex-shrink:0;white-space:nowrap;
+  font-size:0.68rem;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;
+  color:var(--text2);margin-bottom:0.3rem;flex-shrink:0;white-space:nowrap;
+  padding-bottom:0.3rem;border-bottom:1.5px solid var(--border);
 }
-.eq-month-day.today .eq-month-day-label{color:var(--aire);}
+.eq-month-day.today .eq-month-day-label{color:var(--aire);border-bottom-color:var(--aire);}
 .eq-month-events-scroll{overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
 
 /* ── Domos view ── */
@@ -1797,6 +1800,12 @@ body.portal-mode .main{ height:100vh; }
             <button class="btn-solid" style="font-size:0.78rem;padding:0.4rem 0.9rem" onclick="saveBrandDomo()">Guardar domo</button>
           </div>
           <div class="section-body">
+            <!-- Director Creativo -->
+            <div style="margin-bottom:1.4rem;padding:1rem;background:var(--bg-card2);border-radius:14px;border:1.5px solid var(--border)">
+              <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.6rem">🎯 Director Creativo</div>
+              <select class="form-select" id="domo-director" onchange="updateDirectorPreview()" style="font-size:0.82rem;margin-bottom:0.6rem"><option value="">— Sin asignar —</option></select>
+              <div id="domo-director-preview"></div>
+            </div>
             <!-- Principals: side by side visual cards -->
             <div style="margin-bottom:1.2rem">
               <label class="form-label" style="margin-bottom:0.7rem">Integrantes principales (máx. 2)</label>
@@ -1872,9 +1881,16 @@ body.portal-mode .main{ height:100vh; }
               <select class="form-select" id="tpl-domo-m2"><option value="">— Sin asignar —</option></select>
             </div>
           </div>
-          <div class="form-group" style="margin-top:0.6rem">
-            <label class="form-label">Notas</label>
-            <input class="form-input" id="tpl-notas" placeholder="Notas generales…">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-top:0.6rem;align-items:start">
+            <div class="form-group">
+              <label class="form-label">🔍 Días hábiles antes del hito para revisión interna</label>
+              <input class="form-input" id="tpl-rev-days" type="number" min="1" max="10" value="2" style="max-width:120px" placeholder="2">
+              <div style="font-size:0.68rem;color:var(--text3);margin-top:0.3rem">Aplica a todas las revisiones internas y revisiones DC</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Notas</label>
+              <input class="form-input" id="tpl-notas" placeholder="Notas generales…">
+            </div>
           </div>
         </div>
       </div>
@@ -2064,6 +2080,17 @@ body.portal-mode .main{ height:100vh; }
               <div class="eq-week-sub" id="eq-week-sub"></div>
             </div>
             <button class="eq-nav-btn" onclick="eqShiftWeek(1)">→</button>
+          </div>
+          <!-- Toggle modo vista -->
+          <div style="display:flex;justify-content:flex-end;padding:0.4rem 0.5rem 0;gap:0.4rem">
+            <button id="eq-week-mode-days" onclick="setEqWeekMode('days')"
+              style="font-size:0.72rem;font-weight:600;padding:0.28rem 0.75rem;border-radius:99px;border:1.5px solid var(--aire);background:var(--aire);color:#fff;cursor:pointer;font-family:var(--font);transition:all 0.15s">
+              📅 Por día
+            </button>
+            <button id="eq-week-mode-members" onclick="setEqWeekMode('members')"
+              style="font-size:0.72rem;font-weight:600;padding:0.28rem 0.75rem;border-radius:99px;border:1.5px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s">
+              👥 Por integrante
+            </button>
           </div>
           <div class="eq-week-grid" id="eq-week-grid"></div>
         </div>
@@ -2635,8 +2662,8 @@ body.portal-mode .main{ height:100vh; }
 
 window.addEventListener('error', function(e){
   // Suppress DOM null errors from render functions — they're non-critical
-  if(e.message && e.message.includes('Cannot set properties of null')) {
-    console.warn('DOM null error (non-critical):', e.message, 'line', e.lineno);
+  if(e.message && (e.message.includes('Cannot set properties of null') || e.message.includes('Cannot read properties of null'))) {
+    console.warn('DOM null error (non-critical):', e.message, 'at line', e.lineno, e.filename?.split('/').pop());
     return;
   }
   const bar = document.getElementById('status-bar');
@@ -3171,7 +3198,7 @@ async function upsert(){
   const connDot = document.getElementById('conn-dot');
   if(connDot){ connDot.className = 'saving'; connDot.title = 'Guardando…'; }
 
-  _saveQueue = _saveQueue.then(async ()=>{
+  _saveQueue = _saveQueue.catch(()=>{}).then(async ()=>{
     try{
       // 1. Read current server state
       const {data, error: readErr} = await sb.from('polen_shared').select('data').eq('id', REC_ID).single();
@@ -3182,15 +3209,16 @@ async function upsert(){
 
       // 2. Merge server + local
       const serverData = data?.data;
-      // Preservar cobros locales ANTES del merge — son la fuente de verdad
-      const _cobrosAntesMerge = appData.cobros;
-      const toWrite = serverData ? deepMergeAppData(serverData, appData) : appData;
+      // Preservar cobros locales ANTES del merge — deep copy para evitar mutaciones
+      const _cobrosAntesMerge = JSON.parse(JSON.stringify(appData.cobros||{}));
+      const toWrite = serverData ? deepMergeAppData(serverData, appData) : {...appData};
       // Restaurar cobros locales en toWrite — nunca usar los del servidor
       toWrite.cobros = _cobrosAntesMerge;
-      appData.cobros = _cobrosAntesMerge;
 
       // 3. Update local appData to merged state — re-apply all local deletes as safety net
       Object.assign(appData, toWrite);
+      // Cobros siempre del snapshot local — restaurar después del assign
+      appData.cobros = _cobrosAntesMerge;
       if(_localDeletedIds.brands.size){
         appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
         toWrite.brands = appData.brands;
@@ -3366,13 +3394,8 @@ function addWorkdays(startDate,days){
 }
 
 function shiftWorkdays(dateStr,delta){
-  if(!dateStr)return dateStr;
-  let d=new Date(dateStr);let moved=0;const step=delta>0?1:-1;
-  while(moved<Math.abs(delta)){
-    d.setDate(d.getDate()+step);
-    if(!isWeekend(d))moved++;
-  }
-  return fmtDate(d);
+  // Alias de shiftWD — usa parseLocalDate para evitar desfase UTC
+  return shiftWD(dateStr, delta);
 }
 
 function fmtDate(d){
@@ -3397,10 +3420,10 @@ function fmtDateDisplay(str){
 }
 
 function nextWorkday(dateStr){
-  let d=new Date(dateStr);
+  let d=parseLocalDate(dateStr);
   d.setDate(d.getDate()+1);
   while(isWeekend(d))d.setDate(d.getDate()+1);
-  return fmtDate(d);
+  return fmtLocalDate(d);
 }
 
 /* ═══ BUILD BRAND DATA FROM TEMPLATE ═══ */
@@ -3624,7 +3647,7 @@ function openBannerEditor(mode){
     const b = banners[_bannerIdx];
     if(!b) return;
     _editingBannerId = b.id;
-    document.getElementById('banner-modal-title').textContent = '✏️ Editar banner';
+    const _bmt=document.getElementById('banner-modal-title'); if(_bmt) _bmt.textContent = '✏️ Editar banner';
     (document.getElementById('banner-text')||{}).value = b.text || '';
     (document.getElementById('banner-subtext')||{}).value = b.subtext || '';
     _bannerTextColor = b.textColor || '#ffffff';
@@ -3640,7 +3663,7 @@ function openBannerEditor(mode){
   } else {
     // New banner
     _editingBannerId = null;
-    document.getElementById('banner-modal-title').textContent = '✨ Nuevo banner';
+    const _bmt2=document.getElementById('banner-modal-title'); if(_bmt2) _bmt2.textContent = '✨ Nuevo banner';
     (document.getElementById('banner-text')||{}).value = '';
     (document.getElementById('banner-subtext')||{}).value = '';
     _bannerSelectedColor = BANNER_COLORS[0].bg;
@@ -3795,7 +3818,7 @@ let _calDragType = null; // 'oficial' | 'revision'
 function deduplicateHitos(hitos){
   const seen = new Set();
   return hitos.filter(h=>{
-    const key = h.actId + '|' + h.type + '|' + h.date;
+    const key = h.actId + '|' + h.type + '|' + h.date + '|' + (h.member?.id||'');
     if(seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -3858,7 +3881,7 @@ async function calDrop(event, newDateStr){
     act.startDate = shiftWD(newDateStr, -(oldDays - 1));
 
     if(_calFreeMode){
-      if(!act.revDateOverride) act.revDateOverride = shiftWD(oldEndDate, -2);
+      if(!act.revDateOverride) act.revDateOverride = shiftWD(oldEndDate, -getRevDays());
     } else {
       if(act.revDateOverride) delete act.revDateOverride;
     }
@@ -3948,7 +3971,7 @@ async function toggleHitoFreeMode(brandId, stage, actId){
     showStatus('🔗 Revisión re-vinculada al hito (−2 días)');
   } else {
     // Free mode: set initial override to current computed value
-    act.revDateOverride = subtractWorkdays(act.endDate, 2);
+    act.revDateOverride = subtractWorkdays(act.endDate, getRevDays());
     showStatus('🔓 Modo libre activado — arrastra 🔍 independientemente');
   }
     markLocalChange('brands');
@@ -4042,7 +4065,7 @@ function openPinModal(section){
   _changingPinSection = section;
   ensureFinData();
   const titles = { fin:'Data (Finanzas)', cob:'Cobranzas', archivo:'Archivo', member:'Eliminar miembros' };
-  document.getElementById('pin-modal-title').textContent = '🔑 Cambiar PIN — ' + (titles[section]||section);
+  const _pinTitle=document.getElementById('pin-modal-title'); if(_pinTitle) _pinTitle.textContent = '🔑 Cambiar PIN — ' + (titles[section]||section);
   (document.getElementById('pin-current')||{}).value='';
   (document.getElementById('pin-new')||{}).value='';
   (document.getElementById('pin-confirm')||{}).value='';
@@ -4393,8 +4416,8 @@ function editFinMeta(field){
 let _finModalCallback = null;
 
 function openFinModal(title, label, current, callback, isText=false){
-  document.getElementById('fin-input-title').textContent = title;
-  document.getElementById('fin-input-label').textContent = label;
+  const _finT=document.getElementById('fin-input-title'); if(_finT) _finT.textContent = title;
+  const _finL=document.getElementById('fin-input-label'); if(_finL) _finL.textContent = label;
   const inp = document.getElementById('fin-input-field');
   inp.value = current||'';
   inp.type = isText ? 'text' : 'number';
@@ -4659,7 +4682,7 @@ function _reconcilePagosWithCrono(brand){
       nombre: a.name,           // Siempre el nombre exacto del cronograma
       monto: existing?.monto || 0,
       cobrado: existing?.cobrado || false,
-      fechaCobrado: existing?.fechaCobrado,
+      fechaCobrado: existing?.cobrado ? (existing?.fechaCobrado || undefined) : undefined,
       fechaProyectada: a.endDate || existing?.fechaProyectada || '', // Siempre del cronograma
       nota: existing?.nota || '',
       ultimoSeguimiento: existing?.ultimoSeguimiento || '',
@@ -5587,9 +5610,13 @@ function renderCurrentPage(){
     if(currentPage==='brand')renderBrandPage();
     if(currentPage==='template')renderTemplate();
     if(currentPage==='backup'){} // static page, no render needed
-    if(currentPage==='equipo'||currentPage==='member'){currentPage='equipo';renderEquipo();}
-    if(currentPage==='equipo')renderTeamPage();
-    if(currentPage==='member')renderMemberProfile();
+    if(currentPage==='equipo'||currentPage==='member'){
+      const _wasM = currentPage==='member';
+      currentPage='equipo';
+      renderEquipo();
+      renderTeamPage();
+      if(_wasM) renderMemberProfile();
+    }
     if(currentPage==='finanzas'&&_finUnlocked)renderFinMes();
     if(currentPage==='cobranzas'&&_cobUnlocked)renderCobranzas();
     if(currentPage==='archivo')renderArchivo();
@@ -6337,7 +6364,7 @@ async function renderBrandPage(){
   let needsSave = false;
   if(!brand.cronograma || Object.values(brand.cronograma).every(arr=>!arr||arr.length===0)){
     const tpl = appData.template || defaultTemplate();
-    const start = brand.createdAt ? brand.createdAt.slice(0,10) : new Date().toISOString().slice(0,10);
+    const start = brand.createdAt ? brand.createdAt.slice(0,10) : todayStr();
     const tplWithNaming = {...tpl, includeNaming: brand.includeNaming !== false};
     brand.cronograma = buildCronoFromTemplate(tplWithNaming, start);
     needsSave = true;
@@ -6392,7 +6419,7 @@ async function renderBrandPage(){
   imgEl.innerHTML=brand.image?`<img src="${brand.image}" alt="${brand.name}">`:'<span>'+brand.name.charAt(0)+'</span>';
 
   // Name & meta
-  document.getElementById('brand-hero-name').textContent=brand.name;
+  const _heroName=document.getElementById('brand-hero-name'); if(_heroName) _heroName.textContent=brand.name;
   const si={aire:{l:'Aire',e:'🌬️'},agua:{l:'Agua',e:'💧'},tierra:{l:'Tierra',e:'🌱'},fuego:{l:'Fuego',e:'🔥'}};
   const pi={alta:'🔴 Alta',media:'🟡 Media',baja:'🟢 Baja'};
   const s=si[brand.stage]||si.aire;
@@ -6403,11 +6430,17 @@ async function renderBrandPage(){
     const dm2 = appData.members.find(m=>m.id===brand.domo.m2);
     if(dm1||dm2) domoDisplay=`<span style="font-size:0.75rem;color:var(--text2)">🔗 ${[dm1,dm2].filter(Boolean).map(m=>m.apodo||m.nombre).join(' + ')}</span>`;
   }
+  let directorDisplay = '';
+  if(brand.director){
+    const dir = appData.members.find(m=>m.id===brand.director);
+    if(dir) directorDisplay=`<span style="font-size:0.75rem;color:var(--aire);background:rgba(59,158,221,0.1);padding:0.1rem 0.45rem;border-radius:99px;font-weight:600">🎯 ${dir.apodo||dir.nombre}</span>`;
+  }
   (document.getElementById('brand-hero-meta')||{innerHTML:''}).innerHTML=`
     <span class="stage-pill ${brand.stage}">${s.e} ${s.l}</span>
     <span class="prio-pill ${brand.prioridad||'media'}">${pi[brand.prioridad||'media']}</span>
     ${brand.industria?`<span style="font-size:0.75rem;color:var(--text3)">${brand.industria}</span>`:''}
     ${domoDisplay}
+    ${directorDisplay}
   `;
 
   // Segmented progress bar
@@ -6567,10 +6600,18 @@ function renderBrandCrono(brand){
   const stages=['aire','agua','tierra','fuego'];
 
   // Shift row
-  const shiftHTML=`<div class="crono-shift-row">
+  const brandRevDays = brand.revDays ?? getRevDays();
+  const shiftHTML=`<div class="crono-shift-row" style="flex-wrap:wrap;gap:0.5rem">
     <button class="btn-shift" onclick="shiftAllDates('${brand.id}',-1)">← −1 día</button>
     <button class="btn-shift" onclick="shiftAllDates('${brand.id}',1)">+1 día →</button>
     <span class="shift-label">Mover todo el cronograma (días hábiles)</span>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:0.5rem">
+      <span style="font-size:0.72rem;color:var(--text3)">🔍 Revisión interna:</span>
+      <button onclick="changeBrandRevDays('${brand.id}',-1)" style="background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:0.8rem;color:var(--text2);font-family:var(--font);display:flex;align-items:center;justify-content:center">−</button>
+      <span id="brand-rev-days-${brand.id}" style="font-size:0.78rem;font-weight:700;color:var(--text);min-width:20px;text-align:center">${brandRevDays}</span>
+      <button onclick="changeBrandRevDays('${brand.id}',1)" style="background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:0.8rem;color:var(--text2);font-family:var(--font);display:flex;align-items:center;justify-content:center">+</button>
+      <span style="font-size:0.72rem;color:var(--text3)">días antes</span>
+    </div>
   </div>`;
 
   // Sin ubicar section
@@ -6640,6 +6681,7 @@ function renderBrandCrono(brand){
           </div>
           <span class="act-hito-star ${a.isHito?'on':''}" onclick="toggleHito('${brand.id}','${stage}','${a.id}')" title="${a.isHito?'Quitar hito':'Marcar como hito'}" style="cursor:pointer">⭐</span>
           <button onclick="toggleInterno('${brand.id}','${stage}','${a.id}')" title="${a.isInterno?'Quitar revisión interna':'Marcar como necesita revisión interna previa'}" style="background:none;border:none;cursor:pointer;font-size:0.8rem;flex-shrink:0;padding:0 0.1rem;opacity:${a.isInterno?'1':'0.2'};filter:${a.isInterno?'none':'grayscale(1)'};transition:opacity 0.15s">🔍</button>
+
           <span class="act-item-name ${a.isHito?'hito-name':''} ${a.status==='completada'?'done-name':''}"
             contenteditable="true"
             spellcheck="false"
@@ -6899,6 +6941,18 @@ function tplToggleInterno(stage, id){
   renderTplStage(stage);
 }
 
+
+async function toggleDCReview(brandId, stage, actId){
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand?.cronograma?.[stage]) return;
+  const act = brand.cronograma[stage].find(a=>a.id===actId);
+  if(!act) return;
+  act.isDCReview = !act.isDCReview;
+  markLocalChange('brands');
+  await upsert();
+  renderBrandCrono(brand);
+  showStatus(act.isDCReview ? '🎯 Revisión DC activada' : 'Revisión DC desactivada');
+}
 
 async function toggleHito(brandId, stage, actId){
   const brand = appData.brands.find(b=>b.id===brandId);
@@ -7209,17 +7263,20 @@ function editDate(e,brandId,stage,actId,field){
 
 /* ── Shift ALL dates by N workdays ── */
 async function shiftAllDates(brandId,delta){
-    const brand=appData.brands.find(b=>b.id===brandId);
+  const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand)return;
   ['aire','agua','tierra','fuego'].forEach(stage=>{
     (brand.cronograma[stage]||[]).forEach(a=>{
       if(a.startDate)a.startDate=shiftWorkdays(a.startDate,delta);
       if(a.endDate)a.endDate=shiftWorkdays(a.endDate,delta);
+      if(a.revDateOverride)a.revDateOverride=shiftWorkdays(a.revDateOverride,delta);
     });
   });
+  // Sincronizar fechaProyectada en cobros después de mover el cronograma
+  ensureCobrosData();
+  markLocalChange('brands','cobros');
   renderBrandCrono(brand);
-    markLocalChange('brands');
-await upsert();
+  await upsert();
   showStatus((delta>0?'+':'')+delta+' día'+(Math.abs(delta)>1?'s':'')+' aplicado a todo el cronograma ✓');
 }
 
@@ -7246,8 +7303,9 @@ async function cycleStatus(brandId,stage,actId){
 
   renderBrandCrono(brand);
   renderSegmentedProgress(brand);
-  // Also update hero meta
-  renderBrandPage();
+  // Actualizar solo el hero-meta (más eficiente que renderBrandPage completo)
+  const _bHeroMeta = document.getElementById('brand-hero-meta');
+  if(_bHeroMeta) renderBrandPage();
   markLocalChange('brands');
 
   // ── Sync crono → cobros ──
@@ -7323,6 +7381,26 @@ function renderDomoPrincipalCards(){
   });
 }
 
+function updateDirectorPreview(){
+  const sel = document.getElementById('domo-director');
+  const preview = document.getElementById('domo-director-preview');
+  if(!sel || !preview) return;
+  const m = (appData.members||[]).find(x=>x.id===sel.value);
+  if(!m){ preview.innerHTML=''; return; }
+  const col = getMemberColor(m);
+  const avatarHTML = m.photo
+    ? `<img src="${m.photo}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid ${col}">`
+    : `<div style="width:32px;height:32px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-size:0.9rem;color:#fff;font-weight:700">${m.emoji||m.nombre?.charAt(0)||'?'}</div>`;
+  preview.innerHTML = `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem;background:var(--bg-card);border-radius:10px;border:1px solid var(--border)">
+    ${avatarHTML}
+    <div>
+      <div style="font-size:0.82rem;font-weight:700;color:var(--text)">${m.apodo||m.nombre}</div>
+      <div style="font-size:0.65rem;color:var(--text3)">${m.cargo||''}</div>
+    </div>
+    <div style="margin-left:auto;font-size:0.65rem;font-weight:700;color:var(--aire);background:rgba(59,158,221,0.1);padding:0.15rem 0.5rem;border-radius:99px">Director Creativo</div>
+  </div>`;
+}
+
 function renderBrandDomo(){
   const brand = appData.brands.find(b=>b.id===currentBrandId);
   if(!brand) return;
@@ -7330,7 +7408,7 @@ function renderBrandDomo(){
   const members = appData.members||[];
 
   // Populate selects
-  ['domo-p1','domo-p2','domo-h1','domo-h2'].forEach(selId=>{
+  ['domo-p1','domo-p2','domo-h1','domo-h2','domo-director'].forEach(selId=>{
     const sel = document.getElementById(selId);
     if(!sel) return;
     const cur = sel.value;
@@ -7345,6 +7423,10 @@ function renderBrandDomo(){
   if(document.getElementById('domo-p2')) (document.getElementById('domo-p2')||{}).value = p[1]||domo.m2||'';
   if(document.getElementById('domo-h1')) (document.getElementById('domo-h1')||{}).value = (h[0]||(domo.helpers||[])[0])||'';
   if(document.getElementById('domo-h2')) (document.getElementById('domo-h2')||{}).value = (h[1]||(domo.helpers||[])[1])||'';
+  // Director creativo
+  const dirSel = document.getElementById('domo-director');
+  if(dirSel) dirSel.value = brand.director||'';
+  updateDirectorPreview();
   renderDomoPrincipalCards();
 
   // Preview
@@ -7373,10 +7455,13 @@ async function saveBrandDomo(){
     principales: [p1,p2].filter(Boolean),
     astronautas: [h1,h2].filter(Boolean)
   };
-    markLocalChange('brands');
-await upsert();
+  brand.director = document.getElementById('domo-director')?.value||'';
+  markLocalChange('brands');
+  await upsert();
   showStatus('Domo guardado ✓');
   renderBrandDomo();
+  // Actualizar hero para reflejar cambios de domo y director
+  if(currentBrandId) renderBrandPage();
 }
 
 /* ── BP (brand) ── */
@@ -7396,7 +7481,7 @@ function renderBrandBp(brand){
   if(totalInput) totalInput.value = total;
   (document.getElementById('brand-bp-used')||{}).textContent=used;
   (document.getElementById('brand-bp-left')||{}).textContent=left;
-  document.getElementById('brand-bp-total-label').textContent=total+' pts';
+  const _bpLbl=document.getElementById('brand-bp-total-label'); if(_bpLbl) _bpLbl.textContent=total+' pts';
   (document.getElementById('brand-bp-bar')||{style:{}}).style.width=total>0?Math.min(100,used/total*100)+'%':'0%';
 
   (document.getElementById('brand-bp-cats')||{innerHTML:''}).innerHTML=(bp.categories||[]).map((cat,ci)=>`
@@ -7561,20 +7646,25 @@ function selectBrandColor(color){
 }
 
 function getBrandColor(brand){
-  return brand?.color || BRAND_COLORS[(appData.brands||[]).indexOf(brand) % BRAND_COLORS.length] || '#3a9ee8';
+  if(!brand) return '#3a9ee8';
+  if(brand.color) return brand.color;
+  const idx = (appData.brands||[]).indexOf(brand);
+  const safeIdx = Math.abs(idx >= 0 ? idx : 0);
+  return BRAND_COLORS[safeIdx % (BRAND_COLORS.length||1)] || '#3a9ee8';
 }
 
 function hexToRgba(hex, alpha){
-  const r=parseInt(hex.slice(1,3),16);
-  const g=parseInt(hex.slice(3,5),16);
-  const b=parseInt(hex.slice(5,7),16);
+  if(!hex||hex.length<7) return `rgba(58,158,232,${alpha})`;
+  const r=parseInt(hex.slice(1,3),16)||0;
+  const g=parseInt(hex.slice(3,5),16)||0;
+  const b=parseInt(hex.slice(5,7),16)||0;
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function openModal(){
   editingBrandId=null;
-  document.getElementById('modal-brand-title').textContent='Nueva marca';
-  document.getElementById('btn-save').textContent='Crear marca';
+  const _mbt=document.getElementById('modal-brand-title'); if(_mbt) _mbt.textContent='Nueva marca';
+  const _bs=document.getElementById('btn-save'); if(_bs) _bs.textContent='Crear marca';
   (document.getElementById('input-name')||{}).value='';
   (document.getElementById('input-industria')||{}).value=appData.template?.industria||'';
   (document.getElementById('input-stage')||{}).value='aire';
@@ -7614,8 +7704,8 @@ function openEditBrandModal(){
   const brand=appData.brands.find(b=>b.id===currentBrandId);
   if(!brand)return;
   editingBrandId=brand.id;
-  document.getElementById('modal-brand-title').textContent='Editar marca';
-  document.getElementById('btn-save').textContent='Guardar cambios';
+  const _mbt2=document.getElementById('modal-brand-title'); if(_mbt2) _mbt2.textContent='Editar marca';
+  const _bs2=document.getElementById('btn-save'); if(_bs2) _bs2.textContent='Guardar cambios';
   (document.getElementById('input-name')||{}).value=brand.name;
   (document.getElementById('input-industria')||{}).value=brand.industria||'';
   (document.getElementById('input-stage')||{}).value=brand.stage||'aire';
@@ -7884,6 +7974,7 @@ function renderTemplate(){
   (document.getElementById('tpl-industria')||{}).value=t.industria||'';
   (document.getElementById('tpl-prioridad')||{}).value=t.prioridad||'media';
   (document.getElementById('tpl-notas')||{}).value=t.notas||'';
+  (document.getElementById('tpl-rev-days')||{}).value=t.revDaysDefault||2;
   // Domo por defecto
   const members=appData.members||[];
   const memberOpts='<option value="">— Sin asignar —</option>'+members.map(m=>`<option value="${m.id}">${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
@@ -8122,6 +8213,7 @@ async function saveTemplate(){
   appData.template.domoM1=document.getElementById('tpl-domo-m1')?.value||'';
   appData.template.domoM2=document.getElementById('tpl-domo-m2')?.value||'';
   appData.template.notas=document.getElementById('tpl-notas').value.trim();
+  appData.template.revDaysDefault=parseInt(document.getElementById('tpl-rev-days')?.value)||2;
   appData.template.includeNaming=document.getElementById('tpl-naming').checked;
   appData.template.brandingPoints.total=parseInt(document.getElementById('bp-total').value)||0;
   const ok=await upsert();if(ok)showStatus('Template guardado ✓');
@@ -8346,7 +8438,7 @@ function renderMemberWeek(){
     return `<div class="week-day ${ds===todayStr?'today':''}">
       <div class="week-day-label">${dayNames[i]}</div>
       <div class="week-day-num">${d.getDate()}</div>
-      ${dayHitos.map(h=>`<span class="week-hito-chip ${h.type}">${h.type==='revision'?'📝':'⭐'} ${h.name.slice(0,20)}</span>`).join('')}
+      ${dayHitos.map(h=>`<span class="week-hito-chip ${h.type}">${h.type==='revision'?'📝':h.type==='dc_review'?'🎯':'⭐'} ${h.name.slice(0,20)}</span>`).join('')}
     </div>`;
   }).join('');
 }
@@ -8387,7 +8479,7 @@ function renderMemberMonth(){
     const dayHitos = hitos.filter(h=>h.date===ds);
     html+=`<div class="month-day ${ds===todayStr?'today':''} ${isWknd?'weekend':''}">
       <div class="month-day-num">${day}</div>
-      ${dayHitos.map(h=>`<div class="month-event ${h.type}">${h.type==='revision'?'📝':'⭐'} ${h.name.slice(0,18)}</div>`).join('')}
+      ${dayHitos.map(h=>`<div class="month-event ${h.type}">${h.type==='revision'?'📝':h.type==='dc_review'?'🎯':'⭐'} ${h.name.slice(0,18)}</div>`).join('')}
     </div>`;
   }
 
@@ -8702,45 +8794,71 @@ function getMemberHitos(memberId) {
   const results = [];
   const today = new Date(); today.setHours(0,0,0,0);
 
+  // Set de brandIds ya añadidos como DC para evitar duplicados si también está en el domo
+  const dcBrandIds = new Set();
+
   (appData.brands || []).forEach(brand => {
     const domo = brand.domo;
-    if (!domo) return;
-    const inDomo = domo.m1 === memberId || domo.m2 === memberId || (domo.helpers||[]).includes(memberId);
-    if (!inDomo) return;
+    const inDomo = domo && (domo.m1 === memberId || domo.m2 === memberId || (domo.helpers||[]).includes(memberId));
+    const isDirector = brand.director === memberId;
+
+    if (!inDomo && !isDirector) return;
 
     ['aire','agua','tierra','fuego'].forEach(stage => {
       (brand.cronograma?.[stage] || []).forEach(act => {
         if (!act.isHito || !act.endDate) return;
         const endD = new Date(act.endDate); endD.setHours(0,0,0,0);
 
-        // Official hito
-        results.push({
-          type: 'oficial',
-          name: act.name,
-          brandName: brand.name,
-          brandId: brand.id,
-          actId: act.id,
-          stage,
-          date: act.endDate,
-          dateObj: endD,
-          status: act.status,
-        });
-
-        // Internal review: only if act.isInterno is set
-        if(act.isInterno){
-          const revDate = act.revDateOverride || subtractWorkdays(act.endDate, 2);
-          const revD = new Date(revDate); revD.setHours(0,0,0,0);
+        if(inDomo){
+          // Official hito (miembro del domo)
           results.push({
-            type: 'revision',
-            name: '🔍 Rev. interna: ' + act.name,
+            type: 'oficial',
+            name: act.name,
             brandName: brand.name,
             brandId: brand.id,
             actId: act.id,
             stage,
-            date: revDate,
-            dateObj: revD,
+            date: act.endDate,
+            dateObj: endD,
             status: act.status,
-            freeMode: !!act.revDateOverride,
+            isHito: act.isHito,
+          });
+
+          // Internal review
+          if(act.isInterno){
+            const revDate = act.revDateOverride || subtractWorkdays(act.endDate, getRevDays(brand.id));
+            const revD = new Date(revDate); revD.setHours(0,0,0,0);
+            results.push({
+              type: 'revision',
+              name: '🔍 Rev. interna: ' + act.name,
+              brandName: brand.name,
+              brandId: brand.id,
+              actId: act.id,
+              stage,
+              date: revDate,
+              dateObj: revD,
+              status: act.status,
+              freeMode: !!act.revDateOverride,
+            });
+          }
+        }
+
+        // DC Review: cuando el hito tiene revisión interna (isInterno=true),
+        // el director creativo también ve un evento 🎯 en esa misma fecha
+        if(act.isInterno && isDirector && !inDomo){
+          const dcDate = act.revDateOverride || subtractWorkdays(act.endDate, getRevDays(brand.id));
+          const dcD = new Date(dcDate); dcD.setHours(0,0,0,0);
+          results.push({
+            type: 'dc_review',
+            name: act.name,
+            brandName: brand.name,
+            brandId: brand.id,
+            actId: act.id,
+            stage,
+            date: dcDate,
+            dateObj: dcD,
+            status: act.status,
+            isHito: true,
           });
         }
       });
@@ -8748,6 +8866,30 @@ function getMemberHitos(memberId) {
   });
 
   return results.sort((a,b) => a.dateObj - b.dateObj);
+}
+
+function getRevDays(brandId){
+  // Días hábiles antes del hito para revisión interna
+  // Primero busca override por marca, luego usa el default del template
+  if(brandId){
+    const brand = appData.brands.find(b=>b.id===brandId);
+    if(brand?.revDays != null) return parseInt(brand.revDays)||2;
+  }
+  return parseInt(appData.template?.revDaysDefault)||2;
+}
+
+async function changeBrandRevDays(brandId, delta){
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand) return;
+  const current = brand.revDays ?? getRevDays();
+  const next = Math.max(1, Math.min(10, current + delta));
+  brand.revDays = next;
+  // Actualizar el número en pantalla sin re-renderizar todo
+  const el = document.getElementById('brand-rev-days-'+brandId);
+  if(el) el.textContent = next;
+  markLocalChange('brands');
+  await upsert();
+  showStatus(`🔍 Revisión interna: ${next} días antes ✓`);
 }
 
 function subtractWorkdays(dateStr, days) {
@@ -9514,7 +9656,7 @@ function renderMembersGrid(){
               const _br=(appData.brands||[]).find(b=>b.id===h.brandId);
               const _col=getBrandColor(_br);
               const _r=parseInt(_col.slice(1,3),16),_g=parseInt(_col.slice(3,5),16),_bv=parseInt(_col.slice(5,7),16);
-              const _isRev=h.type==='revision';
+              const _isRev=h.type==='revision'||h.type==='dc_review';
               const _partnerId=_br?.domo?(_br.domo.m1===m.id?_br.domo.m2:_br.domo.m1):null;
               const _partner=_partnerId?(appData.members||[]).find(x=>x.id===_partnerId):null;
               const _hAct=_br?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
@@ -9525,7 +9667,7 @@ function renderMembersGrid(){
                   <span style="font-size:0.68rem;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">${_br?.name||'—'}</span>
                   ${_partner?`<span style="font-size:0.61rem;background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.05rem 0.4rem;color:var(--text2);white-space:nowrap;flex-shrink:0">${_partner.emoji||'👤'} ${_partner.apodo||_partner.nombre}</span>`:''}
                   ${_atrasadoPill}
-                  <span style="font-size:0.63rem;font-weight:700;color:rgb(${_r},${_g},${_bv});background:rgba(${_r},${_g},${_bv},0.12);border-radius:6px;padding:0.1rem 0.4rem;white-space:nowrap;flex-shrink:0">${_isRev?'🔍':'⭐'} ${fmtDateDisplay(h.date)}</span>
+                  <span style="font-size:0.63rem;font-weight:700;color:rgb(${_r},${_g},${_bv});background:rgba(${_r},${_g},${_bv},0.12);border-radius:6px;padding:0.1rem 0.4rem;white-space:nowrap;flex-shrink:0">${h.type==='dc_review'?'🎯':_isRev?'🔍':'⭐'} ${fmtDateDisplay(h.date)}</span>
                 </div>
                 <div style="font-size:0.72rem;color:var(--text2);line-height:1.35">${h.name.replace('🔍 Rev. interna: ','')}</div>
               </div>`;
@@ -9539,9 +9681,184 @@ function renderMembersGrid(){
   if(_taskBtn) _taskBtn.textContent = _allTasksCollapsed ? '📋 Expandir tareas' : '📋 Colapsar tareas';
 }
 let _eqWeekOffset = 0;
+let _eqWeekMode = 'days'; // 'days' | 'members'
+
+function setEqWeekMode(mode){
+  _eqWeekMode = mode;
+  const btnDays = document.getElementById('eq-week-mode-days');
+  const btnMembers = document.getElementById('eq-week-mode-members');
+  if(btnDays){
+    btnDays.style.background = mode==='days' ? 'var(--aire)' : 'none';
+    btnDays.style.color = mode==='days' ? '#fff' : 'var(--text2)';
+    btnDays.style.borderColor = mode==='days' ? 'var(--aire)' : 'var(--border)';
+  }
+  if(btnMembers){
+    btnMembers.style.background = mode==='members' ? 'var(--aire)' : 'none';
+    btnMembers.style.color = mode==='members' ? '#fff' : 'var(--text2)';
+    btnMembers.style.borderColor = mode==='members' ? 'var(--aire)' : 'var(--border)';
+  }
+  renderEqWeek();
+}
+
 function eqShiftWeek(d){ _eqWeekOffset+=d; renderEqWeek(); }
 
+function renderEqWeekByMember(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dow = today.getDay();
+  const monday = new Date(today); monday.setDate(today.getDate() - (dow===0?6:dow-1) + _eqWeekOffset*7);
+  const friday = new Date(monday); friday.setDate(monday.getDate()+4);
+  const weekNames = ['Esta semana','Próxima semana','En 2 semanas','En 3 semanas'];
+  const weekLabel = _eqWeekOffset===0?weekNames[0]:_eqWeekOffset===1?weekNames[1]:_eqWeekOffset===2?weekNames[2]:_eqWeekOffset===3?weekNames[3]:(_eqWeekOffset>0?`En ${_eqWeekOffset} semanas`:`Hace ${Math.abs(_eqWeekOffset)} semanas`);
+  const fmt = d=>{const ms=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return `${d.getDate()} ${ms[d.getMonth()]}`; };
+  const titleEl = document.getElementById('eq-week-title');
+  const subEl   = document.getElementById('eq-week-sub');
+  if(titleEl) titleEl.textContent = weekLabel;
+  if(subEl)   subEl.textContent   = `${fmt(monday)} — ${fmt(friday)}`;
+
+  const dayNames = ['Lun','Mar','Mié','Jue','Vie'];
+  const days = Array.from({length:5},(_,i)=>{ const d=new Date(monday); d.setDate(monday.getDate()+i); return d; });
+  const membersToShow = currentMemberId
+    ? [(appData.members||[]).find(m=>m.id===currentMemberId)].filter(Boolean)
+    : (appData.members||[]);
+
+  const grid = document.getElementById('eq-week-grid');
+  if(!grid) return;
+
+  // Columnas: nombre ancho fijo + 5 días con min-width para scroll horizontal
+  const NAME_W = '150px';
+  const DAY_W  = 'minmax(130px, 1fr)';
+  const COL = `${NAME_W} repeat(5, ${DAY_W})`;
+
+  const todayStr = fmtDate(today);
+  const isToday = i => fmtDate(days[i]) === todayStr;
+
+  // ── Header ──
+  const headerCells = dayNames.map((dn,i) => {
+    const tod = isToday(i);
+    return `<div style="
+      text-align:center;padding:0.6rem 0.4rem;
+      background:${tod?'rgba(59,158,221,0.08)':'var(--bg-card2)'};
+      border-right:1px solid var(--border);
+      border-bottom:2px solid ${tod?'var(--aire)':'var(--border)'};">
+      <div style="font-size:0.72rem;font-weight:800;color:${tod?'var(--aire)':'var(--text2)'};letter-spacing:0.5px">${dn}</div>
+      <div style="font-size:0.64rem;color:${tod?'var(--aire)':'var(--text3)'};margin-top:0.1rem">${fmt(days[i])}</div>
+      ${tod?'<div style="width:5px;height:5px;border-radius:50%;background:var(--aire);margin:3px auto 0"></div>':''}
+    </div>`;
+  }).join('');
+
+  // ── Filas por miembro ──
+  const rowsHTML = membersToShow.map((m, mi) => {
+    const allHitos = getMemberHitos(m.id).map(h=>({...h,member:m}));
+    const memberTareas = (appData.tareas||[]).filter(t=>t.r1===m.id||t.r2===m.id);
+    const hasSomething = days.some(d => {
+      const ds = fmtDate(d);
+      return allHitos.some(h=>h.date===ds) || memberTareas.some(t=>t.date===ds);
+    });
+    if(!hasSomething && !currentMemberId) return '';
+
+    const col = getMemberColor(m);
+    const avatarHTML = m.photo
+      ? `<img src="${m.photo}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid ${col}">`
+      : `<div style="width:34px;height:34px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0;font-weight:700;color:#fff">${m.emoji||m.nombre?.charAt(0)||'?'}</div>`;
+
+    const nameCell = `<div style="
+      padding:0.75rem 0.6rem;
+      border-right:2px solid var(--border);
+      background:var(--bg-card);
+      display:flex;flex-direction:column;justify-content:flex-start;gap:0.35rem;">
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        ${avatarHTML}
+        <div>
+          <div style="font-size:0.82rem;font-weight:800;color:var(--text);line-height:1.2">${m.apodo||m.nombre}</div>
+          <div style="font-size:0.6rem;color:var(--text3);margin-top:0.1rem">${m.cargo||''}</div>
+        </div>
+      </div>
+    </div>`;
+
+    const dayCells = days.map((d,di) => {
+      const ds = fmtDate(d);
+      const tod = isToday(di);
+      const dayEvs = allHitos.filter(h=>h.date===ds);
+      const dayTareas = memberTareas.filter(t=>t.date===ds);
+      const bgDay = tod ? 'rgba(59,158,221,0.04)' : 'transparent';
+
+      return `<div style="
+        padding:0.4rem;
+        background:${bgDay};
+        border-right:1px solid var(--border);
+        display:flex;flex-direction:column;gap:0.2rem;
+        min-height:52px;">
+        ${dayEvs.map(h=>{
+          const brand=(appData.brands||[]).find(b=>b.id===h.brandId);
+          const bc=getBrandColor(brand);
+          const r=parseInt(bc.slice(1,3),16),g=parseInt(bc.slice(3,5),16),bv=parseInt(bc.slice(5,7),16);
+          const isRev = h.type==='revision';
+          const isDCRev = h.type==='dc_review';
+          const anyRev = isRev || isDCRev;
+          return `<div onclick="openBrand('${h.brandId}');setTimeout(()=>switchTab('crono'),100)"
+            title="${brand?.name||''} — ${h.name}"
+            style="border-radius:5px;padding:0.22rem 0.4rem;cursor:pointer;
+              ${anyRev
+                ? `background:repeating-linear-gradient(-45deg,rgba(${r},${g},${bv},0.08) 0,rgba(${r},${g},${bv},0.08) 4px,transparent 4px,transparent 8px);border:1.5px dashed rgba(${r},${g},${bv},0.5);`
+                : `background:rgba(${r},${g},${bv},0.15);border-left:3px solid rgb(${r},${g},${bv});`}">
+            <div style="font-size:0.64rem;font-weight:700;color:var(--text);line-height:1.3;word-break:break-word">${isDCRev?'🎯 ':isRev?'🔍 ':h.isHito?'⭐ ':''}${brand?.name||''}</div>
+            <div style="font-size:0.58rem;color:var(--text2);line-height:1.3;word-break:break-word">${isDCRev?'Revisión de: '+h.name:isRev?h.name.replace('🔍 Rev. interna: ',''):h.name}</div>
+          </div>`;
+        }).join('')}
+        ${dayTareas.map(t=>`<div style="border-radius:5px;padding:0.22rem 0.4rem;background:var(--bg-card);border:1px solid var(--border);font-size:0.58rem;color:var(--text2);word-break:break-word">📋 ${t.title||'Tarea'}</div>`).join('')}
+      </div>`;
+    }).join('');
+
+    const isLast = mi === membersToShow.filter(m2 => {
+      const h2=getMemberHitos(m2.id); const t2=(appData.tareas||[]).filter(t=>t.r1===m2.id||t.r2===m2.id);
+      return days.some(d=>h2.some(h=>h.date===fmtDate(d))||t2.some(t=>t.date===fmtDate(d)));
+    }).length - 1;
+
+    return `${nameCell}${dayCells}`;
+  }).filter(Boolean).join('');
+
+  // Envolver en contenedor con scroll horizontal
+  grid.style.cssText = 'display:block;overflow-x:auto;border-radius:12px;border:1px solid var(--border)';
+  grid.innerHTML = `<div style="
+    display:grid;
+    grid-template-columns:${COL};
+    min-width:760px;
+    border-radius:12px;
+    overflow:hidden;
+    background:var(--bg-card);">
+    <!-- Header row -->
+    <div style="background:var(--bg-card2);border-right:2px solid var(--border);border-bottom:2px solid var(--border);padding:0.6rem 0.6rem;display:flex;align-items:center">
+      <span style="font-size:0.62rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px">Integrante</span>
+    </div>
+    ${headerCells}
+    <!-- Member rows -->
+    ${rowsHTML ? rowsHTML : '<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--text3)">Sin actividades esta semana</div>'}
+  </div>`;
+
+  // Líneas divisoras entre filas de miembros (después de render)
+  // Aplicar border-bottom a cada celda excepto la última fila
+  const allCells = grid.querySelectorAll('div[style*="min-height:52px"], div[style*="padding:0.75rem"]');
+  // Agrupar en filas de 6 (1 nombre + 5 días)
+  const totalRows = Math.floor(allCells.length / 6);
+  allCells.forEach((cell, i) => {
+    const rowIdx = Math.floor(i / 6);
+    if(rowIdx < totalRows - 1){
+      cell.style.borderBottom = '1px solid var(--border)';
+    }
+  });
+}
+
+
+
+function getMemberColor(m){
+  if(m.color) return m.color;
+  const MEMBER_COLORS=['#e85d5d','#e87f3a','#f5c542','#5db85d','#3a9ee8','#6b5de8','#c45de8','#e85d9e','#5de8d0','#5d8ce8'];
+  const idx = (appData.members||[]).findIndex(x=>x.id===m.id);
+  return MEMBER_COLORS[idx % MEMBER_COLORS.length];
+}
+
 function renderEqWeek(){
+  if(_eqWeekMode === 'members') { renderEqWeekByMember(); return; }
   const today = new Date(); today.setHours(0,0,0,0);
   const dow = today.getDay(); // 0=sun
   const monday = new Date(today); monday.setDate(today.getDate() - (dow===0?6:dow-1) + _eqWeekOffset*7);
@@ -9571,6 +9888,10 @@ function renderEqWeek(){
   });
   const hasAny = dayCounts.some(n=>n>0);
   const cols = dayCounts.map(n=> hasAny ? (n>0?'2fr':'1fr') : '1fr').join(' ');
+  // Resetear style e innerHTML del grid al volver de vista por integrante
+  grid.style.cssText = '';
+  grid.style.display = 'grid';
+  grid.style.gap = '0';
   grid.style.gridTemplateColumns = cols;
   grid.innerHTML = Array.from({length:5},(_,i)=>{
     const day = new Date(monday); day.setDate(monday.getDate()+i);
@@ -9600,10 +9921,21 @@ function renderEqWeek(){
             <div class="eq-event-act" style="color:var(--text2)">${h.name.replace('🔍 Rev. interna: ','')}</div>
             ${partnerPillW ? `<div style="margin-top:0.2rem">${partnerPillW}</div>` : ''}
           </div>`;
+        } else if(h.type==='dc_review'){
+          return `<div class="eq-event"
+            style="background:repeating-linear-gradient(-45deg,rgba(${r},${g},${bv},0.07) 0,rgba(${r},${g},${bv},0.07) 5px,rgba(${r},${g},${bv},0.02) 5px,rgba(${r},${g},${bv},0.02) 10px);border:1.5px dashed rgba(${r},${g},${bv},0.45);border-left:4px solid rgb(${r},${g},${bv});border-radius:0 7px 7px 0"
+            onclick="openBrand('${h.brandId}');setTimeout(()=>switchTab('crono'),100)">
+            <div style="display:flex;align-items:center;gap:0.3rem">
+              <span>🎯</span>
+              <span class="eq-event-brand" style="color:var(--text);font-weight:700;flex:1">${brand?.name||''}</span>
+            </div>
+            <div class="eq-event-act" style="color:var(--text2)">Revisión de: ${h.name}</div>
+          </div>`;
         } else {
           const _wActData = (appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
           const _wFree = !!_wActData?.revDateOverride;
           const partnerPillW2 = domoPartnerPill(h.brandId, currentMemberId||null);
+          const _dcMark = _wActData?.isDCReview ? '<span style="font-size:0.58rem;color:var(--aire);font-weight:600">🎯 DC</span>' : '';
           return `<div class="eq-event cal-draggable"
             style="background:rgba(${r},${g},${bv},0.2);border-left:4px solid rgb(${r},${g},${bv});cursor:grab"
             draggable="true"
@@ -9612,6 +9944,7 @@ function renderEqWeek(){
             <div style="display:flex;align-items:center;gap:0.3rem">
               <span>⭐</span>
               <span class="eq-event-brand" style="color:var(--text);flex:1">${brand?.name||''}</span>
+              ${_dcMark}
               <span class="eq-free-toggle" onclick="event.stopPropagation();toggleHitoFreeMode('${h.brandId}','${h.stage}','${h.actId}')" style="font-size:0.6rem;cursor:pointer;opacity:0.7">${_wFree?'🔓':'🔗'}</span>
             </div>
             <div class="eq-event-act" style="color:var(--text3)">${h.name}</div>
@@ -9685,7 +10018,14 @@ function renderEqMonth(){
           const brand = (appData.brands||[]).find(b=>b.id===h.brandId);
           const evColor2 = getBrandColor(brand);
           const r2=parseInt(evColor2.slice(1,3),16), g2=parseInt(evColor2.slice(3,5),16), b2=parseInt(evColor2.slice(5,7),16);
-          if(h.type==='revision'){
+          if(h.type==='dc_review'){
+            return `<div class="eq-event"
+              style="background:repeating-linear-gradient(-45deg,rgba(${r2},${g2},${b2},0.07) 0px,rgba(${r2},${g2},${b2},0.07) 5px,rgba(${r2},${g2},${b2},0.02) 5px,rgba(${r2},${g2},${b2},0.02) 10px);border:1.5px dashed rgba(${r2},${g2},${b2},0.45);border-left:4px solid rgb(${r2},${g2},${b2});border-radius:0 7px 7px 0"
+              onclick="openBrand('${h.brandId}');setTimeout(()=>switchTab('crono'),100)">
+              <div class="eq-event-brand" style="color:var(--text);font-weight:700">🎯 ${brand?.name||''}</div>
+              <div class="eq-event-act" style="color:var(--text2)">Revisión de: ${h.name}</div>
+            </div>`;
+          } else if(h.type==='revision'){
             const _actFree = (appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
             const _revFree = !!_actFree?.revDateOverride;
             const partnerPillM = domoPartnerPill(h.brandId, currentMemberId||null);
