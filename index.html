@@ -457,12 +457,12 @@ body.portal-mode .main{ height:100vh; }
 .shift-label{font-size:0.72rem;color:var(--text3);margin-left:0.2rem;}
 
 /* ══ TEAM MODULE ══ */
-.member-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(650px,1fr));gap:0.8rem;align-items:stretch;}
-.member-card{background:var(--bg-card);border:1px solid var(--border);border-radius:18px;box-shadow:0 2px 12px rgba(0,0,0,0.08);overflow:hidden;display:flex;flex-direction:column;transition:all var(--transition);cursor:pointer;display:flex;flex-direction:column;}
+.member-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(650px,1fr));gap:0.8rem;align-items:start;}
+.member-card{background:var(--bg-card);border:1px solid var(--border);border-radius:18px;box-shadow:0 2px 12px rgba(0,0,0,0.08);overflow:hidden;display:flex;flex-direction:column;transition:all var(--transition);cursor:pointer;}
 .member-card:hover{box-shadow:0 8px 32px rgba(0,0,0,0.16);border-color:rgba(255,255,255,0.15);}
 
 /* Gradient hero section of card */
-.member-card-hero{position:relative;padding:2rem 1.4rem 1.8rem;display:flex;align-items:center;gap:1.1rem;overflow:hidden;border-bottom:1px solid rgba(255,255,255,0.12);flex:1;}
+.member-card-hero{position:relative;padding:2rem 1.4rem 1.8rem;display:flex;align-items:center;gap:1.1rem;overflow:hidden;border-bottom:1px solid rgba(255,255,255,0.12);min-height:120px;}
 .member-card-hero::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.1) 0%,rgba(0,0,0,0.15) 100%);pointer-events:none;}
 .member-card-hero-content{position:relative;z-index:1;display:flex;align-items:center;gap:0.85rem;width:100%;}
 
@@ -567,7 +567,9 @@ body.portal-mode .main{ height:100vh; }
 .area-opt input{accent-color:var(--aire);}
 
 /* ── TEAM PAGE ── */
-.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.8rem;align-content:start;}
+.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.8rem;align-items:start;align-content:start;}
+.team-grid.team-grid-masonry{display:block;columns:5 280px;column-gap:0.8rem;}
+.team-grid.team-grid-masonry .member-card{break-inside:avoid;margin-bottom:0.8rem;display:flex;flex-direction:column;}
 .member-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;cursor:pointer;transition:all var(--transition);}
 .member-card:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,0.22);border-color:rgba(255,255,255,0.14);}
 .member-card-top{padding:1.2rem 1.2rem 0.8rem;display:flex;align-items:center;gap:0.9rem;}
@@ -1063,33 +1065,34 @@ body.portal-mode .main{ height:100vh; }
 .domo-brand-pill.dragging{opacity:0.4;}
 .domo-card{
   background:var(--bg-card);border:1px solid var(--border);
-  border-radius:16px;overflow:hidden;
-  width:340px;flex-shrink:0;
+  border-radius:14px;overflow:hidden;
+  width:100%;
   transition:all 0.2s;
 }
 .domo-card.drag-over{border-color:var(--aire);box-shadow:0 0 0 3px rgba(59,158,221,0.15);}
-.domo-card-header{padding:1rem 1.1rem 0.8rem;border-bottom:1px solid var(--border);}
+.domo-card-header{padding:0.6rem 0.8rem 0.55rem;border-bottom:1px solid var(--border);}
 .domo-card-name-input{
-  font-size:0.95rem;font-weight:700;color:var(--text);
+  font-size:0.82rem;font-weight:700;color:var(--text);
   background:none;border:none;outline:none;
   font-family:var(--font);width:100%;
   border-bottom:1.5px solid transparent;
   transition:border-color 0.15s;padding-bottom:1px;
 }
 .domo-card-name-input:focus{border-bottom-color:var(--aire);}
-.domo-members-row{display:flex;gap:0.5rem;margin-top:0.6rem;flex-wrap:wrap;}
+.domo-members-row{display:flex;flex-direction:row;gap:0.35rem;margin-top:0.45rem;flex-wrap:wrap;}
 .domo-member-chip{
   display:inline-flex;align-items:center;gap:0.35rem;
-  padding:0.2rem 0.55rem;border-radius:99px;
-  font-size:0.72rem;font-weight:600;
+  padding:0.18rem 0.5rem;border-radius:99px;
+  font-size:0.68rem;font-weight:600;
   border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);
+  width:fit-content;
 }
 .domo-member-chip.principal{background:var(--bg-card2);border-color:var(--aire);color:var(--text);}
-.domo-member-chip.helper{opacity:0.7;font-size:0.68rem;}
+.domo-member-chip.helper{opacity:0.7;font-size:0.65rem;}
 .domo-brands-list{padding:0.7rem 0.9rem;min-height:60px;display:flex;flex-direction:column;gap:0.5rem;}
 .domo-brand-row{
-  display:flex;align-items:center;gap:0.7rem;
-  padding:0.5rem 0.6rem;border-radius:10px;
+  display:flex;align-items:center;gap:0.5rem;
+  padding:0.25rem 0.5rem;border-radius:8px;
   background:var(--bg-card2);border:1px solid var(--border);
   cursor:grab;transition:all 0.15s;
 }
@@ -1155,7 +1158,8 @@ body.portal-mode .main{ height:100vh; }
 .eq-month-day.cal-drag-over{background:rgba(59,158,221,0.08)!important;outline:2px dashed var(--aire);outline-offset:-2px;}
 
 /* Single member view: card fills available height */
-#eq-all-grid.single-member .member-card{height:calc(100vh - 200px);min-height:400px;}
+#eq-all-grid.single-member{display:flex;}
+#eq-all-grid.single-member .member-card{height:calc(100vh - 200px);min-height:400px;flex:1;margin-bottom:0;}
 #eq-all-grid.single-member .member-card .member-hitos-preview{height:auto;flex:1;}
 
 /* ── Finanzas ── */
@@ -2024,7 +2028,11 @@ body.portal-mode .main{ height:100vh; }
       <!-- Actions -->
       <div style="display:flex;gap:0.6rem;margin-left:auto;flex-shrink:0" id="eq-grid-actions">
         <button onclick="openTareaModal()" style="font-size:0.75rem;background:var(--aire);color:#fff;border:none;border-radius:8px;padding:0.38rem 0.85rem;font-weight:700;cursor:pointer;font-family:var(--font)">+ Tarea</button>
-        <button id="btn-toggle-all-tasks" onclick="toggleAllMemberTasks()" style="font-size:0.75rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.38rem 0.75rem;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s">📋 Expandir tareas</button>
+        <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+          <button id="btn-view-tareas" onclick="setEqCardMode('tareas')" style="font-size:0.72rem;padding:0.38rem 0.7rem;border:none;background:var(--aire);color:#fff;cursor:pointer;font-family:var(--font);font-weight:600;transition:all 0.15s">📋 Tareas</button>
+          <button id="btn-view-marcas" onclick="setEqCardMode('marcas')" style="font-size:0.72rem;padding:0.38rem 0.7rem;border:none;background:none;color:var(--text2);cursor:pointer;font-family:var(--font);font-weight:600;transition:all 0.15s;border-left:1px solid var(--border)">🏷 Marcas</button>
+        </div>
+        <button id="btn-toggle-all-tasks" onclick="_eqCardMode==='marcas'?toggleAllMemberBrands():toggleAllMemberTasks()" style="font-size:0.72rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.55rem;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s">⊞ Expandir</button>
         <button onclick="openPinModal('member')" style="font-size:0.75rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.38rem 0.75rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔑 PIN</button>
         <div class="export-wrap">
           <button class="btn-export-inline" onclick="toggleInlineExport(this)">⬇ Exportar</button>
@@ -2108,32 +2116,55 @@ body.portal-mode .main{ height:100vh; }
         <!-- Tab: Domos -->
         <div class="eq-panel" id="eq-panel-domos">
           <div id="domos-view" style="padding:1.2rem 1.4rem">
-            <!-- All brands bar -->
-            <div style="margin-bottom:1.2rem">
-              <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.6rem" id="domos-brands-bar-label">MARCAS ACTIVAS — ARRASTRA A LOS DOMOS PARA ASIGNAR</div>
-              <div id="domos-brands-bar" style="display:flex;flex-wrap:wrap;gap:0.5rem;padding:0.7rem 0.9rem;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;min-height:44px"></div>
-            </div>
-            <!-- Sin domo drop zone -->
-            <div id="domos-unassigned-zone" style="margin-bottom:1.2rem;border:1.5px dashed var(--border);border-radius:12px;padding:0.8rem 1rem;min-height:60px;transition:all 0.2s"
-              ondragover="event.preventDefault();this.style.borderColor='var(--aire)'"
-              ondragleave="this.style.borderColor='var(--border)'"
-              ondrop="dropToDomo(event,'unassigned')">
-              <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.5rem" id="domos-unassigned-label">SIN DOMO (0) — ARRASTRA AQUÍ PARA DESASIGNAR</div>
+            <!-- Sin asignar completo -->
+            <div id="domos-unassigned-zone" style="margin-bottom:1.6rem;border:1.5px dashed var(--border);border-radius:12px;padding:0.8rem 1rem;min-height:50px">
+              <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.5rem" id="domos-unassigned-label">SIN ASIGNAR COMPLETO (0)</div>
               <div id="domos-unassigned-list" style="display:flex;flex-wrap:wrap;gap:0.5rem"></div>
             </div>
-            <!-- Domos header -->
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
-              <div style="display:flex;align-items:center;gap:0.7rem">
-                <span style="font-size:1.1rem;font-weight:800;color:var(--text)">🏠 Domos creativos</span>
-                <span style="font-size:0.78rem;color:var(--text3)">Arrastra marcas entre domos</span>
+
+            <!-- SECCIÓN DE ASIGNACIÓN POR ROLES -->
+            <div style="margin-bottom:0.7rem;display:flex;align-items:center;gap:0.6rem">
+              <span style="font-size:1rem;font-weight:800;color:var(--text)">🎯 Asignación por rol</span>
+              <span style="font-size:0.75rem;color:var(--text3)">Arrastra marcas a cada persona</span>
+            </div>
+
+            <!-- Directores creativos (franja completa) -->
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;margin-bottom:1rem;overflow:hidden">
+              <div style="padding:0.75rem 1rem;background:rgba(59,158,221,0.08);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:0.5rem;cursor:pointer;user-select:none;position:relative" onclick="const r=document.getElementById('domos-dir-row');const a=document.getElementById('domos-dir-arrow');const hidden=r.dataset.collapsed==='1';r.dataset.collapsed=hidden?'':'1';r.style.display=hidden?'flex':'none';a.style.transform=hidden?'':'rotate(-90deg)'">
+                <span style="font-size:0.85rem;font-weight:800;color:var(--aire);text-transform:uppercase;letter-spacing:1px">⭐ Dirección Creativa</span>
+                <span id="domos-dir-arrow" style="font-size:0.65rem;color:var(--aire);position:absolute;right:1rem;transition:transform 0.2s">▼</span>
               </div>
-              <div style="display:flex;gap:0.6rem">
-                <button id="domo-collapse-all-btn" onclick="toggleAllDomos()" style="background:none;border:1px solid var(--border);border-radius:10px;padding:0.45rem 0.9rem;font-size:0.8rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s" onmouseover="this.style.borderColor='var(--aire)'" onmouseout="this.style.borderColor='var(--border)'">▾ Colapsar todos</button>
-                <button onclick="createDomo()" style="background:var(--aire);color:#fff;border:none;border-radius:10px;padding:0.45rem 1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:var(--font)">+ Nuevo domo</button>
+              <div id="domos-dir-row" style="display:flex;flex-wrap:wrap;gap:0.6rem;padding:0.7rem;justify-content:center"></div>
+            </div>
+
+            <!-- Redactores | Diseñadores -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.6rem">
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+                <div style="padding:0.75rem 1rem;background:rgba(93,232,208,0.08);border-bottom:1px solid var(--border);text-align:center">
+                  <span style="font-size:0.85rem;font-weight:800;color:var(--agua);text-transform:uppercase;letter-spacing:1px">✍️ Redacción</span>
+                </div>
+                <div id="domos-red-row" style="display:flex;flex-direction:row;gap:0.6rem;padding:0.7rem;align-items:flex-start;flex-wrap:wrap"></div>
+              </div>
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+                <div style="padding:0.75rem 1rem;background:rgba(176,106,255,0.08);border-bottom:1px solid var(--border);text-align:center">
+                  <span style="font-size:0.85rem;font-weight:800;color:var(--tierra);text-transform:uppercase;letter-spacing:1px">✏️ Diseño</span>
+                </div>
+                <div id="domos-dis-row" style="display:flex;flex-direction:row;gap:0.6rem;padding:0.7rem;align-items:flex-start;flex-wrap:wrap"></div>
               </div>
             </div>
-            <!-- Domos grid -->
-            <div id="domos-main-grid" style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start"></div>
+
+            <!-- DOMOS (derivados de asignación) -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
+              <div style="display:flex;align-items:center;gap:0.7rem">
+                <span style="font-size:1rem;font-weight:800;color:var(--text)">🏠 Domos creativos</span>
+                <span style="font-size:0.75rem;color:var(--text3)">Redactor + Diseñador por marca</span>
+              </div>
+              <div style="display:flex;gap:0.6rem">
+                <button id="domo-collapse-all-btn" onclick="toggleAllDomos()" style="background:none;border:1px solid var(--border);border-radius:10px;padding:0.38rem 0.8rem;font-size:0.78rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font)">▾ Colapsar todos</button>
+                <button onclick="createDomo()" style="background:var(--aire);color:#fff;border:none;border-radius:10px;padding:0.38rem 0.9rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font)">+ Nuevo domo</button>
+              </div>
+            </div>
+            <div id="domos-main-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.6rem;align-items:start"></div>
           </div>
         </div>
 
@@ -3200,53 +3231,43 @@ async function upsert(){
 
   _saveQueue = _saveQueue.catch(()=>{}).then(async ()=>{
     try{
-      // 1. Read current server state
-      const {data, error: readErr} = await sb.from('polen_shared').select('data').eq('id', REC_ID).single();
-      if(readErr && readErr.code !== 'PGRST116'){
-        // PGRST116 = no rows (first save) — that's fine
-        console.warn('Merge read error:', readErr.message);
-      }
+      // Escribir directamente desde appData local — sin leer del servidor primero.
+      // appData ya es la fuente de verdad y se mantiene actualizado via realtime.
+      // Esto elimina 1 round-trip y hace los saves ~2x más rápidos.
+      const toWrite = {...appData};
 
-      // 2. Merge server + local
-      const serverData = data?.data;
-      // Preservar cobros locales ANTES del merge — deep copy para evitar mutaciones
-      const _cobrosAntesMerge = JSON.parse(JSON.stringify(appData.cobros||{}));
-      const toWrite = serverData ? deepMergeAppData(serverData, appData) : {...appData};
-      // Restaurar cobros locales en toWrite — nunca usar los del servidor
-      toWrite.cobros = _cobrosAntesMerge;
-
-      // 3. Update local appData to merged state — re-apply all local deletes as safety net
-      Object.assign(appData, toWrite);
-      // Cobros siempre del snapshot local — restaurar después del assign
-      appData.cobros = _cobrosAntesMerge;
+      // Re-apply local deletes como safety net
       if(_localDeletedIds.brands.size){
-        appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
-        toWrite.brands = appData.brands;
+        toWrite.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
+        appData.brands = toWrite.brands;
       }
       if(_localDeletedIds.members.size){
-        appData.members = (appData.members||[]).filter(m=>!_localDeletedIds.members.has(m.id));
-        toWrite.members = appData.members;
+        toWrite.members = (appData.members||[]).filter(m=>!_localDeletedIds.members.has(m.id));
+        appData.members = toWrite.members;
       }
       if(_localDeletedIds.clientNotes.size){
-        appData.clientNotes = (appData.clientNotes||[]).filter(n=>!_localDeletedIds.clientNotes.has(n.id));
-        toWrite.clientNotes = appData.clientNotes;
+        toWrite.clientNotes = (appData.clientNotes||[]).filter(n=>!_localDeletedIds.clientNotes.has(n.id));
+        appData.clientNotes = toWrite.clientNotes;
       }
-      // Re-apply deleted pagos to both appData and toWrite
+      // Re-apply deleted pagos
       Object.entries(_localDeletedPagoIds).forEach(([bid, deletedIds])=>{
         if(!deletedIds.size) return;
         if(appData.cobros?.[bid])
-          if(appData.cobros[bid]) appData.cobros[bid].pagos = (appData.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
-        if(toWrite.cobros?.[bid])
-          toWrite.cobros[bid].pagos = (toWrite.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
+          appData.cobros[bid].pagos = (appData.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
       });
+      toWrite.cobros = appData.cobros;
 
       // 4. Strip large base64 images before writing (Supabase 500 = payload too large)
       const toWriteSafe = JSON.parse(JSON.stringify(toWrite, (key, val) => {
-        if(key === 'image' && typeof val === 'string' && val.startsWith('data:') && val.length > 20000){
-          return val.slice(0, 20000); // ~15KB max para logos de marca
+        if(key === 'image' && typeof val === 'string' && val.startsWith('data:') && val.length > 80000){
+          console.warn('[Polen] Logo descartado por ser muy grande:', Math.round(val.length/1000)+'KB');
+          return '';
         }
-        if(key === 'photo' && typeof val === 'string' && val.startsWith('data:') && val.length > 15000){
-          return val.slice(0, 15000); // ~12KB max para fotos de miembros (ya comprimidas)
+        if(key === 'photo' && typeof val === 'string' && val.startsWith('data:') && val.length > 60000){
+          // Si la foto es demasiado grande incluso después de compresión, descartarla
+          // Un string truncado de base64 no es una imagen válida
+          console.warn('[Polen] Foto descartada por ser muy grande:', Math.round(val.length/1000)+'KB');
+          return '';
         }
         return val;
       }));
@@ -3816,9 +3837,12 @@ let _calDragType = null; // 'oficial' | 'revision'
 
 
 function deduplicateHitos(hitos){
+  // En la vista global (todos los integrantes), un mismo hito/revisión
+  // puede aparecer para múltiples miembros del domo — mostrar solo una vez.
+  // La key es actId|type|date sin memberId.
   const seen = new Set();
   return hitos.filter(h=>{
-    const key = h.actId + '|' + h.type + '|' + h.date + '|' + (h.member?.id||'');
+    const key = h.actId + '|' + h.type + '|' + h.date;
     if(seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -5684,17 +5708,22 @@ async function restoreFromPapelera(itemId){ markLocalChange("papelera","brands",
   if(idx<0) return;
   const item = appData.papelera[idx];
   if(item.type==='brand'){
+    const brandId = item.data.id;
     appData.brands.push(item.data);
-    // Remove from persisted deleted list
-    appData._deletedBrandIds = (appData._deletedBrandIds||[]).filter(id=>id!==itemId);
+    // Limpiar de TODAS las listas de eliminados
+    appData._deletedBrandIds = (appData._deletedBrandIds||[]).filter(id=>id!==brandId && id!==itemId);
+    _localDeletedIds.brands.delete(brandId);
     _localDeletedIds.brands.delete(itemId);
+    markLocalChange('brands');
     showStatus(`"${item.data.name}" restaurada ✓`);
   } else if(item.type==='member'){
+    const memberId = item.data.id;
     if(!appData.members) appData.members=[];
     appData.members.push(item.data);
-    // Remove from persisted deleted list
-    appData._deletedMemberIds = (appData._deletedMemberIds||[]).filter(id=>id!==itemId);
+    appData._deletedMemberIds = (appData._deletedMemberIds||[]).filter(id=>id!==memberId && id!==itemId);
+    _localDeletedIds.members.delete(memberId);
     _localDeletedIds.members.delete(itemId);
+    markLocalChange('members');
     showStatus(`"${item.data.apodo||item.data.nombre}" restaurado ✓`);
   }
   appData.papelera.splice(idx,1);
@@ -6939,6 +6968,9 @@ function tplToggleInterno(stage, id){
   const a = appData.template.cronograma[stage]?.find(x=>x.id===id);
   if(a) a.isInterno = !a.isInterno;
   renderTplStage(stage);
+  markLocalChange('template');
+  clearTimeout(_tplSaveTimer);
+  _tplSaveTimer = setTimeout(()=>upsert(), 800);
 }
 
 
@@ -8044,25 +8076,35 @@ function renderTplSummary(){
   (document.getElementById('tpl-crono-summary')||{innerHTML:''}).innerHTML=`${chips}<span class="crono-sum-total">⏱ ${w>0?w+' sem. ':''}${d>0?d+'d ':''}<span style="color:var(--text3)">${total} días en total</span></span>`;
 }
 
-function tplToggleHito(stage,id){const a=appData.template.cronograma[stage].find(x=>x.id===id);if(a)a.isHito=!a.isHito;renderTplStage(stage);renderTplSummary();}
-function tplUpdateDays(stage,id,val){const a=appData.template.cronograma[stage].find(x=>x.id===id);if(a)a.days=parseInt(val)||0;renderTplStage(stage);renderTplSummary();}
-function tplDeleteAct(stage,id){appData.template.cronograma[stage]=appData.template.cronograma[stage].filter(a=>a.id!==id);renderTplStage(stage);renderTplSummary();}
+function tplToggleHito(stage,id){const a=appData.template.cronograma[stage].find(x=>x.id===id);if(a)a.isHito=!a.isHito;renderTplStage(stage);renderTplSummary();markLocalChange('template');scheduleTplSave();}
+function tplUpdateDays(stage,id,val){
+  const a=appData.template.cronograma[stage].find(x=>x.id===id);
+  if(a) a.days=parseInt(val)||0;
+  renderTplStage(stage);
+  renderTplSummary();
+  markLocalChange('template');
+  // Debounce — guardar 800ms después del último cambio
+  scheduleTplSave();
+}
+async function tplDeleteAct(stage,id){appData.template.cronograma[stage]=appData.template.cronograma[stage].filter(a=>a.id!==id);renderTplStage(stage);renderTplSummary();markLocalChange('template');await upsert();showStatus('Template actualizado ✓');}
 async function tplAddAct(stage){const name=await askModal({label:'Nueva actividad en la plantilla',placeholder:'Ej: Reunión de revisión'});if(!name||!name.trim())return;appData.template.cronograma[stage].push({id:uid(),name:name.trim(),days:1,isHito:false,isNaming:false});renderTplStage(stage);renderTplSummary();}
-  function onNamingToggle(){appData.template.includeNaming=document.getElementById('tpl-naming').checked;['aire','agua','tierra','fuego'].forEach(s=>renderTplStage(s));renderTplSummary();}
+  function onNamingToggle(){appData.template.includeNaming=document.getElementById('tpl-naming').checked;['aire','agua','tierra','fuego'].forEach(s=>renderTplStage(s));renderTplSummary();markLocalChange('template');scheduleTplSave();}
 
 
 function tplRenameCat(ci, val){
   if(!val.trim()) return;
   appData.template.brandingPoints.categories[ci].name = val.trim();
-  // Don't re-render (would reset input focus) — just mark dirty
+  markLocalChange('template');
   scheduleTplSave();
 }
 function tplRenameItem(ci, ii, val){
   appData.template.brandingPoints.categories[ci].items[ii].name = val.trim()||'Sin nombre';
+  markLocalChange('template');
   scheduleTplSave();
 }
 function tplUpdateItemNotes(ci, ii, val){
   appData.template.brandingPoints.categories[ci].items[ii].notes = val;
+  markLocalChange('template');
   scheduleTplSave();
 }
 function tplToggleItemNotes(ci, ii){
@@ -8071,7 +8113,6 @@ function tplToggleItemNotes(ci, ii){
   renderTplBpCats();
 }
 
-let _tplSaveTimer = null;
 function scheduleTplSave(){
   clearTimeout(_tplSaveTimer);
   _tplSaveTimer = setTimeout(async ()=>{
@@ -8136,11 +8177,11 @@ function renderTplBpCats(){
 }
 
 function tplToggleBpCat(ci){const cat=appData.template.brandingPoints.categories[ci];cat.open=cat.open===false?true:false;renderTplBpCats();}
-function tplToggleBpItem(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].selected=val;renderTplBpCats();}
-function tplUpdateBpPts(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].pts=parseInt(val)||0;renderTplBpCats();}
-function tplUpdateBpQty(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].qty=parseInt(val)||1;renderTplBpCats();}
-function tplDeleteBpItem(ci,ii){appData.template.brandingPoints.categories[ci].items.splice(ii,1);renderTplBpCats();}
-async function tplAddBpItem(ci){const name=await askModal({label:'Nombre del entregable',placeholder:'Ej: Manual de marca'});if(!name||!name.trim())return;const ptsStr=await askModal({label:`Branding points para "${name}"`,type:'number',defaultValue:'1'});const pts=parseInt(ptsStr)||1;appData.template.brandingPoints.categories[ci].items.push({id:uid(),name:name.trim(),pts,qty:1,selected:false});renderTplBpCats();}
+function tplToggleBpItem(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].selected=val;renderTplBpCats();markLocalChange('template');scheduleTplSave();}
+function tplUpdateBpPts(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].pts=parseInt(val)||0;renderTplBpCats();markLocalChange('template');scheduleTplSave();}
+function tplUpdateBpQty(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].qty=parseInt(val)||1;renderTplBpCats();markLocalChange('template');scheduleTplSave();}
+function tplDeleteBpItem(ci,ii){appData.template.brandingPoints.categories[ci].items.splice(ii,1);renderTplBpCats();markLocalChange('template');scheduleTplSave();}
+async function tplAddBpItem(ci){const name=await askModal({label:'Nombre del entregable',placeholder:'Ej: Manual de marca'});if(!name||!name.trim())return;const ptsStr=await askModal({label:`Branding points para "${name}"`,type:'number',defaultValue:'1'});const pts=parseInt(ptsStr)||1;appData.template.brandingPoints.categories[ci].items.push({id:uid(),name:name.trim(),pts,qty:1,selected:false});renderTplBpCats();markLocalChange('template');scheduleTplSave();}
 
 async function tplAddBpCat(){
   const name = await askModal({label:'Nombre de la nueva categoría', placeholder:'Ej: Fotografía'});
@@ -8204,7 +8245,7 @@ async function renameBrandBpCat(brandId, ci, val){
   await upsert();
 }
 
-  function onBpTotalChange(){appData.template.brandingPoints.total=parseInt(document.getElementById('bp-total').value)||0;renderTplBpCats();}
+  function onBpTotalChange(){appData.template.brandingPoints.total=parseInt(document.getElementById('bp-total').value)||0;renderTplBpCats();markLocalChange('template');scheduleTplSave();}
 
 async function saveTemplate(){
   markLocalChange('template');
@@ -8528,13 +8569,20 @@ function onMemberPhotoChange(e){
     // Comprimir a máximo 200x200px y calidad 0.7 para que quepa en Supabase
     const img = new Image();
     img.onload = () => {
-      const MAX = 200;
-      const canvas = document.createElement('canvas');
-      const scale = Math.min(MAX/img.width, MAX/img.height, 1);
-      canvas.width  = Math.round(img.width  * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      memberPhotoB64 = canvas.toDataURL('image/jpeg', 0.75);
+      const compress = (maxPx, quality) => {
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(maxPx/img.width, maxPx/img.height, 1);
+        canvas.width  = Math.round(img.width  * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg', quality);
+      };
+      // Comprimir progresivamente hasta que quepa en <40KB
+      let result = compress(200, 0.75);
+      if(result.length > 40000) result = compress(150, 0.65);
+      if(result.length > 40000) result = compress(120, 0.55);
+      if(result.length > 40000) result = compress(100, 0.45);
+      memberPhotoB64 = result;
       (document.getElementById('m-photo-b64')||{}).value = memberPhotoB64;
       (document.getElementById('m-avatar-preview')||{innerHTML:''}).innerHTML =
         `<img src="${memberPhotoB64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
@@ -8952,7 +9000,7 @@ function renderEquipoDropdown(){
   if(!list) return;
   list.innerHTML = members.map(m=>`
     <div class="member-dropdown-item ${m.id===currentMemberId?'active':''}" onclick="selectMember('${m.id}')">
-      <span>${m.emoji||m.photo?'📷':'👤'}</span>
+      <span>${m.emoji||(m.photo?'📷':'👤')}</span>
       <span style="flex:1">${m.apodo||m.nombre}</span>
       ${m.id===currentMemberId?'<span class="check">✓</span>':''}
     </div>`).join('');
@@ -9557,8 +9605,67 @@ function renderEqGrid(){
 
 
 let _allTasksCollapsed = true;
+let _eqCardMode = 'tareas'; // 'tareas' | 'marcas'
+
+function setEqCardMode(mode){
+  _eqCardMode = mode;
+  const btnT = document.getElementById('btn-view-tareas');
+  const btnM = document.getElementById('btn-view-marcas');
+  const btnExpand = document.getElementById('btn-toggle-all-tasks');
+  const grid = document.getElementById('eq-all-grid');
+  if(btnT){ btnT.style.background = mode==='tareas' ? 'var(--aire)' : 'none'; btnT.style.color = mode==='tareas' ? '#fff' : 'var(--text2)'; }
+  if(btnM){ btnM.style.background = mode==='marcas' ? 'var(--aire)' : 'none'; btnM.style.color = mode==='marcas' ? '#fff' : 'var(--text2)'; }
+  if(btnExpand) btnExpand.style.display = '';
+  if(grid) grid.classList.toggle('team-grid-masonry', mode==='marcas');
+  renderEquipo();
+}
+
+function _renderMemberBrands(m){
+  // Marcas donde este miembro está en el domo (m1, m2, o helpers)
+  const brands = (appData.brands||[]).filter(b =>
+    b.domo && (b.domo.m1===m.id || b.domo.m2===m.id || (b.domo.helpers||[]).includes(m.id))
+  );
+  if(!brands.length) return '<div style="font-size:0.7rem;color:var(--text3);padding:0.5rem 0.5rem 0.3rem">Sin marcas asignadas</div>';
+  const cards = brands.map(b => {
+    const col = getBrandColor(b);
+    const r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),bv=parseInt(col.slice(5,7),16);
+    const si = {aire:{e:'💨',l:'Aire'},agua:{e:'💧',l:'Agua'},tierra:{e:'🌿',l:'Tierra'},fuego:{e:'🔥',l:'Fuego'}};
+    const s = si[b.stage]||si.aire;
+    const partnerId = b.domo.m1===m.id ? b.domo.m2 : b.domo.m1;
+    const partner = partnerId ? (appData.members||[]).find(x=>x.id===partnerId) : null;
+    const partnerTag = partner
+      ? `<span style="font-size:0.58rem;background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.05rem 0.35rem;color:var(--text2);white-space:nowrap;flex-shrink:0">${partner.emoji||'👤'} ${partner.apodo||partner.nombre}</span>`
+      : '';
+    return `<div onclick="event.stopPropagation();openBrand('${b.id}')"
+      style="background:rgba(${r},${g},${bv},0.06);border:1px solid rgba(${r},${g},${bv},0.18);border-radius:8px;padding:0.35rem 0.5rem;border-left:3px solid rgb(${r},${g},${bv});cursor:pointer;transition:background 0.15s;min-width:0"
+      onmouseover="this.style.background='rgba(${r},${g},${bv},0.13)'" onmouseout="this.style.background='rgba(${r},${g},${bv},0.06)'">
+      <div style="font-size:0.67rem;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:0.22rem">${b.name}</div>
+      <div style="display:flex;align-items:center;gap:0.3rem;flex-wrap:nowrap">
+        <span style="font-size:0.57rem;color:var(--text3);white-space:nowrap;flex-shrink:0">${s.e} ${s.l}</span>
+        ${partnerTag}
+      </div>
+    </div>`;
+  }).join('');
+  return `<div style="display:flex;flex-direction:column;gap:0.4rem">${cards}</div>`;
+}
+
+function calcBrandProgress(brand){
+  const allActs = ['aire','agua','tierra','fuego'].flatMap(s=>(brand.cronograma?.[s]||[]));
+  if(!allActs.length) return 0;
+  const done = allActs.filter(a=>a.status==='completada').length;
+  return Math.round(done/allActs.length*100);
+}
 
 function toggleMemberTasks(memberId){
+  const body = document.getElementById('tasks-body-'+memberId);
+  const arrow = document.getElementById('tasks-arrow-'+memberId);
+  if(!body) return;
+  const isCollapsed = body.classList.contains('collapsed');
+  body.classList.toggle('collapsed', !isCollapsed);
+  if(arrow) arrow.style.transform = isCollapsed ? '' : 'rotate(-90deg)';
+}
+
+function toggleMemberBrands(memberId){
   const body = document.getElementById('tasks-body-'+memberId);
   const arrow = document.getElementById('tasks-arrow-'+memberId);
   if(!body) return;
@@ -9576,7 +9683,20 @@ function toggleAllMemberTasks(){
   document.querySelectorAll('[id^="tasks-arrow-"]').forEach(arrow=>{
     arrow.style.transform = _allTasksCollapsed ? 'rotate(-90deg)' : '';
   });
-  if(btn) btn.textContent = _allTasksCollapsed ? '📋 Expandir tareas' : '📋 Colapsar tareas';
+  if(btn) btn.textContent = _allTasksCollapsed ? '⊞ Expandir' : '⊟ Colapsar';
+}
+
+let _allBrandsCollapsed = false;
+function toggleAllMemberBrands(){
+  _allBrandsCollapsed = !_allBrandsCollapsed;
+  const btn = document.getElementById('btn-toggle-all-tasks');
+  document.querySelectorAll('[id^="tasks-body-"]').forEach(body=>{
+    body.classList.toggle('collapsed', _allBrandsCollapsed);
+  });
+  document.querySelectorAll('[id^="tasks-arrow-"]').forEach(arrow=>{
+    arrow.style.transform = _allBrandsCollapsed ? 'rotate(-90deg)' : '';
+  });
+  if(btn) btn.textContent = _allBrandsCollapsed ? '⊞ Expandir' : '⊟ Colapsar';
 }
 
 function showRichToolbar(memberId){
@@ -9644,14 +9764,14 @@ function renderMembersGrid(){
           <button onclick="event.stopPropagation();currentMemberId='${m.id}';deleteMemberCurrent()" style="background:rgba(255,50,50,0.3);border:none;border-radius:6px;padding:0.2rem 0.4rem;font-size:0.7rem;color:#fff;cursor:pointer">🗑</button>
         </div>
       </div>
-      <!-- Tareas -->
+      <!-- Tareas / Marcas -->
       <div class="member-card-right">
-        <div onclick="event.stopPropagation();toggleMemberTasks('${m.id}')" style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.9rem;cursor:pointer;border-bottom:1px solid var(--border);user-select:none" onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background='transparent'">
-          <span style="font-size:0.67rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px">Tareas <span style="font-weight:400;color:var(--text3)">(${upcoming.length})</span></span>
-          <span id="tasks-arrow-${m.id}" style="font-size:0.65rem;color:var(--text3);display:inline-block;transition:transform 0.2s;transform:rotate(-90deg)">▼</span>
+        <div onclick="event.stopPropagation();${_eqCardMode==='marcas'?`toggleMemberBrands('${m.id}')`:"toggleMemberTasks('${m.id}')"}" style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.9rem;cursor:pointer;border-bottom:1px solid var(--border);user-select:none" onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background='transparent'">
+          <span style="font-size:0.67rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px">${_eqCardMode==='marcas'?'Marcas':'Tareas'} <span style="font-weight:400;color:var(--text3)">(${_eqCardMode==='marcas'?(appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id||(b.domo.helpers||[]).includes(m.id))).length:upcoming.length})</span></span>
+          <span id="tasks-arrow-${m.id}" style="font-size:0.65rem;color:var(--text3);display:inline-block;transition:transform 0.2s;transform:${_eqCardMode==='tareas'?'rotate(-90deg)':''}">▼</span>
         </div>
-        <div class="member-hitos-preview collapsed" id="tasks-body-${m.id}">
-          ${upcoming.length?upcoming.map(h=>`
+        <div class="${_eqCardMode==='marcas'?'member-hitos-preview':'member-hitos-preview collapsed'}" id="tasks-body-${m.id}" style="${_eqCardMode==='marcas'?'height:auto':''}">
+          ${_eqCardMode==='marcas' ? _renderMemberBrands(m) : (upcoming.length?upcoming.map(h=>`
             ${(()=>{
               const _br=(appData.brands||[]).find(b=>b.id===h.brandId);
               const _col=getBrandColor(_br);
@@ -9671,14 +9791,14 @@ function renderMembersGrid(){
                 </div>
                 <div style="font-size:0.72rem;color:var(--text2);line-height:1.35">${h.name.replace('🔍 Rev. interna: ','')}</div>
               </div>`;
-            })()}`).join(''):'<div style="font-size:0.7rem;color:var(--text3);padding:0.3rem 0">Sin hitos ✓</div>'}
+            })()}`).join(''):'<div style="font-size:0.7rem;color:var(--text3);padding:0.3rem 0">Sin hitos ✓</div>')}
         </div>
       </div>
     </div>`;
   }).join('');
   // Sync button label to match default collapsed state
   const _taskBtn = document.getElementById('btn-toggle-all-tasks');
-  if(_taskBtn) _taskBtn.textContent = _allTasksCollapsed ? '📋 Expandir tareas' : '📋 Colapsar tareas';
+  if(_taskBtn) _taskBtn.textContent = (_eqCardMode==='marcas' ? _allBrandsCollapsed : _allTasksCollapsed) ? '⊞ Expandir' : '⊟ Colapsar';
 }
 let _eqWeekOffset = 0;
 let _eqWeekMode = 'days'; // 'days' | 'members'
@@ -10093,16 +10213,219 @@ function setDomoName(key, name){
   appData.domoNames[key] = name;
 }
 
+// Helpers para clasificar miembros por área
+function getMemberRoleType(m){
+  const a = m.area||'';
+  if(a==='direccion') return 'dir';
+  if(a==='redaccion') return 'red';
+  if(a==='diseno') return 'dis';
+  return null;
+}
+
+function renderRoleAssignment(){
+  const brands = (appData.brands||[]).filter(b=>!b.archivedAt&&!b.deletedAt);
+  const members = appData.members||[];
+
+  const dirs = members.filter(m=>getMemberRoleType(m)==='dir');
+  const reds = members.filter(m=>getMemberRoleType(m)==='red');
+  const diss = members.filter(m=>getMemberRoleType(m)==='dis');
+
+  // Marcas sin asignar completo (faltan director, redactor o diseñador)
+  const unassigned = brands.filter(b=>{
+    const hasDir = !!b.director;
+    const hasRed = reds.some(m=>b.domo?.m1===m.id||b.domo?.m2===m.id);
+    const hasDis = diss.some(m=>b.domo?.m1===m.id||b.domo?.m2===m.id);
+    return !hasDir||!hasRed||!hasDis;
+  });
+
+  // Actualizar barra de marcas activas
+  const barLabel = document.getElementById('domos-brands-bar-label');
+  const bar = document.getElementById('domos-brands-bar');
+  if(barLabel) barLabel.textContent = `MARCAS ACTIVAS — ${brands.length-unassigned.length}/${brands.length} ASIGNADAS COMPLETO`;
+  if(bar) bar.innerHTML = brands.map(b=>{
+    const col = getBrandColor(b);
+    const hasDir = !!b.director;
+    const hasRed = reds.some(m=>b.domo?.m1===m.id||b.domo?.m2===m.id);
+    const hasDis = diss.some(m=>b.domo?.m1===m.id||b.domo?.m2===m.id);
+    const complete = hasDir&&hasRed&&hasDis;
+    return `<span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.55rem;border-radius:99px;border:1.5px solid ${col};font-size:0.72rem;font-weight:600;color:var(--text);opacity:${complete?0.45:1};cursor:grab;background:${complete?'var(--bg-card2)':'var(--bg-card)'}"
+      draggable="true" ondragstart="startDragBrand(event,'${b.id}','bar')" title="${b.name}">
+      <span style="width:7px;height:7px;border-radius:50%;background:${col};flex-shrink:0"></span>
+      ${b.name}
+      ${complete?'<span style="font-size:0.6rem">✓</span>':''}
+    </span>`;
+  }).join('');
+
+  // Sin asignar
+  const unassignedEl = document.getElementById('domos-unassigned-list');
+  const unassignedLabel = document.getElementById('domos-unassigned-label');
+  if(unassignedLabel) unassignedLabel.textContent = `SIN ASIGNAR COMPLETO (${unassigned.length})`;
+  if(unassignedEl) unassignedEl.innerHTML = unassigned.map(b=>{
+    const col = getBrandColor(b);
+    const hasDir = !!b.director;
+    const hasRed = reds.some(m=>b.domo?.m1===m.id||b.domo?.m2===m.id);
+    const hasDis = diss.some(m=>b.domo?.m1===m.id||b.domo?.m2===m.id);
+    const anyAssigned2 = hasDir||hasRed||hasDis;
+    const missing2 = [
+      !hasDir&&{label:'? Director',bg:'var(--aire)'},
+      !hasRed&&{label:'? Redactor',bg:'#e75480'},
+      !hasDis&&{label:'? Diseñador',bg:'var(--tierra)'},
+    ].filter(Boolean);
+    const badges2Inner = missing2.map(({label})=>'<span style="font-size:0.58rem;font-weight:500;color:var(--text3);background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.08rem 0.38rem;white-space:nowrap">'+label+'</span>').join('');
+    const badgesHTML2 = anyAssigned2 && missing2.length
+      ? '<div style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.3rem">'+badges2Inner+'</div>'
+      : '';
+    return `<span style="display:inline-flex;flex-direction:column;align-items:flex-start;padding:0.35rem 0.65rem;border-radius:14px;border:2px solid ${col};background:var(--bg-card);cursor:grab;user-select:none;transition:all 0.15s"
+      draggable="true" ondragstart="startDragBrand(event,'${b.id}','unassigned')"
+      onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'"
+      onmouseout="this.style.transform='';this.style.boxShadow=''">
+      <div style="display:flex;align-items:center;gap:0.4rem">
+        <span style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></span>
+        <span style="font-size:0.78rem;font-weight:700;color:var(--text)">${b.name}</span>
+      </div>
+      ${badgesHTML2}
+    </span>`;
+  }).join('') || '<span style="font-size:0.72rem;color:var(--text3)">Todas las marcas asignadas ✓</span>';
+
+  // Renderizar columnas de roles
+  _renderRoleColumn('domos-dir-row', dirs, brands, 'dir');
+  _renderRoleColumn('domos-red-row', reds, brands, 'red');
+  _renderRoleColumn('domos-dis-row', diss, brands, 'dis');
+}
+
+function _renderRoleColumn(containerId, members, brands, roleType){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  if(!members.length){
+    el.innerHTML = '<div style="padding:1rem;font-size:0.75rem;color:var(--text3);width:100%">Sin miembros con este rol</div>';
+    return;
+  }
+
+  // Always enforce horizontal flex on the container
+  el.style.display = 'flex';
+  el.style.flexDirection = 'row';
+  el.style.flexWrap = 'wrap';
+  el.style.gap = '0.6rem';
+  el.style.padding = '0.7rem';
+  el.style.alignItems = 'flex-start';
+  if(roleType==='dir') el.style.justifyContent = 'center';
+  else el.style.justifyContent = '';
+
+  el.innerHTML = members.map(m=>{
+    let brandList = [];
+    if(roleType==='dir'){
+      brandList = brands.filter(b=>b.director===m.id);
+    } else {
+      brandList = brands.filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id));
+    }
+
+    const col = getMemberColor(m);
+    const headerBar = `<div style="background:${col};border-radius:8px 8px 0 0;margin:-0.55rem -0.65rem 0.5rem -0.65rem;padding:0.4rem 0.65rem;display:flex;align-items:center;justify-content:center;position:relative">
+        <span style="font-size:0.82rem;font-weight:800;color:#fff;letter-spacing:0.2px;text-shadow:0 1px 2px rgba(0,0,0,0.2)">${m.apodo||m.nombre}</span>
+        ${brandList.length?`<span style="font-size:0.68rem;font-weight:700;color:rgba(255,255,255,0.8);position:absolute;right:0.65rem">${brandList.length}</span>`:''}
+      </div>`;
+
+    const chips = brandList.map(b=>{
+      const bc = getBrandColor(b);
+      if(roleType==='dir'){
+        // dir: chips horizontales pequeños
+        return `<span style="display:inline-flex;align-items:center;gap:0.2rem;padding:0.15rem 0.45rem;border-radius:99px;border:1.5px solid ${bc};font-size:0.64rem;font-weight:600;color:var(--text);background:var(--bg-card);cursor:pointer;white-space:nowrap"
+          onclick="openBrand('${b.id}')"
+          draggable="true" ondragstart="startDragBrand(event,'${b.id}','role-dir-${m.id}')">
+          <span style="width:5px;height:5px;border-radius:50%;background:${bc};flex-shrink:0"></span>
+          ${b.name}
+          <button onclick="event.stopPropagation();unassignFromRole('${b.id}','dir')" style="background:none;border:none;cursor:pointer;font-size:0.55rem;color:var(--text3);padding:0;margin-left:0.1rem;line-height:1;opacity:0.5;transition:opacity 0.15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">✕</button>
+        </span>`;
+      } else {
+        // red/dis: una por fila, ancho completo, con badges de roles faltantes
+        const hasDir = !!b.director;
+        const hasOtherRole = roleType==='red'
+          ? !!(appData.members||[]).filter(x=>getMemberRoleType(x)==='dis').some(x=>b.domo?.m1===x.id||b.domo?.m2===x.id)
+          : !!(appData.members||[]).filter(x=>getMemberRoleType(x)==='red').some(x=>b.domo?.m1===x.id||b.domo?.m2===x.id);
+        const missingBadges = [
+          !hasDir && '<span style="font-size:0.52rem;font-weight:700;background:rgba(59,158,221,0.15);color:var(--aire);border-radius:99px;padding:0.05rem 0.3rem;white-space:nowrap;flex-shrink:0">?DC</span>',
+          !hasOtherRole && roleType==='red' && '<span style="font-size:0.52rem;font-weight:700;background:rgba(176,106,255,0.15);color:var(--tierra);border-radius:99px;padding:0.05rem 0.3rem;white-space:nowrap;flex-shrink:0">?Dis</span>',
+          !hasOtherRole && roleType==='dis' && '<span style="font-size:0.52rem;font-weight:700;background:rgba(93,232,208,0.15);color:var(--agua);border-radius:99px;padding:0.05rem 0.3rem;white-space:nowrap;flex-shrink:0">?Red</span>',
+        ].filter(Boolean).join('');
+        return `<div style="display:flex;align-items:center;gap:0.3rem;padding:0.2rem 0.45rem;border-radius:99px;border:1.5px solid ${bc};font-size:0.64rem;font-weight:600;color:var(--text);background:var(--bg-card);cursor:pointer;width:100%;box-sizing:border-box"
+          onclick="openBrand('${b.id}')"
+          draggable="true" ondragstart="startDragBrand(event,'${b.id}','role-${roleType}-${m.id}')">
+          <span style="width:5px;height:5px;border-radius:50%;background:${bc};flex-shrink:0"></span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.name}</span>
+          ${missingBadges}
+          <button onclick="event.stopPropagation();unassignFromRole('${b.id}','${roleType}')" style="background:none;border:none;cursor:pointer;font-size:0.55rem;color:var(--text3);padding:0;margin-left:0.1rem;line-height:1;opacity:0.5;transition:opacity 0.15s;flex-shrink:0" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">✕</button>
+        </div>`;
+      }
+    }).join('');
+
+    const chipsWrapStyle = roleType==='dir'
+      ? 'display:flex;flex-wrap:wrap;gap:0.3rem'
+      : 'display:flex;flex-direction:column;gap:0.25rem';
+
+    return `<div style="border:1.5px solid var(--border);border-radius:14px;padding:0.55rem 0.65rem;background:var(--bg-card2);flex:0 0 auto;${roleType==='dir'?'width:360px':'width:190px'};overflow:hidden"
+      ondragover="event.preventDefault();this.style.borderColor='${col}'"
+      ondragleave="this.style.borderColor='var(--border)'"
+      ondrop="dropToRole(event,'${m.id}','${roleType}');this.style.borderColor='var(--border)'">
+      ${headerBar}
+      ${brandList.length
+        ? `<div style="${chipsWrapStyle}">${chips}</div>`
+        : `<div style="font-size:0.62rem;color:var(--text3);font-style:italic">Arrastra aquí</div>`
+      }
+    </div>`;
+  }).join('');
+}
+
+async function dropToRole(event, memberId, roleType){
+  event.preventDefault();
+  const brandId = event.dataTransfer.getData('brandId');
+  if(!brandId) return;
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand) return;
+
+  if(roleType==='dir'){
+    brand.director = memberId;
+    markLocalChange('brands');
+  } else {
+    // Para red y dis: asignar al domo (m1=redactor, m2=diseñador)
+    if(!brand.domo) brand.domo = {m1:'',m2:'',helpers:[],principales:[],astronautas:[]};
+    const m = (appData.members||[]).find(x=>x.id===memberId);
+    if(roleType==='red') brand.domo.m1 = memberId;
+    else if(roleType==='dis') brand.domo.m2 = memberId;
+    brand.domo.principales = [brand.domo.m1, brand.domo.m2].filter(Boolean);
+    markLocalChange('brands');
+  }
+  await upsert();
+  renderEqDomos();
+}
+
+async function unassignFromRole(brandId, roleType){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand) return;
+  if(roleType==='dir'){
+    brand.director = '';
+  } else if(roleType==='red'){
+    if(brand.domo) brand.domo.m1='';
+  } else if(roleType==='dis'){
+    if(brand.domo) brand.domo.m2='';
+  }
+  if(brand.domo) brand.domo.principales = [brand.domo.m1,brand.domo.m2].filter(Boolean);
+  markLocalChange('brands');
+  await upsert();
+  renderEqDomos();
+}
+
 function renderEqDomos(){
   const wrap = document.getElementById('domos-view');
   if(!wrap) return;
+
+  // Renderizar sección de asignación por roles primero
+  renderRoleAssignment();
 
   const brands = appData.brands||[];
   const members = appData.members||[];
 
   // ── Brands bar (all active brands) ──
   const bar = document.getElementById('domos-brands-bar');
-    if(!bar) return;
   const barLabel = document.getElementById('domos-brands-bar-label');
   if(bar){
     const assigned = brands.filter(b=>b.domo&&(b.domo.m1||b.domo.m2)).length;
@@ -10124,16 +10447,41 @@ function renderEqDomos(){
   const unassignedList = document.getElementById('domos-unassigned-list');
   if(!unassignedList) return;
   const unassignedLabel = document.getElementById('domos-unassigned-label');
-  const unassigned = brands.filter(b=>!b.domo||(!b.domo.m1&&!b.domo.m2));
+  const reds = members.filter(m=>getMemberRoleType(m)==='red');
+  const diss = members.filter(m=>getMemberRoleType(m)==='dis');
+  const unassigned = brands.filter(b=>{
+    const hasDir = !!b.director;
+    const hasRed = !!(b.domo?.m1);
+    const hasDis = !!(b.domo?.m2);
+    return !hasDir || !hasRed || !hasDis;
+  });
   if(unassignedList){
     if(unassignedLabel) unassignedLabel.textContent = `SIN DOMO (${unassigned.length}) — ARRASTRA AQUÍ PARA DESASIGNAR`;
     unassignedList.innerHTML = unassigned.map(b=>{
       const col = getBrandColor(b);
-      return `<span class="domo-brand-pill" style="border-color:${col}"
+      const hasDir = !!b.director;
+      const hasRed = !!(b.domo?.m1);
+      const hasDis = !!(b.domo?.m2);
+      const missing = [
+        !hasDir && {label:'? Director', color:'#fff', bg:'var(--aire)'},
+        !hasRed && {label:'? Redactor', color:'#fff', bg:'#e75480'},
+        !hasDis && {label:'? Diseñador', color:'#fff', bg:'var(--tierra)'},
+      ].filter(Boolean);
+      const anyAssigned = hasDir || hasRed || hasDis;
+      const badgesInner = missing.map(({label})=>'<span style="font-size:0.58rem;font-weight:500;color:var(--text3);background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.08rem 0.38rem;white-space:nowrap">'+label+'</span>').join('');
+      const badgesHTML = anyAssigned && missing.length
+        ? '<div style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.3rem">'+badgesInner+'</div>'
+        : '';
+      return `<span style="display:inline-flex;flex-direction:column;align-items:flex-start;padding:0.35rem 0.65rem;border-radius:14px;border:2px solid ${col};background:var(--bg-card);cursor:grab;user-select:none;transition:all 0.15s"
         draggable="true"
-        ondragstart="startDragBrand(event,'${b.id}','unassigned')">
-        <span style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></span>
-        ${b.name}
+        ondragstart="startDragBrand(event,'${b.id}','unassigned')"
+        onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'"
+        onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <div style="display:flex;align-items:center;gap:0.4rem">
+          <span style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></span>
+          <span style="font-size:0.78rem;font-weight:700;color:var(--text)">${b.name}</span>
+        </div>
+        ${badgesHTML}
       </span>`;
     }).join('') || '<span style="font-size:0.72rem;color:var(--text3)">Todas las marcas están en un domo ✓</span>';
   }
@@ -10142,6 +10490,8 @@ function renderEqDomos(){
   const domoMap = {}; // key → {m1,m2,brands:[]}
   brands.forEach(b=>{
     if(!b.domo||(!b.domo.m1&&!b.domo.m2)) return;
+    // Si hay un miembro seleccionado, solo incluir domos donde aparece ese miembro
+    if(currentMemberId && b.domo.m1!==currentMemberId && b.domo.m2!==currentMemberId && !(b.domo.helpers||[]).includes(currentMemberId)) return;
     const key = getDomoKey(b.domo.m1, b.domo.m2);
     if(!domoMap[key]) domoMap[key] = {m1:b.domo.m1, m2:b.domo.m2, brands:[]};
     domoMap[key].brands.push(b);
@@ -10150,6 +10500,8 @@ function renderEqDomos(){
   // Also include domos created explicitly (even if empty — no brands yet)
   (appData.domos||[]).forEach(d=>{
     if(d.key && !domoMap[d.key]){
+      // Filtrar también los domos explícitos si hay miembro seleccionado
+      if(currentMemberId && d.m1!==currentMemberId && d.m2!==currentMemberId) return;
       domoMap[d.key] = {m1:d.m1, m2:d.m2, brands:[]};
     }
   });
@@ -10169,29 +10521,16 @@ function renderEqDomos(){
     const membersHTML = [m1,m2].filter(Boolean).map(m=>`
       <span class="domo-member-chip principal">
         ${m.emoji||'👤'} ${m.apodo||m.nombre}
-        <span style="font-size:0.62rem;color:var(--text3);font-weight:400">${m.cargo||''}</span>
       </span>`).join('');
 
     const brandsHTML = domo.brands.map(b=>{
       const col = getBrandColor(b);
-      const pct = brandProgress(b);
-      const logo = b.image?`<img src="${b.image}">`:(b.name.charAt(0));
-      const nextHito = getMemberHitos(domo.m1||domo.m2).filter(h=>h.brandId===b.id&&h.type==='oficial').sort((a,bh)=>a.dateObj-bh.dateObj)[0];
       return `<div class="domo-brand-row"
         draggable="true"
         ondragstart="startDragBrand(event,'${b.id}','${key}')"
         onclick="openBrand('${b.id}')">
-        <div class="domo-brand-logo-sm" style="border-color:${col}">${logo}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:0.8rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
-          <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.2rem">
-            <div style="flex:1;height:3px;background:var(--bg-card);border-radius:99px;overflow:hidden">
-              <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
-            </div>
-            <span style="font-size:0.65rem;color:var(--text3);flex-shrink:0">${pct}%</span>
-          </div>
-        </div>
-        ${nextHito?`<span style="font-size:0.65rem;color:#c4980a;background:rgba(245,197,66,0.1);border-radius:6px;padding:0.1rem 0.35rem;flex-shrink:0">⭐ ${fmtDateDisplay(nextHito.date)}</span>`:''}
+        <span style="width:6px;height:6px;border-radius:50%;background:${col};flex-shrink:0"></span>
+        <span style="font-size:0.73rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${b.name}</span>
       </div>`;
     }).join('');
 
@@ -10289,6 +10628,7 @@ function startDragBrand(event, brandId, fromKey){
   _dragBrandId = brandId;
   _dragFromDomoKey = fromKey;
   event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('brandId', brandId);
   setTimeout(()=>{
     document.querySelectorAll(`[ondragstart*="${brandId}"]`).forEach(el=>el.classList.add('dragging'));
   }, 0);
