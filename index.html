@@ -1058,61 +1058,82 @@ body.portal-mode .main{ height:100vh; }
 /* ── Domos system ── */
 .domo-brand-pill{
   display:inline-flex;align-items:center;gap:0.4rem;
-  padding:0.3rem 0.7rem;border-radius:99px;
-  border:1px solid var(--border);background:var(--bg-card);
+  padding:0.3rem 0.75rem;border-radius:99px;
+  border:1px solid var(--border);
+  background:var(--bg-card);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   font-size:0.75rem;font-weight:600;color:var(--text);
-  cursor:grab;user-select:none;transition:all 0.15s;
-  white-space:nowrap;
+  cursor:grab;user-select:none;transition:all 0.18s ease;
+  white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.06);
 }
-.domo-brand-pill:hover{box-shadow:0 2px 8px rgba(0,0,0,0.15);transform:translateY(-1px);}
-.domo-brand-pill.dragging{opacity:0.4;}
+.domo-brand-pill:hover{box-shadow:0 4px 16px rgba(0,0,0,0.13);transform:translateY(-1px);border-color:rgba(59,158,221,0.35);}
+.domo-brand-pill.dragging{opacity:0.35;transform:scale(0.97);}
 .domo-card{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:14px;overflow:hidden;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:18px;overflow:hidden;
   width:100%;
-  transition:all 0.2s;
+  transition:all 0.22s ease;
+  box-shadow:0 2px 12px rgba(0,0,0,0.06);
 }
-.domo-card.drag-over{border-color:var(--aire);box-shadow:0 0 0 3px rgba(59,158,221,0.15);}
-.domo-card-header{padding:0.6rem 0.8rem 0.55rem;border-bottom:1px solid var(--border);}
+.domo-card:hover{box-shadow:0 6px 24px rgba(0,0,0,0.1);border-color:rgba(59,158,221,0.2);}
+.domo-card.drag-over{border-color:var(--aire);box-shadow:0 0 0 3px rgba(59,158,221,0.12),0 8px 32px rgba(59,158,221,0.1);}
+.domo-card-header{
+  padding:0.75rem 1rem 0.65rem;
+  border-bottom:1px solid var(--border);
+  background:var(--glass);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
 .domo-card-name-input{
-  font-size:0.82rem;font-weight:700;color:var(--text);
+  font-size:0.85rem;font-weight:700;color:var(--text);
   background:none;border:none;outline:none;
   font-family:var(--font);width:100%;
   border-bottom:1.5px solid transparent;
   transition:border-color 0.15s;padding-bottom:1px;
 }
 .domo-card-name-input:focus{border-bottom-color:var(--aire);}
-.domo-members-row{display:flex;flex-direction:row;gap:0.35rem;margin-top:0.45rem;flex-wrap:wrap;}
+.domo-members-row{display:flex;flex-direction:row;gap:0.35rem;margin-top:0.5rem;flex-wrap:wrap;}
 .domo-member-chip{
-  display:inline-flex;align-items:center;gap:0.35rem;
-  padding:0.18rem 0.5rem;border-radius:99px;
+  display:inline-flex;align-items:center;gap:0.3rem;
+  padding:0.2rem 0.55rem;border-radius:99px;
   font-size:0.68rem;font-weight:600;
-  border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);
+  border:1px solid var(--border);
+  background:var(--bg-card2);
+  color:var(--text2);
   width:fit-content;
+  transition:all 0.15s;
+  box-shadow:0 1px 3px rgba(0,0,0,0.05);
 }
-.domo-member-chip.principal{background:var(--bg-card2);border-color:var(--aire);color:var(--text);}
-.domo-member-chip.helper{opacity:0.7;font-size:0.65rem;}
-.domo-brands-list{padding:0.7rem 0.9rem;min-height:60px;display:flex;flex-direction:column;gap:0.5rem;}
+.domo-member-chip.principal{
+  background:rgba(59,158,221,0.08);
+  border-color:rgba(59,158,221,0.3);
+  color:var(--text);
+}
+.domo-member-chip.helper{opacity:0.65;font-size:0.65rem;}
+.domo-brands-list{padding:0.6rem 0.8rem;min-height:54px;display:flex;flex-direction:column;gap:0.35rem;}
 .domo-brand-row{
-  display:flex;align-items:center;gap:0.5rem;
-  padding:0.25rem 0.5rem;border-radius:8px;
+  display:flex;align-items:center;gap:0.45rem;
+  padding:0.22rem 0.5rem;border-radius:99px;
   background:var(--bg-card2);border:1px solid var(--border);
-  cursor:grab;transition:all 0.15s;
+  cursor:grab;transition:all 0.15s ease;
+  box-shadow:0 1px 3px rgba(0,0,0,0.04);
 }
-.domo-brand-row:hover{box-shadow:0 2px 8px rgba(0,0,0,0.12);}
-.domo-brand-row.dragging{opacity:0.4;}
+.domo-brand-row:hover{box-shadow:0 3px 10px rgba(0,0,0,0.1);border-color:rgba(59,158,221,0.25);transform:translateX(2px);}
+.domo-brand-row.dragging{opacity:0.35;}
 .domo-drop-hint{
-  font-size:0.72rem;color:var(--text3);text-align:center;
-  padding:0.8rem;border:1.5px dashed var(--border);
-  border-radius:8px;margin-top:0.3rem;
+  font-size:0.7rem;color:var(--text3);text-align:center;
+  padding:0.7rem;border:1.5px dashed var(--border);
+  border-radius:10px;margin-top:0.2rem;
+  font-style:italic;letter-spacing:0.2px;
 }
 .domo-brand-logo-sm{
-  width:28px;height:28px;border-radius:7px;
+  width:26px;height:26px;border-radius:7px;
   background:var(--bg-card);border:1px solid var(--border);
   display:flex;align-items:center;justify-content:center;
-  font-size:0.85rem;overflow:hidden;flex-shrink:0;
+  font-size:0.8rem;overflow:hidden;flex-shrink:0;
 }
 .domo-brand-logo-sm img{width:100%;height:100%;object-fit:cover;border-radius:6px;}
+
 
 /* ── Digital Tools ── */
 .tool-card{
@@ -2118,56 +2139,69 @@ body.portal-mode .main{ height:100vh; }
 
         <!-- Tab: Domos -->
         <div class="eq-panel" id="eq-panel-domos">
-          <div id="domos-view" style="padding:1.2rem 1.4rem">
-            <!-- Sin asignar completo -->
-            <div id="domos-unassigned-zone" style="margin-bottom:1.6rem;border:1.5px dashed var(--border);border-radius:12px;padding:0.8rem 1rem;min-height:50px">
-              <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.5rem" id="domos-unassigned-label">SIN ASIGNAR COMPLETO (0)</div>
-              <div id="domos-unassigned-list" style="display:flex;flex-wrap:wrap;gap:0.5rem"></div>
+          <div id="domos-view" style="padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:1.4rem">
+
+            <!-- Sin domo -->
+            <div id="domos-unassigned-zone"
+              style="border:1.5px dashed var(--border);border-radius:16px;padding:1rem 1.2rem;min-height:52px;background:var(--glass);transition:border-color 0.2s"
+              ondragover="event.preventDefault();this.style.borderColor='var(--fuego)'"
+              ondragleave="document.getElementById('domos-unassigned-zone')?.style.setProperty('border-color','var(--border)')"
+              ondrop="dropToUnassigned(event)">
+              <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);margin-bottom:0.55rem" id="domos-unassigned-label">SIN DOMO (0)</div>
+              <div id="domos-unassigned-list" style="display:flex;flex-wrap:wrap;gap:0.45rem"></div>
             </div>
 
-            <!-- SECCIÓN DE ASIGNACIÓN POR ROLES -->
-            <div style="margin-bottom:0.7rem;display:flex;align-items:center;gap:0.6rem">
-              <span style="font-size:1rem;font-weight:800;color:var(--text)">🎯 Asignación por rol</span>
-              <span style="font-size:0.75rem;color:var(--text3)">Arrastra marcas a cada persona</span>
-            </div>
-
-            <!-- Directores creativos (franja completa) -->
-            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;margin-bottom:1rem;overflow:hidden">
-              <div style="padding:0.75rem 1rem;background:rgba(59,158,221,0.08);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:0.5rem;cursor:pointer;user-select:none;position:relative" onclick="const r=document.getElementById('domos-dir-row');const a=document.getElementById('domos-dir-arrow');const hidden=r.dataset.collapsed==='1';r.dataset.collapsed=hidden?'':'1';r.style.display=hidden?'flex':'none';a.style.transform=hidden?'':'rotate(-90deg)'">
-                <span style="font-size:0.85rem;font-weight:800;color:var(--aire);text-transform:uppercase;letter-spacing:1px">⭐ Dirección Creativa</span>
-                <span id="domos-dir-arrow" style="font-size:0.65rem;color:var(--aire);position:absolute;right:1rem;transition:transform 0.2s">▼</span>
+            <!-- Asignación por rol -->
+            <div>
+              <!-- Header de sección -->
+              <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1.1rem">
+                <span style="font-size:1rem;font-weight:800;letter-spacing:-0.3px;color:var(--text)">🎯 Asignación por rol</span>
+                <span style="font-size:0.7rem;color:var(--text3)">Arrastra marcas a cada persona</span>
               </div>
-              <div id="domos-dir-row" style="display:flex;flex-wrap:wrap;gap:0.6rem;padding:0.7rem;justify-content:center"></div>
-            </div>
 
-            <!-- Redactores | Diseñadores -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.6rem">
-              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
-                <div style="padding:0.75rem 1rem;background:rgba(93,232,208,0.08);border-bottom:1px solid var(--border);text-align:center">
-                  <span style="font-size:0.85rem;font-weight:800;color:var(--agua);text-transform:uppercase;letter-spacing:1px">✍️ Redacción</span>
+              <!-- Dirección Creativa -->
+              <div style="border-radius:20px;overflow:hidden;margin-bottom:1rem;box-shadow:0 1px 12px rgba(59,158,221,0.12)">
+                <div style="background:linear-gradient(135deg,rgba(59,158,221,0.18) 0%,rgba(59,158,221,0.08) 100%);border:1px solid rgba(59,158,221,0.2);border-bottom:none;border-radius:20px 20px 0 0;padding:0.9rem 1.4rem;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;position:relative" onclick="const r=document.getElementById('domos-dir-row');const a=document.getElementById('domos-dir-arrow');const hidden=r.dataset.collapsed==='1';r.dataset.collapsed=hidden?'':'1';r.style.display=hidden?'flex':'none';a.style.transform=hidden?'':'rotate(-90deg)'">
+                  <span style="font-size:0.72rem;font-weight:800;color:var(--aire);text-transform:uppercase;letter-spacing:2px">⭐ Dirección Creativa</span>
+                  <span id="domos-dir-arrow" style="position:absolute;right:1.2rem;font-size:0.6rem;color:var(--aire);opacity:0.6;transition:transform 0.25s ease">▼</span>
                 </div>
-                <div id="domos-red-row" style="display:flex;flex-direction:row;gap:0.6rem;padding:0.7rem;align-items:flex-start;flex-wrap:wrap"></div>
+                <div id="domos-dir-row" style="display:flex;flex-wrap:wrap;gap:0.6rem;padding:1rem 1.2rem;justify-content:center;background:rgba(59,158,221,0.04);border:1px solid rgba(59,158,221,0.15);border-top:none;border-radius:0 0 20px 20px"></div>
               </div>
-              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
-                <div style="padding:0.75rem 1rem;background:rgba(176,106,255,0.08);border-bottom:1px solid var(--border);text-align:center">
-                  <span style="font-size:0.85rem;font-weight:800;color:var(--tierra);text-transform:uppercase;letter-spacing:1px">✏️ Diseño</span>
+
+              <!-- Redacción | Diseño -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+                <!-- Redacción -->
+                <div style="border-radius:20px;overflow:hidden;box-shadow:0 1px 12px rgba(45,195,179,0.1)">
+                  <div style="background:linear-gradient(135deg,rgba(45,195,179,0.18) 0%,rgba(45,195,179,0.07) 100%);border:1px solid rgba(45,195,179,0.22);border-bottom:none;border-radius:20px 20px 0 0;padding:0.85rem 1.2rem;text-align:center">
+                    <span style="font-size:0.72rem;font-weight:800;color:var(--agua);text-transform:uppercase;letter-spacing:2px">✍️ Redacción</span>
+                  </div>
+                  <div id="domos-red-row" style="display:flex;flex-direction:row;gap:0.6rem;padding:1rem 1rem;align-items:flex-start;flex-wrap:wrap;background:rgba(45,195,179,0.03);border:1px solid rgba(45,195,179,0.15);border-top:none;border-radius:0 0 20px 20px;min-height:80px"></div>
                 </div>
-                <div id="domos-dis-row" style="display:flex;flex-direction:row;gap:0.6rem;padding:0.7rem;align-items:flex-start;flex-wrap:wrap"></div>
+                <!-- Diseño -->
+                <div style="border-radius:20px;overflow:hidden;box-shadow:0 1px 12px rgba(90,170,53,0.1)">
+                  <div style="background:linear-gradient(135deg,rgba(90,170,53,0.18) 0%,rgba(90,170,53,0.07) 100%);border:1px solid rgba(90,170,53,0.22);border-bottom:none;border-radius:20px 20px 0 0;padding:0.85rem 1.2rem;text-align:center">
+                    <span style="font-size:0.72rem;font-weight:800;color:var(--tierra);text-transform:uppercase;letter-spacing:2px">✏️ Diseño</span>
+                  </div>
+                  <div id="domos-dis-row" style="display:flex;flex-direction:row;gap:0.6rem;padding:1rem 1rem;align-items:flex-start;flex-wrap:wrap;background:rgba(90,170,53,0.03);border:1px solid rgba(90,170,53,0.15);border-top:none;border-radius:0 0 20px 20px;min-height:80px"></div>
+                </div>
               </div>
             </div>
 
-            <!-- DOMOS (derivados de asignación) -->
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
-              <div style="display:flex;align-items:center;gap:0.7rem">
-                <span style="font-size:1rem;font-weight:800;color:var(--text)">🏠 Domos creativos</span>
-                <span style="font-size:0.75rem;color:var(--text3)">Redactor + Diseñador por marca</span>
+            <!-- Domos creativos -->
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.9rem">
+                <div style="display:flex;align-items:center;gap:0.6rem">
+                  <span style="font-size:1rem;font-weight:800;letter-spacing:-0.3px;color:var(--text)">🏠 Domos creativos</span>
+                  <span style="font-size:0.7rem;color:var(--text3)">Redactor + Diseñador por marca</span>
+                </div>
+                <div style="display:flex;gap:0.45rem">
+                  <button id="domo-collapse-all-btn" onclick="toggleAllDomos()" style="background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.3rem 0.85rem;font-size:0.72rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s">▾ Colapsar todos</button>
+                  <button onclick="createDomo()" style="background:var(--aire);color:#fff;border:none;border-radius:99px;padding:0.3rem 1rem;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:var(--font);box-shadow:0 2px 10px rgba(59,158,221,0.35);letter-spacing:0.2px">+ Nuevo domo</button>
+                </div>
               </div>
-              <div style="display:flex;gap:0.6rem">
-                <button id="domo-collapse-all-btn" onclick="toggleAllDomos()" style="background:none;border:1px solid var(--border);border-radius:10px;padding:0.38rem 0.8rem;font-size:0.78rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font)">▾ Colapsar todos</button>
-                <button onclick="createDomo()" style="background:var(--aire);color:#fff;border:none;border-radius:10px;padding:0.38rem 0.9rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font)">+ Nuevo domo</button>
-              </div>
+              <div id="domos-main-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.7rem;align-items:start"></div>
             </div>
-            <div id="domos-main-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.6rem;align-items:start"></div>
+
           </div>
         </div>
 
@@ -8429,9 +8463,10 @@ function renderMemberProfile(){
   // Info
   document.getElementById('mprofile-apodo').textContent = m.apodo||m.nombre;
   document.getElementById('mprofile-name').textContent = m.apodo ? m.nombre : '';
+  const _mAreas = m.areas && m.areas.length ? m.areas : (m.area ? [m.area] : []);
   (document.getElementById('mprofile-meta')||{innerHTML:''}).innerHTML = `
     ${m.cargo?`<span class="member-area-pill">${m.cargo}</span>`:''}
-    ${m.area?`<span class="member-area-pill">${getAreaEmoji(m.area)} ${m.area}</span>`:''}
+    ${_mAreas.map(aid=>{ const a=AREAS.find(x=>x.id===aid); return a?`<span class="member-area-pill">${a.emoji} ${a.label}</span>`:''; }).join('')}
   `;
   (document.getElementById('mprofile-status')||{}).value = m.status||'';
 
@@ -8675,7 +8710,7 @@ function openEditMemberModal(){
     : (m.emoji || '👤');
   document.getElementById('modal-member-err').textContent = '';
   renderMemberEmojiGrid(m.emoji);
-  renderMemberAreaGrid(m.area || '');
+  renderMemberAreaGrid(m.areas || (m.area ? [m.area] : []));
   renderMemberColorPicker(m.color || '');
   document.getElementById('modal-member').classList.remove('hidden');
 }
@@ -8702,15 +8737,25 @@ function renderMemberEmojiGrid(selected){
 }
 
 function renderMemberAreaGrid(selected){
+  // selected puede ser string (legacy) o array
+  const selectedArr = Array.isArray(selected) ? selected : (selected ? [selected] : []);
   const grid = document.getElementById('area-grid');
   if(!grid) return;
   grid.innerHTML = AREAS.map(a=>`
-    <label style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;border:1.5px solid ${a.id===selected?'var(--aire)':'var(--border)'};border-radius:10px;cursor:pointer;background:${a.id===selected?'var(--bg-card2)':'none'};transition:all 0.15s">
-      <input type="radio" name="m-area" value="${a.id}" ${a.id===selected?'checked':''} style="display:none" onchange="renderMemberAreaGrid('${a.id}')">
+    <label style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;border:1.5px solid ${selectedArr.includes(a.id)?'var(--aire)':'var(--border)'};border-radius:10px;cursor:pointer;background:${selectedArr.includes(a.id)?'var(--bg-card2)':'none'};transition:all 0.15s" onclick="toggleMemberArea('${a.id}')">
+      <input type="checkbox" name="m-area" value="${a.id}" ${selectedArr.includes(a.id)?'checked':''} style="display:none">
       <span style="font-size:1rem">${a.emoji}</span>
       <span style="font-size:0.82rem;font-weight:600">${a.label}</span>
     </label>
   `).join('');
+}
+
+function toggleMemberArea(areaId){
+  const checkboxes = document.querySelectorAll('input[name="m-area"]');
+  const checkbox = [...checkboxes].find(c=>c.value===areaId);
+  if(checkbox) checkbox.checked = !checkbox.checked;
+  const selected = [...checkboxes].filter(c=>c.checked).map(c=>c.value);
+  renderMemberAreaGrid(selected);
 }
 
 function renderMemberColorPicker(selected){
@@ -8731,7 +8776,7 @@ function selectMemberColor(color){
 async function saveMember(){ markLocalChange("members");
     const nombre = document.getElementById('m-nombre').value.trim();
   if(!nombre){ document.getElementById('modal-member-err').textContent='El nombre es obligatorio'; return; }
-  const areaRadio = document.querySelector('input[name="m-area"]:checked');
+  const areaCheckboxes = document.querySelectorAll('input[name="m-area"]:checked');
   const memberColor = document.getElementById('input-member-color')?.value || MEMBER_COLORS[0];
   const memberData = {
     nombre,
@@ -8739,7 +8784,8 @@ async function saveMember(){ markLocalChange("members");
     apodo: document.getElementById('m-apodo').value.trim(),
     emoji: memberEmojiVal || '👤',
     photo: memberPhotoB64 || null,
-    area: areaRadio ? areaRadio.value : '',
+    areas: [...areaCheckboxes].map(c=>c.value),
+    area: [...areaCheckboxes].map(c=>c.value)[0] || '', // legacy compat
     color: memberColor,
   };
   if(editingMemberId){
@@ -9736,7 +9782,8 @@ function renderMembersGrid(){
     const hitos = getMemberHitos(m.id);
     const today = new Date(); today.setHours(0,0,0,0);
     const upcoming = hitos.filter(h=>h.dateObj>=today).sort((a,b)=>a.dateObj-b.dateObj).slice(0,6);
-    const area = AREAS.find(a=>a.id===m.area);
+    const memberAreas = (m.areas && m.areas.length ? m.areas : (m.area ? [m.area] : []));
+    const areaPills = memberAreas.map(aid=>{ const a=AREAS.find(x=>x.id===aid); return a?`<span style="font-size:0.68rem;opacity:0.85">${a.emoji} ${a.label}</span>`:''; }).filter(Boolean).join(' · ');
     const avatarHTML = m.photo ? `<img src="${m.photo}" alt="">` : (m.emoji||'👤');
     const gradient = getMemberGradient(m.id);
     const myDomos = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id||(b.domo.helpers||[]).includes(m.id))).map(b=>b.name);
@@ -10225,20 +10272,30 @@ function setDomoName(key, name){
 
 // Helpers para clasificar miembros por área
 function getMemberRoleType(m){
-  const a = m.area||'';
-  if(a==='direccion') return 'dir';
-  if(a==='redaccion') return 'red';
-  if(a==='diseno') return 'dis';
+  const areas = m.areas && m.areas.length ? m.areas : (m.area ? [m.area] : []);
+  if(areas.includes('direccion')) return 'dir';
+  if(areas.includes('redaccion')) return 'red';
+  if(areas.includes('diseno')) return 'dis';
   return null;
+}
+
+function getMemberRoleTypes(m){
+  // Returns ALL applicable role types for multi-area members
+  const areas = m.areas && m.areas.length ? m.areas : (m.area ? [m.area] : []);
+  const roles = [];
+  if(areas.includes('direccion')) roles.push('dir');
+  if(areas.includes('redaccion')) roles.push('red');
+  if(areas.includes('diseno')) roles.push('dis');
+  return roles;
 }
 
 function renderRoleAssignment(){
   const brands = (appData.brands||[]).filter(b=>!b.archivedAt&&!b.deletedAt);
   const members = appData.members||[];
 
-  const dirs = members.filter(m=>getMemberRoleType(m)==='dir');
-  const reds = members.filter(m=>getMemberRoleType(m)==='red');
-  const diss = members.filter(m=>getMemberRoleType(m)==='dis');
+  const dirs = members.filter(m=>getMemberRoleTypes(m).includes('dir'));
+  const reds = members.filter(m=>getMemberRoleTypes(m).includes('red'));
+  const diss = members.filter(m=>getMemberRoleTypes(m).includes('dis'));
 
   // Marcas sin asignar completo (faltan director, redactor o diseñador)
   const unassigned = brands.filter(b=>{
@@ -10269,7 +10326,7 @@ function renderRoleAssignment(){
   // Sin asignar
   const unassignedEl = document.getElementById('domos-unassigned-list');
   const unassignedLabel = document.getElementById('domos-unassigned-label');
-  if(unassignedLabel) unassignedLabel.textContent = `SIN ASIGNAR COMPLETO (${unassigned.length})`;
+  if(unassignedLabel) unassignedLabel.textContent = `SIN DOMO (${unassigned.length}) — ARRASTRA AQUÍ PARA DESASIGNAR`;
   if(unassignedEl) unassignedEl.innerHTML = unassigned.map(b=>{
     const col = getBrandColor(b);
     const hasDir = !!b.director;
@@ -10451,49 +10508,6 @@ function renderEqDomos(){
         ${b.name}
       </span>`;
     }).join('');
-  }
-
-  // ── Unassigned zone ──
-  const unassignedList = document.getElementById('domos-unassigned-list');
-  if(!unassignedList) return;
-  const unassignedLabel = document.getElementById('domos-unassigned-label');
-  const reds = members.filter(m=>getMemberRoleType(m)==='red');
-  const diss = members.filter(m=>getMemberRoleType(m)==='dis');
-  const unassigned = brands.filter(b=>{
-    const hasDir = !!b.director;
-    const hasRed = !!(b.domo?.m1);
-    const hasDis = !!(b.domo?.m2);
-    return !hasDir || !hasRed || !hasDis;
-  });
-  if(unassignedList){
-    if(unassignedLabel) unassignedLabel.textContent = `SIN DOMO (${unassigned.length}) — ARRASTRA AQUÍ PARA DESASIGNAR`;
-    unassignedList.innerHTML = unassigned.map(b=>{
-      const col = getBrandColor(b);
-      const hasDir = !!b.director;
-      const hasRed = !!(b.domo?.m1);
-      const hasDis = !!(b.domo?.m2);
-      const missing = [
-        !hasDir && {label:'? Director', color:'#fff', bg:'var(--aire)'},
-        !hasRed && {label:'? Redactor', color:'#fff', bg:'#e75480'},
-        !hasDis && {label:'? Diseñador', color:'#fff', bg:'var(--tierra)'},
-      ].filter(Boolean);
-      const anyAssigned = hasDir || hasRed || hasDis;
-      const badgesInner = missing.map(({label})=>'<span style="font-size:0.58rem;font-weight:500;color:var(--text3);background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.08rem 0.38rem;white-space:nowrap">'+label+'</span>').join('');
-      const badgesHTML = anyAssigned && missing.length
-        ? '<div style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.3rem">'+badgesInner+'</div>'
-        : '';
-      return `<span style="display:inline-flex;flex-direction:column;align-items:flex-start;padding:0.35rem 0.65rem;border-radius:14px;border:2px solid ${col};background:var(--bg-card);cursor:grab;user-select:none;transition:all 0.15s"
-        draggable="true"
-        ondragstart="startDragBrand(event,'${b.id}','unassigned')"
-        onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'"
-        onmouseout="this.style.transform='';this.style.boxShadow=''">
-        <div style="display:flex;align-items:center;gap:0.4rem">
-          <span style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></span>
-          <span style="font-size:0.78rem;font-weight:700;color:var(--text)">${b.name}</span>
-        </div>
-        ${badgesHTML}
-      </span>`;
-    }).join('') || '<span style="font-size:0.72rem;color:var(--text3)">Todas las marcas están en un domo ✓</span>';
   }
 
   // ── Build domos from brand domo assignments ──
@@ -11572,9 +11586,11 @@ function renderBrandsTable(){
       if(domoNames.length) domoDisplay = domoNames.join(' + ');
       const all = [m1,m2].filter(Boolean);
       all.forEach(m=>{
-        const area = (m.area||'').toLowerCase();
-        if(area.includes('diseñ')||area.includes('design')||area.includes('visual')){ if(disenadorDisplay==='—') disenadorDisplay=m.apodo||m.nombre; }
-        else if(area.includes('redac')||area.includes('copy')||area.includes('texto')){ if(redactorDisplay==='—') redactorDisplay=m.apodo||m.nombre; }
+        const memberAreas = (m.areas && m.areas.length ? m.areas : (m.area ? [m.area] : [])).map(a=>a.toLowerCase());
+        const isDiseno = memberAreas.some(a=>a.includes('disen')||a.includes('design')||a.includes('visual'));
+        const isRedac = memberAreas.some(a=>a.includes('redac')||a.includes('copy')||a.includes('texto'));
+        if(isDiseno){ if(disenadorDisplay==='—') disenadorDisplay=m.apodo||m.nombre; }
+        else if(isRedac){ if(redactorDisplay==='—') redactorDisplay=m.apodo||m.nombre; }
       });
       if(all.length>=1 && disenadorDisplay==='—' && redactorDisplay==='—'){
         disenadorDisplay = all[0]?(all[0].apodo||all[0].nombre):'—';
@@ -12429,7 +12445,7 @@ function exportEquipoPDF(){
     const hitos = getMemberHitos(m.id).filter(h=>new Date(h.date+'T00:00:00')>=today).sort((a,b)=>a.date.localeCompare(b.date));
     const proxima = hitos[0] ? `${(appData.brands||[]).find(b=>b.id===hitos[0].brandId)?.name||'—'} · ${hitos[0].date}` : 'Sin tareas';
     const myBrands = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id)).map(b=>b.name).join(', ')||'—';
-    return [m.apodo||m.nombre, m.cargo||'—', m.area||'—', String(hitos.length), proxima, myBrands];
+    return [m.apodo||m.nombre, m.cargo||'—', (m.areas&&m.areas.length?m.areas:m.area?[m.area]:[]).join(', ')||'—', String(hitos.length), proxima, myBrands];
   });
 
   doc.autoTable({
@@ -12450,7 +12466,7 @@ function exportEquipoXLSX(){
   const data = members.map(m=>{
     const hitos = getMemberHitos(m.id).filter(h=>new Date(h.date+'T00:00:00')>=today).sort((a,b)=>a.date.localeCompare(b.date));
     const myBrands = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id)).map(b=>b.name).join(', ')||'—';
-    return { Nombre:m.apodo||m.nombre, 'Nombre completo':m.nombre, Cargo:m.cargo||'—', Área:m.area||'—', 'Tareas próximas':hitos.length, 'Marcas asignadas':myBrands, Status:m.status||'' };
+    return { Nombre:m.apodo||m.nombre, 'Nombre completo':m.nombre, Cargo:m.cargo||'—', Área:(m.areas&&m.areas.length?m.areas:m.area?[m.area]:[]).join(', ')||'—', 'Tareas próximas':hitos.length, 'Marcas asignadas':myBrands, Status:m.status||'' };
   });
   // Detailed tasks sheet
   const tasks = [];
