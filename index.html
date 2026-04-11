@@ -2114,7 +2114,21 @@ body.portal-mode .main{ height:100vh; }
             <button class="eq-nav-btn" onclick="eqShiftWeek(1)">→</button>
           </div>
           <!-- Toggle modo vista -->
-          <div style="display:flex;justify-content:flex-end;padding:0.4rem 0.5rem 0;gap:0.4rem">
+          <div style="display:flex;justify-content:flex-end;padding:0.4rem 0.5rem 0;gap:0.4rem;flex-wrap:wrap;align-items:center">
+            <div style="display:flex;gap:0.3rem;margin-right:0.5rem;border-right:1px solid var(--border);padding-right:0.5rem">
+              <button id="eq-week-filter-all" onclick="setEqWeekFilter('all')"
+                style="font-size:0.7rem;font-weight:600;padding:0.25rem 0.65rem;border-radius:99px;border:1.5px solid var(--aire);background:var(--aire);color:#fff;cursor:pointer;font-family:var(--font);transition:all 0.15s">
+                Todas
+              </button>
+              <button id="eq-week-filter-cliente" onclick="setEqWeekFilter('cliente')"
+                style="font-size:0.7rem;font-weight:600;padding:0.25rem 0.65rem;border-radius:99px;border:1.5px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s">
+                ⭐ Con cliente
+              </button>
+              <button id="eq-week-filter-interno" onclick="setEqWeekFilter('interno')"
+                style="font-size:0.7rem;font-weight:600;padding:0.25rem 0.65rem;border-radius:99px;border:1.5px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s">
+                🔍 Interno
+              </button>
+            </div>
             <button id="eq-week-mode-days" onclick="setEqWeekMode('days')"
               style="font-size:0.72rem;font-weight:600;padding:0.28rem 0.75rem;border-radius:99px;border:1.5px solid var(--aire);background:var(--aire);color:#fff;cursor:pointer;font-family:var(--font);transition:all 0.15s">
               📅 Por día
@@ -8736,26 +8750,26 @@ function renderMemberEmojiGrid(selected){
   `).join('');
 }
 
+let _memberAreaSelected = [];
+
 function renderMemberAreaGrid(selected){
   // selected puede ser string (legacy) o array
-  const selectedArr = Array.isArray(selected) ? selected : (selected ? [selected] : []);
+  _memberAreaSelected = Array.isArray(selected) ? [...selected] : (selected ? [selected] : []);
   const grid = document.getElementById('area-grid');
   if(!grid) return;
   grid.innerHTML = AREAS.map(a=>`
-    <label style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;border:1.5px solid ${selectedArr.includes(a.id)?'var(--aire)':'var(--border)'};border-radius:10px;cursor:pointer;background:${selectedArr.includes(a.id)?'var(--bg-card2)':'none'};transition:all 0.15s" onclick="toggleMemberArea('${a.id}')">
-      <input type="checkbox" name="m-area" value="${a.id}" ${selectedArr.includes(a.id)?'checked':''} style="display:none">
-      <span style="font-size:1rem">${a.emoji}</span>
-      <span style="font-size:0.82rem;font-weight:600">${a.label}</span>
+    <label style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;border:1.5px solid ${_memberAreaSelected.includes(a.id)?'var(--aire)':'var(--border)'};border-radius:10px;cursor:pointer;background:${_memberAreaSelected.includes(a.id)?'rgba(59,158,221,0.07)':'none'};transition:all 0.15s" onclick="event.preventDefault();toggleMemberArea('${a.id}')">
+      <span style="font-size:1.1rem">${_memberAreaSelected.includes(a.id)?'☑️':'⬜'}</span>
+      <span style="font-size:0.82rem;font-weight:600;color:${_memberAreaSelected.includes(a.id)?'var(--aire)':'var(--text)'}">${a.emoji} ${a.label}</span>
     </label>
   `).join('');
 }
 
 function toggleMemberArea(areaId){
-  const checkboxes = document.querySelectorAll('input[name="m-area"]');
-  const checkbox = [...checkboxes].find(c=>c.value===areaId);
-  if(checkbox) checkbox.checked = !checkbox.checked;
-  const selected = [...checkboxes].filter(c=>c.checked).map(c=>c.value);
-  renderMemberAreaGrid(selected);
+  const idx = _memberAreaSelected.indexOf(areaId);
+  if(idx>=0) _memberAreaSelected.splice(idx,1);
+  else _memberAreaSelected.push(areaId);
+  renderMemberAreaGrid(_memberAreaSelected);
 }
 
 function renderMemberColorPicker(selected){
@@ -8776,7 +8790,6 @@ function selectMemberColor(color){
 async function saveMember(){ markLocalChange("members");
     const nombre = document.getElementById('m-nombre').value.trim();
   if(!nombre){ document.getElementById('modal-member-err').textContent='El nombre es obligatorio'; return; }
-  const areaCheckboxes = document.querySelectorAll('input[name="m-area"]:checked');
   const memberColor = document.getElementById('input-member-color')?.value || MEMBER_COLORS[0];
   const memberData = {
     nombre,
@@ -8784,8 +8797,8 @@ async function saveMember(){ markLocalChange("members");
     apodo: document.getElementById('m-apodo').value.trim(),
     emoji: memberEmojiVal || '👤',
     photo: memberPhotoB64 || null,
-    areas: [...areaCheckboxes].map(c=>c.value),
-    area: [...areaCheckboxes].map(c=>c.value)[0] || '', // legacy compat
+    areas: [..._memberAreaSelected],
+    area: _memberAreaSelected[0] || '', // legacy compat
     color: memberColor,
   };
   if(editingMemberId){
@@ -9859,6 +9872,20 @@ function renderMembersGrid(){
 }
 let _eqWeekOffset = 0;
 let _eqWeekMode = 'days'; // 'days' | 'members'
+let _eqWeekFilter = 'all'; // 'all' | 'cliente' | 'interno'
+
+function setEqWeekFilter(filter){
+  _eqWeekFilter = filter;
+  ['all','cliente','interno'].forEach(f=>{
+    const btn = document.getElementById('eq-week-filter-'+f);
+    if(!btn) return;
+    const active = f===filter;
+    btn.style.background = active ? 'var(--aire)' : 'none';
+    btn.style.color = active ? '#fff' : 'var(--text2)';
+    btn.style.borderColor = active ? 'var(--aire)' : 'var(--border)';
+  });
+  renderEqWeek();
+}
 
 function setEqWeekMode(mode){
   _eqWeekMode = mode;
@@ -10050,10 +10077,13 @@ function renderEqWeek(){
 
   const membersToShow = currentMemberId ? [(appData.members||[]).find(m=>m.id===currentMemberId)].filter(Boolean) : (appData.members||[]);
   const allHitosRaw = membersToShow.flatMap(m=>getMemberHitos(m.id).map(h=>({...h,member:m})));
-  const allHitos = currentMemberId ? allHitosRaw : deduplicateHitos(allHitosRaw);
+  let allHitos = currentMemberId ? allHitosRaw : deduplicateHitos(allHitosRaw);
+  // Apply filter
+  if(_eqWeekFilter==='cliente') allHitos = allHitos.filter(h=>h.type==='oficial');
+  else if(_eqWeekFilter==='interno') allHitos = allHitos.filter(h=>h.type==='revision'||h.type==='dc_review');
   // Add manual tareas
   const tareasMemberIds = currentMemberId ? [currentMemberId] : (appData.members||[]).map(m=>m.id);
-  const allTareas = (appData.tareas||[]).filter(t=> tareasMemberIds.some(id=>t.r1===id||t.r2===id));
+  const allTareas = _eqWeekFilter==='interno' ? [] : (appData.tareas||[]).filter(t=> tareasMemberIds.some(id=>t.r1===id||t.r2===id));
   // getMemberHitos already returns separate oficial + revision objects with correct date
 
   const dayNames=['Lun','Mar','Mié','Jue','Vie'];
