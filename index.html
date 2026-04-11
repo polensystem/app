@@ -256,8 +256,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .bp-pts-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;}
 .bp-pts-lbl{font-size:0.58rem;font-weight:700;text-transform:uppercase;color:var(--text3);letter-spacing:0.5px;}
 .bp-pts-val{font-size:0.85rem;font-weight:700;color:var(--fuego);background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.25rem 0.4rem;min-width:44px;text-align:center;}
-.bp-qty-input{width:50px;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.4rem;color:var(--agua);font-family:var(--font);font-size:0.85rem;font-weight:700;text-align:center;outline:none;transition:all var(--transition);}
-.bp-qty-input:focus{border-color:var(--agua);}
+.bp-qty-input{width:50px;background:var(--bg-card2);border:1.5px solid var(--border);border-radius:8px;padding:0.28rem 0.4rem;color:var(--agua);font-family:var(--font);font-size:0.85rem;font-weight:700;text-align:center;outline:none;transition:all var(--transition);cursor:text;}
+.bp-qty-input:hover{border-color:var(--agua);background:rgba(93,232,208,0.06);}
+.bp-qty-input:focus{border-color:var(--agua);box-shadow:0 0 0 3px rgba(93,232,208,0.12);}
 
 /* ── TEMPLATE PAGE ── */
 .tpl-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;}
@@ -319,7 +320,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .tpl-bp-item:last-child{border-bottom:none;}
 .tpl-bp-item:hover{background:var(--glass);}
 .tpl-bp-item-name{flex:1;font-size:0.83rem;}
-.bp-pts-input{width:54px;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.4rem;color:var(--fuego);font-family:var(--font);font-size:0.85rem;font-weight:700;text-align:center;outline:none;transition:all var(--transition);cursor:text;}
+.bp-pts-input{width:54px;background:var(--bg-card2);border:1.5px solid var(--border);border-radius:8px;padding:0.28rem 0.4rem;color:var(--fuego);font-family:var(--font);font-size:0.85rem;font-weight:700;text-align:center;outline:none;transition:all var(--transition);cursor:text;}
 .bp-pts-input:hover{border-color:var(--fuego);background:rgba(232,98,42,0.06);}
 .bp-pts-input:focus{border-color:var(--fuego);box-shadow:0 0 0 3px rgba(232,98,42,0.12);background:var(--bg-card2);}
 #brand-bp-total-input::-webkit-inner-spin-button,
@@ -663,7 +664,9 @@ body.portal-mode .main{ height:100vh; }
 /* ── BP EDITABLE ── */
 .bp-cat-name-input{background:none;border:none;outline:none;font-size:0.88rem;font-weight:700;color:var(--text);cursor:text;padding:0;font-family:var(--font);}
 .bp-cat-name-input:focus{border-bottom:1px solid var(--border);}
-.bp-item-name-input{flex:1;background:none;border:none;outline:none;font-size:0.83rem;color:var(--text);font-family:var(--font);cursor:text;padding:0;}
+.bp-item-name-input{flex:1;background:none;border:none;outline:none;font-size:0.83rem;color:var(--text);font-family:var(--font);cursor:text;padding:0;border-bottom:1px dashed var(--border);}
+.bp-item-name-input:hover{border-bottom-color:var(--text3);}
+.bp-item-name-input:focus{border-bottom-color:var(--aire);border-bottom-style:solid;}
 .tpl-bp-item-wrap{border-bottom:1px solid var(--border2);}
 .tpl-bp-item-wrap:last-child{border-bottom:none;}
 .tpl-bp-item{display:flex;align-items:center;gap:0.65rem;padding:0.55rem 1rem;transition:background var(--transition);}
@@ -3839,10 +3842,17 @@ let _calDragType = null; // 'oficial' | 'revision'
 function deduplicateHitos(hitos){
   // En la vista global (todos los integrantes), un mismo hito/revisión
   // puede aparecer para múltiples miembros del domo — mostrar solo una vez.
-  // La key es actId|type|date sin memberId.
+  // Key: brandId|actId|type|date
+  // dc_review y revision del mismo actId en la misma fecha → keep only one (revision wins)
   const seen = new Set();
+  // First pass: collect all revision keys so we can skip dc_review duplicates
+  const revisionKeys = new Set(
+    hitos.filter(h=>h.type==='revision').map(h=>h.brandId+'|'+h.actId+'|'+h.date)
+  );
   return hitos.filter(h=>{
-    const key = h.actId + '|' + h.type + '|' + h.date;
+    // If there's already a revision for this actId+date, skip the dc_review
+    if(h.type==='dc_review' && revisionKeys.has(h.brandId+'|'+h.actId+'|'+h.date)) return false;
+    const key = h.brandId + '|' + h.actId + '|' + h.type + '|' + h.date;
     if(seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -8152,9 +8162,9 @@ function renderTplBpCats(){
                 onchange="tplToggleBpItem(${ci},${ii},this.checked)">
               <input class="bp-item-name-input" value="${item.name}"
                 onchange="tplRenameItem(${ci},${ii},this.value)"
-                style="flex:1;background:none;border:none;outline:none;font-size:0.83rem;color:${item.selected?'var(--text)':'var(--text2)'};font-family:var(--font);cursor:text;padding:0;border-bottom:1px dashed transparent;"
-                onfocus="this.style.borderBottomColor='var(--border)'"
-                onblur="this.style.borderBottomColor='transparent'">
+                style="color:${item.selected?'var(--text)':'var(--text2)'};"
+                onfocus="this.style.borderBottomColor='var(--aire)'"
+                onblur="this.style.borderBottomColor=''">
               <div class="bp-pts-wrap">
                 <span class="bp-pts-lbl">PTS</span>
                 <input class="bp-pts-input" type="number" min="0" value="${item.pts||0}" onchange="tplUpdateBpPts(${ci},${ii},this.value)">
