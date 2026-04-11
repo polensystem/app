@@ -10437,8 +10437,8 @@ function _renderRoleColumn(containerId, members, brands, roleType){
         // red/dis: una por fila, ancho completo, con badges de roles faltantes
         const hasDir = !!b.director;
         const hasOtherRole = roleType==='red'
-          ? !!(appData.members||[]).filter(x=>getMemberRoleType(x)==='dis').some(x=>b.domo?.m1===x.id||b.domo?.m2===x.id)
-          : !!(appData.members||[]).filter(x=>getMemberRoleType(x)==='red').some(x=>b.domo?.m1===x.id||b.domo?.m2===x.id);
+          ? !!(appData.members||[]).filter(x=>getMemberRoleTypes(x).includes('dis')).some(x=>b.domo?.m1===x.id||b.domo?.m2===x.id)
+          : !!(appData.members||[]).filter(x=>getMemberRoleTypes(x).includes('red')).some(x=>b.domo?.m1===x.id||b.domo?.m2===x.id);
         const missingBadges = [
           !hasDir && '<span style="font-size:0.52rem;font-weight:700;background:rgba(59,158,221,0.15);color:var(--aire);border-radius:99px;padding:0.05rem 0.3rem;white-space:nowrap;flex-shrink:0">?DC</span>',
           !hasOtherRole && roleType==='red' && '<span style="font-size:0.52rem;font-weight:700;background:rgba(176,106,255,0.15);color:var(--tierra);border-radius:99px;padding:0.05rem 0.3rem;white-space:nowrap;flex-shrink:0">?Dis</span>',
