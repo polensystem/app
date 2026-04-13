@@ -6375,8 +6375,9 @@ async function migrateBpToTemplate(brandNames){
   if(!tpl?.brandingPoints?.categories?.length){ showStatus('No hay template configurado', true); return; }
 
   let migrated = 0;
+  const brandNamesLower = brandNames.map(n=>n.toLowerCase().trim());
   (appData.brands||[]).forEach(brand=>{
-    if(!brandNames.includes(brand.name)) return;
+    if(!brandNamesLower.includes(brand.name.toLowerCase().trim())) return;
 
     // Build map of existing selected items by name (case-insensitive)
     const selectedByName = {};
@@ -7697,16 +7698,16 @@ function renderBrandBp(brand){
       ondrop="bpCatDrop(event,${ci},'brand:${brand.id}')"
       ondragend="bpCatDragEnd(event)"
       style="cursor:default">
-      <div class="bp-cat-head">
-        <span style="color:var(--text3);font-size:0.85rem;cursor:grab;opacity:0.4;padding:0 0.3rem 0 0;flex-shrink:0" title="Arrastrar para reordenar">⠿</span>
-        <div style="display:flex;align-items:center;gap:0.5rem;flex:1" onclick="toggleBrandBpCat('${brand.id}',${ci})">
+      <div class="bp-cat-head" onclick="toggleBrandBpCat('${brand.id}',${ci})">
+        <span style="color:var(--text3);font-size:0.85rem;cursor:grab;opacity:0.4;padding:0 0.3rem 0 0;flex-shrink:0" title="Arrastrar para reordenar" onclick="event.stopPropagation()">⠿</span>
+        <div style="display:flex;align-items:center;gap:0.5rem;flex:1">
           <input value="${cat.name}" onclick="event.stopPropagation()"
             onchange="renameBrandBpCat('${brand.id}',${ci},this.value)"
             style="background:none;border:none;outline:none;font-size:0.88rem;font-weight:700;color:var(--text);cursor:text;padding:0;font-family:var(--font);width:auto;min-width:60px;max-width:180px">
           <span class="bp-cat-meta">${cat.items.filter(i=>i.selected).length} sel. · ${cat.items.filter(i=>i.selected&&i.pts!=null).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0)} pts</span>
         </div>
         <button onclick="event.stopPropagation();deleteBrandBpCat('${brand.id}',${ci})" title="Eliminar categoría" style="background:none;border:none;cursor:pointer;font-size:0.75rem;color:var(--text3);padding:0.1rem 0.25rem;border-radius:4px;opacity:0.4;transition:all 0.15s" onmouseover="this.style.opacity=1;this.style.color='#ef4444'" onmouseout="this.style.opacity=0.4;this.style.color='var(--text3)'">🗑</button>
-        <span style="font-size:0.75rem;color:var(--text3);cursor:pointer" onclick="toggleBrandBpCat('${brand.id}',${ci})">${cat.open!==false?'▲':'▼'}</span>
+        <span style="font-size:0.75rem;color:var(--text3)">${cat.open!==false?'▲':'▼'}</span>
       </div>
       <div class="bp-cat-body ${cat.open===false?'hidden':''}">
         ${cat.items.map((item,ii)=>`
@@ -8319,10 +8320,10 @@ function renderTplBpCats(){
       ondrop="bpCatDrop(event,${ci},'tpl')"
       ondragend="bpCatDragEnd(event)"
       style="cursor:default">
-      <div class="bp-cat-head">
+      <div class="bp-cat-head" onclick="tplToggleBpCat(${ci})">
         <span style="color:var(--text3);font-size:0.85rem;cursor:grab;opacity:0.4;padding:0 0.3rem 0 0;flex-shrink:0" title="Arrastrar para reordenar"
-          onmousedown="event.stopPropagation()">⠿</span>
-        <div style="display:flex;align-items:center;gap:0.5rem;flex:1" onclick="tplToggleBpCat(${ci})">
+          onmousedown="event.stopPropagation()" onclick="event.stopPropagation()">⠿</span>
+        <div style="display:flex;align-items:center;gap:0.5rem;flex:1">
           <input class="bp-cat-name-input" value="${cat.name}"
             onclick="event.stopPropagation()"
             onchange="tplRenameCat(${ci},this.value)"
@@ -8330,7 +8331,7 @@ function renderTplBpCats(){
           <span class="bp-cat-meta">${cat.items.filter(i=>i.selected).length} sel. · ${cat.items.filter(i=>i.selected).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0)} pts</span>
         </div>
         <button onclick="event.stopPropagation();tplDeleteBpCat(${ci})" title="Eliminar categoría" style="background:none;border:none;cursor:pointer;font-size:0.75rem;color:var(--text3);padding:0.1rem 0.25rem;border-radius:4px;opacity:0.4;transition:all 0.15s" onmouseover="this.style.opacity=1;this.style.color='#ef4444'" onmouseout="this.style.opacity=0.4;this.style.color='var(--text3)'">🗑</button>
-        <span style="font-size:0.75rem;color:var(--text3);cursor:pointer" onclick="tplToggleBpCat(${ci})">${cat.open!==false?'▲':'▼'}</span>
+        <span style="font-size:0.75rem;color:var(--text3)">${cat.open!==false?'▲':'▼'}</span>
       </div>
       <div class="bp-cat-body ${cat.open===false?'hidden':''}">
         ${cat.items.map((item,ii)=>`
@@ -8615,9 +8616,30 @@ function subscribeRealtime(onUpdate){
                             : (snap?.photo && snap.photo.startsWith('data:')) ? snap.photo
                             : (m.photo && m.photo.startsWith('data:')) ? m.photo : null;
             const bestColor = cachedColor || snap?.color || m.color || null;
-            return {...m, photo: bestPhoto, color: bestColor};
+            const cachedStatus = cached?.status;
+            const bestStatus = (cachedStatus !== null && cachedStatus !== undefined) ? cachedStatus
+                             : (snap?.status !== null && snap?.status !== undefined) ? snap.status
+                             : m.status || '';
+            return {...m, photo: bestPhoto, color: bestColor, status: bestStatus};
           });
         }
+
+        // Refresh photo cache from Supabase in background — catches photos saved by other users/tabs
+        loadPhotosFromSupabase().then(freshMap=>{
+          if(!freshMap || !Object.keys(freshMap).length) return;
+          // Only update if something changed
+          let changed = false;
+          Object.keys(freshMap).forEach(id=>{
+            const cached = window._photoCache?.[id];
+            if(freshMap[id].photo && freshMap[id].photo !== cached?.photo) changed = true;
+            if(freshMap[id].color && freshMap[id].color !== cached?.color) changed = true;
+            if(freshMap[id].status !== null && freshMap[id].status !== cached?.status) changed = true;
+          });
+          if(!changed) return;
+          window._photoCache = freshMap;
+          applyPhotosToMembers(freshMap);
+          try{ renderCurrentPage(); }catch(e){}
+        });
         // Re-apply deleted ids as final safety net
         if(_localDeletedIds.brands.size)
           appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
@@ -11232,8 +11254,19 @@ async function quickSaveMemberStatus(id,val){
   if(!m) return;
   m.status=val;
   renderEquipoMiniCard(id);
-    markLocalChange('members');
-await upsert();
+  markLocalChange('members');
+  // Save status to separate table so it never gets lost in merges
+  if(window._photoCache){
+    if(!window._photoCache[id]) window._photoCache[id] = {};
+    window._photoCache[id].status = val;
+  }
+  try{
+    await sb.from('polen_photos').upsert(
+      {id, status: val, updated_at: new Date().toISOString()},
+      {onConflict: 'id'}
+    );
+  }catch(e){ console.warn('Error guardando status:', e); }
+  await upsert();
 }
 
 async function deleteMemberCurrent(){
@@ -11446,13 +11479,14 @@ async function savePhotoToSupabase(memberId, photoB64, color){
 
 async function loadPhotosFromSupabase(){
   try{
-    const {data, error} = await sb.from('polen_photos').select('id,photo,color');
+    const {data, error} = await sb.from('polen_photos').select('id,photo,color,status');
     if(error){ console.warn('[Polen] No se pudieron cargar fotos:', error.message); return {}; }
     const map = {};
     (data||[]).forEach(row=>{
       map[row.id] = {
         photo: (row.photo && row.photo.startsWith('data:')) ? row.photo : null,
         color: row.color || null,
+        status: (row.status !== undefined && row.status !== null) ? row.status : null,
       };
     });
     return map;
@@ -11468,6 +11502,7 @@ function applyPhotosToMembers(photoMap){
       ...m,
       photo: entry.photo || m.photo || null,
       color: entry.color || m.color || null,
+      status: entry.status !== null ? (entry.status ?? m.status) : m.status,
     };
   });
   // Keep cache in sync
@@ -11547,15 +11582,15 @@ async function boot(){
   subscribeRealtime();
 
   // One-time BP migration for specific brands — runs once then never again
-  if(!appData._bpMigrated_v3){
+  if(!appData._bpMigrated_v5){
     await migrateBpToTemplate(['GULA', 'Beauty Craft', 'Soluciones T&L']);
-    appData._bpMigrated_v3 = true;
+    appData._bpMigrated_v5 = true;
     markLocalChange('brands');
     await upsert();
   }
 
   // Full clean replace of template BP with defaultTemplate (removes all duplicates)
-  if(!appData._tplSynced_v2){
+  if(!appData._tplSynced_v4){
     const def = defaultTemplate();
     const tpl = appData.template;
     if(tpl?.brandingPoints){
@@ -11576,7 +11611,7 @@ async function boot(){
       });
       tpl.brandingPoints = newBp;
     }
-    appData._tplSynced_v2 = true;
+    appData._tplSynced_v4 = true;
     markLocalChange('template');
     await upsert();
     // Also re-run brand migration with now-clean template
