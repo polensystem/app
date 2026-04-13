@@ -11834,39 +11834,60 @@ function renderBrandsEtapa(){
     agua:  {col:'var(--agua)',   bg:'rgba(45,195,179,0.08)',  border:'rgba(45,195,179,0.25)',  emoji:'💧',  label:'Agua'},
     tierra:{col:'var(--tierra)', bg:'rgba(90,170,53,0.08)',   border:'rgba(90,170,53,0.25)',   emoji:'🌱',  label:'Tierra'},
     fuego: {col:'var(--fuego)',  bg:'rgba(232,98,42,0.08)',   border:'rgba(232,98,42,0.25)',   emoji:'🔥',  label:'Fuego'},
+    pausado:{col:'var(--text3)', bg:'rgba(120,120,140,0.07)', border:'rgba(120,120,140,0.2)',  emoji:'⏸️',  label:'Pausado'},
   };
-  el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem">' +
-    ['aire','agua','tierra','fuego'].map(stage=>{
-      const sc = SC[stage];
-      const sb = brands.filter(b=>b.stage===stage);
-      return `<div style="background:${sc.bg};border:1px solid ${sc.border};border-radius:14px;padding:1rem">
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.9rem;padding-bottom:0.7rem;border-bottom:1px solid ${sc.border}">
-          <span style="font-size:1.1rem">${sc.emoji}</span>
-          <span style="font-size:0.82rem;font-weight:800;color:${sc.col};text-transform:uppercase;letter-spacing:0.5px">${sc.label}</span>
-          <span style="margin-left:auto;background:${sc.col};color:#fff;font-size:0.65rem;font-weight:700;border-radius:99px;padding:0.1rem 0.5rem">${sb.length}</span>
+
+  const brandCard = (b, sc) => {
+    const pct = brandProgress(b);
+    const col = getBrandColor(b);
+    const logo = b.image ? `<img src="${b.image}" style="width:100%;height:100%;object-fit:cover;border-radius:5px">` : `<span style="font-size:0.7rem;font-weight:800;color:${col}">${b.name.charAt(0)}</span>`;
+    const next = getNextHito(b);
+    const stageEmoji = {aire:'🌬️',agua:'💧',tierra:'🌱',fuego:'🔥'}[b.stage]||'';
+    return `<div onclick="openBrand('${b.id}')" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.7rem;margin-bottom:0.5rem;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='${sc.col}'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+        <div style="width:26px;height:26px;border-radius:7px;border:1.5px solid ${col};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
+        <div style="min-width:0;flex:1">
+          <div style="font-size:0.8rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
+          ${b.industria?`<div style="font-size:0.65rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.industria}</div>`:''}
         </div>
-        ${sb.length ? sb.map(b=>{
-          const pct = brandProgress(b);
-          const col = getBrandColor(b);
-          const logo = b.image ? `<img src="${b.image}" style="width:100%;height:100%;object-fit:cover;border-radius:5px">` : `<span style="font-size:0.7rem;font-weight:800;color:${col}">${b.name.charAt(0)}</span>`;
-          const next = getNextHito(b);
-          return `<div onclick="openBrand('${b.id}')" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.7rem;margin-bottom:0.5rem;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='${sc.col}'" onmouseout="this.style.borderColor='var(--border)'">
-            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
-              <div style="width:26px;height:26px;border-radius:7px;border:1.5px solid ${col};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
-              <div style="min-width:0;flex:1">
-                <div style="font-size:0.8rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
-                ${b.industria?`<div style="font-size:0.65rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.industria}</div>`:''}
-              </div>
-              <span style="font-size:0.7rem;font-weight:700;color:${pct>=90?'var(--tierra)':pct>0?'var(--aire)':'var(--text3)'}">${pct}%</span>
-            </div>
-            <div style="height:3px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
-              <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
-            </div>
-            ${next?`<div style="margin-top:0.45rem;font-size:0.63rem;color:var(--text3)">📅 ${next.name} · ${fmtDateDisplay(next.dateStr)}</div>`:''}
-          </div>`;
-        }).join('') : `<div style="text-align:center;padding:1.5rem 0;color:var(--text3);font-size:0.78rem">Sin marcas</div>`}
-      </div>`;
-    }).join('') + '</div>';
+        ${b.paused?`<span style="font-size:0.58rem;color:var(--text3);background:var(--bg-card2);border-radius:6px;padding:0.1rem 0.3rem">${stageEmoji} ${b.stage}</span>`:''}
+        <span style="font-size:0.7rem;font-weight:700;color:${pct>=90?'var(--tierra)':pct>0?'var(--aire)':'var(--text3)'}">${pct}%</span>
+      </div>
+      <div style="height:3px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${b.paused?'var(--text3)':col};border-radius:99px;opacity:${b.paused?0.45:1}"></div>
+      </div>
+      ${next?`<div style="margin-top:0.45rem;font-size:0.63rem;color:var(--text3)">📅 ${next.name} · ${fmtDateDisplay(next.dateStr)}</div>`:''}
+    </div>`;
+  };
+
+  const stageCol = (stage) => {
+    const sc = SC[stage];
+    const sb = brands.filter(b=>b.stage===stage && !b.paused && !b.archivedAt && !b.deletedAt);
+    return `<div style="background:${sc.bg};border:1px solid ${sc.border};border-radius:14px;padding:1rem">
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.9rem;padding-bottom:0.7rem;border-bottom:1px solid ${sc.border}">
+        <span style="font-size:1.1rem">${sc.emoji}</span>
+        <span style="font-size:0.82rem;font-weight:800;color:${sc.col};text-transform:uppercase;letter-spacing:0.5px">${sc.label}</span>
+        <span style="margin-left:auto;background:${sc.col};color:#fff;font-size:0.65rem;font-weight:700;border-radius:99px;padding:0.1rem 0.5rem">${sb.length}</span>
+      </div>
+      ${sb.length ? sb.map(b=>brandCard(b,sc)).join('') : `<div style="text-align:center;padding:1.5rem 0;color:var(--text3);font-size:0.78rem">Sin marcas</div>`}
+    </div>`;
+  };
+
+  const pausedBrands = brands.filter(b=>b.paused && !b.archivedAt && !b.deletedAt);
+  const psc = SC.pausado;
+  const pausedCol = `<div style="background:${psc.bg};border:1px solid ${psc.border};border-radius:14px;padding:1rem">
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.9rem;padding-bottom:0.7rem;border-bottom:1px solid ${psc.border}">
+      <span style="font-size:1.1rem">${psc.emoji}</span>
+      <span style="font-size:0.82rem;font-weight:800;color:${psc.col};text-transform:uppercase;letter-spacing:0.5px">${psc.label}</span>
+      <span style="margin-left:auto;background:${psc.col};color:#fff;font-size:0.65rem;font-weight:700;border-radius:99px;padding:0.1rem 0.5rem">${pausedBrands.length}</span>
+    </div>
+    ${pausedBrands.length ? pausedBrands.map(b=>brandCard(b,psc)).join('') : `<div style="text-align:center;padding:1.5rem 0;color:var(--text3);font-size:0.78rem">Sin proyectos pausados</div>`}
+  </div>`;
+
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(4,1fr) minmax(160px,220px);gap:1rem">
+    ${['aire','agua','tierra','fuego'].map(stageCol).join('')}
+    ${pausedCol}
+  </div>`;
 }
 
 /* ── Vista: Por Miembro ── */
