@@ -13622,6 +13622,43 @@ function closeHubComments(){
   document.getElementById('modal-hub-comments').classList.add('hidden');
 }
 
+function hubBrandDropdownRender(brands, query){
+  const list = document.getElementById('hub-brand-list');
+  if(!list) return;
+  const q = query.trim().toLowerCase();
+  const filtered = q ? brands.filter(b=>b.name.toLowerCase().includes(q)) : brands;
+  list.innerHTML = filtered.length
+    ? filtered.map(b=>`<div
+        onmousedown="hubBrandSelect('${b.id}','${b.name.replace(/'/g,"&#39;")}')"
+        style="padding:0.5rem 0.85rem;font-size:0.85rem;cursor:pointer;color:var(--text);transition:background 0.1s"
+        onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background=''">${b.name}</div>`).join('')
+    : '<div style="padding:0.5rem 0.85rem;font-size:0.82rem;color:var(--text3)">Sin resultados</div>';
+}
+function hubBrandDropdownOpen(){
+  const list = document.getElementById('hub-brand-list');
+  const sel = document.getElementById('hub-input-brand');
+  if(!list||!sel) return;
+  hubBrandDropdownRender(sel._hubBrands||[], document.getElementById('hub-brand-search')?.value||'');
+  list.style.display='block';
+}
+function hubBrandDropdownClose(){
+  const list = document.getElementById('hub-brand-list');
+  if(list) list.style.display='none';
+}
+function hubBrandDropdownFilter(query){
+  const sel = document.getElementById('hub-input-brand');
+  hubBrandDropdownRender(sel?._hubBrands||[], query);
+  // Clear hidden value if user is typing
+  if(sel) sel.value='';
+}
+function hubBrandSelect(id, name){
+  const sel = document.getElementById('hub-input-brand');
+  const searchEl = document.getElementById('hub-brand-search');
+  if(sel) sel.value = id;
+  if(searchEl) searchEl.value = name;
+  hubBrandDropdownClose();
+}
+
 function closeHubModal(){ document.getElementById('modal-hub').classList.add('hidden'); }
 
 async function deleteHubComment(noteId, commentId){
@@ -13738,12 +13775,19 @@ function openHubModal(noteId=null){
   const saveBtn = document.getElementById('hub-btn-save');
   const editId  = document.getElementById('hub-editing-id');
 
-  // Populate brand select
+  // Populate brand searchable dropdown
   const sel = document.getElementById('hub-input-brand');
-  if(!sel) return;
-  if(sel) sel.innerHTML = '<option value="">— Seleccionar marca —</option>' +
-    '<option value="__general__">🌐 General</option>' +
-    (appData.brands||[]).map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+  const searchEl = document.getElementById('hub-brand-search');
+  if(!sel || !searchEl) return;
+  // Store sorted brands for filtering
+  const _hubBrands = [
+    {id:'__general__', name:'🌐 General'},
+    ...(appData.brands||[]).filter(b=>!b.archivedAt&&!b.deletedAt).sort((a,b)=>a.name.localeCompare(b.name))
+  ];
+  sel._hubBrands = _hubBrands;
+  sel.value = '';
+  searchEl.value = '';
+  hubBrandDropdownRender(_hubBrands, '');
 
   if(noteId){
     // Edit mode: pre-fill fields
@@ -13753,7 +13797,12 @@ function openHubModal(noteId=null){
     if(title)   title.textContent = '✏️ Editar nota';
     if(saveBtn) saveBtn.textContent = 'Guardar cambios';
     if(editId)  editId.value = noteId;
-    if(sel) sel.value = note.brandId || '';
+    if(sel){ sel.value = note.brandId || ''; }
+    // Set search input display
+    if(searchEl && note.brandId){
+      if(note.brandId==='__general__'){ searchEl.value='🌐 General'; }
+      else { const b=(appData.brands||[]).find(x=>x.id===note.brandId); if(b) searchEl.value=b.name; }
+    }
     selectHubUrgency(note.urgency || 'moderada');
     const noteEl = document.getElementById('hub-input-note');
     if(noteEl) noteEl.value = note.text || '';
@@ -14764,9 +14813,16 @@ function checkAutoArchive(brandId){
     <!-- Brand selector -->
     <div class="form-group" style="margin-bottom:1rem">
       <label class="form-label">Marca *</label>
-      <select class="form-select" id="hub-input-brand">
-        <option value="">— Seleccionar marca —</option>
-      </select>
+      <div style="position:relative" id="hub-brand-dropdown-wrap">
+        <input id="hub-brand-search" autocomplete="off" placeholder="Buscar marca…"
+          style="width:100%;box-sizing:border-box;padding:0.55rem 2rem 0.55rem 0.85rem;border-radius:10px;border:1.5px solid var(--border);background:var(--input-bg);color:var(--text);font-family:var(--font);font-size:0.88rem;outline:none;cursor:pointer"
+          onfocus="hubBrandDropdownOpen()"
+          oninput="hubBrandDropdownFilter(this.value)"
+          onblur="setTimeout(()=>hubBrandDropdownClose(),180)">
+        <span style="position:absolute;right:0.65rem;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text3);font-size:0.75rem">▾</span>
+        <input type="hidden" id="hub-input-brand" value="">
+        <div id="hub-brand-list" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-card);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;max-height:220px;overflow-y:auto"></div>
+      </div>
     </div>
     <!-- Urgency -->
     <div class="form-group" style="margin-bottom:1rem">
