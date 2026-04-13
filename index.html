@@ -3363,7 +3363,7 @@ async function upsert(){
           console.warn('[Polen] Logo descartado por ser muy grande:', Math.round(val.length/1000)+'KB');
           return '';
         }
-        if(key === 'photo' && typeof val === 'string' && val.startsWith('data:') && val.length > 200000){
+        if(key === 'photo' && typeof val === 'string' && val.startsWith('data:') && val.length > 500000){
           console.warn('[Polen] Foto descartada por ser muy grande:', Math.round(val.length/1000)+'KB');
           return '';
         }
@@ -8708,13 +8708,13 @@ function onMemberPhotoChange(e){
         return canvas.toDataURL('image/jpeg', quality);
       };
       // Comprimir progresivamente
-      let result = compress(200, 0.75);
-      if(result.length > 100000) result = compress(150, 0.65);
-      if(result.length > 100000) result = compress(120, 0.55);
-      if(result.length > 100000) result = compress(100, 0.45);
-      if(result.length > 100000) result = compress(80, 0.35);
+      let result = compress(300, 0.85);
+      if(result.length > 150000) result = compress(250, 0.75);
+      if(result.length > 150000) result = compress(200, 0.65);
+      if(result.length > 150000) result = compress(150, 0.55);
+      if(result.length > 150000) result = compress(120, 0.45);
 
-      if(result.length > 150000){
+      if(result.length > 200000){
         // Even after aggressive compression it's too large — reject
         const errEl = document.getElementById('modal-member-err');
         if(errEl){ errEl.textContent = `⚠️ La foto es demasiado grande (${Math.round(result.length/1000)}KB comprimida). Usa una imagen más pequeña o de menor resolución.`; errEl.style.display='block'; }
