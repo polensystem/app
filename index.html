@@ -11541,9 +11541,9 @@ async function boot(){
   subscribeRealtime();
 
   // One-time BP migration for specific brands — runs once then never again
-  if(!appData._bpMigrated_v2){
+  if(!appData._bpMigrated_v3){
     await migrateBpToTemplate(['GULA', 'Beauty Craft', 'Soluciones T&L']);
-    appData._bpMigrated_v2 = true;
+    appData._bpMigrated_v3 = true;
     markLocalChange('brands');
     await upsert();
   }
