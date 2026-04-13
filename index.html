@@ -8791,8 +8791,8 @@ function selectMemberColor(color){
   renderMemberColorPicker(color);
 }
 
-async function saveMember(){ markLocalChange("members");
-    const nombre = document.getElementById('m-nombre').value.trim();
+async function saveMember(){
+  const nombre = document.getElementById('m-nombre').value.trim();
   if(!nombre){ document.getElementById('modal-member-err').textContent='El nombre es obligatorio'; return; }
   const memberColor = document.getElementById('input-member-color')?.value || MEMBER_COLORS[0];
   const memberData = {
@@ -8811,6 +8811,7 @@ async function saveMember(){ markLocalChange("members");
   } else {
     appData.members.push({id:uid(), status:'', ...memberData});
   }
+  markLocalChange('members');
   closeMemberModal();
   await upsert();
   showStatus(editingMemberId?'Miembro actualizado ✓':'Miembro creado ✓');
@@ -10174,7 +10175,7 @@ function renderEqWeekPM(){
       const ds = fmtDate(d);
       const tod = isToday(di);
       // Activities active on this day (startDate <= ds <= endDate)
-      const dayActs = allActs.filter(a=>a.startDate<=ds && a.endDate>=ds);
+      const dayActs = allActs.filter(a=>a.startDate===ds);
       return `<div style="padding:0.35rem;background:${tod?'rgba(59,158,221,0.04)':'transparent'};border-right:1px solid var(--border);display:flex;flex-direction:column;gap:0.2rem;min-height:80px;">
         ${dayActs.map(a=>{
           const brand=(appData.brands||[]).find(b=>b.id===a.brandId);
