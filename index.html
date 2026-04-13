@@ -3080,21 +3080,15 @@ async function loadData(){
       ensureFinData();
       if(!Array.isArray(appData.digitalTools)){appData.digitalTools=DEFAULT_TOOLS.map(t=>({...t}));}
 
-      // Restore member photos from localStorage — Supabase strips large base64
+      // Restore member photos from localStorage backup (will be overridden by Supabase table later)
       try{
-        const lbak = localStorage.getItem('polen-localbak');
+        const lbak = localStorage.getItem('polen-photos-bak');
         if(lbak){
-          const parsed = JSON.parse(lbak);
-          const bakMembers = parsed?.data?.members || [];
-          if(bakMembers.length){
-            appData.members = appData.members.map(m=>{
-              const bm = bakMembers.find(x=>x.id===m.id);
-              const bestPhoto = (bm?.photo && bm.photo.startsWith('data:')) ? bm.photo
-                              : (m.photo && m.photo.startsWith('data:')) ? m.photo : null;
-              const bestColor = m.color || bm?.color || null;
-              return {...m, photo: bestPhoto, color: bestColor};
-            });
-          }
+          const photoMap = JSON.parse(lbak);
+          appData.members = appData.members.map(m=>{
+            const p = photoMap[m.id];
+            return (p && p.startsWith('data:')) ? {...m, photo: p} : m;
+          });
         }
       }catch(le){ console.warn('Could not restore photos from localbak:', le); }
       // Filter out persisted deleted IDs
@@ -3363,8 +3357,8 @@ async function upsert(){
           console.warn('[Polen] Logo descartado por ser muy grande:', Math.round(val.length/1000)+'KB');
           return '';
         }
-        if(key === 'photo' && typeof val === 'string' && val.startsWith('data:') && val.length > 500000){
-          console.warn('[Polen] Foto descartada por ser muy grande:', Math.round(val.length/1000)+'KB');
+        if(key === 'photo' && typeof val === 'string' && val.startsWith('data:')){
+          // Photos are stored in separate `polen_photos` table — never include in main payload
           return '';
         }
         return val;
@@ -8427,15 +8421,16 @@ function subscribeRealtime(onUpdate){
         // RESTAURAR cobros locales — siempre, sin excepción
         appData.cobros = _snapCobros;
 
-        // RESTAURAR fotos y colores de miembros desde el snap local
-        // El servidor tiene fotos stripeadas (data: vacío) — siempre preservar del local
-        if(_snapMembers.length && appData.members){
+        // RESTAURAR fotos y colores de miembros — usar cache de tabla separada primero
+        if(appData.members){
           appData.members = appData.members.map(m=>{
             const snap = _snapMembers.find(s=>s.id===m.id);
-            if(!snap) return m;
-            const bestPhoto = (snap.photo && snap.photo.startsWith('data:')) ? snap.photo
-                            : (m.photo && m.photo.startsWith('data:')) ? m.photo : m.photo||null;
-            const bestColor = snap.color || m.color || null;
+            const cachedPhoto = window._photoCache?.[m.id]; // from separate polen_photos table
+            const snapPhoto = snap?.photo;
+            const bestPhoto = (cachedPhoto && cachedPhoto.startsWith('data:')) ? cachedPhoto
+                            : (snapPhoto && snapPhoto.startsWith('data:')) ? snapPhoto
+                            : (m.photo && m.photo.startsWith('data:')) ? m.photo : null;
+            const bestColor = (snap?.color) || m.color || null;
             return {...m, photo: bestPhoto, color: bestColor};
           });
         }
@@ -8889,13 +8884,23 @@ async function saveMember(){
     area: _memberAreaSelected[0] || '', // legacy compat
     color: memberColor,
   };
+  let newMemberId = null;
   if(editingMemberId){
     const idx = appData.members.findIndex(x=>x.id===editingMemberId);
     if(idx>=0) appData.members[idx] = {...appData.members[idx], ...memberData};
   } else {
-    appData.members.push({id:uid(), status:'', ...memberData});
+    newMemberId = uid();
+    appData.members.push({id:newMemberId, status:'', ...memberData});
   }
   markLocalChange('members');
+
+  // Save photo to separate Supabase table (never lost with other saves)
+  const targetId = editingMemberId || newMemberId;
+  const photoToSave = (memberPhotoB64 && memberPhotoB64.startsWith('data:')) ? memberPhotoB64 : existingPhoto;
+  if(photoToSave && targetId){
+    savePhotoToSupabase(targetId, photoToSave);
+    if(window._photoCache) window._photoCache[targetId] = photoToSave;
+  }
   closeMemberModal();
   await upsert();
   showStatus(editingMemberId?'Miembro actualizado ✓':'Miembro creado ✓');
@@ -11084,6 +11089,10 @@ async function deleteMemberCurrent(){
   markLocalChange('brands');
   markLocalChange('clientNotes');
 
+  // Also delete photo from separate table
+  deletePhotoFromSupabase(deletedId);
+  if(window._photoCache) delete window._photoCache[deletedId];
+
   // 5. Render immediately so UI reflects deletion before upsert completes
   renderEquipo();
   renderDashboard();
@@ -11225,6 +11234,56 @@ function isAuthenticated(){
   return sessionStorage.getItem(LOGIN_KEY) === '1';
 }
 
+// ── PHOTO STORAGE — tabla separada `polen_photos` ────────────────────
+// Estructura: { id: memberId, photo: 'data:...', updated_at: ... }
+// Esto evita que las fotos queden dentro del JSON principal (que tiene límite de tamaño)
+
+async function savePhotoToSupabase(memberId, photoB64){
+  if(!memberId || !photoB64 || !photoB64.startsWith('data:')) return false;
+  try{
+    const {error} = await sb.from('polen_photos').upsert(
+      {id: memberId, photo: photoB64, updated_at: new Date().toISOString()},
+      {onConflict: 'id'}
+    );
+    if(error){ console.error('[Polen] Error guardando foto:', error.message); return false; }
+    // También guardar en localStorage como respaldo
+    try{
+      const lbak = JSON.parse(localStorage.getItem('polen-photos-bak')||'{}');
+      lbak[memberId] = photoB64;
+      localStorage.setItem('polen-photos-bak', JSON.stringify(lbak));
+    }catch(le){}
+    return true;
+  }catch(e){ console.error('[Polen] Error guardando foto:', e); return false; }
+}
+
+async function loadPhotosFromSupabase(){
+  try{
+    const {data, error} = await sb.from('polen_photos').select('id,photo');
+    if(error){ console.warn('[Polen] No se pudieron cargar fotos:', error.message); return {}; }
+    const map = {};
+    (data||[]).forEach(row=>{ if(row.photo && row.photo.startsWith('data:')) map[row.id] = row.photo; });
+    return map;
+  }catch(e){ console.warn('[Polen] Error cargando fotos:', e); return {}; }
+}
+
+function applyPhotosToMembers(photoMap){
+  if(!photoMap || !appData.members) return;
+  appData.members = appData.members.map(m=>{
+    const p = photoMap[m.id];
+    return p ? {...m, photo: p} : m;
+  });
+}
+
+async function deletePhotoFromSupabase(memberId){
+  try{
+    await sb.from('polen_photos').delete().eq('id', memberId);
+    const lbak = JSON.parse(localStorage.getItem('polen-photos-bak')||'{}');
+    delete lbak[memberId];
+    localStorage.setItem('polen-photos-bak', JSON.stringify(lbak));
+  }catch(e){}
+}
+// ── END PHOTO STORAGE ─────────────────────────────────────────────────
+
 async function boot(){
   // Check for portal mode first
   const urlParams = new URLSearchParams(window.location.search);
@@ -11270,6 +11329,12 @@ async function boot(){
     new Promise(res=>setTimeout(res,10000))
   ]);
   clearTimeout(skipTimer);
+
+  // Load photos from separate table and inject into members
+  const photoMap = await loadPhotosFromSupabase();
+  applyPhotosToMembers(photoMap);
+  // Cache for realtime use
+  window._photoCache = photoMap;
 
   const ls=document.getElementById('loading-screen');
   ls.classList.add('hide');
