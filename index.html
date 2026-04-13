@@ -6358,6 +6358,45 @@ function renderDashboard(){
   }).join('');
 }
 
+// ── Migrate BP of specific brands to current template, preserving selected items ──
+async function migrateBpToTemplate(brandNames){
+  const tpl = appData.template;
+  if(!tpl?.brandingPoints?.categories?.length){ showStatus('No hay template configurado', true); return; }
+
+  let migrated = 0;
+  (appData.brands||[]).forEach(brand=>{
+    if(!brandNames.includes(brand.name)) return;
+
+    // Build map of existing selected items by name (case-insensitive)
+    const selectedByName = {};
+    (brand.brandingPoints?.categories||[]).forEach(cat=>{
+      (cat.items||[]).forEach(item=>{
+        if(item.selected) selectedByName[item.name.toLowerCase().trim()] = true;
+      });
+    });
+
+    // Build fresh BP from current template
+    const newBp = buildBpFromTemplate(tpl);
+
+    // Re-apply selected state by matching item name
+    newBp.categories.forEach(cat=>{
+      cat.items.forEach(item=>{
+        if(selectedByName[item.name.toLowerCase().trim()]) item.selected = true;
+      });
+    });
+
+    brand.brandingPoints = newBp;
+    migrated++;
+  });
+
+  if(migrated === 0){ showStatus('No se encontraron las marcas indicadas', true); return; }
+
+  markLocalChange('brands');
+  await upsert();
+  showStatus(`✓ BP migrado en ${migrated} marca${migrated!==1?'s':''}`);
+  if(currentPage==='brand') renderBrandPage();
+}
+
 function openBrand(id){
   currentBrandId=id;
   goTo('brand');
@@ -11373,6 +11412,14 @@ async function boot(){
   ensurePapelera();
   dedupCobros();
   subscribeRealtime();
+
+  // One-time BP migration for specific brands — runs once then never again
+  if(!appData._bpMigrated_v1){
+    await migrateBpToTemplate(['GULA', 'Beauty Craft', 'Soluciones T&L']);
+    appData._bpMigrated_v1 = true;
+    markLocalChange('brands');
+    await upsert();
+  }
 }
 
 function dedupCobros(){
