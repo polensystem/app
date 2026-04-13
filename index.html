@@ -11498,11 +11498,16 @@ function applyPhotosToMembers(photoMap){
   appData.members = appData.members.map(m=>{
     const entry = photoMap[m.id];
     if(!entry) return m;
+    // polen_photos.status wins if it exists (even empty string means intentionally cleared)
+    // Only fall back to JSON status if entry has no status key at all (null = not set yet)
+    const useStatus = (entry.status !== null && entry.status !== undefined)
+      ? entry.status
+      : m.status || '';
     return {
       ...m,
       photo: entry.photo || m.photo || null,
       color: entry.color || m.color || null,
-      status: entry.status !== null ? (entry.status ?? m.status) : m.status,
+      status: useStatus,
     };
   });
   // Keep cache in sync
@@ -11570,6 +11575,25 @@ async function boot(){
   applyPhotosToMembers(photoMap);
   // Cache for realtime use
   window._photoCache = photoMap;
+
+  // Migrate statuses: push any JSON statuses missing from polen_photos up to the separate table
+  // This ensures the separate table is always the source of truth going forward
+  const statusMigrations = (appData.members||[]).filter(m=>{
+    const entry = photoMap[m.id];
+    // Migrate if: member has a status in JSON AND polen_photos has no status yet for them
+    return m.status && (entry === undefined || entry.status === null || entry.status === undefined);
+  });
+  if(statusMigrations.length > 0){
+    await Promise.all(statusMigrations.map(m=>
+      sb.from('polen_photos').upsert(
+        {id: m.id, status: m.status, updated_at: new Date().toISOString()},
+        {onConflict: 'id'}
+      ).then(()=>{
+        if(window._photoCache[m.id]) window._photoCache[m.id].status = m.status;
+        else window._photoCache[m.id] = {photo:null, color:null, status: m.status};
+      }).catch(e=>console.warn('Status migration failed for', m.id, e))
+    ));
+  }
 
   const ls=document.getElementById('loading-screen');
   ls.classList.add('hide');
