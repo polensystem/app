@@ -3268,10 +3268,13 @@ function deepMergeAppData(server, local){
   merged.papelera = [...localPap, ...serverPap.filter(x=>!papIds.has(x.id))];
 
   // ── scalar fields: local wins if user changed them, else server ──
-  const scalarKeys = ['template','finanzas','digitalTools','banners','calendarUrl','domoNames'];
+  const scalarKeys = ['finanzas','digitalTools','banners','calendarUrl','domoNames'];
   scalarKeys.forEach(k=>{
     merged[k] = _localChangedKeys.has(k) ? local[k] : (server[k] ?? local[k]);
   });
+
+  // template: local ALWAYS wins — same as cobros (realtime must never overwrite local edits)
+  merged.template = local.template ?? server.template;
 
   // cobros: local ALWAYS wins unconditionally — never take from server
   merged.cobros = local.cobros ?? server.cobros ?? {};
