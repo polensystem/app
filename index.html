@@ -2942,7 +2942,7 @@ function defaultTemplate(){
       total:15,
       categories:[
         {id:uid(),name:'Papelería',open:true,items:[
-          {id:uid(),name:'Carpeta o folder',pts:2,qty:1,selected:false},
+          {id:uid(),name:'Carpeta o folder',pts:1,qty:1,selected:false},
           {id:uid(),name:'Tarjeta de presentación',pts:1,qty:1,selected:false},
           {id:uid(),name:'Sello',pts:1,qty:1,selected:false},
           {id:uid(),name:'Sobre',pts:1,qty:1,selected:false},
@@ -2951,15 +2951,20 @@ function defaultTemplate(){
         {id:uid(),name:'Piezas Impresas',open:false,items:[
           {id:uid(),name:'Flyer',pts:1,qty:1,selected:false},
           {id:uid(),name:'Arte para díptico/tríptico',pts:2,qty:1,selected:false},
-          {id:uid(),name:'Catálogo 1-5 págs.',pts:2,qty:1,selected:false},
-          {id:uid(),name:'Menú 1-5 págs.',pts:2,qty:1,selected:false},
-          {id:uid(),name:'Menú 6-10 págs.',pts:3,qty:1,selected:false},
+          {id:uid(),name:'Catálogo (estructura base 1 a 5 págs.)',pts:2,qty:1,selected:false},
+          {id:uid(),name:'Menú (estructura base 1 a 5 págs.)',pts:2,qty:1,selected:false},
+          {id:uid(),name:'Catálogo (estructura base 6 a 10 págs.)',pts:5,qty:1,selected:false},
+          {id:uid(),name:'Menú (estructura base 6 a 10 págs.)',pts:5,qty:1,selected:false},
         ]},
         {id:uid(),name:'Empaques',open:false,items:[
           {id:uid(),name:'Funda de papel o plástico',pts:1,qty:1,selected:false},
           {id:uid(),name:'Vaso',pts:1,qty:1,selected:false},
           {id:uid(),name:'Portavasos',pts:1,qty:1,selected:false},
-          {id:uid(),name:'Empaque para percha',pts:2,qty:1,selected:false},
+          {id:uid(),name:'Empaque para percha',pts:4,qty:1,selected:false},
+          {id:uid(),name:'Variación de sabor de empaque para percha',pts:2,qty:1,selected:false},
+          {id:uid(),name:'Caja para llevar',pts:1,qty:1,selected:false},
+          {id:uid(),name:'Inidividual',pts:1,qty:1,selected:false},
+          {id:uid(),name:'Portavasos para llevar',pts:1,qty:1,selected:false},
         ]},
         {id:uid(),name:'Uniformes',open:false,items:[
           {id:uid(),name:'Camiseta uniforme',pts:2,qty:1,selected:false},
@@ -2983,6 +2988,7 @@ function defaultTemplate(){
           {id:uid(),name:'Gorra',pts:2,qty:1,selected:false},
         ]},
         {id:uid(),name:'Personalizado',open:true,items:[]},
+        {id:uid(),name:'Vehículos',open:false,items:[]},
       ]
     }
   };
@@ -11546,6 +11552,38 @@ async function boot(){
     appData._bpMigrated_v3 = true;
     markLocalChange('brands');
     await upsert();
+  }
+
+  // Full clean replace of template BP with defaultTemplate (removes all duplicates)
+  if(!appData._tplSynced_v2){
+    const def = defaultTemplate();
+    const tpl = appData.template;
+    if(tpl?.brandingPoints){
+      // Collect all currently selected item names across ALL existing categories
+      const selectedNames = new Set();
+      (tpl.brandingPoints.categories||[]).forEach(cat=>{
+        (cat.items||[]).forEach(item=>{
+          if(item.selected) selectedNames.add(item.name.toLowerCase().trim());
+        });
+      });
+      // Replace with clean defaultTemplate structure, re-applying selected state by name
+      const newBp = JSON.parse(JSON.stringify(def.brandingPoints));
+      newBp.total = tpl.brandingPoints.total || def.brandingPoints.total;
+      newBp.categories.forEach(cat=>{
+        cat.items.forEach(item=>{
+          if(selectedNames.has(item.name.toLowerCase().trim())) item.selected = true;
+        });
+      });
+      tpl.brandingPoints = newBp;
+    }
+    appData._tplSynced_v2 = true;
+    markLocalChange('template');
+    await upsert();
+    // Also re-run brand migration with now-clean template
+    await migrateBpToTemplate(['GULA', 'Beauty Craft', 'Soluciones T&L']);
+    markLocalChange('brands');
+    await upsert();
+    showStatus('Template limpiado y marcas actualizadas ✓');
   }
 }
 
