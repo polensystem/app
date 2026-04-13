@@ -1744,6 +1744,7 @@ body.portal-mode .main{ height:100vh; }
           <div class="section-head">
             <div class="section-head-left">
               <div class="section-head-title">⭐ Branding Points</div>
+              <button id="brand-bp-collapse-btn" onclick="toggleAllBrandBpCats()" style="background:none;border:1px solid var(--border);border-radius:99px;padding:0.18rem 0.6rem;font-size:0.68rem;font-weight:600;color:var(--text3);cursor:pointer;font-family:var(--font);margin-left:0.5rem;transition:all 0.15s">⊟ Colapsar</button>
             </div>
             <div class="bp-stats-row">
               <div class="bp-stat">
@@ -1960,6 +1961,7 @@ body.portal-mode .main{ height:100vh; }
           <div class="section-head-left">
             <div class="section-head-title">⭐ Branding Points — Template</div>
             <div class="section-head-sub">Se copian a cada nueva marca</div>
+            <button id="tpl-bp-collapse-btn" onclick="toggleAllTplBpCats()" style="background:none;border:1px solid var(--border);border-radius:99px;padding:0.18rem 0.6rem;font-size:0.68rem;font-weight:600;color:var(--text3);cursor:pointer;font-family:var(--font);margin-top:0.3rem;transition:all 0.15s">⊟ Colapsar</button>
           </div>
           <div class="stats-row">
             <div class="stat-chip"><div class="stat-chip-val" id="bp-stat-total">0</div><div class="stat-chip-lbl">Total</div></div>
@@ -7679,8 +7681,15 @@ function renderBrandBp(brand){
   (document.getElementById('brand-bp-bar')||{style:{}}).style.width=total>0?Math.min(100,used/total*100)+'%':'0%';
 
   (document.getElementById('brand-bp-cats')||{innerHTML:''}).innerHTML=(bp.categories||[]).map((cat,ci)=>`
-    <div class="bp-cat">
+    <div class="bp-cat" draggable="true"
+      ondragstart="bpCatDragStart(event,${ci},'brand:${brand.id}')"
+      ondragover="bpCatDragOver(event,${ci},'brand:${brand.id}')"
+      ondragleave="bpCatDragLeave(event)"
+      ondrop="bpCatDrop(event,${ci},'brand:${brand.id}')"
+      ondragend="bpCatDragEnd(event)"
+      style="cursor:default">
       <div class="bp-cat-head">
+        <span style="color:var(--text3);font-size:0.85rem;cursor:grab;opacity:0.4;padding:0 0.3rem 0 0;flex-shrink:0" title="Arrastrar para reordenar">⠿</span>
         <div style="display:flex;align-items:center;gap:0.5rem;flex:1" onclick="toggleBrandBpCat('${brand.id}',${ci})">
           <input value="${cat.name}" onclick="event.stopPropagation()"
             onchange="renameBrandBpCat('${brand.id}',${ci},this.value)"
@@ -8275,6 +8284,7 @@ function tplToggleItemNotes(ci, ii){
   renderTplBpCats();
 }
 
+let _tplSaveTimer = null;
 function scheduleTplSave(){
   clearTimeout(_tplSaveTimer);
   _tplSaveTimer = setTimeout(async ()=>{
@@ -8293,8 +8303,16 @@ function renderTplBpCats(){
   document.getElementById('bp-stat-left').textContent=left;
   (document.getElementById('bp-bar')||{style:{}}).style.width=total>0?Math.min(100,used/total*100)+'%':'0%';
   (document.getElementById('bp-cats')||{innerHTML:''}).innerHTML=bp.categories.map((cat,ci)=>`
-    <div class="bp-cat">
+    <div class="bp-cat" draggable="true"
+      ondragstart="bpCatDragStart(event,${ci},'tpl')"
+      ondragover="bpCatDragOver(event,${ci},'tpl')"
+      ondragleave="bpCatDragLeave(event)"
+      ondrop="bpCatDrop(event,${ci},'tpl')"
+      ondragend="bpCatDragEnd(event)"
+      style="cursor:default">
       <div class="bp-cat-head">
+        <span style="color:var(--text3);font-size:0.85rem;cursor:grab;opacity:0.4;padding:0 0.3rem 0 0;flex-shrink:0" title="Arrastrar para reordenar"
+          onmousedown="event.stopPropagation()">⠿</span>
         <div style="display:flex;align-items:center;gap:0.5rem;flex:1" onclick="tplToggleBpCat(${ci})">
           <input class="bp-cat-name-input" value="${cat.name}"
             onclick="event.stopPropagation()"
@@ -8343,6 +8361,112 @@ function tplToggleBpItem(ci,ii,val){appData.template.brandingPoints.categories[c
 function tplUpdateBpPts(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].pts=parseInt(val)||0;renderTplBpCats();markLocalChange('template');scheduleTplSave();}
 function tplUpdateBpQty(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].qty=parseInt(val)||1;renderTplBpCats();markLocalChange('template');scheduleTplSave();}
 function tplDeleteBpItem(ci,ii){appData.template.brandingPoints.categories[ci].items.splice(ii,1);renderTplBpCats();markLocalChange('template');scheduleTplSave();}
+
+// ── BP Expand/Collapse All ──
+function toggleAllBrandBpCats(){
+  const brand = (appData.brands||[]).find(b=>b.id===currentBrandId);
+  if(!brand?.brandingPoints?.categories) return;
+  const cats = brand.brandingPoints.categories;
+  const allOpen = cats.every(c=>c.open!==false);
+  cats.forEach(c=>c.open = allOpen ? false : true);
+  const btn = document.getElementById('brand-bp-collapse-btn');
+  if(btn) btn.textContent = allOpen ? '⊞ Expandir' : '⊟ Colapsar';
+  renderBrandBp(brand);
+}
+
+function toggleAllTplBpCats(){
+  const cats = appData.template?.brandingPoints?.categories;
+  if(!cats) return;
+  const allOpen = cats.every(c=>c.open!==false);
+  cats.forEach(c=>c.open = allOpen ? false : true);
+  const btn = document.getElementById('tpl-bp-collapse-btn');
+  if(btn) btn.textContent = allOpen ? '⊞ Expandir' : '⊟ Colapsar';
+  markLocalChange('template');
+  scheduleTplSave();
+  renderTplBpCats();
+}
+
+function portalToggleBpCat(ci){
+  const brand = (appData.brands||[]).find(b=>b.id===window._portalBrandId);
+  if(!brand?.brandingPoints?.categories?.[ci]) return;
+  const cat = brand.brandingPoints.categories[ci];
+  cat.open = cat.open===false ? true : false;
+  const body = document.getElementById('portal-bp-cat-body-'+ci);
+  const arrow = document.getElementById('portal-bp-cat-arrow-'+ci);
+  if(body) body.style.display = cat.open===false ? 'none' : 'block';
+  if(arrow) arrow.textContent = cat.open===false ? '▼' : '▲';
+}
+
+function toggleAllPortalBpCats(){
+  const brand = (appData.brands||[]).find(b=>b.id===window._portalBrandId);
+  if(!brand?.brandingPoints?.categories) return;
+  const cats = brand.brandingPoints.categories;
+  const allOpen = cats.every(c=>c.open!==false);
+  cats.forEach((c,ci)=>{
+    c.open = allOpen ? false : true;
+    const body = document.getElementById('portal-bp-cat-body-'+ci);
+    const arrow = document.getElementById('portal-bp-cat-arrow-'+ci);
+    if(body) body.style.display = c.open===false ? 'none' : 'block';
+    if(arrow) arrow.textContent = c.open===false ? '▼' : '▲';
+  });
+  const btn = document.getElementById('portal-bp-collapse-btn');
+  if(btn) btn.textContent = allOpen ? '⊞ Expandir' : '⊟ Colapsar';
+}
+
+// ── BP Category Drag & Drop ──
+let _bpDragCi = null;
+let _bpDragCtx = null; // 'tpl' or 'brand:id'
+
+function bpCatDragStart(event, ci, ctx){
+  _bpDragCi = ci;
+  _bpDragCtx = ctx;
+  event.dataTransfer.effectAllowed = 'move';
+  event.currentTarget.style.opacity = '0.4';
+}
+
+function bpCatDragOver(event, ci, ctx){
+  if(ctx !== _bpDragCtx || ci === _bpDragCi) return;
+  event.preventDefault();
+  event.currentTarget.style.borderTop = '2px solid var(--aire)';
+}
+
+function bpCatDragLeave(event){
+  event.currentTarget.style.borderTop = '';
+}
+
+function bpCatDrop(event, targetCi, ctx){
+  event.preventDefault();
+  event.currentTarget.style.borderTop = '';
+  if(_bpDragCi === null || ctx !== _bpDragCtx || _bpDragCi === targetCi) return;
+
+  if(ctx === 'tpl'){
+    const cats = appData.template.brandingPoints.categories;
+    const [moved] = cats.splice(_bpDragCi, 1);
+    cats.splice(targetCi, 0, moved);
+    markLocalChange('template');
+    scheduleTplSave();
+    renderTplBpCats();
+  } else if(ctx.startsWith('brand:')){
+    const brandId = ctx.slice(6);
+    const brand = (appData.brands||[]).find(b=>b.id===brandId);
+    if(!brand?.brandingPoints?.categories) return;
+    const cats = brand.brandingPoints.categories;
+    const [moved] = cats.splice(_bpDragCi, 1);
+    cats.splice(targetCi, 0, moved);
+    markLocalChange('brands');
+    upsert();
+    renderBrandBp(brand);
+  }
+  _bpDragCi = null;
+  _bpDragCtx = null;
+}
+
+function bpCatDragEnd(event){
+  event.currentTarget.style.opacity = '';
+  event.currentTarget.style.borderTop = '';
+  _bpDragCi = null;
+  _bpDragCtx = null;
+}
 async function tplAddBpItem(ci){const name=await askModal({label:'Nombre del entregable',placeholder:'Ej: Manual de marca'});if(!name||!name.trim())return;const ptsStr=await askModal({label:`Branding points para "${name}"`,type:'number',defaultValue:'1'});const pts=parseInt(ptsStr)||1;appData.template.brandingPoints.categories[ci].items.push({id:uid(),name:name.trim(),pts,qty:1,selected:false});renderTplBpCats();markLocalChange('template');scheduleTplSave();}
 
 async function tplAddBpCat(){
@@ -11414,9 +11538,9 @@ async function boot(){
   subscribeRealtime();
 
   // One-time BP migration for specific brands — runs once then never again
-  if(!appData._bpMigrated_v1){
+  if(!appData._bpMigrated_v2){
     await migrateBpToTemplate(['GULA', 'Beauty Craft', 'Soluciones T&L']);
-    appData._bpMigrated_v1 = true;
+    appData._bpMigrated_v2 = true;
     markLocalChange('brands');
     await upsert();
   }
@@ -11540,11 +11664,16 @@ function portalRenderBp(brand){
   const pct = total > 0 ? Math.min(100, used/total*100) : 0;
 
   const catsHTML = (bp.categories||[]).map((cat,ci)=>`
-    <div style="margin-bottom:1rem">
-      <div style="font-size:0.78rem;font-weight:700;color:var(--text2);padding:0.5rem 1rem;background:var(--bg-card2);border-radius:var(--r-sm);margin-bottom:0.3rem;display:flex;justify-content:space-between">
+    <div style="margin-bottom:1rem" id="portal-bp-cat-${ci}">
+      <div style="font-size:0.78rem;font-weight:700;color:var(--text2);padding:0.5rem 1rem;background:var(--bg-card2);border-radius:var(--r-sm);margin-bottom:0.3rem;display:flex;justify-content:space-between;cursor:pointer;user-select:none"
+        onclick="portalToggleBpCat(${ci})">
         <span>${cat.name}</span>
-        <span style="color:var(--text3)">${cat.items.filter(i=>i.selected).length} sel.</span>
+        <span style="display:flex;align-items:center;gap:0.6rem">
+          <span style="color:var(--text3)">${cat.items.filter(i=>i.selected).length} sel.</span>
+          <span id="portal-bp-cat-arrow-${ci}" style="font-size:0.7rem;color:var(--text3)">${cat.open===false?'▼':'▲'}</span>
+        </span>
       </div>
+      <div id="portal-bp-cat-body-${ci}" style="display:${cat.open===false?'none':'block'}">
       ${cat.items.map((item,ii)=>{
         const qty = item.qty||1;
         const ptsLabel = item.pts==null ? '?' : (item.pts * qty) + ' pts';
@@ -11590,7 +11719,10 @@ function portalRenderBp(brand){
     </div>`).join('');
 
   return `
-    <div class="portal-section-title">⭐ Branding Points</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem;flex-wrap:wrap;gap:0.5rem">
+      <div class="portal-section-title" style="margin-bottom:0">⭐ Branding Points</div>
+      <button id="portal-bp-collapse-btn" onclick="toggleAllPortalBpCats()" style="background:none;border:1px solid var(--border);border-radius:99px;padding:0.2rem 0.7rem;font-size:0.68rem;font-weight:600;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s">⊟ Colapsar</button>
+    </div>
     <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1rem;flex-wrap:wrap">
       <div style="text-align:center"><div style="font-size:1.8rem;font-weight:800">${total}</div><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Total</div></div>
       <div style="text-align:center"><div style="font-size:1.8rem;font-weight:800;color:var(--fuego)">${used}</div><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Usados</div></div>
@@ -12065,6 +12197,23 @@ function renderBrandsEtapa(){
     const logo = b.image ? `<img src="${b.image}" style="width:100%;height:100%;object-fit:cover;border-radius:5px">` : `<span style="font-size:0.7rem;font-weight:800;color:${col}">${b.name.charAt(0)}</span>`;
     const next = getNextHito(b);
     const stageEmoji = {aire:'🌬️',agua:'💧',tierra:'🌱',fuego:'🔥'}[b.stage]||'';
+
+    if(b.paused){
+      return `<div onclick="openBrand('${b.id}')" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.65rem 0.7rem;margin-bottom:0.5rem;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='${sc.col}'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <div style="width:28px;height:28px;border-radius:7px;border:1.5px solid ${col};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:0.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2">${b.name}</div>
+            <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.2rem">
+              <span style="font-size:0.6rem;color:var(--text3)">${stageEmoji} ${b.stage}</span>
+              <span style="font-size:0.6rem;color:var(--text3)">·</span>
+              <span style="font-size:0.68rem;font-weight:700;color:var(--text3)">${pct}%</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+
     return `<div onclick="openBrand('${b.id}')" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.7rem;margin-bottom:0.5rem;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='${sc.col}'" onmouseout="this.style.borderColor='var(--border)'">
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
         <div style="width:26px;height:26px;border-radius:7px;border:1.5px solid ${col};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
@@ -12072,11 +12221,10 @@ function renderBrandsEtapa(){
           <div style="font-size:0.8rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
           ${b.industria?`<div style="font-size:0.65rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.industria}</div>`:''}
         </div>
-        ${b.paused?`<span style="font-size:0.58rem;color:var(--text3);background:var(--bg-card2);border-radius:6px;padding:0.1rem 0.3rem">${stageEmoji} ${b.stage}</span>`:''}
         <span style="font-size:0.7rem;font-weight:700;color:${pct>=90?'var(--tierra)':pct>0?'var(--aire)':'var(--text3)'}">${pct}%</span>
       </div>
       <div style="height:3px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:${b.paused?'var(--text3)':col};border-radius:99px;opacity:${b.paused?0.45:1}"></div>
+        <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
       </div>
       ${next?`<div style="margin-top:0.45rem;font-size:0.63rem;color:var(--text3)">📅 ${next.name} · ${fmtDateDisplay(next.dateStr)}</div>`:''}
     </div>`;
