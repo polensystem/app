@@ -3244,17 +3244,8 @@ function deepMergeAppData(server, local){
   // cobros: local ALWAYS wins unconditionally — never take from server
   merged.cobros = local.cobros ?? server.cobros ?? {};
 
-  // playground: local wins if changed, otherwise merge categories by id
-  if(_localChangedKeys.has('playground')){
-    merged.playground = local.playground ?? server.playground ?? {categories:[]};
-  } else {
-    const sp = server.playground || {categories:[]};
-    const lp = local.playground || {categories:[]};
-    const catMap = {};
-    (sp.categories||[]).forEach(c=>{ catMap[c.id]={...c}; });
-    (lp.categories||[]).forEach(c=>{ catMap[c.id]={...c}; });
-    merged.playground = {categories: Object.values(catMap)};
-  }
+  // playground: local ALWAYS wins (same as cobros) — never lose categories
+  merged.playground = local.playground ?? server.playground ?? {categories:[]};
 
   return merged;
 }
@@ -3339,9 +3330,7 @@ async function upsert(){
           console.warn('[Polen] Logo descartado por ser muy grande:', Math.round(val.length/1000)+'KB');
           return '';
         }
-        if(key === 'photo' && typeof val === 'string' && val.startsWith('data:') && val.length > 60000){
-          // Si la foto es demasiado grande incluso después de compresión, descartarla
-          // Un string truncado de base64 no es una imagen válida
+        if(key === 'photo' && typeof val === 'string' && val.startsWith('data:') && val.length > 200000){
           console.warn('[Polen] Foto descartada por ser muy grande:', Math.round(val.length/1000)+'KB');
           return '';
         }
@@ -8663,7 +8652,6 @@ function onMemberPhotoChange(e){
   const f=e.target.files[0]; if(!f) return;
   const r=new FileReader();
   r.onload=ev=>{
-    // Comprimir a máximo 200x200px y calidad 0.7 para que quepa en Supabase
     const img = new Image();
     img.onload = () => {
       const compress = (maxPx, quality) => {
@@ -8674,11 +8662,24 @@ function onMemberPhotoChange(e){
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
         return canvas.toDataURL('image/jpeg', quality);
       };
-      // Comprimir progresivamente hasta que quepa en <40KB
+      // Comprimir progresivamente
       let result = compress(200, 0.75);
-      if(result.length > 40000) result = compress(150, 0.65);
-      if(result.length > 40000) result = compress(120, 0.55);
-      if(result.length > 40000) result = compress(100, 0.45);
+      if(result.length > 100000) result = compress(150, 0.65);
+      if(result.length > 100000) result = compress(120, 0.55);
+      if(result.length > 100000) result = compress(100, 0.45);
+      if(result.length > 100000) result = compress(80, 0.35);
+
+      if(result.length > 150000){
+        // Even after aggressive compression it's too large — reject
+        const errEl = document.getElementById('modal-member-err');
+        if(errEl){ errEl.textContent = `⚠️ La foto es demasiado grande (${Math.round(result.length/1000)}KB comprimida). Usa una imagen más pequeña o de menor resolución.`; errEl.style.display='block'; }
+        // Reset file input
+        e.target.value = '';
+        return;
+      }
+
+      const errEl = document.getElementById('modal-member-err');
+      if(errEl) errEl.style.display='none';
       memberPhotoB64 = result;
       (document.getElementById('m-photo-b64')||{}).value = memberPhotoB64;
       (document.getElementById('m-avatar-preview')||{innerHTML:''}).innerHTML =
@@ -8828,13 +8829,16 @@ function selectMemberColor(color){
 async function saveMember(){
   const nombre = document.getElementById('m-nombre').value.trim();
   if(!nombre){ document.getElementById('modal-member-err').textContent='El nombre es obligatorio'; return; }
+  const existingPhoto = editingMemberId
+    ? (appData.members.find(m=>m.id===editingMemberId)?.photo || null)
+    : null;
   const memberColor = document.getElementById('input-member-color')?.value || MEMBER_COLORS[0];
   const memberData = {
     nombre,
     cargo: document.getElementById('m-cargo').value.trim(),
     apodo: document.getElementById('m-apodo').value.trim(),
     emoji: memberEmojiVal || '👤',
-    photo: memberPhotoB64 || null,
+    photo: memberPhotoB64 || existingPhoto || null,
     areas: [..._memberAreaSelected],
     area: _memberAreaSelected[0] || '', // legacy compat
     color: memberColor,
