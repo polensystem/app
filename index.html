@@ -8434,12 +8434,13 @@ function subscribeRealtime(onUpdate){
         if(appData.members){
           appData.members = appData.members.map(m=>{
             const snap = _snapMembers.find(s=>s.id===m.id);
-            const cachedPhoto = window._photoCache?.[m.id]; // from separate polen_photos table
-            const snapPhoto = snap?.photo;
+            const cached = window._photoCache?.[m.id]; // {photo, color} from separate table
+            const cachedPhoto = cached?.photo;
+            const cachedColor = cached?.color;
             const bestPhoto = (cachedPhoto && cachedPhoto.startsWith('data:')) ? cachedPhoto
-                            : (snapPhoto && snapPhoto.startsWith('data:')) ? snapPhoto
+                            : (snap?.photo && snap.photo.startsWith('data:')) ? snap.photo
                             : (m.photo && m.photo.startsWith('data:')) ? m.photo : null;
-            const bestColor = (snap?.color) || m.color || null;
+            const bestColor = cachedColor || snap?.color || m.color || null;
             return {...m, photo: bestPhoto, color: bestColor};
           });
         }
@@ -8903,12 +8904,15 @@ async function saveMember(){
   }
   markLocalChange('members');
 
-  // Save photo to separate Supabase table (never lost with other saves)
+  // Save photo AND color to separate Supabase table (never lost with other saves)
   const targetId = editingMemberId || newMemberId;
   const photoToSave = (memberPhotoB64 && memberPhotoB64.startsWith('data:')) ? memberPhotoB64 : existingPhoto;
-  if(photoToSave && targetId){
-    savePhotoToSupabase(targetId, photoToSave);
-    if(window._photoCache) window._photoCache[targetId] = photoToSave;
+  if(targetId){
+    savePhotoToSupabase(targetId, photoToSave, memberColor);
+    if(window._photoCache) window._photoCache[targetId] = {
+      photo: photoToSave || window._photoCache?.[targetId]?.photo || null,
+      color: memberColor,
+    };
   }
   closeMemberModal();
   await upsert();
@@ -11247,30 +11251,37 @@ function isAuthenticated(){
 // Estructura: { id: memberId, photo: 'data:...', updated_at: ... }
 // Esto evita que las fotos queden dentro del JSON principal (que tiene límite de tamaño)
 
-async function savePhotoToSupabase(memberId, photoB64){
-  if(!memberId || !photoB64 || !photoB64.startsWith('data:')) return false;
+async function savePhotoToSupabase(memberId, photoB64, color){
+  if(!memberId) return false;
   try{
-    const {error} = await sb.from('polen_photos').upsert(
-      {id: memberId, photo: photoB64, updated_at: new Date().toISOString()},
-      {onConflict: 'id'}
-    );
-    if(error){ console.error('[Polen] Error guardando foto:', error.message); return false; }
-    // También guardar en localStorage como respaldo
-    try{
-      const lbak = JSON.parse(localStorage.getItem('polen-photos-bak')||'{}');
-      lbak[memberId] = photoB64;
-      localStorage.setItem('polen-photos-bak', JSON.stringify(lbak));
-    }catch(le){}
+    const row = {id: memberId, updated_at: new Date().toISOString()};
+    if(photoB64 && photoB64.startsWith('data:')) row.photo = photoB64;
+    if(color) row.color = color;
+    const {error} = await sb.from('polen_photos').upsert(row, {onConflict: 'id'});
+    if(error){ console.error('[Polen] Error guardando foto/color:', error.message); return false; }
+    // localStorage backup for photos only
+    if(photoB64 && photoB64.startsWith('data:')){
+      try{
+        const lbak = JSON.parse(localStorage.getItem('polen-photos-bak')||'{}');
+        lbak[memberId] = photoB64;
+        localStorage.setItem('polen-photos-bak', JSON.stringify(lbak));
+      }catch(le){}
+    }
     return true;
-  }catch(e){ console.error('[Polen] Error guardando foto:', e); return false; }
+  }catch(e){ console.error('[Polen] Error guardando foto/color:', e); return false; }
 }
 
 async function loadPhotosFromSupabase(){
   try{
-    const {data, error} = await sb.from('polen_photos').select('id,photo');
+    const {data, error} = await sb.from('polen_photos').select('id,photo,color');
     if(error){ console.warn('[Polen] No se pudieron cargar fotos:', error.message); return {}; }
     const map = {};
-    (data||[]).forEach(row=>{ if(row.photo && row.photo.startsWith('data:')) map[row.id] = row.photo; });
+    (data||[]).forEach(row=>{
+      map[row.id] = {
+        photo: (row.photo && row.photo.startsWith('data:')) ? row.photo : null,
+        color: row.color || null,
+      };
+    });
     return map;
   }catch(e){ console.warn('[Polen] Error cargando fotos:', e); return {}; }
 }
@@ -11278,9 +11289,16 @@ async function loadPhotosFromSupabase(){
 function applyPhotosToMembers(photoMap){
   if(!photoMap || !appData.members) return;
   appData.members = appData.members.map(m=>{
-    const p = photoMap[m.id];
-    return p ? {...m, photo: p} : m;
+    const entry = photoMap[m.id];
+    if(!entry) return m;
+    return {
+      ...m,
+      photo: entry.photo || m.photo || null,
+      color: entry.color || m.color || null,
+    };
   });
+  // Keep cache in sync
+  window._photoCache = photoMap;
 }
 
 async function deletePhotoFromSupabase(memberId){
