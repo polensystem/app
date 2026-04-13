@@ -3199,7 +3199,20 @@ function deepMergeAppData(server, local){
   } else {
     const memberMap = {};
     serverMembers.forEach(m=>{ if(!allDeletedMemberIds.has(m.id)) memberMap[m.id] = {...m}; });
-    localMembers.forEach(m=>{ if(!allDeletedMemberIds.has(m.id)) memberMap[m.id] = memberMap[m.id] ? {...memberMap[m.id], ...m} : {...m}; });
+    localMembers.forEach(m=>{
+      if(allDeletedMemberIds.has(m.id)) return;
+      if(memberMap[m.id]){
+        // Merge local over server, but preserve photo from whichever has it
+        const serverPhoto = memberMap[m.id].photo;
+        const localPhoto  = m.photo;
+        const bestPhoto   = (localPhoto && localPhoto.startsWith('data:')) ? localPhoto
+                          : (serverPhoto && serverPhoto.startsWith('data:')) ? serverPhoto
+                          : localPhoto || serverPhoto || null;
+        memberMap[m.id] = {...memberMap[m.id], ...m, photo: bestPhoto};
+      } else {
+        memberMap[m.id] = {...m};
+      }
+    });
     merged.members = Object.values(memberMap);
   }
   merged._deletedMemberIds = [...persistedDeletedMemberIds];
@@ -8829,16 +8842,15 @@ function selectMemberColor(color){
 async function saveMember(){
   const nombre = document.getElementById('m-nombre').value.trim();
   if(!nombre){ document.getElementById('modal-member-err').textContent='El nombre es obligatorio'; return; }
-  const existingPhoto = editingMemberId
-    ? (appData.members.find(m=>m.id===editingMemberId)?.photo || null)
-    : null;
+  const existingMember = editingMemberId ? appData.members.find(m=>m.id===editingMemberId) : null;
+  const existingPhoto = (existingMember?.photo && existingMember.photo.startsWith('data:')) ? existingMember.photo : null;
   const memberColor = document.getElementById('input-member-color')?.value || MEMBER_COLORS[0];
   const memberData = {
     nombre,
     cargo: document.getElementById('m-cargo').value.trim(),
     apodo: document.getElementById('m-apodo').value.trim(),
     emoji: memberEmojiVal || '👤',
-    photo: memberPhotoB64 || existingPhoto || null,
+    photo: (memberPhotoB64 && memberPhotoB64.startsWith('data:')) ? memberPhotoB64 : (existingPhoto || null),
     areas: [..._memberAreaSelected],
     area: _memberAreaSelected[0] || '', // legacy compat
     color: memberColor,
