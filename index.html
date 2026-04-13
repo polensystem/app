@@ -3083,13 +3083,11 @@ async function loadData(){
       // Restore member photos from localStorage backup (will be overridden by Supabase table later)
       try{
         const lbak = localStorage.getItem('polen-photos-bak');
-        if(lbak){
-          const photoMap = JSON.parse(lbak);
-          appData.members = appData.members.map(m=>{
-            const p = photoMap[m.id];
-            return (p && p.startsWith('data:')) ? {...m, photo: p} : m;
-          });
-        }
+        const photoMap = lbak ? JSON.parse(lbak) : {};
+        appData.members = appData.members.map(m=>{
+          const p = photoMap[m.id];
+          return (p && p.startsWith('data:')) ? {...m, photo: p} : m;
+        });
       }catch(le){ console.warn('Could not restore photos from localbak:', le); }
       // Filter out persisted deleted IDs
       if(appData._deletedMemberIds?.length)
@@ -3099,6 +3097,9 @@ async function loadData(){
       // Auto-assign colors to brands missing one
       const _autoColors=['#e85d5d','#e87f3a','#e8c23a','#5db85d','#3a9ee8','#6b5de8','#c45de8','#e85d9e','#5de8d0','#5d8ce8','#e8825d','#a0e85d'];
       (appData.brands||[]).forEach((b,i)=>{ if(!b.color) b.color=_autoColors[i%_autoColors.length]; });
+      // Auto-assign stable colors to members missing one (same index = same color always)
+      const _mColors=['#e85d5d','#e87f3a','#f5c542','#5db85d','#3a9ee8','#6b5de8','#c45de8','#e85d9e','#5de8d0','#5d8ce8','#e8825d','#a0e85d'];
+      (appData.members||[]).forEach((m,i)=>{ if(!m.color) m.color=_mColors[i%_mColors.length]; });
       // Sync brand stages from actual activity completion (fix stale stage field)
       (appData.brands||[]).forEach(b=>syncBrandStage(b));
       // ── Limpiar cobros: SOLO existen pagos que tienen actividad real en el cronograma ──
@@ -3468,7 +3469,15 @@ async function importBackup(){
 async function reloadData(){
   const btn=document.getElementById('btn-reload');
   btn.textContent='↻ Cargando…';btn.disabled=true;
-  await loadData();renderCurrentPage();
+
+  await loadData();
+
+  // Reload photos from separate table
+  const photoMap = await loadPhotosFromSupabase();
+  applyPhotosToMembers(photoMap);
+  window._photoCache = photoMap;
+
+  renderCurrentPage();
   btn.textContent='↻ Recargar';btn.disabled=false;
 }
 
