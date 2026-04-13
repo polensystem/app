@@ -1524,6 +1524,10 @@ body.portal-mode .main{ height:100vh; }
               <button id="csort-za" onclick="setCardsSort('za')" style="padding:0.26rem 0.6rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);border-right:1px solid var(--border)">Z → A</button>
               <button id="csort-oldest" onclick="setCardsSort('oldest')" style="padding:0.26rem 0.6rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3)">Más antigua</button>
             </div>
+            <button id="btn-toggle-paused-cards" onclick="toggleShowPausedCards()"
+              style="padding:0.26rem 0.65rem;border-radius:7px;border:1px solid var(--border);background:none;color:var(--text3);font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:all 0.15s;margin-left:0.3rem">
+              ⏸️ Pausados
+            </button>
           </div>
           <div style="padding:1rem 1.2rem">
             <div class="brands-grid" id="brands-grid"></div>
@@ -6236,8 +6240,9 @@ function renderDashboard(){
   if(iframe && appData.calendarUrl){
     iframe.src = appData.calendarUrl + '&mode=WEEK&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&bgcolor=%23ffffff';
   }
-  (document.getElementById('total-count')||{}).textContent=brands.length;
-  (document.getElementById('total-sub')||{}).textContent=brands.length===0?'Sin marcas. ¡Crea la primera!':brands.length===1?'1 proyecto en curso':brands.length+' proyectos en curso';
+  const activeNonPaused = brands.filter(b=>!b.paused);
+  (document.getElementById('total-count')||{}).textContent=activeNonPaused.length;
+  (document.getElementById('total-sub')||{}).textContent=activeNonPaused.length===0?'Sin marcas. ¡Crea la primera!':activeNonPaused.length===1?'1 proyecto en curso':activeNonPaused.length+' proyectos en curso';
 
   // ── New stat cards ──
   const alta = brands.filter(b=>b.prioridad==='alta').length;
@@ -6270,11 +6275,23 @@ function renderDashboard(){
   // 'default' = orden de creación (más reciente primero = orden en array invertido)
   else filteredBrands = [...filteredBrands].reverse();
 
+  // Always push paused brands to the end
+  filteredBrands = [...filteredBrands.filter(b=>!b.paused), ...filteredBrands.filter(b=>b.paused)];
+  // Hide paused unless toggle is on
+  if(!_showPausedCards) filteredBrands = filteredBrands.filter(b=>!b.paused);
+  // Sync button state
+  const pausedBtn = document.getElementById('btn-toggle-paused-cards');
+  if(pausedBtn){
+    pausedBtn.style.background = _showPausedCards ? 'var(--bg-card)' : 'none';
+    pausedBtn.style.color = _showPausedCards ? 'var(--text)' : 'var(--text3)';
+    pausedBtn.style.boxShadow = _showPausedCards ? '0 1px 4px rgba(0,0,0,0.1)' : 'none';
+  }
+
   // Update subtitle
   const brandsSub = document.getElementById('brands-section-sub');
-  if(brandsSub) brandsSub.textContent = filteredBrands.length === brands.length
-    ? `Portafolio completo · ${brands.length} proyectos`
-    : `${filteredBrands.length} de ${brands.length} proyectos`;
+  if(brandsSub) brandsSub.textContent = filteredBrands.length === activeNonPaused.length
+    ? `Portafolio completo · ${activeNonPaused.length} proyectos`
+    : `${filteredBrands.length} de ${activeNonPaused.length} proyectos`;
 
   // If table view is active, re-render table
   if(_brandsView === 'table'){ renderBrandsTable(); }
@@ -6293,7 +6310,7 @@ function renderDashboard(){
     const pct=brandProgress(b);
     const brandCol = getBrandColor(b);
     const logoHTML = b.image ? `<img src="${b.image}" alt="${b.name}">` : b.name.charAt(0);
-    return`<div class="brand-card" onclick="openBrand('${b.id}')" style="${b.paused?'opacity:0.65;':''}">
+    return`<div class="brand-card" onclick="openBrand('${b.id}')" style="${b.paused?'opacity:0.4;filter:grayscale(1);':''}">
       <div class="brand-card-body">
         <div class="brand-card-logo">${logoHTML}</div>
         <div class="brand-card-info">
@@ -6309,7 +6326,7 @@ function renderDashboard(){
         </div>
         <button class="btn-delete" onclick="event.stopPropagation();deleteBrand('${b.id}')" style="opacity:0;transition:opacity 0.15s;font-size:0.75rem;background:none;border:none;cursor:pointer;padding:0.2rem;color:var(--text3);flex-shrink:0" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">🗑</button>
       </div>
-      <div style="height:3px;background:${b.paused?'#f59e0b':brandCol};width:100%"></div>
+      <div style="height:3px;background:${b.paused?'var(--text3)':brandCol};width:100%;opacity:${b.paused?0.5:1}"></div>
     </div>`;
   }).join('');
 }
@@ -8937,6 +8954,7 @@ function getMemberHitos(memberId) {
   const dcBrandIds = new Set();
 
   (appData.brands || []).forEach(brand => {
+    if(brand.paused || brand.archivedAt || brand.deletedAt) return; // skip paused/archived
     const domo = brand.domo;
     const inDomo = domo && (domo.m1 === memberId || domo.m2 === memberId || (domo.helpers||[]).includes(memberId));
     const isDirector = brand.director === memberId;
@@ -8946,7 +8964,7 @@ function getMemberHitos(memberId) {
     ['aire','agua','tierra','fuego'].forEach(stage => {
       (brand.cronograma?.[stage] || []).forEach(act => {
         if (!act.isHito || !act.endDate) return;
-        const endD = new Date(act.endDate); endD.setHours(0,0,0,0);
+        const endD = parseLocalDate(act.endDate); endD.setHours(0,0,0,0);
 
         if(inDomo){
           // Official hito (miembro del domo)
@@ -8966,7 +8984,7 @@ function getMemberHitos(memberId) {
           // Internal review
           if(act.isInterno){
             const revDate = act.revDateOverride || subtractWorkdays(act.endDate, getRevDays(brand.id));
-            const revD = new Date(revDate); revD.setHours(0,0,0,0);
+            const revD = parseLocalDate(revDate); revD.setHours(0,0,0,0);
             results.push({
               type: 'revision',
               name: '🔍 Rev. interna: ' + act.name,
@@ -8986,7 +9004,7 @@ function getMemberHitos(memberId) {
         // el director creativo también ve un evento 🎯 en esa misma fecha
         if(act.isInterno && isDirector && !inDomo){
           const dcDate = act.revDateOverride || subtractWorkdays(act.endDate, getRevDays(brand.id));
-          const dcD = new Date(dcDate); dcD.setHours(0,0,0,0);
+          const dcD = parseLocalDate(dcDate); dcD.setHours(0,0,0,0);
           results.push({
             type: 'dc_review',
             name: act.name,
@@ -9653,7 +9671,7 @@ function renderEqGrid(){
     const el = document.getElementById('eq-hitos-list');
     if(!el) return;
     const tareas = getTareasForMember(currentMemberId)
-      .filter(t=>{ const d=new Date(t.date); d.setHours(0,0,0,0); return d>=today; })
+      .filter(t=>{ const d=parseLocalDate(t.date); d.setHours(0,0,0,0); return d>=today; })
       .sort((a,b)=>a.date.localeCompare(b.date));
     const allItems = [
       ...upcoming.map(h=>({type:'hito',date:h.date,h})),
@@ -11488,6 +11506,18 @@ async function portalAddBpItem(brandId, ci){
 /* ═══ BRANDS VIEW TOGGLE + FILTERS ═══ */
 let _brandsView        = 'cards';
 let _brandsCardSort    = 'default';
+let _showPausedCards   = false; // hide paused by default in cards view
+
+function toggleShowPausedCards(){
+  _showPausedCards = !_showPausedCards;
+  const btn = document.getElementById('btn-toggle-paused-cards');
+  if(btn){
+    btn.style.background = _showPausedCards ? 'var(--bg-card)' : 'none';
+    btn.style.color = _showPausedCards ? 'var(--text)' : 'var(--text3)';
+    btn.style.boxShadow = _showPausedCards ? '0 1px 4px rgba(0,0,0,0.1)' : 'none';
+  }
+  renderDashboard();
+}
 
 function setCardsSort(mode){
   _brandsCardSort = mode;
@@ -14138,8 +14168,13 @@ async function saveHubNote(){
   const editingId = document.getElementById('hub-editing-id')?.value || '';
   const err       = document.getElementById('hub-modal-err');
 
-  if(!brandId){ if(err){err.textContent='⚠️ Selecciona una marca.';err.style.display='block';} return; }
-  if(!text)   { if(err){err.textContent='⚠️ Escribe una nota.';err.style.display='block';} return; }
+  if(!brandId){
+    const searchVal = document.getElementById('hub-brand-search')?.value||'';
+    if(err){ err.textContent = searchVal ? `⚠️ Selecciona una marca de la lista (escribe y haz clic).` : '⚠️ Selecciona una marca.'; err.style.display='block'; }
+    return;
+  }
+  if(!text){ if(err){err.textContent='⚠️ Escribe una nota.';err.style.display='block';} return; }
+  if(err) err.style.display='none';
 
   if(editingId){
     const note = appData.clientNotes.find(n=>n.id===editingId);
@@ -14149,10 +14184,10 @@ async function saveHubNote(){
   }
 
   markLocalChange('clientNotes');
+  await upsert();
   closeHubModal();
   renderClientHub();
   if(currentPage==='brand') renderBrandNotas();
-  await upsert();
   showStatus(editingId ? 'Nota actualizada ✓' : 'Nota guardada ✓');
 }
 
@@ -14537,26 +14572,68 @@ async function executeBrandArchive(brandId){
 async function toggleBrandPause(){
   const brand = appData.brands.find(b=>b.id===currentBrandId);
   if(!brand) return;
+  const wasPaused = brand.paused;
   brand.paused = !brand.paused;
-  markLocalChange('brands');
-  // Re-sync toggle UI
-  const pauseWrap  = document.getElementById('brand-pause-toggle-wrap');
-  const pauseIcon  = document.getElementById('brand-pause-icon');
-  const pauseLabel = document.getElementById('brand-pause-label');
-  const pauseCheck = document.getElementById('brand-pause-check');
-  if(pauseCheck) pauseCheck.checked = brand.paused;
+
   if(brand.paused){
+    // Record pause start date
+    brand.pausedAt = todayStr();
+    markLocalChange('brands');
+    const pauseWrap  = document.getElementById('brand-pause-toggle-wrap');
+    const pauseIcon  = document.getElementById('brand-pause-icon');
+    const pauseLabel = document.getElementById('brand-pause-label');
+    const pauseCheck = document.getElementById('brand-pause-check');
+    if(pauseCheck) pauseCheck.checked = true;
     if(pauseWrap){ pauseWrap.style.background='rgba(245,158,11,0.12)'; pauseWrap.style.borderColor='#f59e0b'; pauseWrap.style.color='#b45309'; }
     if(pauseIcon)  pauseIcon.textContent = '▶';
     if(pauseLabel) pauseLabel.textContent = 'Reactivar';
     showStatus('Proyecto pausado ⏸');
+    await upsert();
   } else {
+    // Unpausing — offer reschedule
+    const pausedAt = brand.pausedAt;
+    brand.pausedAt = null;
+    const pauseWrap  = document.getElementById('brand-pause-toggle-wrap');
+    const pauseIcon  = document.getElementById('brand-pause-icon');
+    const pauseLabel = document.getElementById('brand-pause-label');
+    const pauseCheck = document.getElementById('brand-pause-check');
+    if(pauseCheck) pauseCheck.checked = false;
     if(pauseWrap){ pauseWrap.style.background='none'; pauseWrap.style.borderColor='var(--border)'; pauseWrap.style.color='var(--text2)'; }
     if(pauseIcon)  pauseIcon.textContent = '⏸';
     if(pauseLabel) pauseLabel.textContent = 'En pausa';
+    markLocalChange('brands');
+    await upsert();
     showStatus('Proyecto reactivado ▶');
+
+    // Offer rescheduling if we know the pause date
+    if(pausedAt){
+      const today = todayStr();
+      const pausedDays = Math.round((parseLocalDate(today)-parseLocalDate(pausedAt))/(1000*60*60*24));
+      if(pausedDays > 0){
+        const ok = await confirmModal(
+          `El proyecto estuvo pausado ${pausedDays} día${pausedDays!==1?'s':''} (desde ${pausedAt}).\n\n¿Reprogramar el cronograma sumando ${pausedDays} días hábiles a todas las actividades pendientes?`,
+          `📅 Sí, reprogramar`
+        );
+        if(ok){
+          let rescheduled = 0;
+          ['aire','agua','tierra','fuego'].forEach(stage=>{
+            (brand.cronograma?.[stage]||[]).forEach(act=>{
+              if(act.status==='completada') return; // skip done
+              if(act.endDate){
+                act.endDate = shiftWD(act.endDate, pausedDays);
+                if(act.revDateOverride) act.revDateOverride = shiftWD(act.revDateOverride, pausedDays);
+                rescheduled++;
+              }
+            });
+          });
+          markLocalChange('brands');
+          await upsert();
+          renderBrandPage();
+          showStatus(`📅 ${rescheduled} actividades reprogramadas +${pausedDays} días hábiles ✓`);
+        }
+      }
+    }
   }
-  await upsert();
 }
 
 
