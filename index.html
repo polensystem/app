@@ -11825,6 +11825,8 @@ function getBrandStatus(b){
 
 
 /* ── Vista: Por Etapa (Kanban) ── */
+let _etapaShowPaused = true;
+
 function renderBrandsEtapa(){
   const el = document.getElementById('brands-view-etapa');
   if(!el) return;
@@ -11884,10 +11886,21 @@ function renderBrandsEtapa(){
     ${pausedBrands.length ? pausedBrands.map(b=>brandCard(b,psc)).join('') : `<div style="text-align:center;padding:1.5rem 0;color:var(--text3);font-size:0.78rem">Sin proyectos pausados</div>`}
   </div>`;
 
-  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(4,1fr) minmax(160px,220px);gap:1rem">
-    ${['aire','agua','tierra','fuego'].map(stageCol).join('')}
-    ${pausedCol}
-  </div>`;
+  const cols = _etapaShowPaused && pausedBrands.length
+    ? `repeat(4,1fr) minmax(160px,220px)`
+    : `repeat(4,1fr)`;
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:0.7rem">
+      <button onclick="_etapaShowPaused=!_etapaShowPaused;renderBrandsEtapa()"
+        style="font-size:0.72rem;font-weight:600;padding:0.28rem 0.75rem;border-radius:99px;border:1.5px solid var(--border);background:${_etapaShowPaused?'var(--bg-card)':'none'};color:${_etapaShowPaused?'var(--text)':'var(--text3)'};cursor:pointer;font-family:var(--font);transition:all 0.15s;box-shadow:${_etapaShowPaused?'0 1px 4px rgba(0,0,0,0.08)':'none'}">
+        ⏸️ Pausados${pausedBrands.length?` (${pausedBrands.length})`:''}
+      </button>
+    </div>
+    <div style="display:grid;grid-template-columns:${cols};gap:1rem">
+      ${['aire','agua','tierra','fuego'].map(stageCol).join('')}
+      ${_etapaShowPaused && pausedBrands.length ? pausedCol : ''}
+    </div>`;
 }
 
 /* ── Vista: Por Miembro ── */
