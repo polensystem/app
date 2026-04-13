@@ -1462,6 +1462,10 @@ body.portal-mode .main{ height:100vh; }
                 style="padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:none;color:var(--text3)">
                 👥 Miembro
               </button>
+              <button id="view-btn-playground" onclick="setBrandsView('playground')"
+                style="padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:none;color:var(--text3)">
+                🧩 Playground
+              </button>
 
             </div>
             <div class="export-wrap">
@@ -1529,6 +1533,7 @@ body.portal-mode .main{ height:100vh; }
         <div id="brands-view-etapa" style="display:none;padding:1.2rem"></div>
         <!-- Miembro view -->
         <div id="brands-view-miembro" style="display:none;padding:1.2rem"></div>
+        <div id="brands-view-playground" style="display:none;padding:1.2rem"></div>
         <!-- Table view -->
         <div id="brands-view-table" style="display:none;overflow-x:auto;overflow-y:auto;max-height:560px;background:var(--bg-card)">
           <table id="brands-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;min-width:900px">
@@ -3234,6 +3239,18 @@ function deepMergeAppData(server, local){
 
   // cobros: local ALWAYS wins unconditionally — never take from server
   merged.cobros = local.cobros ?? server.cobros ?? {};
+
+  // playground: local wins if changed, otherwise merge categories by id
+  if(_localChangedKeys.has('playground')){
+    merged.playground = local.playground ?? server.playground ?? {categories:[]};
+  } else {
+    const sp = server.playground || {categories:[]};
+    const lp = local.playground || {categories:[]};
+    const catMap = {};
+    (sp.categories||[]).forEach(c=>{ catMap[c.id]={...c}; });
+    (lp.categories||[]).forEach(c=>{ catMap[c.id]={...c}; });
+    merged.playground = {categories: Object.values(catMap)};
+  }
 
   return merged;
 }
@@ -10674,7 +10691,7 @@ function renderEqDomos(){
   // Renderizar sección de asignación por roles primero
   renderRoleAssignment();
 
-  const brands = appData.brands||[];
+  const brands = (appData.brands||[]).filter(b=>!b.archivedAt&&!b.deletedAt);
   const members = appData.members||[];
 
   // ── Brands bar (all active brands) ──
@@ -11520,7 +11537,7 @@ function syncBrandsMemberDropdown(){
 
 function setBrandsView(mode){
   _brandsView = mode;
-  const views = ['cards','table','etapa','miembro'];
+  const views = ['cards','table','etapa','miembro','playground'];
   const activeStyle   = 'padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.12)';
   const inactiveStyle = 'padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:none;color:var(--text3)';
   const filtersBar = document.getElementById('brands-table-filters');
@@ -11528,15 +11545,225 @@ function setBrandsView(mode){
   views.forEach(v=>{
     const wrap = document.getElementById('brands-view-'+v);
     const btn  = document.getElementById('view-btn-'+v);
-    if(wrap) wrap.style.display = v===mode ? (v==='table'?'block':'block') : 'none';
+    if(wrap) wrap.style.display = v===mode ? 'block' : 'none';
     if(btn)  btn.style.cssText  = v===mode ? activeStyle : inactiveStyle;
   });
   if(filtersBar) filtersBar.style.display = mode==='table' ? 'flex' : 'none';
 
   if(mode==='table'){ syncTableFilterButtons(); renderBrandsTable(); }
-  else if(mode==='etapa')   renderBrandsEtapa();
-  else if(mode==='miembro') renderBrandsMiembro();
+  else if(mode==='etapa')      renderBrandsEtapa();
+  else if(mode==='miembro')    renderBrandsMiembro();
+  else if(mode==='playground') renderPlayground();
 }
+
+// ── PLAYGROUND ──────────────────────────────────────────────────────
+// Data stored in appData.playground = { categories: [{id,name,emoji,color,brandIds:[]}] }
+
+function getPlaygroundData(){
+  if(!appData.playground) appData.playground = {categories:[]};
+  if(!Array.isArray(appData.playground.categories)) appData.playground.categories = [];
+  return appData.playground;
+}
+
+function renderPlayground(){
+  const wrap = document.getElementById('brands-view-playground');
+  if(!wrap) return;
+  const pg = getPlaygroundData();
+  const allBrands = (appData.brands||[]).filter(b=>!b.archivedAt&&!b.deletedAt);
+
+  // Brands not assigned to any category
+  const assignedIds = new Set(pg.categories.flatMap(c=>c.brandIds||[]));
+  const unassigned = allBrands.filter(b=>!assignedIds.has(b.id));
+
+  const stageEmoji = {aire:'💨',agua:'💧',tierra:'🌿',fuego:'🔥'};
+
+  const brandPill = (b, srcCatId='unassigned') => {
+    const col = getBrandColor(b);
+    const s = stageEmoji[b.stage]||'💨';
+    return `<span
+      draggable="true"
+      ondragstart="pgDragStart(event,'${b.id}','${srcCatId}')"
+      onclick="openBrand('${b.id}')"
+      title="${b.name}"
+      style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.22rem 0.6rem;border-radius:99px;border:1.5px solid ${col};background:var(--bg-card);font-size:0.72rem;font-weight:600;color:var(--text);cursor:grab;white-space:nowrap;transition:all 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.06)"
+      onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 3px 10px rgba(0,0,0,0.12)'"
+      onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,0.06)'">
+      <span style="width:6px;height:6px;border-radius:50%;background:${col};flex-shrink:0"></span>
+      ${b.name}
+      <span style="font-size:0.6rem;opacity:0.6">${s}</span>
+    </span>`;
+  };
+
+  wrap.innerHTML = `
+    <!-- Unassigned pool -->
+    <div style="margin-bottom:1.4rem">
+      <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem">
+        <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3)">Sin categoría (${unassigned.length})</span>
+      </div>
+      <div id="pg-unassigned"
+        style="min-height:52px;padding:0.8rem 1rem;border:1.5px dashed var(--border);border-radius:14px;background:var(--glass);display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center;transition:border-color 0.2s,background 0.2s"
+        ondragover="event.preventDefault();this.style.borderColor='var(--aire)';this.style.background='rgba(59,158,221,0.05)'"
+        ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--glass)'"
+        ondrop="pgDrop(event,'unassigned');this.style.borderColor='var(--border)';this.style.background='var(--glass)'">
+        ${unassigned.length ? unassigned.map(b=>brandPill(b,'unassigned')).join('') : '<span style="font-size:0.72rem;color:var(--text3);font-style:italic">Todas las marcas están en una categoría ✓</span>'}
+      </div>
+    </div>
+
+    <!-- Category header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.9rem">
+      <span style="font-size:0.95rem;font-weight:800;color:var(--text)">🧩 Categorías</span>
+      <button onclick="pgNewCategory()" style="background:var(--aire);color:#fff;border:none;border-radius:99px;padding:0.3rem 0.9rem;font-size:0.73rem;font-weight:700;cursor:pointer;font-family:var(--font);box-shadow:0 2px 8px rgba(59,158,221,0.3)">+ Nueva categoría</button>
+    </div>
+
+    <!-- Category cards -->
+    <div id="pg-categories" style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start">
+      ${pg.categories.map(cat=>{
+        const catBrands = allBrands.filter(b=>(cat.brandIds||[]).includes(b.id));
+        const catColor = cat.color||'#3b9edd';
+        return `<div id="pg-cat-${cat.id}" style="background:var(--bg-card);border:1.5px solid var(--border);border-radius:18px;overflow:hidden;min-width:220px;max-width:320px;flex:1;box-shadow:0 2px 12px rgba(0,0,0,0.06);transition:all 0.2s">
+          <!-- Cat header -->
+          <div style="background:${catColor};padding:0.6rem 0.85rem;display:flex;align-items:center;gap:0.5rem">
+            <span style="font-size:1.1rem">${cat.emoji||'📁'}</span>
+            <span style="font-size:0.82rem;font-weight:800;color:#fff;flex:1;text-shadow:0 1px 2px rgba(0,0,0,0.2)">${cat.name||'Sin nombre'}</span>
+            <span style="font-size:0.65rem;color:rgba(255,255,255,0.75);font-weight:600">${catBrands.length}</span>
+            <button onclick="pgEditCategory('${cat.id}')" style="background:rgba(255,255,255,0.2);border:none;border-radius:6px;padding:0.15rem 0.4rem;font-size:0.7rem;color:#fff;cursor:pointer;margin-left:0.2rem" title="Editar">✏️</button>
+            <button onclick="pgDeleteCategory('${cat.id}')" style="background:rgba(255,50,50,0.3);border:none;border-radius:6px;padding:0.15rem 0.4rem;font-size:0.7rem;color:#fff;cursor:pointer" title="Eliminar">🗑</button>
+          </div>
+          <!-- Drop zone -->
+          <div style="padding:0.7rem;min-height:70px;display:flex;flex-wrap:wrap;gap:0.35rem;align-items:flex-start;transition:background 0.15s"
+            ondragover="event.preventDefault();this.style.background='rgba(59,158,221,0.06)'"
+            ondragleave="this.style.background=''"
+            ondrop="pgDrop(event,'${cat.id}');this.style.background=''">
+            ${catBrands.length
+              ? catBrands.map(b=>brandPill(b,cat.id)).join('')
+              : '<span style="font-size:0.68rem;color:var(--text3);font-style:italic;padding:0.3rem 0.2rem">Arrastra marcas aquí</span>'}
+          </div>
+        </div>`;
+      }).join('')}
+      ${pg.categories.length===0 ? '<div style="font-size:0.8rem;color:var(--text3);padding:1rem;font-style:italic">Crea categorías con el botón de arriba</div>' : ''}
+    </div>
+  `;
+}
+
+let _pgDragBrandId = null;
+let _pgDragSrcCatId = null;
+
+function pgDragStart(event, brandId, srcCatId){
+  _pgDragBrandId = brandId;
+  _pgDragSrcCatId = srcCatId;
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+async function pgDrop(event, targetCatId){
+  event.preventDefault();
+  if(!_pgDragBrandId) return;
+  const pg = getPlaygroundData();
+
+  // Remove from all categories and unassigned pool
+  pg.categories.forEach(c=>{
+    c.brandIds = (c.brandIds||[]).filter(id=>id!==_pgDragBrandId);
+  });
+
+  // Add to target (unless unassigned)
+  if(targetCatId!=='unassigned'){
+    const cat = pg.categories.find(c=>c.id===targetCatId);
+    if(cat){
+      if(!cat.brandIds) cat.brandIds=[];
+      if(!cat.brandIds.includes(_pgDragBrandId)) cat.brandIds.push(_pgDragBrandId);
+    }
+  }
+
+  _pgDragBrandId = null;
+  _pgDragSrcCatId = null;
+  markLocalChange('playground');
+  await upsert();
+  renderPlayground();
+}
+
+function pgNewCategory(){
+  const COLORS = ['#3b9edd','#e8622a','#5aaa35','#2dc3b3','#9b59b6','#e74c3c','#f39c12','#1abc9c','#e91e63','#607d8b'];
+  const EMOJIS = ['📁','⭐','🎯','🔥','💡','🚀','🎨','📌','🏆','💎'];
+  const newCat = {
+    id: uid(),
+    name: 'Nueva categoría',
+    emoji: EMOJIS[Math.floor(Math.random()*EMOJIS.length)],
+    color: COLORS[Math.floor(Math.random()*COLORS.length)],
+    brandIds: []
+  };
+  getPlaygroundData().categories.push(newCat);
+  markLocalChange('playground');
+  upsert();
+  renderPlayground();
+  // Auto-open edit for the new category
+  setTimeout(()=>pgEditCategory(newCat.id), 50);
+}
+
+function pgEditCategory(catId){
+  const pg = getPlaygroundData();
+  const cat = pg.categories.find(c=>c.id===catId);
+  if(!cat) return;
+
+  const COLORS = ['#3b9edd','#e8622a','#5aaa35','#2dc3b3','#9b59b6','#e74c3c','#f39c12','#1abc9c','#e91e63','#607d8b','#ff6b6b','#a29bfe'];
+  const EMOJIS = ['📁','⭐','🎯','🔥','💡','🚀','🎨','📌','🏆','💎','🌈','⚡','🦋','🌸','🎭','🔮','🎪','🏷️','📦','🗂️'];
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+  modal.innerHTML = `
+    <div style="background:var(--bg-card);border-radius:20px;padding:1.5rem;width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.3);border:1px solid var(--border)">
+      <div style="font-size:1rem;font-weight:800;color:var(--text);margin-bottom:1.2rem">✏️ Editar categoría</div>
+
+      <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.4rem">Nombre</div>
+      <input id="pg-edit-name" value="${cat.name}" style="width:100%;box-sizing:border-box;padding:0.55rem 0.8rem;border-radius:10px;border:1.5px solid var(--border);background:var(--input-bg);color:var(--text);font-family:var(--font);font-size:0.88rem;outline:none;margin-bottom:1rem" onfocus="this.style.borderColor='var(--aire)'" onblur="this.style.borderColor='var(--border)'">
+
+      <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.4rem">Emoji</div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.35rem;margin-bottom:1rem">
+        ${EMOJIS.map(e=>`<button onclick="document.getElementById('pg-edit-emoji').value='${e}';document.querySelectorAll('.pg-emoji-btn').forEach(b=>b.style.background='none');this.style.background='var(--bg-card2)'" class="pg-emoji-btn" style="background:${e===cat.emoji?'var(--bg-card2)':'none'};border:1px solid var(--border);border-radius:8px;padding:0.25rem 0.4rem;font-size:1.1rem;cursor:pointer;transition:all 0.12s">${e}</button>`).join('')}
+      </div>
+      <input type="hidden" id="pg-edit-emoji" value="${cat.emoji}">
+
+      <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.4rem">Color</div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.4rem">
+        ${COLORS.map(c=>`<button onclick="document.getElementById('pg-edit-color').value='${c}';document.querySelectorAll('.pg-color-btn').forEach(b=>b.style.outline='none');this.style.outline='3px solid var(--text)';this.style.outlineOffset='2px'" class="pg-color-btn" style="width:26px;height:26px;border-radius:50%;background:${c};border:none;cursor:pointer;outline:${c===cat.color?'3px solid var(--text)':'none'};outline-offset:2px;transition:all 0.12s"></button>`).join('')}
+      </div>
+      <input type="hidden" id="pg-edit-color" value="${cat.color}">
+
+      <div style="display:flex;gap:0.6rem;justify-content:flex-end">
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.4rem 1rem;font-size:0.78rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font)">Cancelar</button>
+        <button onclick="pgSaveCategory('${catId}',this)" style="background:var(--aire);color:#fff;border:none;border-radius:99px;padding:0.4rem 1.1rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font)">Guardar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e=>{ if(e.target===modal) modal.remove(); });
+  document.getElementById('pg-edit-name').focus();
+}
+
+async function pgSaveCategory(catId, btn){
+  const pg = getPlaygroundData();
+  const cat = pg.categories.find(c=>c.id===catId);
+  if(!cat) return;
+  const modal = btn.closest('div[style*="fixed"]');
+  cat.name = document.getElementById('pg-edit-name').value.trim() || 'Sin nombre';
+  cat.emoji = document.getElementById('pg-edit-emoji').value || '📁';
+  cat.color = document.getElementById('pg-edit-color').value || '#3b9edd';
+  modal?.remove();
+  markLocalChange('playground');
+  await upsert();
+  renderPlayground();
+}
+
+async function pgDeleteCategory(catId){
+  const pg = getPlaygroundData();
+  const cat = pg.categories.find(c=>c.id===catId);
+  if(!cat) return;
+  const ok = await confirmModal(`¿Eliminar la categoría "${cat.name}"? Las marcas volverán a Sin categoría.`, 'Eliminar');
+  if(!ok) return;
+  pg.categories = pg.categories.filter(c=>c.id!==catId);
+  markLocalChange('playground');
+  await upsert();
+  renderPlayground();
+}
+// ── END PLAYGROUND ───────────────────────────────────────────────────
 
 function setTableSort(key){
   _tableSort = key;
