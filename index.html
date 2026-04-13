@@ -3079,6 +3079,24 @@ async function loadData(){
       if(!Array.isArray(appData.tareas)) appData.tareas=[];
       ensureFinData();
       if(!Array.isArray(appData.digitalTools)){appData.digitalTools=DEFAULT_TOOLS.map(t=>({...t}));}
+
+      // Restore member photos from localStorage — Supabase strips large base64
+      try{
+        const lbak = localStorage.getItem('polen-localbak');
+        if(lbak){
+          const parsed = JSON.parse(lbak);
+          const bakMembers = parsed?.data?.members || [];
+          if(bakMembers.length){
+            appData.members = appData.members.map(m=>{
+              const bm = bakMembers.find(x=>x.id===m.id);
+              const bestPhoto = (bm?.photo && bm.photo.startsWith('data:')) ? bm.photo
+                              : (m.photo && m.photo.startsWith('data:')) ? m.photo : null;
+              const bestColor = m.color || bm?.color || null;
+              return {...m, photo: bestPhoto, color: bestColor};
+            });
+          }
+        }
+      }catch(le){ console.warn('Could not restore photos from localbak:', le); }
       // Filter out persisted deleted IDs
       if(appData._deletedMemberIds?.length)
         appData.members = appData.members.filter(m=>!appData._deletedMemberIds.includes(m.id));
@@ -3208,7 +3226,9 @@ function deepMergeAppData(server, local){
         const bestPhoto   = (localPhoto && localPhoto.startsWith('data:')) ? localPhoto
                           : (serverPhoto && serverPhoto.startsWith('data:')) ? serverPhoto
                           : localPhoto || serverPhoto || null;
-        memberMap[m.id] = {...memberMap[m.id], ...m, photo: bestPhoto};
+        // Also preserve color — never overwrite valid color with empty/undefined
+        const bestColor = m.color || memberMap[m.id].color || null;
+        memberMap[m.id] = {...memberMap[m.id], ...m, photo: bestPhoto, color: bestColor};
       } else {
         memberMap[m.id] = {...m};
       }
@@ -8398,8 +8418,7 @@ function subscribeRealtime(onUpdate){
 
         // Snapshot completo de lo que queremos preservar ANTES de cualquier merge
         const _snapCobros  = JSON.parse(JSON.stringify(appData.cobros  || {}));
-        const _snapBrands  = appData.brands;
-        const _snapMembers = appData.members;
+        const _snapMembers = appData.members ? appData.members.map(m=>({...m})) : [];
 
         // Aplicar datos del servidor para campos no-cobros (brands, members, etc.)
         const merged = deepMergeAppData(raw, appData);
@@ -8407,6 +8426,19 @@ function subscribeRealtime(onUpdate){
 
         // RESTAURAR cobros locales — siempre, sin excepción
         appData.cobros = _snapCobros;
+
+        // RESTAURAR fotos y colores de miembros desde el snap local
+        // El servidor tiene fotos stripeadas (data: vacío) — siempre preservar del local
+        if(_snapMembers.length && appData.members){
+          appData.members = appData.members.map(m=>{
+            const snap = _snapMembers.find(s=>s.id===m.id);
+            if(!snap) return m;
+            const bestPhoto = (snap.photo && snap.photo.startsWith('data:')) ? snap.photo
+                            : (m.photo && m.photo.startsWith('data:')) ? m.photo : m.photo||null;
+            const bestColor = snap.color || m.color || null;
+            return {...m, photo: bestPhoto, color: bestColor};
+          });
+        }
         // Re-apply deleted ids as final safety net
         if(_localDeletedIds.brands.size)
           appData.brands = (appData.brands||[]).filter(b=>!_localDeletedIds.brands.has(b.id));
@@ -8828,7 +8860,8 @@ function renderMemberColorPicker(selected){
   const wrap = document.getElementById('member-color-picker');
   if(!wrap) return;
   const def = selected || MEMBER_COLORS[0];
-  if(!selected) (document.getElementById('input-member-color')||{}).value = def;
+  // Always set the hidden input to the resolved color
+  (document.getElementById('input-member-color')||{}).value = def;
   wrap.innerHTML = MEMBER_COLORS.map(col=>`
     <div onclick="selectMemberColor('${col}')" title="${col}" style="width:26px;height:26px;border-radius:50%;background:${col};cursor:pointer;border:3px solid ${col===def?'var(--text)':'transparent'};transition:all 0.15s;flex-shrink:0"></div>
   `).join('');
@@ -8844,7 +8877,8 @@ async function saveMember(){
   if(!nombre){ document.getElementById('modal-member-err').textContent='El nombre es obligatorio'; return; }
   const existingMember = editingMemberId ? appData.members.find(m=>m.id===editingMemberId) : null;
   const existingPhoto = (existingMember?.photo && existingMember.photo.startsWith('data:')) ? existingMember.photo : null;
-  const memberColor = document.getElementById('input-member-color')?.value || MEMBER_COLORS[0];
+  const existingColor = existingMember?.color || null;
+  const memberColor = document.getElementById('input-member-color')?.value || existingColor || MEMBER_COLORS[0];
   const memberData = {
     nombre,
     cargo: document.getElementById('m-cargo').value.trim(),
