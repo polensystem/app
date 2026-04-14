@@ -11832,11 +11832,15 @@ function renderPortal(brandId){
 
   window._portalBrandId = brandId;
   window._portalColor = color;
-  // Store brand for use by portalSwitchTab
   window._portalBrand = brand;
+
+  // Restore active tab if one was previously selected
+  const _activeTab = window._portalActiveTab || 'crono';
+  portalSwitchTab(_activeTab);
 }
 
 function portalSwitchTab(tab){
+  window._portalActiveTab = tab; // Remember for after re-renders
   const crono = document.getElementById('portal-panel-crono');
   const bp    = document.getElementById('portal-panel-bp');
   const aprob = document.getElementById('portal-panel-aprobaciones');
