@@ -11829,22 +11829,8 @@ function renderPortal(brandId){
 
   window._portalBrandId = brandId;
   window._portalColor = color;
-  console.log('POLEN-v382 brand='+brand?.name+' stage='+brand?.stage);
-
-  // Render approval content immediately after innerHTML is set
-  const _aprobEl = document.getElementById('portal-aprob-content');
-  console.log('POLEN-v382 _aprobEl=', _aprobEl);
-  if(_aprobEl){
-    try{
-      const _aprobHTML = portalRenderAprobaciones(brand);
-      _aprobEl.innerHTML = _aprobHTML || '<div style="padding:2rem;color:orange">Función devolvió vacío. Stage: '+brand.stage+'</div>';
-    }catch(e){
-      _aprobEl.innerHTML = '<div style="color:red;padding:1rem">Error: '+e.message+'</div>';
-      console.error('Aprobaciones error:', e);
-    }
-  } else {
-    console.error('portal-aprob-content element NOT FOUND');
-  }
+  // Store brand for use by portalSwitchTab
+  window._portalBrand = brand;
 }
 
 function portalSwitchTab(tab){
@@ -11875,6 +11861,16 @@ function portalSwitchTab(tab){
   } else if(tab==='aprobaciones'){
     if(aprob) aprob.style.display='block';
     if(tAprob) tAprob.style.cssText=activeStyle;
+    // Render content now that panel is visible
+    const aprobContent = document.getElementById('portal-aprob-content');
+    if(aprobContent && window._portalBrand){
+      try{
+        aprobContent.innerHTML = portalRenderAprobaciones(window._portalBrand);
+      }catch(e){
+        aprobContent.innerHTML = '<div style="color:red;padding:1rem">Error: '+e.message+'</div>';
+        console.error('Aprobaciones error:', e);
+      }
+    }
   }
 
   // Scroll portal container to top so panel is visible
