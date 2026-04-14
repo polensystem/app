@@ -11834,9 +11834,9 @@ function renderPortal(brandId){
   window._portalColor = color;
   window._portalBrand = brand;
 
-  // Restore active tab if one was previously selected
+  // Wait for DOM to be ready before switching tab
   const _activeTab = window._portalActiveTab || 'crono';
-  portalSwitchTab(_activeTab);
+  setTimeout(()=>{ portalSwitchTab(_activeTab); }, 0);
 }
 
 function portalSwitchTab(tab){
