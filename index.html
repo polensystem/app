@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!-- POLEN-BUILD-20260414-v383 -->
 <html lang="es" data-theme="dark">
 <head>
 <meta charset="UTF-8">
@@ -11915,6 +11915,15 @@ function portalRenderAprobaciones(brand){
       </div>
     </div>`;
   };
+
+  return `
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.4rem 1.6rem;margin-bottom:0.8rem">
+      <div style="font-size:1rem;font-weight:800;color:var(--text);margin-bottom:0.5rem">✅ Aprobaciones por etapa</div>
+      <p style="font-size:0.82rem;color:var(--text2);line-height:1.6;margin:0">A medida que tu proyecto avanza, cada etapa habilitará su formulario de aprobación. Confirmar cada sección nos permite continuar con la siguiente con total alineación.</p>
+    </div>
+    ${stageOrder.map(renderStage).join('')}
+  `;
+}
 
 
 function toggleAprobStage(stage){
