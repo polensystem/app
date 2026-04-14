@@ -1690,7 +1690,7 @@ body.portal-mode .main{ height:100vh; }
       <!-- Tabs -->
       <div class="tabs-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:0.3rem">
         <button class="tab-btn active" id="tab-crono-btn" onclick="switchTab('crono')">📅 Cronograma</button>
-        <button class="tab-btn" id="tab-rondas-btn" onclick="switchTab('rondas')">🔄 Rondas</button>
+        <button class="tab-btn" id="tab-rondas-btn" onclick="switchTab('rondas')">✅ Aprobaciones</button>
         <button class="tab-btn" id="tab-bp-btn" onclick="switchTab('bp')">⭐ Branding Points</button>
         <button class="tab-btn" id="tab-notas-btn" onclick="switchTab('notas')">📋 Notas</button>
         <button class="tab-btn" id="tab-domo-btn" onclick="switchTab('domo')">🏠 Domo</button>
@@ -1725,18 +1725,18 @@ body.portal-mode .main{ height:100vh; }
         <div class="crono-summary-row" id="brand-crono-summary"></div>
       </div>
 
-      <!-- Tab: Rondas -->
+      <!-- Tab: Aprobaciones -->
       <div class="tab-panel" id="tab-rondas">
         <div class="section-card">
           <div class="section-head">
             <div class="section-head-left">
-              <div class="section-head-title">🔄 Rondas de cambios</div>
-              <div class="section-head-sub">Marca cada ronda conforme avanza el proyecto</div>
+              <div class="section-head-title">✅ Aprobaciones</div>
+              <div class="section-head-sub">Respuestas del cliente y rondas internas por etapa</div>
             </div>
-            <button class="btn-ghost" style="font-size:0.78rem;padding:0.38rem 0.8rem" onclick="addRonda()">+ Agregar ronda</button>
+            <button class="btn-ghost" style="font-size:0.78rem;padding:0.38rem 0.8rem" onclick="addRonda()">+ Ronda general</button>
           </div>
           <div class="section-body">
-            <div id="rondas-list" style="display:flex;flex-direction:column;gap:0.6rem"></div>
+            <div id="revisiones-wrap"></div>
           </div>
         </div>
       </div>
@@ -6486,11 +6486,50 @@ function renderSegmentedProgress(brand){
 }
 
 function renderRondas(brand){
-  if(!brand.rondas) brand.rondas=[{id:uid(),label:'R1',done:false},{id:uid(),label:'R2',done:false},{id:uid(),label:'R3',done:false}];
-  const el=document.getElementById('rondas-list');
-  if(!el)return;
-  el.innerHTML=brand.rondas.map((r,i)=>`
-    <div class="ronda-card ${r.done?'done':''}">
+  if(!brand.rondas) brand.rondas = [];
+  const wrap = document.getElementById('revisiones-wrap');
+  if(!wrap) return;
+
+  const stageOrder = ['aire','agua','tierra','fuego'];
+  const SC = {
+    aire:  {emoji:'🌬️', label:'Aire',   color:'var(--aire)',   bg:'rgba(59,158,221,0.06)',  border:'rgba(59,158,221,0.18)'},
+    agua:  {emoji:'💧',  label:'Agua',   color:'var(--agua)',   bg:'rgba(45,195,179,0.06)',  border:'rgba(45,195,179,0.18)'},
+    tierra:{emoji:'🌱',  label:'Tierra', color:'var(--tierra)', bg:'rgba(90,170,53,0.06)',   border:'rgba(90,170,53,0.18)'},
+    fuego: {emoji:'🔥',  label:'Fuego',  color:'var(--fuego)',  bg:'rgba(232,98,42,0.06)',   border:'rgba(232,98,42,0.18)'},
+  };
+  const APPROVAL_LABELS = {
+    aire_investigacion:'Investigación y hallazgos', aire_caminos:'Caminos creativos',
+    agua_logotipo:'Logotipo', agua_cromatica:'Sistema cromático', agua_tipografia:'Sistema tipográfico',
+    agua_verbal:'Sistema verbal', agua_avance:'Confirmación de avance',
+    tierra_visual:'Identidad visual integral', tierra_verbal:'Identidad verbal integral',
+    tierra_entregables:'Entregables de marca', tierra_comunicacionales:'Elementos comunicacionales',
+    tierra_avance:'Confirmación de avance',
+    fuego_manual:'Manual de marca integral', fuego_entrega:'Aprobación de entrega final',
+  };
+  const STAGE_KEYS = {
+    aire: ['aire_investigacion','aire_caminos'],
+    agua: ['agua_logotipo','agua_cromatica','agua_tipografia','agua_verbal','agua_avance'],
+    tierra: ['tierra_visual','tierra_verbal','tierra_entregables','tierra_comunicacionales','tierra_avance'],
+    fuego: ['fuego_manual','fuego_entrega'],
+  };
+
+  const approvals = brand.portalApprovals || {};
+  const stageIdx = stageOrder.indexOf(brand.stage || 'aire');
+
+  // Group rondas by stage (stored in r.stage) + ungrouped ones
+  const rondasByStage = {};
+  const ungrouped = [];
+  (brand.rondas||[]).forEach(r => {
+    if(r.stage && stageOrder.includes(r.stage)) {
+      if(!rondasByStage[r.stage]) rondasByStage[r.stage] = [];
+      rondasByStage[r.stage].push(r);
+    } else {
+      ungrouped.push(r);
+    }
+  });
+
+  const renderRondaCard = (r) => `
+    <div class="ronda-card ${r.done?'done':''}" style="margin-top:0.5rem">
       <div class="ronda-card-head">
         <div class="ronda-check ${r.done?'checked':''}" onclick="toggleRonda('${brand.id}','${r.id}')" title="${r.done?'Desmarcar':'Marcar como completada'}">
           ${r.done?'✓':''}
@@ -6501,22 +6540,94 @@ function renderRondas(brand){
           onkeydown="if(event.key==='Enter')this.blur()">
         <input type="date" class="ronda-date-input" value="${r.fecha||''}"
           onclick="event.stopPropagation()"
-          onchange="saveRondaField('${brand.id}','${r.id}','fecha',this.value)"
-          title="Fecha de la ronda">
-        <button class="ronda-del" onclick="event.stopPropagation();deleteRonda('${brand.id}','${r.id}')" title="Eliminar ronda">×</button>
+          onchange="saveRondaField('${brand.id}','${r.id}','fecha',this.value)">
+        <button class="ronda-del" onclick="event.stopPropagation();deleteRonda('${brand.id}','${r.id}')">×</button>
       </div>
       <textarea class="ronda-notes" placeholder="Notas de esta ronda…"
         onchange="saveRondaField('${brand.id}','${r.id}','notas',this.value)"
         oninput="this.style.height='auto';this.style.height=Math.max(60,this.scrollHeight)+'px'"
         >${r.notas||''}</textarea>
-    </div>`).join('');
-  // Auto-resize existing textareas
+    </div>`;
+
+  const stagesHTML = stageOrder.map((stage, si) => {
+    const sc = SC[stage];
+    const keys = STAGE_KEYS[stage] || [];
+    const stageApprovals = approvals[stage] || {};
+    const isActive = si <= stageIdx;
+    const stageRondas = rondasByStage[stage] || [];
+    const answered = keys.filter(k => stageApprovals[k]).length;
+
+    if(!isActive && answered === 0 && stageRondas.length === 0) {
+      // Show all stages but dim inactive ones
+    }
+
+    const questionsHTML = keys.map(k => {
+      const ans = stageApprovals[k];
+      const note = stageApprovals[k+'_note'];
+      if(!ans) return `
+        <div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0;border-bottom:1px solid var(--border2)">
+          <span style="font-size:0.75rem;color:var(--text3);flex:1">${APPROVAL_LABELS[k]||k}</span>
+          <span style="font-size:0.7rem;color:var(--text3);font-style:italic">Sin respuesta</span>
+        </div>`;
+      const isFullApproval = ans.includes('100%') || ans.startsWith('Sí, aprobado') || ans.startsWith('Sí, avancemos') || ans.startsWith('Sí, me encanta') || ans.startsWith('Sí, proyecto');
+      return `
+        <div style="padding:0.5rem 0;border-bottom:1px solid var(--border2)">
+          <div style="display:flex;align-items:flex-start;gap:0.6rem">
+            <span style="font-size:0.75rem;font-weight:600;color:var(--text2);flex:1">${APPROVAL_LABELS[k]||k}</span>
+            <span style="font-size:0.72rem;font-weight:600;color:${isFullApproval?'var(--tierra)':'var(--fuego)'};background:${isFullApproval?'rgba(90,170,53,0.1)':'rgba(232,98,42,0.1)'};border-radius:6px;padding:0.15rem 0.5rem;white-space:nowrap">${isFullApproval?'✓':'⚠'} ${ans}</span>
+          </div>
+          ${note?`<div style="margin-top:0.3rem;font-size:0.75rem;color:var(--text3);font-style:italic;padding-left:0.2rem">💬 ${note}</div>`:''}
+        </div>`;
+    }).join('');
+
+    return `
+      <div style="background:${sc.bg};border:1.5px solid ${sc.border};border-radius:14px;padding:1rem 1.2rem;margin-bottom:1rem;opacity:${isActive?1:0.4};transition:opacity 0.2s">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.8rem">
+          <span style="font-size:1rem">${sc.emoji}</span>
+          <span style="font-size:0.88rem;font-weight:800;color:${sc.color}">Etapa ${sc.label}</span>
+          <span style="margin-left:auto;font-size:0.68rem;color:var(--text3)">${answered}/${keys.length} respondidas</span>
+        </div>
+        ${questionsHTML}
+        <div style="margin-top:0.8rem;display:flex;flex-direction:column;gap:0">
+          ${stageRondas.map(r=>renderRondaCard(r)).join('')}
+          <button onclick="addRondaToStage('${brand.id}','${stage}')"
+            style="margin-top:0.5rem;width:100%;padding:0.4rem;border:1px dashed var(--border);border-radius:8px;background:none;font-size:0.73rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s"
+            onmouseover="this.style.borderColor='${sc.color}';this.style.color='${sc.color}'"
+            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
+            + Ronda de revisión
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Ungrouped rondas at the bottom
+  const ungroupedHTML = ungrouped.length ? `
+    <div style="margin-top:0.5rem">
+      <div style="font-size:0.75rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem">Rondas generales</div>
+      ${ungrouped.map(r=>renderRondaCard(r)).join('')}
+    </div>` : '';
+
+  wrap.innerHTML = stagesHTML + ungroupedHTML;
+
+  // Auto-resize textareas
   setTimeout(()=>{
-    el.querySelectorAll('.ronda-notes').forEach(ta=>{
+    wrap.querySelectorAll('.ronda-notes').forEach(ta=>{
       ta.style.height='auto';
       ta.style.height=Math.max(60,ta.scrollHeight)+'px';
     });
   },0);
+}
+
+async function addRondaToStage(brandId, stage){
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand) return;
+  if(!brand.rondas) brand.rondas = [];
+  const stageRondas = brand.rondas.filter(r=>r.stage===stage);
+  const n = stageRondas.length + 1;
+  brand.rondas.push({id:uid(), label:'R'+n, done:false, fecha:'', notas:'', stage});
+  renderRondas(brand);
+  markLocalChange('brands');
+  await upsert();
 }
 
 async function toggleRonda(brandId,rondaId){
@@ -6550,15 +6661,27 @@ async function saveRondaField(brandId, rondaId, field, val){
 await upsert();
 }
 
-async function addRonda(){
-  const brand=appData.brands.find(b=>b.id===currentBrandId);
-  if(!brand)return;
-  if(!brand.rondas)brand.rondas=[];
-  const n=brand.rondas.length+1;
-  brand.rondas.push({id:uid(),label:'R'+n,done:false,fecha:'',notas:''});
+async function addRondaToStage(brandId, stage){
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand) return;
+  if(!brand.rondas) brand.rondas = [];
+  const stageRondas = brand.rondas.filter(r=>r.stage===stage);
+  const n = stageRondas.length + 1;
+  brand.rondas.push({id:uid(), label:'R'+n, done:false, fecha:'', notas:'', stage});
   renderRondas(brand);
-    markLocalChange('brands');
-await upsert();
+  markLocalChange('brands');
+  await upsert();
+}
+
+async function addRonda(){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand) return;
+  if(!brand.rondas) brand.rondas = [];
+  const n = brand.rondas.filter(r=>!r.stage).length + 1;
+  brand.rondas.push({id:uid(), label:'R'+n, done:false, fecha:'', notas:''});
+  renderRondas(brand);
+  markLocalChange('brands');
+  await upsert();
   showStatus('Ronda añadida ✓');
 }
 
