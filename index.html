@@ -11736,7 +11736,7 @@ function renderPortal(brandId){
         </div>
 
         <!-- Welcome banner -->
-        <div style="background:linear-gradient(135deg,${color}18,${color}08);border:1px solid ${color}30;border-radius:18px;padding:2rem 2.2rem;margin-bottom:1.2rem">
+        <div id="portal-welcome-banner" style="background:linear-gradient(135deg,${color}18,${color}08);border:1px solid ${color}30;border-radius:18px;padding:2rem 2.2rem;margin-bottom:1.2rem">
           <div style="font-size:1.3rem;font-weight:800;color:var(--text);margin-bottom:0.6rem;line-height:1.3">Bienvenido a este camino.</div>
           <div style="font-size:0.92rem;color:var(--text2);line-height:1.65;margin-bottom:1.4rem">Juntos le daremos vida a la identidad que tu marca merece. En este portal encontrarás dos secciones para acompañar tu proceso.</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
@@ -11762,7 +11762,7 @@ function renderPortal(brandId){
 
         <!-- Tabs -->
         ${(show==='both') ? `
-        <div style="display:flex;gap:0.4rem;margin-bottom:1rem;background:var(--bg-card2);border-radius:12px;padding:0.3rem" id="portal-tabs">
+        <div style="display:flex;gap:0.4rem;margin-bottom:1rem;background:var(--bg-card2);border-radius:12px;padding:0.3rem;position:sticky;top:0;z-index:10" id="portal-tabs">
           <button id="portal-tab-crono" onclick="portalSwitchTab('crono')"
             style="flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.08);transition:all 0.2s">
             📅 Cronograma
@@ -11839,13 +11839,17 @@ function portalSwitchTab(tab){
   const tCrono = document.getElementById('portal-tab-crono');
   const tBp   = document.getElementById('portal-tab-bp');
   const tAprob = document.getElementById('portal-tab-aprobaciones');
-  const color = window._portalColor || 'var(--aire)';
+  const banner = document.getElementById('portal-welcome-banner');
 
-  const activeStyle = `flex:1;padding:0.55rem 0.6rem;border-radius:9px;border:none;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.08);transition:all 0.2s`;
-  const inactiveStyle = `flex:1;padding:0.55rem 0.6rem;border-radius:9px;border:none;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);transition:all 0.2s`;
+  const activeStyle = `flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.08);transition:all 0.2s`;
+  const inactiveStyle = `flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);transition:all 0.2s`;
 
+  // Hide all panels and reset tab styles
   [crono, bp, aprob].forEach(el=>{ if(el) el.style.display='none'; });
   [tCrono, tBp, tAprob].forEach(el=>{ if(el) el.style.cssText=inactiveStyle; });
+
+  // Hide welcome banner when any tab is selected
+  if(banner) banner.style.display='none';
 
   if(tab==='crono'){
     if(crono) crono.style.display='block';
@@ -11858,13 +11862,9 @@ function portalSwitchTab(tab){
     if(tAprob) tAprob.style.cssText=activeStyle;
   }
 
-  // Scroll the portal container to show the tabs/panel
-  const portalContainer = document.querySelector('.main > div[style*="overflow-y"]');
-  const tabsBar = document.getElementById('portal-tabs');
-  if(portalContainer && tabsBar){
-    const tabsTop = tabsBar.offsetTop - 16;
-    portalContainer.scrollTop = tabsTop;
-  }
+  // Scroll portal container to top so panel is visible
+  const portalContainer = document.querySelector('.main > div');
+  if(portalContainer) portalContainer.scrollTop = 0;
 }
 
 
