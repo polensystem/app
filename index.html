@@ -2948,7 +2948,7 @@ function defaultTemplate(){
           {id:uid(),name:'Sobre',pts:1,qty:1,selected:false},
           {id:uid(),name:'Stickers',pts:1,qty:1,selected:false},
         ]},
-        {id:uid(),name:'Piezas Impresas',open:false,items:[
+        {id:uid(),name:'Piezas Impresas',open:true,items:[
           {id:uid(),name:'Flyer',pts:1,qty:1,selected:false},
           {id:uid(),name:'Arte para díptico/tríptico',pts:2,qty:1,selected:false},
           {id:uid(),name:'Catálogo (estructura base 1 a 5 págs.)',pts:2,qty:1,selected:false},
@@ -2956,7 +2956,7 @@ function defaultTemplate(){
           {id:uid(),name:'Catálogo (estructura base 6 a 10 págs.)',pts:5,qty:1,selected:false},
           {id:uid(),name:'Menú (estructura base 6 a 10 págs.)',pts:5,qty:1,selected:false},
         ]},
-        {id:uid(),name:'Empaques',open:false,items:[
+        {id:uid(),name:'Empaques',open:true,items:[
           {id:uid(),name:'Funda de papel o plástico',pts:1,qty:1,selected:false},
           {id:uid(),name:'Vaso',pts:1,qty:1,selected:false},
           {id:uid(),name:'Portavasos',pts:1,qty:1,selected:false},
@@ -2966,29 +2966,29 @@ function defaultTemplate(){
           {id:uid(),name:'Inidividual',pts:1,qty:1,selected:false},
           {id:uid(),name:'Portavasos para llevar',pts:1,qty:1,selected:false},
         ]},
-        {id:uid(),name:'Uniformes',open:false,items:[
+        {id:uid(),name:'Uniformes',open:true,items:[
           {id:uid(),name:'Camiseta uniforme',pts:2,qty:1,selected:false},
           {id:uid(),name:'Gorra de uniforme',pts:1,qty:1,selected:false},
           {id:uid(),name:'Mandil',pts:2,qty:1,selected:false},
           {id:uid(),name:'Chaleco',pts:2,qty:1,selected:false},
         ]},
-        {id:uid(),name:'Web y Digital',open:false,items:[
+        {id:uid(),name:'Web y Digital',open:true,items:[
           {id:uid(),name:'Firma de correo',pts:1,qty:1,selected:false},
           {id:uid(),name:'Banner web',pts:1,qty:1,selected:false},
           {id:uid(),name:'Fondo de pantalla',pts:1,qty:1,selected:false},
         ]},
-        {id:uid(),name:'Señalética',open:false,items:[
+        {id:uid(),name:'Señalética',open:true,items:[
           {id:uid(),name:'Cartel de señalética',pts:1,qty:1,selected:false},
           {id:uid(),name:'Backing',pts:3,qty:1,selected:false},
           {id:uid(),name:'Stand de feria',pts:4,qty:1,selected:false},
         ]},
-        {id:uid(),name:'Merch',open:false,items:[
+        {id:uid(),name:'Merch',open:true,items:[
           {id:uid(),name:'Taza',pts:1,qty:1,selected:false},
           {id:uid(),name:'Termo',pts:2,qty:1,selected:false},
           {id:uid(),name:'Gorra',pts:2,qty:1,selected:false},
         ]},
         {id:uid(),name:'Personalizado',open:true,items:[]},
-        {id:uid(),name:'Vehículos',open:false,items:[]},
+        {id:uid(),name:'Vehículos',open:true,items:[]},
       ]
     }
   };
@@ -11684,7 +11684,7 @@ function renderPortal(brandId){
     ? `<img src="${brand.image}">`
     : `<span style="color:${color};font-weight:800">${brand.name.charAt(0)}</span>`;
 
-  // Build cronograma HTML (read-only, hitos highlighted)
+  // Build cronograma HTML
   const stages = ['aire','agua','tierra','fuego'];
   const SC2 = {
     aire:{emoji:'🌬️',label:'Aire',color:'var(--aire)'},
@@ -11717,12 +11717,13 @@ function renderPortal(brandId){
     </div>`;
   }).join('');
 
-  // Build BP HTML (client version)
   const bpHTML = portalRenderBp(brand);
 
   main.innerHTML = `
     <div style="overflow-y:auto;height:100vh;background:var(--bg)">
       <div class="portal-wrap">
+
+        <!-- Header -->
         <div class="portal-brand-header">
           <div class="portal-brand-logo" style="border-color:${color}">${logoHTML}</div>
           <div>
@@ -11730,19 +11731,96 @@ function renderPortal(brandId){
             <div class="portal-brand-sub">${brand.industria||''} ${brand.industria&&brand.stage?'·':''} ${brand.stage?brand.stage:''}</div>
           </div>
           <div style="margin-left:auto">
-            <button onclick="document.body.setAttribute('data-theme',document.body.getAttribute('data-theme')==='dark'?'light':'dark')" style="background:none;border:1px solid var(--border);border-radius:99px;padding:0.35rem 0.8rem;font-size:0.78rem;color:var(--text2);cursor:pointer;font-family:var(--font)">🌙 / ☀️</button>
+            <button onclick="setTheme(document.body.getAttribute('data-theme')==='dark'?'light':'dark')" style="background:none;border:1px solid var(--border);border-radius:99px;padding:0.35rem 0.8rem;font-size:0.78rem;color:var(--text2);cursor:pointer;font-family:var(--font)">🌙 / ☀️</button>
           </div>
         </div>
 
-        <!-- Cronograma -->
-        ${(show==='both'||show==='crono') ? `<div class="card" style="padding:1.5rem">
-          <div class="portal-section-title">📅 Cronograma del proyecto</div>
-          ${cronoHTML || '<div style="color:var(--text3);font-size:0.84rem">Sin cronograma aún.</div>'}
+        <!-- Welcome banner -->
+        <div style="background:linear-gradient(135deg,${color}18,${color}08);border:1px solid ${color}30;border-radius:18px;padding:2rem 2.2rem;margin-bottom:1.2rem">
+          <div style="font-size:1.3rem;font-weight:800;color:var(--text);margin-bottom:0.6rem;line-height:1.3">Bienvenido a este camino.</div>
+          <div style="font-size:0.92rem;color:var(--text2);line-height:1.65;margin-bottom:1.4rem">Juntos le daremos vida a la identidad que tu marca merece. En este portal encontrarás dos secciones para acompañar tu proceso.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
+            <div style="background:var(--bg-card);border-radius:12px;padding:1.1rem 1.2rem;border:1px solid var(--border);cursor:pointer;transition:all 0.2s" onclick="portalSwitchTab('crono')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='var(--border)'">
+              <div style="font-size:1.2rem;margin-bottom:0.4rem">📅</div>
+              <div style="font-size:0.88rem;font-weight:700;color:var(--text);margin-bottom:0.3rem">Cronograma</div>
+              <div style="font-size:0.75rem;color:var(--text3);line-height:1.5">Ve en tiempo real los avances de tu proyecto. Las actividades marcadas con ⭐ son en las que participas directamente: reuniones, aprobaciones y revisiones.</div>
+            </div>
+            <div style="background:var(--bg-card);border-radius:12px;padding:1.1rem 1.2rem;border:1px solid var(--border);cursor:pointer;transition:all 0.2s" onclick="portalSwitchTab('bp')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='var(--border)'">
+              <div style="font-size:1.2rem;margin-bottom:0.4rem">⭐</div>
+              <div style="font-size:0.88rem;font-weight:700;color:var(--text);margin-bottom:0.3rem">Branding Points</div>
+              <div style="font-size:0.75rem;color:var(--text3);line-height:1.5">Tu herramienta para personalizar y elegir los entregables de tu marca. Elige, personaliza y haz tu marca lo más funcional posible.</div>
+            </div>
+          </div>
+          <div style="margin-top:0.8rem">
+            <div style="background:var(--bg-card);border-radius:12px;padding:1.1rem 1.2rem;border:1px solid var(--border);cursor:pointer;transition:all 0.2s" onclick="portalSwitchTab('aprobaciones')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='var(--border)'">
+              <div style="font-size:1.2rem;margin-bottom:0.4rem">✅</div>
+              <div style="font-size:0.88rem;font-weight:700;color:var(--text);margin-bottom:0.3rem">Aprobaciones</div>
+              <div style="font-size:0.75rem;color:var(--text3);line-height:1.5">Aquí confirmas los avances de cada etapa del proceso. Los formularios se activan a medida que tu proyecto avanza.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        ${(show==='both') ? `
+        <div style="display:flex;gap:0.4rem;margin-bottom:1rem;background:var(--bg-card2);border-radius:12px;padding:0.3rem" id="portal-tabs">
+          <button id="portal-tab-crono" onclick="portalSwitchTab('crono')"
+            style="flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.08);transition:all 0.2s">
+            📅 Cronograma
+          </button>
+          <button id="portal-tab-bp" onclick="portalSwitchTab('bp')"
+            style="flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);transition:all 0.2s">
+            ⭐ Branding Points
+          </button>
+          <button id="portal-tab-aprobaciones" onclick="portalSwitchTab('aprobaciones')"
+            style="flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);transition:all 0.2s">
+            ✅ Aprobaciones
+          </button>
         </div>` : ''}
 
-        <!-- Branding Points -->
-        ${(show==='both'||show==='bp') ? `<div class="card" style="padding:1.5rem" id="portal-bp-wrap">
-          ${bpHTML}
+        <!-- Cronograma tab -->
+        ${(show==='both'||show==='crono') ? `
+        <div id="portal-panel-crono">
+          <div class="card" style="padding:1.5rem">
+            ${cronoHTML || '<div style="color:var(--text3);font-size:0.84rem">Sin cronograma aún.</div>'}
+          </div>
+        </div>` : ''}
+
+        <!-- BP tab -->
+        ${(show==='both'||show==='bp') ? `
+        <div id="portal-panel-bp" style="${show==='both'?'display:none':''}">
+
+          <!-- BP intro -->
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:1.6rem 1.8rem;margin-bottom:1rem">
+            <div style="font-size:1rem;font-weight:800;color:var(--text);margin-bottom:1rem">Bienvenido a tu sección de Branding Points.</div>
+            <div style="display:flex;flex-direction:column;gap:0.7rem">
+              <div style="display:flex;gap:0.75rem;align-items:flex-start">
+                <span style="font-size:1rem;flex-shrink:0;margin-top:0.05rem">🛍️</span>
+                <p style="font-size:0.82rem;color:var(--text2);line-height:1.6;margin:0">Imagina que estás en el market del branding, y tienes cierta cantidad de <strong style="color:var(--text)">branding points</strong> — la moneda del universo de las marcas — para canjear por los entregables que desees.</p>
+              </div>
+              <div style="display:flex;gap:0.75rem;align-items:flex-start">
+                <span style="font-size:1rem;flex-shrink:0;margin-top:0.05rem">📝</span>
+                <p style="font-size:0.82rem;color:var(--text2);line-height:1.6;margin:0">No olvides dejarnos toda la información relevante: medidas, tamaños, materiales, etc. <strong style="color:var(--text)">Muuuuy importante</strong> — sin esto no podemos avanzar.</p>
+              </div>
+              <div style="display:flex;gap:0.75rem;align-items:flex-start">
+                <span style="font-size:1rem;flex-shrink:0;margin-top:0.05rem">❓</span>
+                <p style="font-size:0.82rem;color:var(--text2);line-height:1.6;margin:0">¿No encuentras lo que buscas? Al final está la sección <strong style="color:var(--text)">Personalizado</strong> — explícanos ese entregable especial y lo hacemos realidad. Verás un <strong style="color:var(--text)">?</strong> en sus puntos hasta que nuestro equipo los asigne.</p>
+              </div>
+              <div style="display:flex;gap:0.75rem;align-items:flex-start">
+                <span style="font-size:1rem;flex-shrink:0;margin-top:0.05rem">✨</span>
+                <p style="font-size:0.82rem;color:var(--text2);line-height:1.6;margin:0">¿Se te acabaron los puntos y quieres más? Sin problema — el equipo te envía una cotización por los puntos adicionales.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="padding:1.5rem" id="portal-bp-wrap">
+            ${bpHTML}
+          </div>
+        </div>` : ''}
+
+        <!-- Aprobaciones tab -->
+        ${(show==='both'||show==='crono'||show==='bp'||show==='aprobaciones'||!show) ? `
+        <div id="portal-panel-aprobaciones" style="display:none">
+          ${(()=>{ try{ return portalRenderAprobaciones(brand); } catch(e){ return '<div style="color:red;padding:1rem">Error: '+e.message+'</div>'; } })()}
         </div>` : ''}
 
         <div class="portal-powered">Powered by Polen System ✦</div>
@@ -11750,8 +11828,168 @@ function renderPortal(brandId){
     </div>
   `;
 
-  // Rebind portal BP realtime
   window._portalBrandId = brandId;
+  window._portalColor = color;
+}
+
+function portalSwitchTab(tab){
+  const crono = document.getElementById('portal-panel-crono');
+  const bp    = document.getElementById('portal-panel-bp');
+  const aprob = document.getElementById('portal-panel-aprobaciones');
+  const tCrono = document.getElementById('portal-tab-crono');
+  const tBp   = document.getElementById('portal-tab-bp');
+  const tAprob = document.getElementById('portal-tab-aprobaciones');
+  const color = window._portalColor || 'var(--aire)';
+
+  const activeStyle = `flex:1;padding:0.55rem 0.6rem;border-radius:9px;border:none;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.08);transition:all 0.2s`;
+  const inactiveStyle = `flex:1;padding:0.55rem 0.6rem;border-radius:9px;border:none;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);transition:all 0.2s`;
+
+  [crono, bp, aprob].forEach(el=>{ if(el) el.style.display='none'; });
+  [tCrono, tBp, tAprob].forEach(el=>{ if(el) el.style.cssText=inactiveStyle; });
+
+  if(tab==='crono'){
+    if(crono) crono.style.display='block';
+    if(tCrono) tCrono.style.cssText=activeStyle;
+  } else if(tab==='bp'){
+    if(bp) bp.style.display='block';
+    if(tBp) tBp.style.cssText=activeStyle;
+  } else if(tab==='aprobaciones'){
+    if(aprob) aprob.style.display='block';
+    if(tAprob) tAprob.style.cssText=activeStyle;
+  }
+}
+
+
+function portalRenderAprobaciones(brand){
+  const stageOrder = ['aire','agua','tierra','fuego'];
+  const stageIndex = stageOrder.indexOf(brand.stage || 'aire');
+
+  // Determine which stages are "active" (current or past)
+  // A stage is accessible if the brand has reached or passed it
+  const isStageActive = (stage) => {
+    const idx = stageOrder.indexOf(stage);
+    // Active if all activities in previous stages are complete OR this is current/past stage
+    return idx <= stageIndex;
+  };
+
+  // Check if all activities in a stage are complete
+  const isStageComplete = (stage) => {
+    const acts = brand.cronograma?.[stage] || [];
+    return acts.length > 0 && acts.every(a => a.status === 'completada');
+  };
+
+  const SC = {
+    aire:   {emoji:'🌬️', label:'Aire',   color:'var(--aire)',   bg:'rgba(59,158,221,0.06)',   border:'rgba(59,158,221,0.2)'},
+    agua:   {emoji:'💧',  label:'Agua',   color:'var(--agua)',   bg:'rgba(45,195,179,0.06)',   border:'rgba(45,195,179,0.2)'},
+    tierra: {emoji:'🌱',  label:'Tierra', color:'var(--tierra)', bg:'rgba(90,170,53,0.06)',    border:'rgba(90,170,53,0.2)'},
+    fuego:  {emoji:'🔥',  label:'Fuego',  color:'var(--fuego)',  bg:'rgba(232,98,42,0.06)',    border:'rgba(232,98,42,0.2)'},
+  };
+
+  // Approval questions per stage
+  const APPROVALS = {
+    aire: [
+      {id:'aire_investigacion', label:'Investigación y hallazgos', q:'¿Confirmas la aprobación de la investigación, hallazgos e insights presentados en esta etapa?', options:['Sí, 100% aprobado ✓','Sí, pero tengo ajustes','No, aún no']},
+      {id:'aire_caminos', label:'Caminos creativos', q:'¿Confirmas la aprobación de los caminos creativos y propuesta de dirección presentados?', options:['Sí, 100% aprobado ✓','Sí, pero tengo ajustes','No, aún no']},
+    ],
+    agua: [
+      {id:'agua_logotipo', label:'Aprobación de logotipo', q:'¿Confirmas la aprobación del logotipo presentado en esta etapa?', options:['Sí, 100% aprobado ✓','Sí, pero tengo ajustes','No, aún no']},
+      {id:'agua_cromatica', label:'Sistema cromático', q:'¿Confirmas la aprobación de la cromática de marca presentada en esta etapa?', options:['Sí, aprobado 🎨','No, tengo ajustes']},
+      {id:'agua_tipografia', label:'Sistema tipográfico', q:'¿Confirmas la aprobación de la tipografía de marca presentada en esta etapa?', options:['Sí, me encanta ✓','No, tengo ajustes']},
+      {id:'agua_verbal', label:'Sistema verbal', q:'¿Confirmas la aprobación del sistema verbal y valores de marca desarrollados en esta etapa?', options:['Sí, aprobado ✓','Sí, pero aún tengo ajustes']},
+      {id:'agua_avance', label:'Confirmación de avance', q:'¿Autorizas avanzar a la siguiente etapa del proyecto?', options:['Sí, avancemos ✓','Sí, pero con ajustes menores','Prefiero revisar algunos puntos antes de avanzar']},
+    ],
+    tierra: [
+      {id:'tierra_visual', label:'Identidad visual integral', q:'¿Confirmas la aprobación de la identidad visual integral de marca presentada?', options:['Sí, aprobada ✓','Sí, pero tengo ajustes','No, aún no']},
+      {id:'tierra_verbal', label:'Identidad verbal integral', q:'¿Confirmas la aprobación de la identidad verbal integral de marca?', options:['Sí, aprobada ✓','Sí, pero tengo ajustes','No, aún no']},
+      {id:'tierra_entregables', label:'Entregables de marca', q:'¿Confirmas la aprobación de los entregables de marca presentados alineados a la estrategia?', options:['Sí, avancemos ✓','Sí, pero tengo ajustes']},
+      {id:'tierra_comunicacionales', label:'Elementos comunicacionales', q:'¿Confirmas la aprobación de los elementos comunicacionales estratégicos de marca?', options:['Sí, aprobados ✓','Sí, pero tengo ajustes','No, aún no']},
+      {id:'tierra_avance', label:'Confirmación de avance', q:'¿Autorizas avanzar a la etapa final del proyecto?', options:['Sí, avancemos ✓','Sí, pero con ajustes menores','Prefiero revisar algunos puntos antes de avanzar']},
+    ],
+    fuego: [
+      {id:'fuego_manual', label:'Manual de marca integral', q:'¿Confirmas la aprobación del manual de marca integral con todas las notas y correcciones ejecutadas?', options:['Sí, aprobado al 100% ✓','Sí, pero tengo ajustes finales','No, aún necesito revisiones']},
+      {id:'fuego_entrega', label:'Aprobación de entrega final', q:'¿Confirmas la aprobación de la entrega final del proyecto y das por concluido el proceso?', options:['Sí, proyecto aprobado y concluido ✓','Tengo algunos ajustes finales pendientes']},
+    ],
+  };
+
+  const approvals = brand.portalApprovals || {};
+  const color = getBrandColor(brand);
+
+  const renderStage = (stage) => {
+    const sc = SC[stage];
+    const active = isStageActive(stage);
+    const complete = isStageComplete(stage);
+    const questions = APPROVALS[stage] || [];
+    const stageApprovals = approvals[stage] || {};
+    const allAnswered = questions.every(q => stageApprovals[q.id]);
+
+    if(!active){
+      return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.2rem 1.4rem;margin-bottom:0.8rem;opacity:0.45">
+        <div style="display:flex;align-items:center;gap:0.7rem">
+          <span style="font-size:1.3rem">🔒</span>
+          <div>
+            <div style="font-size:0.88rem;font-weight:700;color:var(--text)">${sc.emoji} Etapa ${sc.label}</div>
+            <div style="font-size:0.72rem;color:var(--text3);margin-top:0.1rem">Se habilitará cuando el proyecto llegue a esta etapa</div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    return `<div style="background:${sc.bg};border:1.5px solid ${sc.border};border-radius:16px;padding:1.4rem;margin-bottom:0.8rem">
+      <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1.2rem">
+        <span style="font-size:1.4rem">${sc.emoji}</span>
+        <div style="flex:1">
+          <div style="font-size:1rem;font-weight:800;color:${sc.color}">Etapa ${sc.label}</div>
+          <div style="font-size:0.72rem;color:var(--text3);margin-top:0.1rem">${allAnswered ? '✅ Formulario completado' : `${Object.keys(stageApprovals).length}/${questions.length} aprobaciones registradas`}</div>
+        </div>
+        ${allAnswered ? `<span style="background:${sc.color};color:#fff;font-size:0.68rem;font-weight:700;border-radius:99px;padding:0.2rem 0.6rem">Completo</span>` : ''}
+      </div>
+      ${questions.map(q=>{
+        const saved = stageApprovals[q.id];
+        return `<div style="background:var(--bg-card);border-radius:12px;padding:1rem 1.1rem;margin-bottom:0.6rem">
+          <div style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.5rem">${q.label}</div>
+          <div style="font-size:0.82rem;color:var(--text2);margin-bottom:0.75rem;line-height:1.5">${q.q}</div>
+          <div style="display:flex;flex-direction:column;gap:0.4rem">
+            ${q.options.map((opt,oi)=>{
+              const isSelected = saved === opt;
+              const safeOpt = opt.replace(/'/g,"&#39;").replace(/"/g,"&quot;");
+              return `<button onclick="portalSaveApproval('${brand.id}','${stage}','${q.id}','${safeOpt}')"
+                style="text-align:left;padding:0.6rem 0.85rem;border-radius:10px;border:1.5px solid ${isSelected ? sc.color : 'var(--border)'};background:${isSelected ? sc.color+'18' : 'var(--bg-card2)'};color:${isSelected ? sc.color : 'var(--text2)'};font-size:0.82rem;font-weight:${isSelected?700:400};cursor:pointer;font-family:var(--font);transition:all 0.15s;display:flex;align-items:center;gap:0.5rem"
+                onmouseover="if(!${isSelected}) this.style.borderColor='${sc.color}'"
+                onmouseout="if(!${isSelected}) this.style.borderColor='var(--border)'">
+                <span style="width:18px;height:18px;border-radius:50%;border:1.5px solid ${isSelected ? sc.color : 'var(--border)'};background:${isSelected ? sc.color : 'none'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                  ${isSelected ? '<span style="color:#fff;font-size:0.65rem">✓</span>' : ''}
+                </span>
+                ${opt}
+              </button>`;
+            }).join('')}
+          </div>
+          ${saved ? `<div style="margin-top:0.5rem;font-size:0.7rem;color:var(--text3)">✓ Registrado: "${saved}"</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  };
+
+  return `
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.4rem 1.6rem;margin-bottom:1rem">
+      <div style="font-size:1rem;font-weight:800;color:var(--text);margin-bottom:0.5rem">✅ Aprobaciones por etapa</div>
+      <p style="font-size:0.82rem;color:var(--text2);line-height:1.6;margin:0">A medida que tu proyecto avanza, cada etapa habilitará su formulario de aprobación. Confirmar cada sección nos permite continuar con la siguiente con total alineación. Tu feedback es fundamental para que el resultado sea exactamente lo que necesitas.</p>
+    </div>
+    ${stageOrder.map(renderStage).join('')}
+  `;
+}
+
+async function portalSaveApproval(brandId, stage, questionId, value){
+  // Decode HTML entities from onclick attribute
+  const decoded = value.replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,'&');
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand) return;
+  if(!brand.portalApprovals) brand.portalApprovals = {};
+  if(!brand.portalApprovals[stage]) brand.portalApprovals[stage] = {};
+  brand.portalApprovals[stage][questionId] = decoded;
+  markLocalChange('brands');
+  const panel = document.getElementById('portal-panel-aprobaciones');
+  if(panel) panel.innerHTML = portalRenderAprobaciones(brand);
+  upsert();
 }
 
 function portalRenderBp(brand){
@@ -11809,12 +12047,12 @@ function portalRenderBp(brand){
         </div>`;
       }).join('')}
       <div style="padding:0.4rem 1rem">
-        <button onclick="portalAddBpItem('${brand.id}',${ci})"
+        ${cat.name.toLowerCase().includes('personalizado') ? `<button onclick="portalAddBpItem('${brand.id}',${ci})"
           style="width:100%;padding:0.35rem;border:1px dashed var(--border);border-radius:8px;background:none;font-size:0.75rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s"
           onmouseover="this.style.borderColor='var(--aire)';this.style.color='var(--aire)'"
           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
           + Agregar entregable
-        </button>
+        </button>` : ''}
       </div>
     </div>`).join('');
 
@@ -15119,9 +15357,12 @@ function checkAutoArchive(brandId){
 
 // Arranque con control de acceso
 (function(){
-  setTheme(localStorage.getItem('polen-theme')||'dark');
   const _isPortal = new URLSearchParams(window.location.search).get('portal');
-  if(_isPortal){ boot(); return; }
+  if(_isPortal){
+    setTheme('light'); // Portal always defaults to light
+    boot(); return;
+  }
+  setTheme(localStorage.getItem('polen-theme')||'dark');
   if(isAuthenticated()){ boot(); return; }
   // Mostrar login
   document.getElementById('login-screen').style.display = 'flex';
