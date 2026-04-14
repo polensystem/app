@@ -11763,7 +11763,28 @@ function portalSwitchTab(tab){
       ${_portalCronoHTML(brand)}`;
   } else if(tab==='bp'){
     if(tBp) tBp.style.cssText=active;
-    content.innerHTML = `<div class="card" style="padding:1.5rem" id="portal-bp-wrap">${portalRenderBp(brand)}</div>`;
+    const bpIntro = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:1.6rem 1.8rem;margin-bottom:1rem">
+      <div style="font-size:1rem;font-weight:800;color:var(--text);margin-bottom:1rem">Bienvenido a tu sección de Branding Points.</div>
+      <div style="display:flex;flex-direction:column;gap:0.7rem">
+        <div style="display:flex;gap:0.75rem;align-items:flex-start">
+          <span style="font-size:1rem;flex-shrink:0;margin-top:0.05rem">🛍️</span>
+          <p style="font-size:0.82rem;color:var(--text2);line-height:1.6;margin:0">Imagina que estás en el market del branding, y tienes cierta cantidad de <strong style="color:var(--text)">branding points</strong> — la moneda del universo de las marcas — para canjear por los entregables que desees.</p>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:flex-start">
+          <span style="font-size:1rem;flex-shrink:0;margin-top:0.05rem">📝</span>
+          <p style="font-size:0.82rem;color:var(--text2);line-height:1.6;margin:0">No olvides dejarnos toda la información relevante: medidas, tamaños, materiales, etc. <strong style="color:var(--text)">Muuuuy importante</strong> — sin esto no podemos avanzar.</p>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:flex-start">
+          <span style="font-size:1rem;flex-shrink:0;margin-top:0.05rem">❓</span>
+          <p style="font-size:0.82rem;color:var(--text2);line-height:1.6;margin:0">¿No encuentras lo que buscas? Al final está la sección <strong style="color:var(--text)">Personalizado</strong> — explícanos ese entregable especial y lo hacemos realidad. Verás un <strong style="color:var(--text)">?</strong> en sus puntos hasta que nuestro equipo los asigne.</p>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:flex-start">
+          <span style="font-size:1rem;flex-shrink:0;margin-top:0.05rem">✨</span>
+          <p style="font-size:0.82rem;color:var(--text2);line-height:1.6;margin:0">¿Se te acabaron los puntos y quieres más? Sin problema — el equipo te envía una cotización por los puntos adicionales.</p>
+        </div>
+      </div>
+    </div>`;
+    content.innerHTML = bpIntro + `<div class="card" style="padding:1.5rem" id="portal-bp-wrap">${portalRenderBp(brand)}</div>`;
   } else if(tab==='aprobaciones'){
     if(tAprob) tAprob.style.cssText=active;
     try{
