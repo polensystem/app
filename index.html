@@ -11965,8 +11965,27 @@ async function portalSaveApproval(brandId, stage, questionId, value){
   if(!brand.portalApprovals[stage]) brand.portalApprovals[stage] = {};
   brand.portalApprovals[stage][questionId] = decoded;
   markLocalChange('brands');
+
+  // Remember which stages are currently open before re-render
+  const openStages = ['aire','agua','tierra','fuego'].filter(s=>{
+    const el = document.getElementById('aprob-body-'+s);
+    return el && el.style.display !== 'none';
+  });
+
+  // Re-render content area
   const panel = document.getElementById('portal-content-area');
   if(panel) panel.innerHTML = portalRenderAprobaciones(brand);
+
+  // Restore open/closed state
+  ['aire','agua','tierra','fuego'].forEach(s=>{
+    const body = document.getElementById('aprob-body-'+s);
+    const arrow = document.getElementById('aprob-arrow-'+s);
+    if(!body) return;
+    const shouldBeOpen = openStages.includes(s);
+    body.style.display = shouldBeOpen ? 'block' : 'none';
+    if(arrow) arrow.style.transform = shouldBeOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  });
+
   upsert();
 }
 
