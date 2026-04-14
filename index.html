@@ -11818,10 +11818,9 @@ function renderPortal(brandId){
         </div>` : ''}
 
         <!-- Aprobaciones tab -->
-        ${(show==='both'||show==='crono'||show==='bp'||show==='aprobaciones'||!show) ? `
         <div id="portal-panel-aprobaciones" style="display:none">
-          ${(()=>{ try{ return portalRenderAprobaciones(brand); } catch(e){ return '<div style="color:red;padding:1rem">Error: '+e.message+'</div>'; } })()}
-        </div>` : ''}
+          <div id="portal-aprob-content"><div style="padding:2rem;text-align:center;color:var(--text3)">Cargando...</div></div>
+        </div>
 
         <div class="portal-powered">Powered by Polen System ✦</div>
       </div>
@@ -11830,6 +11829,19 @@ function renderPortal(brandId){
 
   window._portalBrandId = brandId;
   window._portalColor = color;
+
+  // Render approval content after DOM is ready
+  setTimeout(()=>{
+    const el = document.getElementById('portal-aprob-content');
+    if(el){
+      try{
+        el.innerHTML = portalRenderAprobaciones(brand);
+      }catch(e){
+        el.innerHTML = '<div style="color:red;padding:1rem;font-size:0.82rem">Error en aprobaciones: '+e.message+'</div>';
+        console.error('portalRenderAprobaciones error:', e);
+      }
+    }
+  }, 50);
 }
 
 function portalSwitchTab(tab){
@@ -11994,7 +12006,7 @@ async function portalSaveApproval(brandId, stage, questionId, value){
   if(!brand.portalApprovals[stage]) brand.portalApprovals[stage] = {};
   brand.portalApprovals[stage][questionId] = decoded;
   markLocalChange('brands');
-  const panel = document.getElementById('portal-panel-aprobaciones');
+  const panel = document.getElementById('portal-aprob-content');
   if(panel) panel.innerHTML = portalRenderAprobaciones(brand);
   upsert();
 }
