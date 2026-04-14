@@ -11737,7 +11737,30 @@ function portalSwitchTab(tab){
 
   if(tab==='crono'){
     if(tCrono) tCrono.style.cssText=active;
-    content.innerHTML = _portalCronoHTML(brand);
+    const color = getBrandColor(brand);
+    content.innerHTML = `
+      <div style="background:linear-gradient(135deg,${color}18,${color}08);border:1px solid ${color}30;border-radius:18px;padding:1.8rem 2rem;margin-bottom:1rem">
+        <div style="font-size:1.2rem;font-weight:800;color:var(--text);margin-bottom:0.5rem">Bienvenido a este camino.</div>
+        <div style="font-size:0.88rem;color:var(--text2);line-height:1.6;margin-bottom:1.2rem">Juntos le daremos vida a la identidad que tu marca merece. En este portal encontrarás tres secciones para acompañar tu proceso.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.6rem">
+          <div style="background:var(--bg-card);border-radius:12px;padding:0.9rem 1rem;border:1px solid var(--border)">
+            <div style="font-size:1rem;margin-bottom:0.3rem">📅</div>
+            <div style="font-size:0.82rem;font-weight:700;color:var(--text);margin-bottom:0.2rem">Cronograma</div>
+            <div style="font-size:0.7rem;color:var(--text3);line-height:1.4">Ve los avances en tiempo real. Las ⭐ son actividades donde participas tú.</div>
+          </div>
+          <div style="background:var(--bg-card);border-radius:12px;padding:0.9rem 1rem;border:1px solid var(--border);cursor:pointer" onclick="portalSwitchTab('bp')">
+            <div style="font-size:1rem;margin-bottom:0.3rem">⭐</div>
+            <div style="font-size:0.82rem;font-weight:700;color:var(--text);margin-bottom:0.2rem">Branding Points</div>
+            <div style="font-size:0.7rem;color:var(--text3);line-height:1.4">Tu herramienta para elegir y personalizar los entregables de tu marca.</div>
+          </div>
+          <div style="background:var(--bg-card);border-radius:12px;padding:0.9rem 1rem;border:1px solid var(--border);cursor:pointer" onclick="portalSwitchTab('aprobaciones')">
+            <div style="font-size:1rem;margin-bottom:0.3rem">✅</div>
+            <div style="font-size:0.82rem;font-weight:700;color:var(--text);margin-bottom:0.2rem">Aprobaciones</div>
+            <div style="font-size:0.7rem;color:var(--text3);line-height:1.4">Confirma los avances de cada etapa. Se activan a medida que avanza el proyecto.</div>
+          </div>
+        </div>
+      </div>
+      ${_portalCronoHTML(brand)}`;
   } else if(tab==='bp'){
     if(tBp) tBp.style.cssText=active;
     content.innerHTML = `<div class="card" style="padding:1.5rem" id="portal-bp-wrap">${portalRenderBp(brand)}</div>`;
@@ -11842,65 +11865,65 @@ function portalRenderAprobaciones(brand){
   const renderStage = (stage) => {
     const sc = SC[stage];
     const active = isStageActive(stage);
-    const complete = isStageComplete(stage);
     const questions = APPROVALS[stage] || [];
     const stageApprovals = approvals[stage] || {};
-    const allAnswered = questions.every(q => stageApprovals[q.id]);
+    const allAnswered = questions.length > 0 && questions.every(q => stageApprovals[q.id]);
+    const isCurrent = brand.stage === stage;
+    const isOpen = isCurrent; // default: only current stage open
 
     if(!active){
-      return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.2rem 1.4rem;margin-bottom:0.8rem;opacity:0.45">
+      return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.1rem 1.4rem;margin-bottom:0.6rem;opacity:0.4">
         <div style="display:flex;align-items:center;gap:0.7rem">
-          <span style="font-size:1.3rem">🔒</span>
+          <span style="font-size:1.2rem">🔒</span>
           <div>
             <div style="font-size:0.88rem;font-weight:700;color:var(--text)">${sc.emoji} Etapa ${sc.label}</div>
-            <div style="font-size:0.72rem;color:var(--text3);margin-top:0.1rem">Se habilitará cuando el proyecto llegue a esta etapa</div>
+            <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem">Se habilitará cuando el proyecto llegue a esta etapa</div>
           </div>
         </div>
       </div>`;
     }
 
-    return `<div style="background:${sc.bg};border:1.5px solid ${sc.border};border-radius:16px;padding:1.4rem;margin-bottom:0.8rem">
-      <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1.2rem">
-        <span style="font-size:1.4rem">${sc.emoji}</span>
+    return `<div style="background:${sc.bg};border:1.5px solid ${sc.border};border-radius:16px;margin-bottom:0.6rem;overflow:hidden">
+      <div onclick="toggleAprobStage('${stage}')" style="display:flex;align-items:center;gap:0.6rem;padding:1.1rem 1.4rem;cursor:pointer;user-select:none">
+        <span style="font-size:1.2rem">${sc.emoji}</span>
         <div style="flex:1">
-          <div style="font-size:1rem;font-weight:800;color:${sc.color}">Etapa ${sc.label}</div>
-          <div style="font-size:0.72rem;color:var(--text3);margin-top:0.1rem">${allAnswered ? '✅ Formulario completado' : `${Object.keys(stageApprovals).length}/${questions.length} aprobaciones registradas`}</div>
+          <div style="font-size:0.95rem;font-weight:800;color:${sc.color}">Etapa ${sc.label}</div>
+          <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem">${allAnswered ? '✅ Completado' : `${Object.keys(stageApprovals).length}/${questions.length} aprobaciones registradas`}</div>
         </div>
-        ${allAnswered ? `<span style="background:${sc.color};color:#fff;font-size:0.68rem;font-weight:700;border-radius:99px;padding:0.2rem 0.6rem">Completo</span>` : ''}
+        ${allAnswered ? `<span style="background:${sc.color};color:#fff;font-size:0.65rem;font-weight:700;border-radius:99px;padding:0.2rem 0.6rem">Completo</span>` : ''}
+        <span id="aprob-arrow-${stage}" style="font-size:0.75rem;color:var(--text3);transition:transform 0.2s;transform:rotate(${isOpen?'0':'180'}deg)">▲</span>
       </div>
-      ${questions.map(q=>{
-        const saved = stageApprovals[q.id];
-        return `<div style="background:var(--bg-card);border-radius:12px;padding:1rem 1.1rem;margin-bottom:0.6rem">
-          <div style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.5rem">${q.label}</div>
-          <div style="font-size:0.82rem;color:var(--text2);margin-bottom:0.75rem;line-height:1.5">${q.q}</div>
-          <div style="display:flex;flex-direction:column;gap:0.4rem">
-            ${q.options.map((opt,oi)=>{
-              const isSelected = saved === opt;
-              const safeOpt = opt.replace(/'/g,"&#39;").replace(/"/g,"&quot;");
-              return `<button onclick="portalSaveApproval('${brand.id}','${stage}','${q.id}','${safeOpt}')"
-                style="text-align:left;padding:0.6rem 0.85rem;border-radius:10px;border:1.5px solid ${isSelected ? sc.color : 'var(--border)'};background:${isSelected ? sc.color+'18' : 'var(--bg-card2)'};color:${isSelected ? sc.color : 'var(--text2)'};font-size:0.82rem;font-weight:${isSelected?700:400};cursor:pointer;font-family:var(--font);transition:all 0.15s;display:flex;align-items:center;gap:0.5rem"
-                onmouseover="if(!${isSelected}) this.style.borderColor='${sc.color}'"
-                onmouseout="if(!${isSelected}) this.style.borderColor='var(--border)'">
-                <span style="width:18px;height:18px;border-radius:50%;border:1.5px solid ${isSelected ? sc.color : 'var(--border)'};background:${isSelected ? sc.color : 'none'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                  ${isSelected ? '<span style="color:#fff;font-size:0.65rem">✓</span>' : ''}
-                </span>
-                ${opt}
-              </button>`;
-            }).join('')}
-          </div>
-          ${saved ? `<div style="margin-top:0.5rem;font-size:0.7rem;color:var(--text3)">✓ Registrado: "${saved}"</div>` : ''}
-        </div>`;
-      }).join('')}
+      <div id="aprob-body-${stage}" style="display:${isOpen?'block':'none'};padding:0 1rem 1rem">
+        ${questions.map(q=>{
+          const saved = stageApprovals[q.id];
+          return `<div style="background:var(--bg-card);border-radius:12px;padding:1rem 1.1rem;margin-bottom:0.6rem">
+            <div style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.4rem">${q.label}</div>
+            <div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.7rem;line-height:1.5">${q.q}</div>
+            <div style="display:flex;flex-direction:column;gap:0.35rem">
+              ${q.options.map(opt=>{
+                const isSelected = saved === opt;
+                const safeOpt = opt.replace(/'/g,"&#39;").replace(/"/g,"&quot;");
+                return `<button onclick="portalSaveApproval('${brand.id}','${stage}','${q.id}','${safeOpt}')"
+                  style="text-align:left;padding:0.55rem 0.85rem;border-radius:10px;border:1.5px solid ${isSelected?sc.color:'var(--border)'};background:${isSelected?sc.color+'18':'var(--bg-card2)'};color:${isSelected?sc.color:'var(--text2)'};font-size:0.8rem;font-weight:${isSelected?700:400};cursor:pointer;font-family:var(--font);transition:all 0.15s;display:flex;align-items:center;gap:0.5rem">
+                  <span style="width:16px;height:16px;border-radius:50%;border:1.5px solid ${isSelected?sc.color:'var(--border)'};background:${isSelected?sc.color:'none'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.6rem;color:#fff">${isSelected?'✓':''}</span>
+                  ${opt}
+                </button>`;
+              }).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
     </div>`;
   };
 
-  return `
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.4rem 1.6rem;margin-bottom:1rem">
-      <div style="font-size:1rem;font-weight:800;color:var(--text);margin-bottom:0.5rem">✅ Aprobaciones por etapa</div>
-      <p style="font-size:0.82rem;color:var(--text2);line-height:1.6;margin:0">A medida que tu proyecto avanza, cada etapa habilitará su formulario de aprobación. Confirmar cada sección nos permite continuar con la siguiente con total alineación. Tu feedback es fundamental para que el resultado sea exactamente lo que necesitas.</p>
-    </div>
-    ${stageOrder.map(renderStage).join('')}
-  `;
+
+function toggleAprobStage(stage){
+  const body = document.getElementById('aprob-body-'+stage);
+  const arrow = document.getElementById('aprob-arrow-'+stage);
+  if(!body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if(arrow) arrow.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
 }
 
 async function portalSaveApproval(brandId, stage, questionId, value){
@@ -11912,7 +11935,7 @@ async function portalSaveApproval(brandId, stage, questionId, value){
   if(!brand.portalApprovals[stage]) brand.portalApprovals[stage] = {};
   brand.portalApprovals[stage][questionId] = decoded;
   markLocalChange('brands');
-  const panel = document.getElementById('portal-aprob-content');
+  const panel = document.getElementById('portal-content-area');
   if(panel) panel.innerHTML = portalRenderAprobaciones(brand);
   upsert();
 }
