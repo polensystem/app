@@ -11921,7 +11921,7 @@ function portalRenderAprobaciones(brand){
             <div style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.4rem">${q.label}</div>
             <div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.7rem;line-height:1.5">${q.q}</div>
             <div style="display:flex;flex-direction:column;gap:0.35rem">
-              ${q.options.map(opt=>{
+              ${q.options.map((opt, optIdx)=>{
                 const isSelected = saved === opt;
                 const safeOpt = opt.replace(/'/g,"&#39;").replace(/"/g,"&quot;");
                 return `<button onclick="portalSaveApproval('${brand.id}','${stage}','${q.id}','${safeOpt}')"
@@ -11930,6 +11930,16 @@ function portalRenderAprobaciones(brand){
                   ${opt}
                 </button>`;
               }).join('')}
+              ${(saved && saved !== q.options[0]) ? `
+              <div style="margin-top:0.6rem">
+                <textarea
+                  placeholder="Sin problema, trabajemos en ello. ¿Cuáles son los cambios? Puedes especificarlos aquí, por el grupo (domo), en la plataforma Ruttl o en una reunión virtual."
+                  onchange="portalSaveApprovalNote('${brand.id}','${stage}','${q.id}',this.value)"
+                  style="width:100%;box-sizing:border-box;padding:0.65rem 0.8rem;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:0.79rem;font-family:var(--font);line-height:1.5;resize:none;min-height:80px;transition:border-color 0.15s;outline:none"
+                  onfocus="this.style.borderColor='${sc.color}'"
+                  onblur="this.style.borderColor='var(--border)'"
+                >${(stageApprovals[q.id+'_note']||'')}</textarea>
+              </div>` : ''}
             </div>
           </div>`;
         }).join('')}
@@ -11954,6 +11964,16 @@ function toggleAprobStage(stage){
   const isOpen = body.style.display !== 'none';
   body.style.display = isOpen ? 'none' : 'block';
   if(arrow) arrow.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+
+function portalSaveApprovalNote(brandId, stage, questionId, value){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand) return;
+  if(!brand.portalApprovals) brand.portalApprovals = {};
+  if(!brand.portalApprovals[stage]) brand.portalApprovals[stage] = {};
+  brand.portalApprovals[stage][questionId+'_note'] = value;
+  markLocalChange('brands');
+  upsert();
 }
 
 async function portalSaveApproval(brandId, stage, questionId, value){
