@@ -11834,11 +11834,14 @@ function renderPortal(brandId){
   const _aprobEl = document.getElementById('portal-aprob-content');
   if(_aprobEl){
     try{
-      _aprobEl.innerHTML = portalRenderAprobaciones(brand);
+      const _aprobHTML = portalRenderAprobaciones(brand);
+      _aprobEl.innerHTML = _aprobHTML || '<div style="padding:2rem;color:orange">Función devolvió vacío. Stage: '+brand.stage+'</div>';
     }catch(e){
       _aprobEl.innerHTML = '<div style="color:red;padding:1rem">Error: '+e.message+'</div>';
       console.error('Aprobaciones error:', e);
     }
+  } else {
+    console.error('portal-aprob-content element NOT FOUND');
   }
 }
 
