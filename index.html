@@ -11830,18 +11830,16 @@ function renderPortal(brandId){
   window._portalBrandId = brandId;
   window._portalColor = color;
 
-  // Render approval content after DOM is ready
-  setTimeout(()=>{
-    const el = document.getElementById('portal-aprob-content');
-    if(el){
-      try{
-        el.innerHTML = portalRenderAprobaciones(brand);
-      }catch(e){
-        el.innerHTML = '<div style="color:red;padding:1rem;font-size:0.82rem">Error en aprobaciones: '+e.message+'</div>';
-        console.error('portalRenderAprobaciones error:', e);
-      }
+  // Render approval content immediately after innerHTML is set
+  const _aprobEl = document.getElementById('portal-aprob-content');
+  if(_aprobEl){
+    try{
+      _aprobEl.innerHTML = portalRenderAprobaciones(brand);
+    }catch(e){
+      _aprobEl.innerHTML = '<div style="color:red;padding:1rem">Error: '+e.message+'</div>';
+      console.error('Aprobaciones error:', e);
     }
-  }, 50);
+  }
 }
 
 function portalSwitchTab(tab){
