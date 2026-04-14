@@ -11864,14 +11864,20 @@ function portalSwitchTab(tab){
   } else if(tab==='aprobaciones'){
     if(aprob) aprob.style.display='block';
     if(tAprob) tAprob.style.cssText=activeStyle;
-    // Render content now that panel is visible
+    // Get brand from appData directly - never depends on window._portalBrand timing
     const aprobContent = document.getElementById('portal-aprob-content');
-    if(aprobContent && window._portalBrand){
-      try{
-        aprobContent.innerHTML = portalRenderAprobaciones(window._portalBrand);
-      }catch(e){
-        aprobContent.innerHTML = '<div style="color:red;padding:1rem">Error: '+e.message+'</div>';
-        console.error('Aprobaciones error:', e);
+    if(aprobContent){
+      const _bid = window._portalBrandId;
+      const _brand = (appData?.brands||[]).find(b=>b.id===_bid);
+      if(_brand){
+        try{
+          aprobContent.innerHTML = portalRenderAprobaciones(_brand);
+        }catch(e){
+          aprobContent.innerHTML = '<div style="color:red;padding:1rem">Error: '+e.message+'</div>';
+          console.error('Aprobaciones error:', e);
+        }
+      } else {
+        aprobContent.innerHTML = '<div style="padding:1rem;color:orange">Brand no encontrado. ID: '+_bid+'</div>';
       }
     }
   }
