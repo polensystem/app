@@ -11924,7 +11924,7 @@ function portalRenderAprobaciones(brand){
               ${q.options.map((opt, optIdx)=>{
                 const isSelected = saved === opt;
                 const safeOpt = opt.replace(/'/g,"&#39;").replace(/"/g,"&quot;");
-                return `<button onclick="portalSaveApproval('${brand.id}','${stage}','${q.id}','${safeOpt}')"
+                return `<button onclick="portalSaveApproval('${brand.id}','${stage}','${q.id}','${safeOpt}',${isSelected})"
                   style="text-align:left;padding:0.55rem 0.85rem;border-radius:10px;border:1.5px solid ${isSelected?sc.color:'var(--border)'};background:${isSelected?sc.color+'18':'var(--bg-card2)'};color:${isSelected?sc.color:'var(--text2)'};font-size:0.8rem;font-weight:${isSelected?700:400};cursor:pointer;font-family:var(--font);transition:all 0.15s;display:flex;align-items:center;gap:0.5rem">
                   <span style="width:16px;height:16px;border-radius:50%;border:1.5px solid ${isSelected?sc.color:'var(--border)'};background:${isSelected?sc.color:'none'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.6rem;color:#fff">${isSelected?'✓':''}</span>
                   ${opt}
@@ -11976,14 +11976,21 @@ function portalSaveApprovalNote(brandId, stage, questionId, value){
   upsert();
 }
 
-async function portalSaveApproval(brandId, stage, questionId, value){
+async function portalSaveApproval(brandId, stage, questionId, value, isCurrentlySelected=false){
   // Decode HTML entities from onclick attribute
   const decoded = value.replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,'&');
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand) return;
   if(!brand.portalApprovals) brand.portalApprovals = {};
   if(!brand.portalApprovals[stage]) brand.portalApprovals[stage] = {};
-  brand.portalApprovals[stage][questionId] = decoded;
+
+  // If clicking the already-selected option → deselect
+  if(isCurrentlySelected){
+    delete brand.portalApprovals[stage][questionId];
+    delete brand.portalApprovals[stage][questionId+'_note'];
+  } else {
+    brand.portalApprovals[stage][questionId] = decoded;
+  }
   markLocalChange('brands');
 
   // Remember which stages are currently open before re-render
