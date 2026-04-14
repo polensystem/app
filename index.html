@@ -11858,22 +11858,25 @@ function portalSwitchTab(tab){
     if(tAprob) tAprob.style.cssText=activeStyle;
   }
 
-  // Scroll to tabs bar so panel is visible
+  // Scroll the portal container to show the tabs/panel
+  const portalContainer = document.querySelector('.main > div[style*="overflow-y"]');
   const tabsBar = document.getElementById('portal-tabs');
-  if(tabsBar) tabsBar.scrollIntoView({behavior:'smooth', block:'start'});
+  if(portalContainer && tabsBar){
+    const tabsTop = tabsBar.offsetTop - 16;
+    portalContainer.scrollTop = tabsTop;
+  }
 }
 
 
 function portalRenderAprobaciones(brand){
   const stageOrder = ['aire','agua','tierra','fuego'];
-  const stageIndex = stageOrder.indexOf(brand.stage || 'aire');
 
-  // Determine which stages are "active" (current or past)
-  // A stage is accessible if the brand has reached or passed it
+  // Aire is always active. Each subsequent stage unlocks when the brand has reached or passed it.
   const isStageActive = (stage) => {
-    const idx = stageOrder.indexOf(stage);
-    // Active if all activities in previous stages are complete OR this is current/past stage
-    return idx <= stageIndex;
+    if(stage === 'aire') return true;
+    const stageIdx = stageOrder.indexOf(stage);
+    const brandIdx = stageOrder.indexOf(brand.stage || 'aire');
+    return brandIdx >= stageIdx;
   };
 
   // Check if all activities in a stage are complete
