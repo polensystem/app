@@ -11836,7 +11836,6 @@ function portalSwitchTab(tab){
   const crono = document.getElementById('portal-panel-crono');
   const bp    = document.getElementById('portal-panel-bp');
   const aprob = document.getElementById('portal-panel-aprobaciones');
-  console.log('[Portal] switchTab:', tab, 'aprob el:', aprob, 'innerHTML length:', aprob?.innerHTML?.length);
   const tCrono = document.getElementById('portal-tab-crono');
   const tBp   = document.getElementById('portal-tab-bp');
   const tAprob = document.getElementById('portal-tab-aprobaciones');
@@ -11858,6 +11857,10 @@ function portalSwitchTab(tab){
     if(aprob) aprob.style.display='block';
     if(tAprob) tAprob.style.cssText=activeStyle;
   }
+
+  // Scroll to tabs bar so panel is visible
+  const tabsBar = document.getElementById('portal-tabs');
+  if(tabsBar) tabsBar.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 
