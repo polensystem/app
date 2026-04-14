@@ -11829,9 +11829,11 @@ function renderPortal(brandId){
 
   window._portalBrandId = brandId;
   window._portalColor = color;
+  console.log('POLEN-v382 brand='+brand?.name+' stage='+brand?.stage);
 
   // Render approval content immediately after innerHTML is set
   const _aprobEl = document.getElementById('portal-aprob-content');
+  console.log('POLEN-v382 _aprobEl=', _aprobEl);
   if(_aprobEl){
     try{
       const _aprobHTML = portalRenderAprobaciones(brand);
