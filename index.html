@@ -3202,11 +3202,40 @@ function deepMergeAppData(server, local){
   const persistedDeletedBrandIds = new Set([...(local._deletedBrandIds||[]), ...(server._deletedBrandIds||[])]);
   const allDeletedBrandIds = new Set([...deletedBrandIds, ...persistedDeletedBrandIds]);
   if(_localChangedKeys.has('brands')){
-    merged.brands = localBrands.filter(b=>!allDeletedBrandIds.has(b.id));
+    // Local changed brands — but preserve server-side portal fields (brandingPoints, portalApprovals)
+    // that the client may have updated via the portal
+    const serverBrandMap = {};
+    serverBrands.forEach(b=>{ serverBrandMap[b.id] = b; });
+    merged.brands = localBrands
+      .filter(b=>!allDeletedBrandIds.has(b.id))
+      .map(b=>{
+        const sv = serverBrandMap[b.id];
+        if(!sv) return b;
+        // For portal-owned fields: server wins if server has data and local doesn't have newer
+        const bp = (sv.brandingPoints && sv.brandingPoints.categories?.length)
+          ? sv.brandingPoints : b.brandingPoints;
+        const pa = (sv.portalApprovals && Object.keys(sv.portalApprovals).length)
+          ? sv.portalApprovals : b.portalApprovals;
+        return {...b, brandingPoints: bp, portalApprovals: pa};
+      });
   } else {
     const brandMap = {};
     serverBrands.forEach(b=>{ if(!allDeletedBrandIds.has(b.id)) brandMap[b.id] = {...b}; });
-    localBrands.forEach(b=>{ if(!allDeletedBrandIds.has(b.id)) brandMap[b.id] = brandMap[b.id] ? {...brandMap[b.id], ...b} : {...b}; });
+    localBrands.forEach(b=>{
+      if(!allDeletedBrandIds.has(b.id)){
+        if(brandMap[b.id]){
+          // Merge: local wins for most fields, server wins for portal-owned fields
+          const sv = brandMap[b.id];
+          const bp = (sv.brandingPoints && sv.brandingPoints.categories?.length)
+            ? sv.brandingPoints : b.brandingPoints;
+          const pa = (sv.portalApprovals && Object.keys(sv.portalApprovals).length)
+            ? sv.portalApprovals : b.portalApprovals;
+          brandMap[b.id] = {...sv, ...b, brandingPoints: bp, portalApprovals: pa};
+        } else {
+          brandMap[b.id] = {...b};
+        }
+      }
+    });
     merged.brands = Object.values(brandMap);
   }
   merged._deletedBrandIds = [...persistedDeletedBrandIds];
