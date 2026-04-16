@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260416-v384.1-TIMER-CLEANUP-FIX -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260416-v384.2-AUTO-REFRESH-UI -->
 <html lang="es" data-theme="dark">
 <head>
 <meta charset="UTF-8">
@@ -3498,6 +3498,42 @@ async function _doUpsert(){
       _lastLocalUpsertAt = Date.now();
       // Actualizar dot a verde
       setConnDot(true);
+      
+      // 🔄 AUTO-REFRESH UI después de guardado exitoso
+      console.log('[polen] Auto-refreshing UI for current page:', currentPage);
+      try {
+        // Refresh basado en la página actual
+        if(currentPage === 'dashboard') {
+          renderDashboard();
+          renderBanners(); // Refresh banners con estadísticas
+        } else if(currentPage === 'cobranzas' && _cobUnlocked) {
+          renderCobranzas();
+          // Refresh también las tablas de cobros específicamente
+          renderCobros();
+          renderCobTabla();
+        } else if(currentPage === 'brand' && currentBrandId) {
+          renderBrandPage();
+          // Si la página de marca tiene cobros visibles, refrescarlos también
+          const cobCard = document.querySelector(`[data-brand-id="${currentBrandId}"] .cob-card`);
+          if(cobCard) {
+            renderCobCard(currentBrandId);
+          }
+        } else if(currentPage === 'equipo') {
+          renderEquipo();
+          renderTeamPage();
+        } else if(currentPage === 'template') {
+          renderTemplate();
+        } else if(currentPage === 'finanzas' && _finUnlocked) {
+          renderFinMes();
+        } else if(currentPage === 'archivo') {
+          renderArchivo();
+        }
+        console.log('[polen] UI refresh completed');
+      } catch(refreshErr) {
+        console.warn('[polen] UI refresh failed:', refreshErr);
+        // No fallar el guardado por un error de refresh
+      }
+      
       return true;
 
     } catch(e){
