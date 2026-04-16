@@ -3345,7 +3345,7 @@ function deepMergeAppData(server, local){
   return merged;
 }
 
-let _saveQueue = Promise.resolve(); // Serialise saves to prevent race within same tab
+let _isSaving = false; // Simple flag to prevent concurrent saves
 
 function _updateHitosBadge(){
   try{
@@ -3385,7 +3385,7 @@ async function upsert(immediate=false){
   if(!immediate){
     clearTimeout(_upsertDebounceTimer);
     _upsertDebounceTimer = setTimeout(()=>{ upsert(true); }, _UPSERT_DEBOUNCE_MS);
-    return _saveQueue;
+    return;
   }
 
   // Protección anti-vaciado: no guardar si brands tiene menos de 3 elementos y había más antes
@@ -3403,8 +3403,18 @@ async function upsert(immediate=false){
     }catch(e){}
   }
 
-  _saveQueue = _saveQueue.catch(()=>{}).then(async ()=>{
-    try{
+  // If already saving, skip (debounce handles grouping)
+  if(_isSaving) return;
+  _isSaving = true;
+  try {
+    await _doUpsert();
+  } finally {
+    _isSaving = false;
+  }
+}
+
+async function _doUpsert(){
+  try{
       // Escribir directamente desde appData local — sin leer del servidor primero.
       // appData ya es la fuente de verdad y se mantiene actualizado via realtime.
       // Esto elimina 1 round-trip y hace los saves ~2x más rápidos.
@@ -3473,9 +3483,6 @@ async function upsert(immediate=false){
       // (no localbak on error — avoid serving stale data)
       return false;
     }
-  });
-
-  return _saveQueue;
 }
 
 function exportBackup(){
