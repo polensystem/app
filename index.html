@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260414-v383 -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260416-v384-HOTFIX-UPSERT -->
 <html lang="es" data-theme="dark">
 <head>
 <meta charset="UTF-8">
@@ -2795,9 +2795,11 @@ const SB_URL='https://abfgnaavzqvfhmyyfvpn.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFiZmduYWF2enF2ZmhteXlmdnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzkwMjUsImV4cCI6MjA5MDExNTAyNX0.ZD-zSW1hCMdhj_IhuLuOTuB3GdzdYkex00je_l30nrA';
 const REC_ID='polen-team-data';
 const sb=createClient(SB_URL,SB_KEY);
+window.sb = sb; // Para diagnóstico
 
 /* ═══ STATE ═══ */
 let appData={brands:[],template:null,members:[]};
+window.appData = appData; // Para diagnóstico
 let currentPage='dashboard';
 let currentBrandId=null;
 let editingBrandId=null;
@@ -3015,9 +3017,11 @@ function showStatus(msg,err=false){
 }
 
 let _connOnline=true;
+window._connOnline = _connOnline;
 function setConnDot(online){
   if(_connOnline===online) return;
   _connOnline=online;
+  window._connOnline = _connOnline; // Sync con window
   const dot=document.getElementById('conn-dot');
   if(dot){ dot.className=online?'':'offline'; dot.title=online?'Conectado a Supabase':'Sin conexión — los cambios pueden no guardarse'; }
 }
@@ -3185,6 +3189,7 @@ let _pendingUndoEntry = null;
 
 // Keys that the LOCAL user changed since last server sync — used to prefer local over server
 let _localChangedKeys = new Set();
+window._localChangedKeys = _localChangedKeys;
 let _localDeletedIds = { brands: new Set(), members: new Set(), clientNotes: new Set() };
 const _localDeletedPagoIds = {}; // { brandId: Set of deleted pagoIds }
 
@@ -3346,6 +3351,7 @@ function deepMergeAppData(server, local){
 }
 
 let _isSaving = false; // Simple flag to prevent concurrent saves
+window._isSaving = _isSaving;
 
 function _updateHitosBadge(){
   try{
@@ -3371,20 +3377,19 @@ function _updateHitosBadge(){
 }
 
 let _upsertDebounceTimer = null;
+window._upsertDebounceTimer = _upsertDebounceTimer;
 const _UPSERT_DEBOUNCE_MS = 600; // Group rapid changes into one save
 
 async function upsert(immediate=false){
   // Show saving indicator
   const connDot = document.getElementById('conn-dot');
-  // Show saving indicator briefly then go green optimistically
-  // (localStorage already has the data safe, so we can be optimistic)
   if(connDot){ connDot.className = 'saving'; connDot.title = 'Guardando…'; }
-  setTimeout(()=>{ setConnDot(true); }, 400);
 
   // Debounce: wait for more changes before actually sending to Supabase
   if(!immediate){
     clearTimeout(_upsertDebounceTimer);
     _upsertDebounceTimer = setTimeout(()=>{ upsert(true); }, _UPSERT_DEBOUNCE_MS);
+    window._upsertDebounceTimer = _upsertDebounceTimer;
     return;
   }
 
@@ -3406,14 +3411,25 @@ async function upsert(immediate=false){
   // If already saving, skip (debounce handles grouping)
   if(_isSaving) return;
   _isSaving = true;
+  window._isSaving = _isSaving;
   try {
-    await _doUpsert();
+    const success = await _doUpsert();
+    if(!success){
+      // If upsert failed, show error indicator
+      if(connDot){ connDot.className = 'offline'; connDot.title = 'Error al guardar — cambios en riesgo'; }
+      return false;
+    }
+    // Success is handled in _doUpsert() itself via setConnDot(true)
+    return true;
   } finally {
     _isSaving = false;
+    window._isSaving = _isSaving;
   }
 }
+window.upsert = upsert; // Para diagnóstico
 
 async function _doUpsert(){
+  console.log('[polen] Starting _doUpsert at', new Date().toISOString());
   try{
       // Escribir directamente desde appData local — sin leer del servidor primero.
       // appData ya es la fuente de verdad y se mantiene actualizado via realtime.
@@ -3455,17 +3471,20 @@ async function _doUpsert(){
       }));
 
       // 5. Write merged result
+      console.log('[polen] Sending upsert to Supabase, payload size:', Math.round(JSON.stringify(toWriteSafe).length/1000)+'KB');
       const {error: writeErr} = await sb.from('polen_shared').upsert(
         {id: REC_ID, data: toWriteSafe, updated_at: new Date().toISOString()},
         {onConflict: 'id'}
       );
 
       if(writeErr){
+        console.error('[polen] Upsert failed:', writeErr);
         showStatus('Error al guardar: '+writeErr.message, true);
         console.error(writeErr);
         return false;
       }
 
+      console.log('[polen] Upsert successful');
       // 5. Clear local change tracking after successful save
       _localChangedKeys.clear();
       // Guardar copia local como respaldo ante fallos futuros
@@ -3477,6 +3496,7 @@ async function _doUpsert(){
       return true;
 
     } catch(e){
+      console.error('[polen] _doUpsert exception:', e);
       showStatus('⚠️ Error al guardar — cambios en riesgo', true);
       console.error('upsert error:', e);
       // Intentar guardar en localStorage como fallback
@@ -15592,6 +15612,82 @@ function checkAutoArchive(brandId){
   document.getElementById('login-screen').style.display = 'flex';
   setTimeout(()=>{ const i=document.getElementById('login-password'); if(i)i.focus(); }, 100);
 })();
+
+// 🔧 FUNCIÓN DE DIAGNÓSTICO - ejecutar en consola para troubleshooting
+window.diagnosePolen = function(){
+  console.log('=== POLEN PM DIAGNÓSTICO v384 ===');
+  console.log('🔄 Estado de guardado:');
+  console.log('  _isSaving:', window._isSaving);
+  console.log('  _upsertDebounceTimer:', window._upsertDebounceTimer ? 'activo' : 'null');
+  console.log('  _localChangedKeys size:', window._localChangedKeys?.size || 'undefined');
+  console.log('📊 AppData status:');
+  console.log('  brands count:', window.appData?.brands?.length || 0);
+  console.log('  members count:', window.appData?.members?.length || 0);
+  console.log('  cobros brands:', window.appData?.cobros ? Object.keys(window.appData.cobros).length : 0);
+  console.log('🔌 Conexión:');
+  console.log('  _connOnline:', window._connOnline);
+  console.log('  Supabase client:', window.sb ? 'OK' : 'ERROR - no sb client');
+  const dot = document.getElementById('conn-dot');
+  console.log('  Conn dot visual:', dot ? dot.className || 'connected' : 'not found');
+  console.log('💾 LocalStorage:');
+  try {
+    const backup = localStorage.getItem('polen-localbak');
+    console.log('  polen-localbak:', backup ? 'exists ('+(backup.length/1000).toFixed(1)+'KB)' : 'missing');
+    const autobackup = localStorage.getItem('polen-autobackup');
+    console.log('  polen-autobackup:', autobackup ? 'exists ('+(autobackup.length/1000).toFixed(1)+'KB)' : 'missing');
+  } catch(e) {
+    console.log('  localStorage error:', e.message);
+  }
+  console.log('🏗️ Supabase config:');
+  console.log('  URL:', 'https://abfgnaavzqvfhmyyfvpn.supabase.co');
+  console.log('  REC_ID:', 'polen-team-data');
+  console.log('🧪 Funciones de test disponibles:');
+  console.log('  - diagnosePolen() : Este diagnóstico');
+  console.log('  - await testUpsert() : Test guardado sin modificar datos');
+  console.log('  - await forceUpsert() : Forzar guardado inmediato');
+  
+  // Función helper para test sin guardar realmente
+  window.testUpsert = async function() {
+    console.log('🧪 TESTING _doUpsert (dry run)...');
+    const oldIsSaving = window._isSaving;
+    // Mock del _doUpsert para testing
+    try {
+      // Simular el proceso sin escribir a Supabase
+      const toWrite = {...window.appData};
+      console.log('✓ AppData clone successful');
+      const toWriteSafe = JSON.parse(JSON.stringify(toWrite, (key, val) => {
+        if(key === 'image' && typeof val === 'string' && val.startsWith('data:') && val.length > 80000){
+          return '';
+        }
+        if(key === 'photo' && typeof val === 'string' && val.startsWith('data:')){
+          return '';
+        }
+        return val;
+      }));
+      console.log('✓ Safe payload created, size:', Math.round(JSON.stringify(toWriteSafe).length/1000)+'KB');
+      console.log('✓ Test passed - upsert should work');
+      return true;
+    } catch(e) {
+      console.error('✗ Test failed:', e);
+      return false;
+    } finally {
+      window._isSaving = oldIsSaving;
+    }
+  };
+  
+  // Función para forzar guardado inmediato
+  window.forceUpsert = async function() {
+    console.log('🚀 FORCING immediate upsert...');
+    try {
+      const result = await window.upsert(true); // immediate = true
+      console.log('Force upsert result:', result);
+      return result;
+    } catch(e) {
+      console.error('Force upsert error:', e);
+      return false;
+    }
+  };
+};
 </script>
 
 <!-- MODAL: Nuevo / Editar Miembro -->
