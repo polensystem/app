@@ -2443,7 +2443,8 @@ body.portal-mode .main{ height:100vh; }
               <div style="font-size:1rem;font-weight:800;color:var(--text)">Control de cobros por marca</div>
               <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem">Cada marca activa con su estado de pagos</div>
             </div>
-            <div style="display:flex;align-items:center;gap:0.5rem">
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+              <button id="btn-cob-show-paused" onclick="window._cobShowPaused=!window._cobShowPaused;renderCobros();document.getElementById('btn-cob-show-paused').textContent=window._cobShowPaused!==false?'⏸ Ocultar pausadas':'⏸ Mostrar pausadas'" style="font-size:0.72rem;background:none;border:1px solid var(--border);border-radius:8px;padding:0.35rem 0.75rem;color:var(--text3);cursor:pointer;font-family:var(--font)">⏸ Ocultar pausadas</button>
               <div style="display:flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:7px;overflow:hidden">
                 <button id="cobcards-sort-default" onclick="setCobCardsSort('default')" style="padding:0.26rem 0.6rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--aire);color:#fff;border-right:1px solid var(--border)">Reciente</button>
                 <button id="cobcards-sort-az" onclick="setCobCardsSort('az')" style="padding:0.26rem 0.6rem;border:none;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);border-right:1px solid var(--border)">A → Z</button>
@@ -3369,7 +3370,30 @@ function _updateHitosBadge(){
   }catch(e){}
 }
 
-async function upsert(){
+let _upsertDebounceTimer = null;
+const _UPSERT_DEBOUNCE_MS = 600; // Group rapid changes into one save
+
+async function upsert(immediate=false){
+  // Save to localStorage IMMEDIATELY so reloads don't lose data
+  try{
+    const quickSafe = JSON.parse(JSON.stringify({...appData}, (key, val) => {
+      if(key === 'photo' && typeof val === 'string' && val.startsWith('data:')) return '';
+      return val;
+    }));
+    localStorage.setItem('polen-localbak', JSON.stringify({data:quickSafe, savedAt:Date.now(), unsaved:true}));
+  }catch(e){}
+
+  // Show saving indicator
+  const connDot = document.getElementById('conn-dot');
+  if(connDot){ connDot.className = 'saving'; connDot.title = 'Guardando…'; }
+
+  // Debounce: wait for more changes before actually sending to Supabase
+  if(!immediate){
+    clearTimeout(_upsertDebounceTimer);
+    _upsertDebounceTimer = setTimeout(()=>{ upsert(true); }, _UPSERT_DEBOUNCE_MS);
+    return _saveQueue;
+  }
+
   // Protección anti-vaciado: no guardar si brands tiene menos de 3 elementos y había más antes
   if((appData.brands||[]).length < 3){
     try{
@@ -3384,11 +3408,6 @@ async function upsert(){
       }
     }catch(e){}
   }
-
-  // Serialise: wait for any in-flight save to finish first
-  // Indicar que hay un guardado en curso
-  const connDot = document.getElementById('conn-dot');
-  if(connDot){ connDot.className = 'saving'; connDot.title = 'Guardando…'; }
 
   _saveQueue = _saveQueue.catch(()=>{}).then(async ()=>{
     try{
@@ -4641,6 +4660,8 @@ function confirmFinModal(){
 function renderCobranzas(){
   ensureFinData();
   ensureCobrosData();
+  // Collapse all cards on page load — user expands what they need
+  Object.values(appData.cobros||{}).forEach(cob=>{ cob.expanded = false; });
   const fin = appData.finanzas;
   const now = new Date();
   const curM = now.getMonth();
@@ -4978,9 +4999,14 @@ function renderCobros(){
   if(_cobCardsSort === 'az')      brands.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   else if(_cobCardsSort === 'za') brands.sort((a,b)=>(b.name||'').localeCompare(a.name||''));
   else if(_cobCardsSort === 'oldest') brands.sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
-  else brands.reverse(); // default = más reciente primero
+  else brands.reverse();
 
-  grid.innerHTML = brands.map(b=>{
+  // Separate paused from active
+  const activeBrands = brands.filter(b=>!b.paused && !b.archivedAt && !b.deletedAt);
+  const pausedBrands = brands.filter(b=>b.paused && !b.archivedAt && !b.deletedAt);
+  const showPaused = window._cobShowPaused !== false; // default show (toggled by toolbar btn)
+
+  const renderCard = (b, dimmed=false) => {
     const cob = appData.cobros[b.id];
     const pagos = cob.pagos||[];
     const brandCol = getBrandColor(b);
@@ -4990,15 +5016,12 @@ function renderCobros(){
     const valorTotal = cob.valorTotal||0;
     const montoInd = useTotal && pagos.length ? Math.round((valorTotal/pagos.length)*100)/100 : null;
     const totalDisplay = useTotal ? valorTotal : pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
-    const totalCobrado = pagos.filter(p=>p.cobrado).reduce((s,p)=>s+(useTotal?montoInd:(parseFloat(p.monto)||0)),0);
-    // % por cantidad de pagos cobrados (no por monto, para evitar distorsión cuando hay pagos en $0)
     const pct = pagos.length ? Math.round(pagos.filter(p=>p.cobrado).length/pagos.length*100) : 0;
-
-    return `<div class="cob-brand-card" id="cob-card-${b.id}">
+    return `<div class="cob-brand-card" id="cob-card-${b.id}" style="${dimmed?'opacity:0.45;filter:grayscale(0.4)':''}">
       <div class="cob-brand-header" onclick="toggleCobCard(event,'${b.id}')">
         <div class="cob-brand-logo" style="border-color:${brandCol}">${logo}</div>
         <div style="flex:1;min-width:0;overflow:hidden">
-          <div class="cob-brand-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
+          <div class="cob-brand-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}${dimmed?' <span style="font-size:0.6rem;color:var(--text3);font-weight:400">⏸ pausado</span>':''}</div>
           <div class="cob-brand-sub">${pagos.filter(p=>p.cobrado).length}/${pagos.length} cobrados · $${totalDisplay.toLocaleString()}</div>
         </div>
         <span class="cob-pct">${pct}%</span>
@@ -5008,7 +5031,13 @@ function renderCobros(){
         <div style="height:100%;width:${pct}%;background:${brandCol};transition:width 0.4s ease;border-radius:0 2px 2px 0"></div>
       </div>
     </div>`;
-  }).join('');
+  };
+
+  const pausedSection = pausedBrands.length && showPaused
+    ? pausedBrands.map(b=>renderCard(b,true)).join('')
+    : '';
+
+  grid.innerHTML = activeBrands.map(b=>renderCard(b,false)).join('') + pausedSection;
 
   // Render expanded bodies
   brands.forEach(b=>{ if(appData.cobros[b.id]?.expanded) renderCobCard(b.id); });
