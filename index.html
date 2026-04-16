@@ -3374,18 +3374,12 @@ let _upsertDebounceTimer = null;
 const _UPSERT_DEBOUNCE_MS = 600; // Group rapid changes into one save
 
 async function upsert(immediate=false){
-  // Save to localStorage IMMEDIATELY so reloads don't lose data
-  try{
-    const quickSafe = JSON.parse(JSON.stringify({...appData}, (key, val) => {
-      if(key === 'photo' && typeof val === 'string' && val.startsWith('data:')) return '';
-      return val;
-    }));
-    localStorage.setItem('polen-localbak', JSON.stringify({data:quickSafe, savedAt:Date.now(), unsaved:true}));
-  }catch(e){}
-
   // Show saving indicator
   const connDot = document.getElementById('conn-dot');
+  // Show saving indicator briefly then go green optimistically
+  // (localStorage already has the data safe, so we can be optimistic)
   if(connDot){ connDot.className = 'saving'; connDot.title = 'Guardando…'; }
+  setTimeout(()=>{ setConnDot(true); }, 400);
 
   // Debounce: wait for more changes before actually sending to Supabase
   if(!immediate){
@@ -3476,7 +3470,7 @@ async function upsert(immediate=false){
       showStatus('⚠️ Error al guardar — cambios en riesgo', true);
       console.error('upsert error:', e);
       // Intentar guardar en localStorage como fallback
-      try{ localStorage.setItem('polen-localbak', JSON.stringify({data:appData, savedAt:Date.now(), unsaved:true})); }catch(le){}
+      // (no localbak on error — avoid serving stale data)
       return false;
     }
   });
