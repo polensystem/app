@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260416-v384-HOTFIX-UPSERT -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260416-v384.1-TIMER-CLEANUP-FIX -->
 <html lang="es" data-theme="dark">
 <head>
 <meta charset="UTF-8">
@@ -3487,6 +3487,11 @@ async function _doUpsert(){
       console.log('[polen] Upsert successful');
       // 5. Clear local change tracking after successful save
       _localChangedKeys.clear();
+      window._localChangedKeys = _localChangedKeys; // Sync con window
+      // Limpiar timer del debounce después de éxito
+      clearTimeout(_upsertDebounceTimer);
+      _upsertDebounceTimer = null;
+      window._upsertDebounceTimer = _upsertDebounceTimer;
       // Guardar copia local como respaldo ante fallos futuros
       try{ localStorage.setItem('polen-localbak', JSON.stringify({data:appData, savedAt:Date.now()})); }catch(e){}
       // Registrar timestamp del upsert exitoso para ignorar el eco en realtime
