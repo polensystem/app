@@ -3314,8 +3314,29 @@ function deepMergeAppData(server, local){
   // template: local ALWAYS wins — same as cobros (realtime must never overwrite local edits)
   merged.template = local.template ?? server.template;
 
-  // cobros: local ALWAYS wins unconditionally — never take from server
-  merged.cobros = local.cobros ?? server.cobros ?? {};
+  // cobros: merge by pagoId — both local and server contribute, newest wins per entry
+  // This ensures changes from any user/tab are preserved
+  const localCobros = local.cobros || {};
+  const serverCobros = server.cobros || {};
+  const mergedCobros = {};
+  // All brand IDs from both
+  const allBrandIds = new Set([...Object.keys(localCobros), ...Object.keys(serverCobros)]);
+  allBrandIds.forEach(brandId=>{
+    const localEntries = localCobros[brandId] || [];
+    const serverEntries = serverCobros[brandId] || [];
+    // Merge by pagoId — local wins for entries it has, server fills in the rest
+    const pagoMap = {};
+    serverEntries.forEach(e=>{ if(e.pagoId) pagoMap[e.pagoId] = {...e}; });
+    localEntries.forEach(e=>{ if(e.pagoId) pagoMap[e.pagoId] = {...e}; }); // local wins per entry
+    mergedCobros[brandId] = Object.values(pagoMap);
+    // Preserve entries without pagoId from both (union)
+    const localNoPago = localEntries.filter(e=>!e.pagoId);
+    const serverNoPago = serverEntries.filter(e=>!e.pagoId);
+    if(localNoPago.length || serverNoPago.length){
+      mergedCobros[brandId] = [...mergedCobros[brandId], ...localNoPago];
+    }
+  });
+  merged.cobros = mergedCobros;
 
   // playground: local ALWAYS wins (same as cobros) — never lose categories
   merged.playground = local.playground ?? server.playground ?? {categories:[]};
@@ -8753,12 +8774,9 @@ function subscribeRealtime(onUpdate){
         const _snapCobros  = JSON.parse(JSON.stringify(appData.cobros  || {}));
         const _snapMembers = appData.members ? appData.members.map(m=>({...m})) : [];
 
-        // Aplicar datos del servidor para campos no-cobros (brands, members, etc.)
+        // Aplicar datos del servidor — deepMergeAppData now handles cobros correctly
         const merged = deepMergeAppData(raw, appData);
         Object.assign(appData, merged);
-
-        // RESTAURAR cobros locales — siempre, sin excepción
-        appData.cobros = _snapCobros;
 
         // RESTAURAR fotos y colores de miembros — usar cache de tabla separada primero
         if(appData.members){
