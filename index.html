@@ -3320,29 +3320,70 @@ function deepMergeAppData(server, local){
   // template: local ALWAYS wins — same as cobros (realtime must never overwrite local edits)
   merged.template = local.template ?? server.template;
 
-  // cobros: merge by pagoId — both local and server contribute, newest wins per entry
-  // This ensures changes from any user/tab are preserved
-  const localCobros = local.cobros || {};
-  const serverCobros = server.cobros || {};
-  const mergedCobros = {};
-  // All brand IDs from both
-  const allBrandIds = new Set([...Object.keys(localCobros), ...Object.keys(serverCobros)]);
-  allBrandIds.forEach(brandId=>{
-    const localEntries = localCobros[brandId] || [];
-    const serverEntries = serverCobros[brandId] || [];
-    // Merge by pagoId — local wins for entries it has, server fills in the rest
-    const pagoMap = {};
-    serverEntries.forEach(e=>{ if(e.pagoId) pagoMap[e.pagoId] = {...e}; });
-    localEntries.forEach(e=>{ if(e.pagoId) pagoMap[e.pagoId] = {...e}; }); // local wins per entry
-    mergedCobros[brandId] = Object.values(pagoMap);
-    // Preserve entries without pagoId from both (union)
-    const localNoPago = localEntries.filter(e=>!e.pagoId);
-    const serverNoPago = serverEntries.filter(e=>!e.pagoId);
-    if(localNoPago.length || serverNoPago.length){
-      mergedCobros[brandId] = [...mergedCobros[brandId], ...localNoPago];
-    }
-  });
-  merged.cobros = mergedCobros;
+  // ── cobros: merge por brandId, fusionando pagos por id ──
+  // Estructura real: appData.cobros = { [brandId]: { pagos: [...], useTotal, valorTotal, expanded } }
+  // NO es un array, es un objeto. Cada pago tiene .id (no .pagoId).
+  // Si YO cambié cobros localmente → mi versión gana por pago, pero preservo pagos del server que no conozco
+  // Si NO cambié → server gana, pero preservo mis pagos nuevos no sincronizados
+  {
+    const localCobros  = (local.cobros  && typeof local.cobros ==='object' && !Array.isArray(local.cobros))  ? local.cobros  : {};
+    const serverCobros = (server.cobros && typeof server.cobros==='object' && !Array.isArray(server.cobros)) ? server.cobros : {};
+    const mergedCobros = {};
+    const allBrandIds = new Set([...Object.keys(localCobros), ...Object.keys(serverCobros)]);
+    const localChanged = _localChangedKeys.has('cobros');
+    const localDeletedPagos = (typeof _localDeletedPagoIds === 'object' && _localDeletedPagoIds) ? _localDeletedPagoIds : {};
+
+    allBrandIds.forEach(brandId=>{
+      const localEntry  = localCobros[brandId];
+      const serverEntry = serverCobros[brandId];
+
+      // Normalizar: aceptar entrada legacy que sea array (formato viejo) o undefined
+      const localObj  = (localEntry  && typeof localEntry ==='object' && !Array.isArray(localEntry))
+        ? localEntry
+        : (Array.isArray(localEntry)  ? {pagos: localEntry}  : null);
+      const serverObj = (serverEntry && typeof serverEntry==='object' && !Array.isArray(serverEntry))
+        ? serverEntry
+        : (Array.isArray(serverEntry) ? {pagos: serverEntry} : null);
+
+      if(!localObj && !serverObj) return; // nada que hacer
+
+      const localPagos  = Array.isArray(localObj?.pagos)  ? localObj.pagos  : [];
+      const serverPagos = Array.isArray(serverObj?.pagos) ? serverObj.pagos : [];
+      const deletedSet  = localDeletedPagos[brandId] instanceof Set ? localDeletedPagos[brandId] : new Set();
+
+      // Fusionar pagos por id
+      const pagoMap = {};
+      // Primero server (base)
+      serverPagos.forEach(p=>{ if(p && p.id && !deletedSet.has(p.id)) pagoMap[p.id] = {...p}; });
+      // Después local: si yo cambié cobros, mi versión gana por pago; si no, server gana (ya está), pero añado pagos que solo tengo yo
+      if(localChanged){
+        localPagos.forEach(p=>{
+          if(!p || !p.id) return;
+          if(deletedSet.has(p.id)) return;
+          pagoMap[p.id] = {...p}; // local wins
+        });
+      } else {
+        localPagos.forEach(p=>{
+          if(!p || !p.id) return;
+          if(deletedSet.has(p.id)) return;
+          if(!pagoMap[p.id]) pagoMap[p.id] = {...p}; // solo si server no lo tiene
+        });
+      }
+
+      // Metadata del brand entry (useTotal, valorTotal, expanded): mismo patrón
+      const baseMeta = {
+        useTotal:    (localChanged ? (localObj?.useTotal    ?? serverObj?.useTotal)    : (serverObj?.useTotal    ?? localObj?.useTotal))    || false,
+        valorTotal:  (localChanged ? (localObj?.valorTotal  ?? serverObj?.valorTotal)  : (serverObj?.valorTotal  ?? localObj?.valorTotal))  ?? 0,
+        expanded:    localObj?.expanded ?? serverObj?.expanded ?? false, // estado UI solo local
+      };
+
+      mergedCobros[brandId] = {
+        ...baseMeta,
+        pagos: Object.values(pagoMap),
+      };
+    });
+    merged.cobros = mergedCobros;
+  }
 
   // ── playground: merge por id de categoría (igual patrón que brands/cobros) ──
   // Si yo cambié playground: mi versión gana pero fusiono categorías del server que no conozco
@@ -3490,6 +3531,24 @@ async function _doUpsert(){
         if(appData.cobros?.[bid])
           appData.cobros[bid].pagos = (appData.cobros[bid].pagos||[]).filter(p=>!deletedIds.has(p.id));
       });
+
+      // Sanity check: normalizar shape de cobros antes de escribir (prevenir corrupción de legacy)
+      if(appData.cobros && typeof appData.cobros === 'object' && !Array.isArray(appData.cobros)){
+        Object.keys(appData.cobros).forEach(bid=>{
+          const e = appData.cobros[bid];
+          if(Array.isArray(e)){
+            // Legacy format → envolver en {pagos:[]}
+            appData.cobros[bid] = { pagos: e, useTotal: false, valorTotal: 0, expanded: false };
+          } else if(!e || typeof e !== 'object'){
+            delete appData.cobros[bid];
+          } else if(!Array.isArray(e.pagos)){
+            e.pagos = [];
+          }
+        });
+      } else if(appData.cobros != null && (Array.isArray(appData.cobros) || typeof appData.cobros !== 'object')){
+        console.warn('[Polen] appData.cobros tenía shape inválido, reseteando a {}');
+        appData.cobros = {};
+      }
       toWrite.cobros = appData.cobros;
 
       // 4. Strip large base64 images before writing (Supabase 500 = payload too large)
@@ -8945,8 +9004,50 @@ function subscribeRealtime(onUpdate){
         const _snapMembers = appData.members ? appData.members.map(m=>({...m})) : [];
 
         // Aplicar datos del servidor — deepMergeAppData now handles cobros correctly
-        const merged = deepMergeAppData(raw, appData);
+        let merged;
+        try {
+          merged = deepMergeAppData(raw, appData);
+        } catch(mergeErr) {
+          console.error('[Polen] deepMergeAppData FAIL — ignorando snapshot:', mergeErr);
+          // Si el merge revienta, NO sobrescribimos appData (mejor quedarse con el estado local sano)
+          return;
+        }
         Object.assign(appData, merged);
+
+        // Safety net: si cobros quedó corrupto (array en vez de objeto, o vacío cuando había datos), restaurar snapshot
+        try {
+          if(!appData.cobros || typeof appData.cobros !== 'object' || Array.isArray(appData.cobros)){
+            console.warn('[Polen] cobros corrupto después del merge, restaurando snapshot');
+            appData.cobros = _snapCobros;
+          } else {
+            // Por cada brand en el snapshot, si el pago local tenía cobrado=true pero el merged no, restaurar
+            // Esto protege contra el caso donde el server está stale y pierde el check del usuario.
+            Object.keys(_snapCobros).forEach(bid=>{
+              const snapPagos = Array.isArray(_snapCobros[bid]?.pagos) ? _snapCobros[bid].pagos : [];
+              const mergedBrand = appData.cobros[bid];
+              if(!mergedBrand || !Array.isArray(mergedBrand.pagos)){
+                // Merged perdió la marca o sus pagos — restaurar desde snapshot
+                appData.cobros[bid] = _snapCobros[bid];
+                return;
+              }
+              // Si yo tenía pagos con .cobrado=true y el merged los perdió (por bug o stale), preservarlos
+              // SOLO si localChangedKeys tenía 'cobros' recientemente. Si no tenía cambios locales, respetar el merge.
+              if(_localChangedKeys.has('cobros')){
+                snapPagos.forEach(sp=>{
+                  if(!sp?.id) return;
+                  const mp = mergedBrand.pagos.find(p=>p.id===sp.id);
+                  if(mp && sp.cobrado && !mp.cobrado){
+                    // Mi check se perdió en el merge — restaurar
+                    mp.cobrado = true;
+                    mp.fechaCobrado = sp.fechaCobrado || mp.fechaCobrado;
+                  }
+                });
+              }
+            });
+          }
+        } catch(safetyErr){
+          console.error('[Polen] safety net cobros falló:', safetyErr);
+        }
 
         // RESTAURAR fotos y colores de miembros — usar cache de tabla separada primero
         if(appData.members){
