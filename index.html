@@ -1790,12 +1790,30 @@ body.portal-mode .main{ height:100vh; }
             </div>
           </div>
           <div class="section-body">
-            <!-- Visibility toggle -->
-            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
-              <span style="font-size:0.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px">Mostrar al cliente:</span>
-              <button id="portal-show-both" onclick="setPortalShow('both')" class="cob-sort-btn" style="font-size:0.72rem">📅+🏆 Ambos</button>
-              <button id="portal-show-crono" onclick="setPortalShow('crono')" class="cob-sort-btn" style="font-size:0.72rem">📅 Solo cronograma</button>
-              <button id="portal-show-bp" onclick="setPortalShow('bp')" class="cob-sort-btn" style="font-size:0.72rem">🏆 Solo branding points</button>
+            <!-- Visibility toggles: secciones visibles al cliente -->
+            <div style="margin-bottom:1rem">
+              <div style="font-size:0.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:0.55rem">Mostrar al cliente</div>
+              <div id="portal-sections-toggles" style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <label class="portal-sec-toggle" data-key="crono" onclick="event.stopPropagation()"
+                  style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.5rem 0.85rem;border:1.5px solid var(--border);border-radius:99px;background:var(--bg-card);cursor:pointer;user-select:none;font-size:0.78rem;font-weight:600;color:var(--text2);transition:all 0.15s">
+                  <input type="checkbox" id="portal-sec-crono" onchange="togglePortalSection('crono', this.checked)"
+                    style="accent-color:var(--aire);width:15px;height:15px;cursor:pointer;margin:0">
+                  📅 Cronograma
+                </label>
+                <label class="portal-sec-toggle" data-key="bp" onclick="event.stopPropagation()"
+                  style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.5rem 0.85rem;border:1.5px solid var(--border);border-radius:99px;background:var(--bg-card);cursor:pointer;user-select:none;font-size:0.78rem;font-weight:600;color:var(--text2);transition:all 0.15s">
+                  <input type="checkbox" id="portal-sec-bp" onchange="togglePortalSection('bp', this.checked)"
+                    style="accent-color:var(--aire);width:15px;height:15px;cursor:pointer;margin:0">
+                  ⭐ Branding Points
+                </label>
+                <label class="portal-sec-toggle" data-key="aprobaciones" onclick="event.stopPropagation()"
+                  style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.5rem 0.85rem;border:1.5px solid var(--border);border-radius:99px;background:var(--bg-card);cursor:pointer;user-select:none;font-size:0.78rem;font-weight:600;color:var(--text2);transition:all 0.15s">
+                  <input type="checkbox" id="portal-sec-aprobaciones" onchange="togglePortalSection('aprobaciones', this.checked)"
+                    style="accent-color:var(--aire);width:15px;height:15px;cursor:pointer;margin:0">
+                  ✅ Aprobaciones
+                </label>
+              </div>
+              <div style="font-size:0.7rem;color:var(--text3);margin-top:0.5rem;line-height:1.4">Los cambios se aplican <strong style="color:var(--text2)">en tiempo real</strong> para el cliente.</div>
             </div>
             <div id="portal-link-box" style="display:flex;align-items:center;gap:0.7rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--r-sm);padding:0.8rem 1rem">
               <span style="font-size:0.85rem;color:var(--text2);flex:1;word-break:break-all;font-family:monospace" id="portal-link-text"></span>
@@ -7108,27 +7126,89 @@ function toggleInlineExport(triggerBtn){
   }
 }
 
+// Devuelve las 3 flags de visibilidad del portal para una marca, con default y migración silenciosa.
+function getPortalSections(brand){
+  if(!brand) return {crono:true, bp:true, aprobaciones:true};
+  // Migración: formato viejo brand.portalShow ∈ {'both','crono','bp'} → formato nuevo
+  if(!brand.portalSections && brand.portalShow){
+    const old = brand.portalShow;
+    brand.portalSections = {
+      crono: old === 'both' || old === 'crono',
+      bp:    old === 'both' || old === 'bp',
+      aprobaciones: true, // al migrar, aprobaciones siempre encendido (no existía antes)
+    };
+  }
+  const s = brand.portalSections;
+  if(!s || typeof s !== 'object'){
+    return {crono:true, bp:true, aprobaciones:true};
+  }
+  return {
+    crono: s.crono !== false,
+    bp: s.bp !== false,
+    aprobaciones: s.aprobaciones !== false,
+  };
+}
+
 function renderPortalTab(){
   const url = getPortalUrl(currentBrandId);
   const el = document.getElementById('portal-link-text');
   if(el) el.textContent = url;
-  // Sync visibility buttons
+  // Sync section toggles
   const brand = (appData.brands||[]).find(b=>b.id===currentBrandId);
-  const show = brand?.portalShow || 'both';
-  ['both','crono','bp'].forEach(v=>{
-    const btn = document.getElementById('portal-show-'+v);
-    if(btn) btn.classList.toggle('active', show===v);
+  const sec = getPortalSections(brand);
+  ['crono','bp','aprobaciones'].forEach(k=>{
+    const cb = document.getElementById('portal-sec-'+k);
+    if(cb) cb.checked = !!sec[k];
+    const label = document.querySelector(`.portal-sec-toggle[data-key="${k}"]`);
+    if(label){
+      if(sec[k]){
+        label.style.borderColor = 'var(--aire)';
+        label.style.background  = 'rgba(59,158,221,0.08)';
+        label.style.color       = 'var(--text)';
+      } else {
+        label.style.borderColor = 'var(--border)';
+        label.style.background  = 'var(--bg-card)';
+        label.style.color       = 'var(--text3)';
+      }
+    }
   });
 }
 
-async function setPortalShow(value){
+async function togglePortalSection(key, value){
   const brand = (appData.brands||[]).find(b=>b.id===currentBrandId);
   if(!brand) return;
-  brand.portalShow = value;
+  // Asegurar objeto + migración si aplica
+  getPortalSections(brand);
+  if(!brand.portalSections) brand.portalSections = {crono:true, bp:true, aprobaciones:true};
+  brand.portalSections[key] = !!value;
+
+  // Regla de seguridad: al menos una sección debe estar visible
+  const s = brand.portalSections;
+  if(!s.crono && !s.bp && !s.aprobaciones){
+    // Revertir — no permitir todo apagado
+    brand.portalSections[key] = true;
+    renderPortalTab();
+    showStatus('Debe haber al menos una sección visible para el cliente', true);
+    return;
+  }
+
   markLocalChange('brands');
   renderPortalTab();
   await upsert();
   showStatus('Visibilidad del portal actualizada ✓');
+}
+
+// Alias legacy — mantener compatibilidad con cualquier onclick/llamada huérfana
+async function setPortalShow(value){
+  const brand = (appData.brands||[]).find(b=>b.id===currentBrandId);
+  if(!brand) return;
+  if(!brand.portalSections) brand.portalSections = {crono:true, bp:true, aprobaciones:true};
+  if(value==='both'){ brand.portalSections.crono = true; brand.portalSections.bp = true; }
+  else if(value==='crono'){ brand.portalSections.crono = true; brand.portalSections.bp = false; }
+  else if(value==='bp'){ brand.portalSections.crono = false; brand.portalSections.bp = true; }
+  markLocalChange('brands');
+  renderPortalTab();
+  await upsert();
 }
 
 function getPortalSlug(brandId){
@@ -12130,20 +12210,36 @@ function renderPortal(brandId){
   window._portalColor = getBrandColor(brand);
   window._portalBrand = brand;
 
+  const sec = getPortalSections(brand);
+  const tabBtn = (key, emo, label) => sec[key]
+    ? `<button onclick="portalSwitchTab('${key}')" id="portal-tab-${key}" style="flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:all 0.2s">${emo} ${label}</button>`
+    : '';
+
+  // Determinar tab inicial respetando visibilidad
+  const firstVisible = sec.crono ? 'crono' : (sec.bp ? 'bp' : (sec.aprobaciones ? 'aprobaciones' : null));
+  let initialTab = window._portalActiveTab || 'crono';
+  if(!sec[initialTab]) initialTab = firstVisible;
+
   main.innerHTML = `<div style="overflow-y:auto;height:100vh;background:var(--bg)" id="portal-root">
     <div class="portal-wrap">
       ${_portalHeaderHTML(brand)}
       <div id="portal-tabs-bar" style="display:flex;gap:0.4rem;background:var(--bg-card2);border-radius:12px;padding:0.3rem;position:sticky;top:0;z-index:10">
-        <button onclick="portalSwitchTab('crono')" id="portal-tab-crono" style="flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:all 0.2s">📅 Cronograma</button>
-        <button onclick="portalSwitchTab('bp')" id="portal-tab-bp" style="flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:all 0.2s">⭐ Branding Points</button>
-        <button onclick="portalSwitchTab('aprobaciones')" id="portal-tab-aprobaciones" style="flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:all 0.2s">✅ Aprobaciones</button>
+        ${tabBtn('crono','📅','Cronograma')}
+        ${tabBtn('bp','⭐','Branding Points')}
+        ${tabBtn('aprobaciones','✅','Aprobaciones')}
       </div>
       <div id="portal-content-area"></div>
       <div class="portal-powered">Powered by Polen System ✦</div>
     </div>
   </div>`;
 
-  setTimeout(()=>{ portalSwitchTab(window._portalActiveTab || 'crono'); }, 0);
+  if(initialTab){
+    setTimeout(()=>{ portalSwitchTab(initialTab); }, 0);
+  } else {
+    // Nada visible (fallback improbable — el admin no debería permitirlo)
+    const content = document.getElementById('portal-content-area');
+    if(content) content.innerHTML = '<div style="padding:2rem;color:var(--text3);text-align:center">El portal está temporalmente cerrado. Contacta a tu equipo.</div>';
+  }
 }
 
 function _portalHeaderHTML(brand){
@@ -12165,6 +12261,19 @@ function _portalHeaderHTML(brand){
 
 
 function portalSwitchTab(tab){
+  const brand = (appData?.brands||[]).find(b=>b.id===window._portalBrandId);
+  const sec = getPortalSections(brand);
+
+  // Si el tab pedido no está visible, caer al primero visible
+  if(!sec[tab]){
+    const fallback = sec.crono ? 'crono' : (sec.bp ? 'bp' : (sec.aprobaciones ? 'aprobaciones' : null));
+    if(!fallback){
+      const content0 = document.getElementById('portal-content-area');
+      if(content0) content0.innerHTML = '<div style="padding:2rem;color:var(--text3);text-align:center">El portal está temporalmente cerrado. Contacta a tu equipo.</div>';
+      return;
+    }
+    tab = fallback;
+  }
   window._portalActiveTab = tab;
 
   const content = document.getElementById('portal-content-area');
@@ -12177,8 +12286,28 @@ function portalSwitchTab(tab){
   const inactive = 'flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);transition:all 0.2s';
   [tCrono,tBp,tAprob].forEach(t=>{ if(t) t.style.cssText=inactive; });
 
-  const brand = (appData?.brands||[]).find(b=>b.id===window._portalBrandId);
   if(!brand){ content.innerHTML='<div style="padding:2rem;color:var(--text3)">Cargando...</div>'; return; }
+
+  // Tarjetas de intro: solo las secciones visibles
+  const introCards = [
+    sec.crono ? `<div style="background:var(--bg-card);border-radius:12px;padding:0.9rem 1rem;border:1px solid var(--border)">
+      <div style="font-size:1rem;margin-bottom:0.3rem">📅</div>
+      <div style="font-size:0.82rem;font-weight:700;color:var(--text);margin-bottom:0.2rem">Cronograma</div>
+      <div style="font-size:0.7rem;color:var(--text3);line-height:1.4">Ve los avances en tiempo real. Las ⭐ son actividades donde participas tú.</div>
+    </div>` : '',
+    sec.bp ? `<div style="background:var(--bg-card);border-radius:12px;padding:0.9rem 1rem;border:1px solid var(--border);cursor:pointer" onclick="portalSwitchTab('bp')">
+      <div style="font-size:1rem;margin-bottom:0.3rem">⭐</div>
+      <div style="font-size:0.82rem;font-weight:700;color:var(--text);margin-bottom:0.2rem">Branding Points</div>
+      <div style="font-size:0.7rem;color:var(--text3);line-height:1.4">Tu herramienta para elegir y personalizar los entregables de tu marca.</div>
+    </div>` : '',
+    sec.aprobaciones ? `<div style="background:var(--bg-card);border-radius:12px;padding:0.9rem 1rem;border:1px solid var(--border);cursor:pointer" onclick="portalSwitchTab('aprobaciones')">
+      <div style="font-size:1rem;margin-bottom:0.3rem">✅</div>
+      <div style="font-size:0.82rem;font-weight:700;color:var(--text);margin-bottom:0.2rem">Aprobaciones</div>
+      <div style="font-size:0.7rem;color:var(--text3);line-height:1.4">Confirma los avances de cada etapa. Se activan a medida que avanza el proyecto.</div>
+    </div>` : '',
+  ].filter(Boolean).join('');
+  const visibleCount = [sec.crono, sec.bp, sec.aprobaciones].filter(Boolean).length;
+  const introGridCols = visibleCount === 1 ? '1fr' : (visibleCount === 2 ? '1fr 1fr' : '1fr 1fr 1fr');
 
   if(tab==='crono'){
     if(tCrono) tCrono.style.cssText=active;
@@ -12186,23 +12315,9 @@ function portalSwitchTab(tab){
     content.innerHTML = `
       <div style="background:linear-gradient(135deg,${color}18,${color}08);border:1px solid ${color}30;border-radius:18px;padding:1.8rem 2rem;margin-bottom:1rem">
         <div style="font-size:1.2rem;font-weight:800;color:var(--text);margin-bottom:0.5rem">Bienvenido a este camino.</div>
-        <div style="font-size:0.88rem;color:var(--text2);line-height:1.6;margin-bottom:1.2rem">Juntos le daremos vida a la identidad que tu marca merece. En este portal encontrarás tres secciones para acompañar tu proceso.</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.6rem">
-          <div style="background:var(--bg-card);border-radius:12px;padding:0.9rem 1rem;border:1px solid var(--border)">
-            <div style="font-size:1rem;margin-bottom:0.3rem">📅</div>
-            <div style="font-size:0.82rem;font-weight:700;color:var(--text);margin-bottom:0.2rem">Cronograma</div>
-            <div style="font-size:0.7rem;color:var(--text3);line-height:1.4">Ve los avances en tiempo real. Las ⭐ son actividades donde participas tú.</div>
-          </div>
-          <div style="background:var(--bg-card);border-radius:12px;padding:0.9rem 1rem;border:1px solid var(--border);cursor:pointer" onclick="portalSwitchTab('bp')">
-            <div style="font-size:1rem;margin-bottom:0.3rem">⭐</div>
-            <div style="font-size:0.82rem;font-weight:700;color:var(--text);margin-bottom:0.2rem">Branding Points</div>
-            <div style="font-size:0.7rem;color:var(--text3);line-height:1.4">Tu herramienta para elegir y personalizar los entregables de tu marca.</div>
-          </div>
-          <div style="background:var(--bg-card);border-radius:12px;padding:0.9rem 1rem;border:1px solid var(--border);cursor:pointer" onclick="portalSwitchTab('aprobaciones')">
-            <div style="font-size:1rem;margin-bottom:0.3rem">✅</div>
-            <div style="font-size:0.82rem;font-weight:700;color:var(--text);margin-bottom:0.2rem">Aprobaciones</div>
-            <div style="font-size:0.7rem;color:var(--text3);line-height:1.4">Confirma los avances de cada etapa. Se activan a medida que avanza el proyecto.</div>
-          </div>
+        <div style="font-size:0.88rem;color:var(--text2);line-height:1.6;margin-bottom:1.2rem">Juntos le daremos vida a la identidad que tu marca merece.${visibleCount>1?' En este portal encontrarás '+(visibleCount===3?'tres':'dos')+' secciones para acompañar tu proceso.':''}</div>
+        <div style="display:grid;grid-template-columns:${introGridCols};gap:0.6rem">
+          ${introCards}
         </div>
       </div>
       ${_portalCronoHTML(brand)}`;
