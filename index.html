@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260417-v384.3-PRESERVE-EXPANDED-STATE -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260417-v384.5-ENHANCED-PLAYGROUND-CARDS -->
 <html lang="es" data-theme="dark">
 <head>
 <meta charset="UTF-8">
@@ -12138,12 +12138,44 @@ function _portalCronoHTML(brand){
 function portalRenderAprobaciones(brand){
   const stageOrder = ['aire','agua','tierra','fuego'];
 
-  // Aire is always active. Each subsequent stage unlocks when the brand has reached or passed it.
+  // Aire is always active. Each subsequent stage unlocks when the brand has progressed through it.
   const isStageActive = (stage) => {
     if(stage === 'aire') return true;
-    const stageIdx = stageOrder.indexOf(stage);
-    const brandIdx = stageOrder.indexOf(brand.stage || 'aire');
-    return brandIdx >= stageIdx;
+    
+    // 🔧 SMART DETECTION: Detectar progreso real basado en cronograma
+    const getStageProgress = (stageToCheck) => {
+      const acts = brand.cronograma?.[stageToCheck] || [];
+      if(acts.length === 0) return 0; // No hay actividades = no iniciado
+      
+      const completed = acts.filter(a => a.status === 'completada').length;
+      const inProgress = acts.filter(a => a.status === 'progreso').length;
+      
+      if(completed === acts.length) return 100; // Completado
+      if(completed > 0 || inProgress > 0) return 50; // En progreso
+      return 0; // No iniciado
+    };
+    
+    // Orden de etapas para determinar progresión
+    const stages = ['aire', 'agua', 'tierra', 'fuego'];
+    const stageIndex = stages.indexOf(stage);
+    
+    // Revisar si las etapas previas tienen suficiente progreso
+    for(let i = 0; i < stageIndex; i++) {
+      const prevStage = stages[i];
+      const progress = getStageProgress(prevStage);
+      
+      // La etapa anterior debe tener al menos algo de progreso (50%+) para desbloquear la siguiente
+      if(progress < 50) {
+        return false; // Etapa anterior no tiene suficiente progreso
+      }
+    }
+    
+    // Si llegamos aquí, todas las etapas previas tienen progreso suficiente
+    // Desbloquear si la etapa actual también ha empezado O si estamos en la etapa actual según brand.stage
+    const currentProgress = getStageProgress(stage);
+    const isCurrentBrandStage = (brand.stage === stage);
+    
+    return currentProgress > 0 || isCurrentBrandStage;
   };
 
   // Check if all activities in a stage are complete
@@ -12599,37 +12631,125 @@ function renderPlayground(){
   const brandPill = (b, srcCatId='unassigned') => {
     const col = getBrandColor(b);
     const s = stageEmoji[b.stage]||'💨';
-    return `<span
+    const progressPercent = calcBrandProgress(b);
+    // Safe brand name for title attr (avoid breaking HTML on quotes)
+    const safeName = String(b.name||'').replace(/"/g,'&quot;');
+    
+    return `<div
       draggable="true"
       ondragstart="pgDragStart(event,'${b.id}','${srcCatId}')"
       onclick="openBrand('${b.id}')"
-      title="${b.name}"
-      style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.22rem 0.6rem;border-radius:99px;border:1.5px solid ${col};background:var(--bg-card);font-size:0.72rem;font-weight:600;color:var(--text);cursor:grab;white-space:nowrap;transition:all 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.06)"
-      onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 3px 10px rgba(0,0,0,0.12)'"
-      onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,0.06)'">
-      <span style="width:6px;height:6px;border-radius:50%;background:${col};flex-shrink:0"></span>
-      ${b.name}
-      <span style="font-size:0.6rem;opacity:0.6">${s}</span>
-    </span>`;
+      title="${safeName} · ${b.stage || 'aire'} · ${progressPercent}%"
+      style="
+        display:flex;
+        align-items:center;
+        gap:0.55rem;
+        padding:0.55rem 0.75rem 0.65rem;
+        border-radius:12px;
+        border:1.5px solid ${col};
+        background:var(--bg-card);
+        font-size:0.85rem;
+        font-weight:600;
+        color:var(--text);
+        cursor:grab;
+        transition:transform 0.15s ease, box-shadow 0.15s ease;
+        box-shadow:0 1px 3px rgba(0,0,0,0.05);
+        position:relative;
+        overflow:hidden;
+        height:50px;
+        box-sizing:border-box;
+      "
+      onmouseover="
+        this.style.transform='translateY(-2px)';
+        this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)';
+      "
+      onmouseout="
+        this.style.transform='';
+        this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)';
+      ">
+      
+      <!-- Background tint -->
+      <div style="
+        position:absolute;
+        inset:0;
+        background:linear-gradient(90deg, ${col}10 0%, ${col}04 100%);
+        pointer-events:none;
+      "></div>
+      
+      <!-- Brand color dot -->
+      <div style="
+        width:10px;
+        height:10px;
+        border-radius:50%;
+        background:${col};
+        flex-shrink:0;
+        z-index:1;
+      "></div>
+      
+      <!-- Brand name -->
+      <div style="
+        flex:1;
+        min-width:0;
+        font-size:0.84rem;
+        font-weight:700;
+        line-height:1.2;
+        z-index:1;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      ">${b.name}</div>
+      
+      <!-- Stage emoji -->
+      <span style="font-size:0.95rem;z-index:1;flex-shrink:0">${s}</span>
+      
+      <!-- % -->
+      <span style="
+        font-size:0.72rem;
+        color:var(--text3);
+        font-weight:700;
+        z-index:1;
+        flex-shrink:0;
+        font-variant-numeric:tabular-nums;
+      ">${progressPercent}%</span>
+      
+      <!-- Progress bar (bottom) -->
+      <div style="
+        position:absolute;
+        left:0;
+        right:0;
+        bottom:0;
+        height:3px;
+        background:var(--border);
+        z-index:1;
+      ">
+        <div style="
+          width:${progressPercent}%;
+          height:100%;
+          background:${col};
+          transition:width 0.3s ease;
+        "></div>
+      </div>
+      
+    </div>`;
   };
 
   wrap.innerHTML = `
     <!-- Unassigned pool -->
-    <div style="margin-bottom:1.4rem">
-      <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem">
+    <div style="margin-bottom:1rem">
+      <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.45rem">
         <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3)">Sin categoría (${unassigned.length})</span>
       </div>
       <div id="pg-unassigned"
-        style="min-height:52px;padding:0.8rem 1rem;border:1.5px dashed var(--border);border-radius:14px;background:var(--glass);display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center;transition:border-color 0.2s,background 0.2s"
+        style="min-height:80px;padding:0.8rem;border:2px dashed var(--border);border-radius:14px;background:var(--glass);display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.55rem;align-items:start;transition:border-color 0.2s,background 0.2s"
         ondragover="event.preventDefault();this.style.borderColor='var(--aire)';this.style.background='rgba(59,158,221,0.05)'"
         ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--glass)'"
         ondrop="pgDrop(event,'unassigned');this.style.borderColor='var(--border)';this.style.background='var(--glass)'">
-        ${unassigned.length ? unassigned.map(b=>brandPill(b,'unassigned')).join('') : '<span style="font-size:0.72rem;color:var(--text3);font-style:italic">Todas las marcas están en una categoría ✓</span>'}
+        ${unassigned.length ? unassigned.map(b=>brandPill(b,'unassigned')).join('') : '<div style="grid-column:1/-1;font-size:0.78rem;color:var(--text3);font-style:italic;text-align:center;padding:1.5rem">Todas las marcas están en una categoría ✓</div>'}
       </div>
     </div>
 
     <!-- Category header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.9rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.55rem">
       <span style="font-size:0.95rem;font-weight:800;color:var(--text)">🧩 Categorías</span>
       <button onclick="pgNewCategory()" style="background:var(--aire);color:#fff;border:none;border-radius:99px;padding:0.3rem 0.9rem;font-size:0.73rem;font-weight:700;cursor:pointer;font-family:var(--font);box-shadow:0 2px 8px rgba(59,158,221,0.3)">+ Nueva categoría</button>
     </div>
@@ -12639,7 +12759,7 @@ function renderPlayground(){
       ${pg.categories.map(cat=>{
         const catBrands = allBrands.filter(b=>(cat.brandIds||[]).includes(b.id));
         const catColor = cat.color||'#3b9edd';
-        return `<div id="pg-cat-${cat.id}" style="background:var(--bg-card);border:1.5px solid var(--border);border-radius:18px;overflow:hidden;min-width:220px;max-width:320px;flex:1;box-shadow:0 2px 12px rgba(0,0,0,0.06);transition:all 0.2s">
+        return `<div id="pg-cat-${cat.id}" style="background:var(--bg-card);border:1.5px solid var(--border);border-radius:18px;overflow:hidden;min-width:300px;max-width:400px;flex:1;box-shadow:0 2px 12px rgba(0,0,0,0.06);transition:all 0.2s">
           <!-- Cat header -->
           <div style="background:${catColor};padding:0.6rem 0.85rem;display:flex;align-items:center;gap:0.5rem">
             <span style="font-size:1.1rem">${cat.emoji||'📁'}</span>
@@ -12649,13 +12769,13 @@ function renderPlayground(){
             <button onclick="pgDeleteCategory('${cat.id}')" style="background:rgba(255,50,50,0.3);border:none;border-radius:6px;padding:0.15rem 0.4rem;font-size:0.7rem;color:#fff;cursor:pointer" title="Eliminar">🗑</button>
           </div>
           <!-- Drop zone -->
-          <div style="padding:0.7rem;min-height:70px;display:flex;flex-wrap:wrap;gap:0.35rem;align-items:flex-start;transition:background 0.15s"
+          <div style="padding:0.75rem;min-height:90px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:0.5rem;align-items:start;transition:background 0.15s"
             ondragover="event.preventDefault();this.style.background='rgba(59,158,221,0.06)'"
             ondragleave="this.style.background=''"
             ondrop="pgDrop(event,'${cat.id}');this.style.background=''">
             ${catBrands.length
               ? catBrands.map(b=>brandPill(b,cat.id)).join('')
-              : '<span style="font-size:0.68rem;color:var(--text3);font-style:italic;padding:0.3rem 0.2rem">Arrastra marcas aquí</span>'}
+              : '<div style="grid-column:1/-1;font-size:0.72rem;color:var(--text3);font-style:italic;padding:1rem;text-align:center">Arrastra marcas aquí</div>'}
           </div>
         </div>`;
       }).join('')}
