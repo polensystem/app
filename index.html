@@ -3190,7 +3190,7 @@ let _pendingUndoEntry = null;
 // Keys that the LOCAL user changed since last server sync — used to prefer local over server
 let _localChangedKeys = new Set();
 window._localChangedKeys = _localChangedKeys;
-let _localDeletedIds = { brands: new Set(), members: new Set(), clientNotes: new Set() };
+let _localDeletedIds = { brands: new Set(), members: new Set(), clientNotes: new Set(), playgroundCats: new Set() };
 const _localDeletedPagoIds = {}; // { brandId: Set of deleted pagoIds }
 
 // Call this when user mutates a top-level key so merge prefers local for that key
@@ -3344,8 +3344,35 @@ function deepMergeAppData(server, local){
   });
   merged.cobros = mergedCobros;
 
-  // playground: local ALWAYS wins (same as cobros) — never lose categories
-  merged.playground = local.playground ?? server.playground ?? {categories:[]};
+  // ── playground: merge por id de categoría (igual patrón que brands/cobros) ──
+  // Si yo cambié playground: mi versión gana pero fusiono categorías del server que no conozco
+  // Si no: server gana, pero preservo mis categorías locales no sincronizadas
+  {
+    const serverPg = server.playground && typeof server.playground==='object' ? server.playground : {categories:[]};
+    const localPg  = local.playground  && typeof local.playground ==='object' ? local.playground  : {categories:[]};
+    const serverCats = Array.isArray(serverPg.categories) ? serverPg.categories : [];
+    const localCats  = Array.isArray(localPg.categories)  ? localPg.categories  : [];
+    const deletedCatIds = _localDeletedIds.playgroundCats || new Set();
+
+    if(_localChangedKeys.has('playground')){
+      // Local cambió: mi versión gana, pero añadir categorías del server que yo no tengo
+      // (evita perder categorías creadas por otro usuario mientras yo editaba)
+      const localIds = new Set(localCats.map(c=>c.id));
+      const serverOnly = serverCats.filter(c=>!localIds.has(c.id) && !deletedCatIds.has(c.id));
+      merged.playground = {
+        ...localPg,
+        categories: [...localCats.filter(c=>!deletedCatIds.has(c.id)), ...serverOnly]
+      };
+    } else {
+      // No cambié: server gana, pero preservar cats locales que server no tiene aún (recién creadas)
+      const serverIds = new Set(serverCats.map(c=>c.id));
+      const localOnly = localCats.filter(c=>!serverIds.has(c.id) && !deletedCatIds.has(c.id));
+      merged.playground = {
+        ...serverPg,
+        categories: [...serverCats.filter(c=>!deletedCatIds.has(c.id)), ...localOnly]
+      };
+    }
+  }
 
   return merged;
 }
@@ -3448,6 +3475,14 @@ async function _doUpsert(){
       if(_localDeletedIds.clientNotes.size){
         toWrite.clientNotes = (appData.clientNotes||[]).filter(n=>!_localDeletedIds.clientNotes.has(n.id));
         appData.clientNotes = toWrite.clientNotes;
+      }
+      // Re-apply deletes de categorías del playground
+      if(_localDeletedIds.playgroundCats.size && toWrite.playground?.categories){
+        toWrite.playground = {
+          ...toWrite.playground,
+          categories: toWrite.playground.categories.filter(c=>!_localDeletedIds.playgroundCats.has(c.id))
+        };
+        if(appData.playground) appData.playground.categories = toWrite.playground.categories;
       }
       // Re-apply deleted pagos
       Object.entries(_localDeletedPagoIds).forEach(([bid, deletedIds])=>{
@@ -8960,6 +8995,10 @@ function subscribeRealtime(onUpdate){
           appData.members = (appData.members||[]).filter(m=>!_localDeletedIds.members.has(m.id));
         if(_localDeletedIds.clientNotes.size)
           appData.clientNotes = (appData.clientNotes||[]).filter(n=>!_localDeletedIds.clientNotes.has(n.id));
+        // Re-apply deletes de categorías del playground
+        if(_localDeletedIds.playgroundCats.size && appData.playground?.categories){
+          appData.playground.categories = appData.playground.categories.filter(c=>!_localDeletedIds.playgroundCats.has(c.id));
+        }
         // Re-apply deleted pagos
         Object.entries(_localDeletedPagoIds).forEach(([bid, deletedIds])=>{
           if(deletedIds.size && appData.cobros?.[bid])
@@ -12897,9 +12936,13 @@ async function pgDeleteCategory(catId){
   if(!cat) return;
   const ok = await confirmModal(`¿Eliminar la categoría "${cat.name}"? Las marcas volverán a Sin categoría.`, 'Eliminar');
   if(!ok) return;
+  // Marcar el delete localmente — sobrevive a realtimes que aún traigan la categoría
+  _localDeletedIds.playgroundCats.add(catId);
   pg.categories = pg.categories.filter(c=>c.id!==catId);
   markLocalChange('playground');
   await upsert();
+  // Limpiar el tracker después de un tiempo suficiente para que el upsert propague
+  setTimeout(()=>{ _localDeletedIds.playgroundCats.delete(catId); }, 8000);
   renderPlayground();
 }
 // ── END PLAYGROUND ───────────────────────────────────────────────────
