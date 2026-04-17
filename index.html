@@ -12649,6 +12649,14 @@ function setBrandsView(mode){
 // ── PLAYGROUND ──────────────────────────────────────────────────────
 // Data stored in appData.playground = { categories: [{id,name,emoji,color,brandIds:[]}] }
 
+// UI state local (no persiste — es solo preferencia de sesión por usuario)
+let _pgShowPaused = false;
+
+function togglePgShowPaused(){
+  _pgShowPaused = !_pgShowPaused;
+  renderPlayground();
+}
+
 function getPlaygroundData(){
   if(!appData.playground) appData.playground = {categories:[]};
   if(!Array.isArray(appData.playground.categories)) appData.playground.categories = [];
@@ -12660,25 +12668,28 @@ function renderPlayground(){
   if(!wrap) return;
   const pg = getPlaygroundData();
   const allBrands = (appData.brands||[]).filter(b=>!b.archivedAt&&!b.deletedAt);
+  const activeBrands = allBrands.filter(b=>!b.paused);
+  const pausedBrands = allBrands.filter(b=>b.paused);
 
-  // Brands not assigned to any category
+  // Brands not assigned to any category (solo activas, no pausadas)
   const assignedIds = new Set(pg.categories.flatMap(c=>c.brandIds||[]));
-  const unassigned = allBrands.filter(b=>!assignedIds.has(b.id));
+  const unassigned = activeBrands.filter(b=>!assignedIds.has(b.id));
 
   const stageEmoji = {aire:'💨',agua:'💧',tierra:'🌿',fuego:'🔥'};
 
-  const brandPill = (b, srcCatId='unassigned') => {
+  const brandPill = (b, srcCatId='unassigned', dimmed=false) => {
     const col = getBrandColor(b);
     const s = stageEmoji[b.stage]||'💨';
     const progressPercent = calcBrandProgress(b);
     // Safe brand name for title attr (avoid breaking HTML on quotes)
     const safeName = String(b.name||'').replace(/"/g,'&quot;');
+    const titleExtra = dimmed ? ' · ⏸ pausado' : '';
     
     return `<div
       draggable="true"
       ondragstart="pgDragStart(event,'${b.id}','${srcCatId}')"
       onclick="openBrand('${b.id}')"
-      title="${safeName} · ${b.stage || 'aire'} · ${progressPercent}%"
+      title="${safeName} · ${b.stage || 'aire'} · ${progressPercent}%${titleExtra}"
       style="
         display:flex;
         align-items:center;
@@ -12691,20 +12702,23 @@ function renderPlayground(){
         font-weight:600;
         color:var(--text);
         cursor:grab;
-        transition:transform 0.15s ease, box-shadow 0.15s ease;
+        transition:transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s;
         box-shadow:0 1px 3px rgba(0,0,0,0.05);
         position:relative;
         overflow:hidden;
         height:50px;
         box-sizing:border-box;
+        ${dimmed ? 'opacity:0.55;filter:grayscale(0.6);' : ''}
       "
       onmouseover="
         this.style.transform='translateY(-2px)';
         this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)';
+        ${dimmed ? `this.style.opacity='0.85';this.style.filter='grayscale(0.2)';` : ''}
       "
       onmouseout="
         this.style.transform='';
         this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)';
+        ${dimmed ? `this.style.opacity='0.55';this.style.filter='grayscale(0.6)';` : ''}
       ">
       
       <!-- Background tint -->
@@ -12737,6 +12751,9 @@ function renderPlayground(){
         overflow:hidden;
         text-overflow:ellipsis;
       ">${b.name}</div>
+      
+      <!-- Pause badge -->
+      ${dimmed ? `<span style="font-size:0.7rem;z-index:1;flex-shrink:0" title="Pausada">⏸</span>` : ''}
       
       <!-- Stage emoji -->
       <span style="font-size:0.95rem;z-index:1;flex-shrink:0">${s}</span>
@@ -12772,6 +12789,8 @@ function renderPlayground(){
     </div>`;
   };
 
+  const showPaused = !!_pgShowPaused;
+
   wrap.innerHTML = `
     <!-- Unassigned pool -->
     <div style="margin-bottom:1rem">
@@ -12783,7 +12802,7 @@ function renderPlayground(){
         ondragover="event.preventDefault();this.style.borderColor='var(--aire)';this.style.background='rgba(59,158,221,0.05)'"
         ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--glass)'"
         ondrop="pgDrop(event,'unassigned');this.style.borderColor='var(--border)';this.style.background='var(--glass)'">
-        ${unassigned.length ? unassigned.map(b=>brandPill(b,'unassigned')).join('') : '<div style="grid-column:1/-1;font-size:0.78rem;color:var(--text3);font-style:italic;text-align:center;padding:1.5rem">Todas las marcas están en una categoría ✓</div>'}
+        ${unassigned.length ? unassigned.map(b=>brandPill(b,'unassigned',false)).join('') : '<div style="grid-column:1/-1;font-size:0.78rem;color:var(--text3);font-style:italic;text-align:center;padding:1.5rem">Todas las marcas están en una categoría ✓</div>'}
       </div>
     </div>
 
@@ -12796,7 +12815,8 @@ function renderPlayground(){
     <!-- Category cards -->
     <div id="pg-categories" style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start">
       ${pg.categories.map(cat=>{
-        const catBrands = allBrands.filter(b=>(cat.brandIds||[]).includes(b.id));
+        // Solo mostrar marcas activas dentro de cada categoría (pausadas van a su sección)
+        const catBrands = activeBrands.filter(b=>(cat.brandIds||[]).includes(b.id));
         const catColor = cat.color||'#3b9edd';
         return `<div id="pg-cat-${cat.id}" style="background:var(--bg-card);border:1.5px solid var(--border);border-radius:18px;overflow:hidden;min-width:300px;max-width:400px;flex:1;box-shadow:0 2px 12px rgba(0,0,0,0.06);transition:all 0.2s">
           <!-- Cat header -->
@@ -12813,13 +12833,35 @@ function renderPlayground(){
             ondragleave="this.style.background=''"
             ondrop="pgDrop(event,'${cat.id}');this.style.background=''">
             ${catBrands.length
-              ? catBrands.map(b=>brandPill(b,cat.id)).join('')
+              ? catBrands.map(b=>brandPill(b,cat.id,false)).join('')
               : '<div style="grid-column:1/-1;font-size:0.72rem;color:var(--text3);font-style:italic;padding:1rem;text-align:center">Arrastra marcas aquí</div>'}
           </div>
         </div>`;
       }).join('')}
       ${pg.categories.length===0 ? '<div style="font-size:0.8rem;color:var(--text3);padding:1rem;font-style:italic">Crea categorías con el botón de arriba</div>' : ''}
     </div>
+
+    ${pausedBrands.length ? `
+    <!-- Paused section -->
+    <div style="margin-top:1.4rem;opacity:0.9">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.45rem">
+        <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);display:flex;align-items:center;gap:0.4rem">
+          <span>⏸</span> Pausadas (${pausedBrands.length})
+        </span>
+        <button onclick="togglePgShowPaused()"
+          style="font-size:0.7rem;background:none;border:1px solid var(--border);border-radius:7px;padding:0.28rem 0.7rem;color:var(--text3);cursor:pointer;font-family:var(--font);font-weight:600;transition:all 0.15s"
+          onmouseover="this.style.borderColor='var(--text2)';this.style.color='var(--text2)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
+          ${showPaused ? 'Ocultar pausadas' : 'Mostrar pausadas'}
+        </button>
+      </div>
+      ${showPaused ? `
+        <div style="padding:0.7rem;border:1.5px dashed var(--border);border-radius:14px;background:var(--glass);display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.5rem;align-items:start">
+          ${pausedBrands.map(b=>brandPill(b,'unassigned',true)).join('')}
+        </div>
+      ` : ''}
+    </div>
+    ` : ''}
   `;
 }
 
