@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260416-v384.2-AUTO-REFRESH-UI -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260417-v384.3-PRESERVE-EXPANDED-STATE -->
 <html lang="es" data-theme="dark">
 <head>
 <meta charset="UTF-8">
@@ -3499,34 +3499,38 @@ async function _doUpsert(){
       // Actualizar dot a verde
       setConnDot(true);
       
-      // 🔄 AUTO-REFRESH UI después de guardado exitoso
+      // 🔄 AUTO-REFRESH UI después de guardado exitoso (INTELIGENTE)
       console.log('[polen] Auto-refreshing UI for current page:', currentPage);
       try {
-        // Refresh basado en la página actual
-        if(currentPage === 'dashboard') {
-          renderDashboard();
-          renderBanners(); // Refresh banners con estadísticas
-        } else if(currentPage === 'cobranzas' && _cobUnlocked) {
-          renderCobranzas();
-          // Refresh también las tablas de cobros específicamente
-          renderCobros();
-          renderCobTabla();
-        } else if(currentPage === 'brand' && currentBrandId) {
-          renderBrandPage();
-          // Si la página de marca tiene cobros visibles, refrescarlos también
-          const cobCard = document.querySelector(`[data-brand-id="${currentBrandId}"] .cob-card`);
-          if(cobCard) {
-            renderCobCard(currentBrandId);
+        // Skip auto-refresh si el usuario explícitamente lo deshabilitó
+        if(window._skipAutoRefresh) {
+          console.log('[polen] Auto-refresh skipped - disabled by user');
+        } else {
+          // Refresh basado en la página actual (SIN renderCobros para evitar colapso)
+          if(currentPage === 'dashboard') {
+            renderDashboard();
+            renderBanners(); // Refresh banners con estadísticas
+          } else if(currentPage === 'cobranzas' && _cobUnlocked) {
+            // 🚨 SMART REFRESH - Solo actualizar tabla, NO las tarjetas para preservar estado expandido
+            renderCobTabla(); // Actualizar tabla detallada
+            // renderCobros(); // ← COMENTADO INTENCIONALMENTE para evitar colapso
+          } else if(currentPage === 'brand' && currentBrandId) {
+            renderBrandPage();
+            // Si la página de marca tiene cobros visibles, refrescarlos también
+            const cobCard = document.querySelector(`[data-brand-id="${currentBrandId}"] .cob-card`);
+            if(cobCard) {
+              renderCobCard(currentBrandId);
+            }
+          } else if(currentPage === 'equipo') {
+            renderEquipo();
+            renderTeamPage();
+          } else if(currentPage === 'template') {
+            renderTemplate();
+          } else if(currentPage === 'finanzas' && _finUnlocked) {
+            renderFinMes();
+          } else if(currentPage === 'archivo') {
+            renderArchivo();
           }
-        } else if(currentPage === 'equipo') {
-          renderEquipo();
-          renderTeamPage();
-        } else if(currentPage === 'template') {
-          renderTemplate();
-        } else if(currentPage === 'finanzas' && _finUnlocked) {
-          renderFinMes();
-        } else if(currentPage === 'archivo') {
-          renderArchivo();
         }
         console.log('[polen] UI refresh completed');
       } catch(refreshErr) {
@@ -3545,6 +3549,16 @@ async function _doUpsert(){
       return false;
     }
 }
+
+// 🔧 Función helper para refresh manual de cobros cuando sea necesario
+window.refreshCobros = function(force = false) {
+  if(!force && window._skipAutoRefresh) {
+    console.log('Refresh cobros skipped - auto-refresh disabled');
+    return;
+  }
+  console.log('Manual refresh de cobros ejecutado');
+  renderCobros(); 
+};
 
 function exportBackup(){
   // Full data backup — includes everything in appData (same as what's in Supabase)
@@ -5051,6 +5065,16 @@ function setCobCardsSort(mode){
 }
 
 function renderCobros(){
+  // 🔄 Capturar estados expandidos antes del re-render
+  const expandedStates = {};
+  if(appData.cobros) {
+    Object.keys(appData.cobros).forEach(brandId => {
+      if(appData.cobros[brandId]?.expanded) {
+        expandedStates[brandId] = true;
+      }
+    });
+  }
+  
   ensureCobrosData();
   const grid = document.getElementById('cob-brands-grid');
   if(!grid) return;
@@ -5103,6 +5127,26 @@ function renderCobros(){
 
   // Render expanded bodies
   brands.forEach(b=>{ if(appData.cobros[b.id]?.expanded) renderCobCard(b.id); });
+  
+  // 🔄 Restaurar estados expandidos que se perdieron durante el re-render
+  setTimeout(() => {
+    Object.keys(expandedStates).forEach(brandId => {
+      if(expandedStates[brandId] && appData.cobros[brandId]) {
+        // Asegurar que el estado se mantenga en los datos
+        appData.cobros[brandId].expanded = true;
+        // Re-renderizar la tarjeta expandida si no está ya
+        const card = document.getElementById('cob-card-' + brandId);
+        const body = card?.querySelector('.cob-body');
+        if(card && !body) {
+          renderCobCard(brandId);
+        }
+        // Asegurar que la flecha esté en posición correcta
+        const arrow = card?.querySelector('.cob-arrow');
+        if(arrow) arrow.style.transform = 'rotate(0)';
+      }
+    });
+  }, 10); // Micro-delay para que el DOM se actualice
+  
   renderCobTabla();
 }
 
