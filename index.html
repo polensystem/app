@@ -1733,9 +1733,13 @@ body.portal-mode .main{ height:100vh; }
               <div class="section-head-title">✅ Aprobaciones</div>
               <div class="section-head-sub">Respuestas del cliente y rondas internas por etapa</div>
             </div>
-            <button class="btn-ghost" style="font-size:0.78rem;padding:0.38rem 0.8rem" onclick="addRonda()">+ Ronda general</button>
+            <button id="brand-edit-approvals-btn" onclick="toggleBrandApprovalsEditor()"
+              style="background:none;border:1px solid var(--border);border-radius:99px;padding:0.3rem 0.7rem;font-size:0.72rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s"
+              onmouseover="this.style.borderColor='var(--text)';this.style.color='var(--text)'"
+              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">✎ Editar preguntas</button>
           </div>
           <div class="section-body">
+            <div id="brand-approvals-editor-wrap" style="display:none"></div>
             <div id="revisiones-wrap"></div>
           </div>
         </div>
@@ -1953,54 +1957,90 @@ body.portal-mode .main{ height:100vh; }
           </div>
         </div>
       </div>
-
-      <!-- Cronograma template -->
-      <div class="section-card">
-        <div class="section-head">
-          <div class="section-head-left">
-            <div class="section-head-title">📅 Cronograma — Template</div>
-            <div class="section-head-sub">Se copia a cada nueva marca en estado pendiente</div>
-          </div>
-        </div>
-        <div class="section-body">
-          <div class="naming-toggle-row">
-            <span>✏️</span>
-            <span class="naming-toggle-lbl">Incluye proceso de Naming</span>
-            <label class="toggle-pill"><input type="checkbox" id="tpl-naming" onchange="onNamingToggle()"><div class="toggle-track"></div></label>
-          </div>
-          <div id="tpl-crono-aire" class="tpl-crono-stage"></div>
-          <div id="tpl-crono-agua" class="tpl-crono-stage"></div>
-          <div id="tpl-crono-tierra" class="tpl-crono-stage"></div>
-          <div id="tpl-crono-fuego" class="tpl-crono-stage"></div>
-          <div class="crono-summary" id="tpl-crono-summary"></div>
+      <!-- Tabs del template -->
+      <div class="section-card" style="margin-bottom:0.5rem">
+        <div style="display:flex;gap:0.35rem;padding:0.35rem;background:var(--bg-card);border-radius:99px;flex-wrap:wrap">
+          <button id="tpl-tab-btn-crono" onclick="setTplTab('crono')" class="tpl-tab-btn"
+            style="flex:1;min-width:140px;padding:0.55rem 0.9rem;border:none;border-radius:99px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:var(--font);transition:all 0.15s;background:transparent;color:var(--text2)">
+            📅 Cronograma
+          </button>
+          <button id="tpl-tab-btn-bp" onclick="setTplTab('bp')" class="tpl-tab-btn"
+            style="flex:1;min-width:140px;padding:0.55rem 0.9rem;border:none;border-radius:99px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:var(--font);transition:all 0.15s;background:transparent;color:var(--text2)">
+            ⭐ Branding Points
+          </button>
+          <button id="tpl-tab-btn-approvals" onclick="setTplTab('approvals')" class="tpl-tab-btn"
+            style="flex:1;min-width:140px;padding:0.55rem 0.9rem;border:none;border-radius:99px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:var(--font);transition:all 0.15s;background:transparent;color:var(--text2)">
+            ✅ Aprobaciones
+          </button>
         </div>
       </div>
 
-      <!-- BP template -->
-      <div class="section-card">
-        <div class="section-head">
-          <div class="section-head-left">
-            <div class="section-head-title">⭐ Branding Points — Template</div>
-            <div class="section-head-sub">Se copian a cada nueva marca</div>
-            <button id="tpl-bp-collapse-btn" onclick="toggleAllTplBpCats()" style="background:none;border:1px solid var(--border);border-radius:99px;padding:0.18rem 0.6rem;font-size:0.68rem;font-weight:600;color:var(--text3);cursor:pointer;font-family:var(--font);margin-top:0.3rem;transition:all 0.15s">⊟ Colapsar</button>
+      <!-- Pestaña: Cronograma -->
+      <div id="tpl-tab-crono" class="tpl-tab-panel">
+        <div class="section-card">
+          <div class="section-head">
+            <div class="section-head-left">
+              <div class="section-head-title">📅 Cronograma — Template</div>
+              <div class="section-head-sub">Se copia a cada nueva marca en estado pendiente</div>
+            </div>
           </div>
-          <div class="stats-row">
-            <div class="stat-chip"><div class="stat-chip-val" id="bp-stat-total">0</div><div class="stat-chip-lbl">Total</div></div>
-            <div class="stat-sep"></div>
-            <div class="stat-chip"><div class="stat-chip-val" style="color:var(--fuego)" id="bp-stat-used">0</div><div class="stat-chip-lbl">Usados</div></div>
-            <div class="stat-sep"></div>
-            <div class="stat-chip"><div class="stat-chip-val" style="color:var(--agua)" id="bp-stat-left">0</div><div class="stat-chip-lbl">Restantes</div></div>
+          <div class="section-body">
+            <div class="naming-toggle-row">
+              <span>✏️</span>
+              <span class="naming-toggle-lbl">Incluye proceso de Naming</span>
+              <label class="toggle-pill"><input type="checkbox" id="tpl-naming" onchange="onNamingToggle()"><div class="toggle-track"></div></label>
+            </div>
+            <div id="tpl-crono-aire" class="tpl-crono-stage"></div>
+            <div id="tpl-crono-agua" class="tpl-crono-stage"></div>
+            <div id="tpl-crono-tierra" class="tpl-crono-stage"></div>
+            <div id="tpl-crono-fuego" class="tpl-crono-stage"></div>
+            <div class="crono-summary" id="tpl-crono-summary"></div>
           </div>
         </div>
-        <div class="section-body">
-          <div class="pts-bar-wrap"><div class="pts-bar" id="bp-bar" style="width:0%"></div></div>
-          <div class="pts-total-row">
-            <span class="pts-total-lbl">Total PTS:</span>
-            <input class="pts-total-input" type="number" id="bp-total" min="1" value="15" onchange="onBpTotalChange()">
+      </div>
+
+      <!-- Pestaña: Branding Points -->
+      <div id="tpl-tab-bp" class="tpl-tab-panel" style="display:none">
+        <div class="section-card">
+          <div class="section-head">
+            <div class="section-head-left">
+              <div class="section-head-title">⭐ Branding Points — Template</div>
+              <div class="section-head-sub">Se copian a cada nueva marca</div>
+              <button id="tpl-bp-collapse-btn" onclick="toggleAllTplBpCats()" style="background:none;border:1px solid var(--border);border-radius:99px;padding:0.18rem 0.6rem;font-size:0.68rem;font-weight:600;color:var(--text3);cursor:pointer;font-family:var(--font);margin-top:0.3rem;transition:all 0.15s">⊟ Colapsar</button>
+            </div>
+            <div class="stats-row">
+              <div class="stat-chip"><div class="stat-chip-val" id="bp-stat-total">0</div><div class="stat-chip-lbl">Total</div></div>
+              <div class="stat-sep"></div>
+              <div class="stat-chip"><div class="stat-chip-val" style="color:var(--fuego)" id="bp-stat-used">0</div><div class="stat-chip-lbl">Usados</div></div>
+              <div class="stat-sep"></div>
+              <div class="stat-chip"><div class="stat-chip-val" style="color:var(--agua)" id="bp-stat-left">0</div><div class="stat-chip-lbl">Restantes</div></div>
+            </div>
           </div>
-          <div id="bp-cats"></div>
-          <div style="padding:0.5rem 1rem 0.8rem">
-            <button class="btn-add-item" onclick="tplAddBpCat()" style="width:100%">+ Agregar categoría</button>
+          <div class="section-body">
+            <div class="pts-bar-wrap"><div class="pts-bar" id="bp-bar" style="width:0%"></div></div>
+            <div class="pts-total-row">
+              <span class="pts-total-lbl">Total PTS:</span>
+              <input class="pts-total-input" type="number" id="bp-total" min="1" value="15" onchange="onBpTotalChange()">
+            </div>
+            <div id="bp-cats"></div>
+            <div style="padding:0.5rem 1rem 0.8rem">
+              <button class="btn-add-item" onclick="tplAddBpCat()" style="width:100%">+ Agregar categoría</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pestaña: Aprobaciones -->
+      <div id="tpl-tab-approvals" class="tpl-tab-panel" style="display:none">
+        <div class="section-card">
+          <div class="section-head">
+            <div class="section-head-left">
+              <div class="section-head-title">✅ Aprobaciones — Template</div>
+              <div class="section-head-sub">Preguntas del portal cliente por etapa · los cambios solo aplican a marcas futuras</div>
+            </div>
+          </div>
+          <div class="section-body">
+            <div id="tpl-approvals-body"></div>
           </div>
         </div>
       </div>
@@ -3014,7 +3054,40 @@ function defaultTemplate(){
         {id:uid(),name:'Personalizado',open:true,items:[]},
         {id:uid(),name:'Vehículos',open:true,items:[]},
       ]
-    }
+    },
+    approvals: defaultApprovalsForTemplate(),
+  };
+}
+
+// Devuelve la estructura de preguntas de aprobación por defecto para un template nuevo.
+// Es una copia profunda de APPROVAL_QUESTIONS con ids frescos — los ids originales son semánticos
+// (aire_investigacion, agua_logotipo…) y se mantienen como referencia estable.
+function defaultApprovalsForTemplate(){
+  // Usamos ids semánticos para que las respuestas antiguas en brands legacy (que guardan
+  // respuestas por `q.id`) sigan mapeando correctamente a las preguntas por defecto.
+  return {
+    aire: [
+      {id:'aire_investigacion', label:'Investigación y hallazgos', q:'¿Confirmas la aprobación de la investigación, hallazgos e insights presentados en esta etapa?', options:['Sí, 100% aprobado ✓','Sí, pero tengo ajustes','No, aún no']},
+      {id:'aire_caminos', label:'Caminos creativos', q:'¿Confirmas la aprobación de los caminos creativos y propuesta de dirección presentados?', options:['Sí, 100% aprobado ✓','Sí, pero tengo ajustes','No, aún no']},
+    ],
+    agua: [
+      {id:'agua_logotipo', label:'Aprobación de logotipo', q:'¿Confirmas la aprobación del logotipo presentado en esta etapa?', options:['Sí, 100% aprobado ✓','Sí, pero tengo ajustes','No, aún no']},
+      {id:'agua_cromatica', label:'Sistema cromático', q:'¿Confirmas la aprobación de la cromática de marca presentada en esta etapa?', options:['Sí, aprobado 🎨','No, tengo ajustes']},
+      {id:'agua_tipografia', label:'Sistema tipográfico', q:'¿Confirmas la aprobación de la tipografía de marca presentada en esta etapa?', options:['Sí, me encanta ✓','No, tengo ajustes']},
+      {id:'agua_verbal', label:'Sistema verbal', q:'¿Confirmas la aprobación del sistema verbal y valores de marca desarrollados en esta etapa?', options:['Sí, aprobado ✓','Sí, pero aún tengo ajustes']},
+      {id:'agua_avance', label:'Confirmación de avance', q:'¿Autorizas avanzar a la siguiente etapa del proyecto?', options:['Sí, avancemos ✓','Sí, pero con ajustes menores','Prefiero revisar algunos puntos antes de avanzar']},
+    ],
+    tierra: [
+      {id:'tierra_visual', label:'Identidad visual integral', q:'¿Confirmas la aprobación de la identidad visual integral de marca presentada?', options:['Sí, aprobada ✓','Sí, pero tengo ajustes','No, aún no']},
+      {id:'tierra_verbal', label:'Identidad verbal integral', q:'¿Confirmas la aprobación de la identidad verbal integral de marca?', options:['Sí, aprobada ✓','Sí, pero tengo ajustes','No, aún no']},
+      {id:'tierra_entregables', label:'Entregables de marca', q:'¿Confirmas la aprobación de los entregables de marca presentados alineados a la estrategia?', options:['Sí, avancemos ✓','Sí, pero tengo ajustes']},
+      {id:'tierra_comunicacionales', label:'Elementos comunicacionales', q:'¿Confirmas la aprobación de los elementos comunicacionales estratégicos de marca?', options:['Sí, aprobados ✓','Sí, pero tengo ajustes','No, aún no']},
+      {id:'tierra_avance', label:'Confirmación de avance', q:'¿Autorizas avanzar a la etapa final del proyecto?', options:['Sí, avancemos ✓','Sí, pero con ajustes menores','Prefiero revisar algunos puntos antes de avanzar']},
+    ],
+    fuego: [
+      {id:'fuego_manual', label:'Manual de marca integral', q:'¿Confirmas la aprobación del manual de marca integral con todas las notas y correcciones ejecutadas?', options:['Sí, aprobado al 100% ✓','Sí, pero tengo ajustes finales','No, aún necesito revisiones']},
+      {id:'fuego_entrega', label:'Aprobación de entrega final', q:'¿Confirmas la aprobación de la entrega final del proyecto y das por concluido el proceso?', options:['Sí, proyecto aprobado y concluido ✓','Tengo algunos ajustes finales pendientes']},
+    ],
   };
 }
 
@@ -3215,6 +3288,50 @@ const _localDeletedPagoIds = {}; // { brandId: Set of deleted pagoIds }
 function markLocalChange(...keys){ keys.forEach(k=>_localChangedKeys.add(k)); }
 function markLocalDelete(type, id){ if(_localDeletedIds[type]) _localDeletedIds[type].add(id); _localChangedKeys.add(type); }
 
+// Merge inteligente de portalApprovals por stage.
+// localWins=true → yo (admin) modifiqué brands → mi versión manda para stages que tengo
+// localWins=false → yo no modifiqué → server gana (cliente llenó), pero preservo stages que solo yo tengo
+//
+// Caso especial: si localWins Y el stage local NO tiene `_signed` pero el server SÍ,
+// eso significa que el admin desbloqueó la firma. Honramos el borrado (quitamos _signed).
+// Nos apoyamos en que este merge solo corre cuando el admin realmente modificó brands;
+// si solo cargamos realtime sin tocar nada, localWins=false y la firma del server gana.
+function _mergePortalApprovalsSafe(serverPA, localPA, localWins){
+  const s = (serverPA && typeof serverPA==='object') ? serverPA : {};
+  const l = (localPA  && typeof localPA ==='object') ? localPA  : {};
+  const stages = new Set([...Object.keys(s), ...Object.keys(l)]);
+  const out = {};
+  stages.forEach(stage=>{
+    const ss = (s[stage] && typeof s[stage]==='object') ? s[stage] : null;
+    const ll = (l[stage] && typeof l[stage]==='object') ? l[stage] : null;
+    if(!ss && !ll) return;
+    if(!ss){ out[stage] = {...ll}; return; }
+    if(!ll){ out[stage] = {...ss}; return; }
+
+    if(localWins){
+      // Admin modificó — local manda. Respetar borrados de local:
+      // si local NO tiene _signed, eliminar el del server (caso desbloqueo).
+      // Para las demás claves, hacemos union con local prioridad.
+      const merged = {...ss, ...ll};
+      if(!('_signed' in ll) && ('_signed' in ss)){
+        // Admin desbloqueó explícitamente — quitar _signed
+        delete merged._signed;
+      }
+      out[stage] = merged;
+    } else {
+      // Server gana — cliente llenó desde el portal.
+      // Si server no tiene _signed pero local sí (porque era estado en memoria viejo),
+      // también quitamos _signed porque server es la verdad canónica aquí.
+      const merged = {...ll, ...ss};
+      if(!('_signed' in ss) && ('_signed' in ll)){
+        delete merged._signed;
+      }
+      out[stage] = merged;
+    }
+  });
+  return out;
+}
+
 function deepMergeAppData(server, local){
   const merged = {...server};
 
@@ -3238,8 +3355,10 @@ function deepMergeAppData(server, local){
         // For portal-owned fields: server wins if server has data and local doesn't have newer
         const bp = (sv.brandingPoints && sv.brandingPoints.categories?.length)
           ? sv.brandingPoints : b.brandingPoints;
-        const pa = (sv.portalApprovals && Object.keys(sv.portalApprovals).length)
-          ? sv.portalApprovals : b.portalApprovals;
+        // portalApprovals: merge por stage. Si yo (admin) modifiqué explícitamente brands,
+        // mi versión gana PARA LOS STAGES que yo modifiqué (ediciones/desbloqueos de firma).
+        // Para stages que no tengo, o tengo menos data, server gana (el cliente llenó desde el portal).
+        const pa = _mergePortalApprovalsSafe(sv.portalApprovals, b.portalApprovals, /*localWins=*/true);
         return {...b, brandingPoints: bp, portalApprovals: pa};
       });
   } else {
@@ -3252,8 +3371,8 @@ function deepMergeAppData(server, local){
           const sv = brandMap[b.id];
           const bp = (sv.brandingPoints && sv.brandingPoints.categories?.length)
             ? sv.brandingPoints : b.brandingPoints;
-          const pa = (sv.portalApprovals && Object.keys(sv.portalApprovals).length)
-            ? sv.portalApprovals : b.portalApprovals;
+          // No cambié brands → server gana en portalApprovals (cliente llenó), pero preservo stages que solo yo tengo
+          const pa = _mergePortalApprovalsSafe(sv.portalApprovals, b.portalApprovals, /*localWins=*/false);
           brandMap[b.id] = {...sv, ...b, brandingPoints: bp, portalApprovals: pa};
         } else {
           brandMap[b.id] = {...b};
@@ -6794,34 +6913,57 @@ function renderRondas(brand){
     tierra:{emoji:'🌱',  label:'Tierra', color:'var(--tierra)', bg:'rgba(90,170,53,0.06)',   border:'rgba(90,170,53,0.18)'},
     fuego: {emoji:'🔥',  label:'Fuego',  color:'var(--fuego)',  bg:'rgba(232,98,42,0.06)',   border:'rgba(232,98,42,0.18)'},
   };
-  const APPROVAL_LABELS = {
-    aire_investigacion:'Investigación y hallazgos', aire_caminos:'Caminos creativos',
-    agua_logotipo:'Logotipo', agua_cromatica:'Sistema cromático', agua_tipografia:'Sistema tipográfico',
-    agua_verbal:'Sistema verbal', agua_avance:'Confirmación de avance',
-    tierra_visual:'Identidad visual integral', tierra_verbal:'Identidad verbal integral',
-    tierra_entregables:'Entregables de marca', tierra_comunicacionales:'Elementos comunicacionales',
-    tierra_avance:'Confirmación de avance',
-    fuego_manual:'Manual de marca integral', fuego_entrega:'Aprobación de entrega final',
-  };
-  const STAGE_KEYS = {
-    aire: ['aire_investigacion','aire_caminos'],
-    agua: ['agua_logotipo','agua_cromatica','agua_tipografia','agua_verbal','agua_avance'],
-    tierra: ['tierra_visual','tierra_verbal','tierra_entregables','tierra_comunicacionales','tierra_avance'],
-    fuego: ['fuego_manual','fuego_entrega'],
-  };
-
   const approvals = brand.portalApprovals || {};
   const stageIdx = stageOrder.indexOf(brand.stage || 'aire');
 
-  // Group rondas by stage (stored in r.stage) + ungrouped ones
+  // Derivar dinámicamente APPROVAL_LABELS y STAGE_KEYS desde las preguntas de la marca
+  // (respetando brand.approvals si la marca fue personalizada, o template/defaults si no)
+  const APPROVAL_LABELS = {};
+  const STAGE_KEYS = {};
+  stageOrder.forEach(st => {
+    const qs = getApprovalQuestions(brand, st);
+    STAGE_KEYS[st] = qs.map(q => q.id);
+    qs.forEach(q => { APPROVAL_LABELS[q.id] = q.label; });
+  });
+
+  // ── MIGRACIÓN determinista: distribuir rondas huérfanas UNA por etapa en orden ──
+  // Si hay rondas sin stage, se asignan en secuencia: 1ª → aire, 2ª → agua, 3ª → tierra, 4ª → fuego.
+  // Si hay más de 4 huérfanas, las sobrantes se asignan a la etapa actual del brand.
+  {
+    const orphans = (brand.rondas||[]).filter(r => !r.stage || !stageOrder.includes(r.stage));
+    if(orphans.length){
+      // Para cada etapa, ver si ya tiene una ronda con ese stage. Si no, darle la próxima huérfana.
+      // Si todas las etapas ya tienen, las sobrantes van a brand.stage actual.
+      const takenStages = new Set((brand.rondas||[]).filter(r => r.stage && stageOrder.includes(r.stage)).map(r => r.stage));
+      let orphanIdx = 0;
+      for(const st of stageOrder){
+        if(orphanIdx >= orphans.length) break;
+        if(!takenStages.has(st)){
+          orphans[orphanIdx].stage = st;
+          // Si el label es auto-generado (R\d+), normalizarlo a R1 de esa etapa
+          if(orphans[orphanIdx].label && /^R\d+$/.test(orphans[orphanIdx].label)){
+            orphans[orphanIdx].label = 'R1';
+          }
+          orphanIdx++;
+        }
+      }
+      // Sobrantes → etapa actual del brand
+      while(orphanIdx < orphans.length){
+        const fallback = brand.stage || 'aire';
+        orphans[orphanIdx].stage = fallback;
+        orphanIdx++;
+      }
+      markLocalChange('brands');
+      try { upsert(); } catch(e){}
+    }
+  }
+
+  // Group rondas by stage
   const rondasByStage = {};
-  const ungrouped = [];
   (brand.rondas||[]).forEach(r => {
     if(r.stage && stageOrder.includes(r.stage)) {
       if(!rondasByStage[r.stage]) rondasByStage[r.stage] = [];
       rondasByStage[r.stage].push(r);
-    } else {
-      ungrouped.push(r);
     }
   });
 
@@ -6838,6 +6980,14 @@ function renderRondas(brand){
         <input type="date" class="ronda-date-input" value="${r.fecha||''}"
           onclick="event.stopPropagation()"
           onchange="saveRondaField('${brand.id}','${r.id}','fecha',this.value)">
+        <select onclick="event.stopPropagation()" onchange="changeRondaStage('${brand.id}','${r.id}',this.value)" title="Cambiar de etapa"
+          style="background:none;border:1px solid var(--border);border-radius:6px;padding:0.25rem 0.35rem;font-size:0.7rem;color:var(--text3);font-family:var(--font);cursor:pointer;margin-right:0.3rem">
+          <option value="aire"   ${r.stage==='aire'?'selected':''}>🌬️ Aire</option>
+          <option value="agua"   ${r.stage==='agua'?'selected':''}>💧 Agua</option>
+          <option value="tierra" ${r.stage==='tierra'?'selected':''}>🌱 Tierra</option>
+          <option value="fuego"  ${r.stage==='fuego'?'selected':''}>🔥 Fuego</option>
+          <option value="__unassigned" ${(!r.stage||!stageOrder.includes(r.stage))?'selected':''} disabled hidden>Sin etapa</option>
+        </select>
         <button class="ronda-del" onclick="event.stopPropagation();deleteRonda('${brand.id}','${r.id}')">×</button>
       </div>
       <textarea class="ronda-notes" placeholder="Notas de esta ronda…"
@@ -6885,6 +7035,90 @@ function renderRondas(brand){
           <span style="margin-left:auto;font-size:0.68rem;color:var(--text3)">${answered}/${keys.length} respondidas</span>
         </div>
         ${questionsHTML}
+        ${(()=>{
+          const signed = stageApprovals._signed;
+          const history = Array.isArray(stageApprovals._signedHistory) ? stageApprovals._signedHistory : [];
+          const fmtD = (iso) => iso ? new Date(iso).toLocaleString('es-EC',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+
+          // Historial (común a todos los casos)
+          const historyBlockHTML = history.length ? `
+            <details style="margin-top:0.55rem;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem">
+              <summary style="cursor:pointer;font-size:0.66rem;font-weight:700;color:var(--text2);user-select:none;letter-spacing:0.3px">📜 Firmas anteriores (${history.length})</summary>
+              <div style="margin-top:0.5rem;display:flex;flex-direction:column;gap:0.4rem">
+                ${history.map(h=>{
+                  const col = h.status === 'approved-with-notes' ? '#d97706' : sc.color;
+                  const lbl = h.status === 'approved-with-notes' ? 'Con observaciones' : 'Aprobado';
+                  return `<div style="padding:0.45rem 0.6rem;background:var(--bg-card2);border-left:2px solid ${col};border-radius:5px">
+                    <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap">
+                      <span style="font-size:0.68rem;font-weight:700;color:var(--text)">${String(h.by||'—').replace(/</g,'&lt;')}</span>
+                      <span style="font-size:0.58rem;font-weight:700;color:${col};background:${col}18;border-radius:99px;padding:0.08rem 0.4rem">${lbl}</span>
+                      <span style="font-size:0.62rem;color:var(--text3);margin-left:auto">${fmtD(h.at)}</span>
+                    </div>
+                    ${h.reopenedAt ? `<div style="font-size:0.6rem;color:var(--text3);margin-top:0.15rem;font-style:italic">Reabierta: ${fmtD(h.reopenedAt)}</div>` : ''}
+                    ${(h.adjustments||[]).length ? `<div style="margin-top:0.3rem;font-size:0.62rem;color:var(--text3)">${h.adjustments.length} ${h.adjustments.length===1?'punto':'puntos'} con ajustes</div>` : ''}
+                  </div>`;
+                }).join('')}
+              </div>
+            </details>` : '';
+
+          if(signed?.by){
+            const atStr = fmtD(signed.at);
+            const sigStatus = signed.status || 'approved';
+            const isWithNotes = sigStatus === 'approved-with-notes';
+            const themeCol = isWithNotes ? '#d97706' : sc.color;
+            const bgCol    = isWithNotes ? 'rgba(217,119,6,0.06)' : 'var(--bg-card)';
+            const icon     = isWithNotes ? '⚠️' : '✅';
+            const mainText = isWithNotes ? `Aprobado con observaciones · ${signed.by}` : `Aprobado por ${signed.by}`;
+            const adjPoints = isWithNotes ? getStageAdjustmentPoints(stage, stageApprovals, brand) : [];
+            const adjListHTML = adjPoints.length ? `
+              <div style="margin-top:0.55rem;padding:0.55rem 0.7rem;background:var(--bg-card2);border-radius:8px;border:1px dashed ${themeCol}">
+                <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:${themeCol};margin-bottom:0.35rem">${adjPoints.length} ${adjPoints.length===1?'punto':'puntos'} con ajustes</div>
+                ${adjPoints.map(p=>`
+                  <div style="padding:0.28rem 0;border-bottom:1px dashed var(--border2,rgba(0,0,0,0.06))">
+                    <div style="font-size:0.7rem;font-weight:700;color:var(--text)">• ${p.label}</div>
+                    <div style="font-size:0.66rem;color:var(--text3);margin-top:0.08rem"><em>${p.answer}</em></div>
+                    ${p.note ? `<div style="font-size:0.66rem;color:var(--text2);margin-top:0.2rem;padding:0.3rem 0.4rem;background:var(--bg-card);border-radius:5px;line-height:1.45">💬 ${p.note.replace(/</g,'&lt;')}</div>` : ''}
+                  </div>`).join('')}
+              </div>` : '';
+            return `
+            <div style="margin-top:0.7rem;background:${bgCol};border:1.5px solid ${themeCol};border-radius:10px;padding:0.75rem 0.9rem">
+              <div style="display:flex;align-items:center;gap:0.6rem">
+                <span style="font-size:1rem;flex-shrink:0">${icon}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:0.76rem;font-weight:800;color:${themeCol};line-height:1.25">${mainText}</div>
+                  <div style="font-size:0.66rem;color:var(--text3);margin-top:0.1rem">${atStr}</div>
+                </div>
+                <button onclick="adminEditSignature('${brand.id}','${stage}')" title="Editar firma"
+                  style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.55rem;font-size:0.68rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-weight:600;transition:all 0.15s"
+                  onmouseover="this.style.borderColor='${themeCol}';this.style.color='${themeCol}'"
+                  onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">✏️ Editar</button>
+                <button onclick="adminUnlockStageSignature('${brand.id}','${stage}')" title="Desbloquear — permitirá al cliente volver a editar y firmar"
+                  style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.55rem;font-size:0.68rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-weight:600;transition:all 0.15s"
+                  onmouseover="this.style.borderColor='#dc2626';this.style.color='#dc2626'"
+                  onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">🔓 Desbloquear</button>
+              </div>
+              ${adjListHTML}
+              ${historyBlockHTML}
+            </div>`;
+          }
+
+          // Sin firma activa PERO con historial → etapa reabierta (automática o manual)
+          if(history.length){
+            return `
+            <div style="margin-top:0.7rem;background:${sc.bg};border:1.5px solid ${sc.color};border-radius:10px;padding:0.75rem 0.9rem">
+              <div style="display:flex;align-items:center;gap:0.6rem">
+                <span style="font-size:1rem;flex-shrink:0">🔄</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:0.76rem;font-weight:800;color:${sc.color};line-height:1.25">Reabierta para re-firma</div>
+                  <div style="font-size:0.66rem;color:var(--text3);margin-top:0.1rem">Esperando que el cliente vuelva a firmar esta etapa</div>
+                </div>
+              </div>
+              ${historyBlockHTML}
+            </div>`;
+          }
+
+          return '';
+        })()}
         <div style="margin-top:0.8rem;display:flex;flex-direction:column;gap:0">
           ${stageRondas.map(r=>renderRondaCard(r)).join('')}
           <button onclick="addRondaToStage('${brand.id}','${stage}')"
@@ -6897,14 +7131,7 @@ function renderRondas(brand){
       </div>`;
   }).join('');
 
-  // Ungrouped rondas at the bottom
-  const ungroupedHTML = ungrouped.length ? `
-    <div style="margin-top:0.5rem">
-      <div style="font-size:0.75rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem">Rondas generales</div>
-      ${ungrouped.map(r=>renderRondaCard(r)).join('')}
-    </div>` : '';
-
-  wrap.innerHTML = stagesHTML + ungroupedHTML;
+  wrap.innerHTML = stagesHTML;
 
   // Auto-resize textareas
   setTimeout(()=>{
@@ -6913,6 +7140,118 @@ function renderRondas(brand){
       ta.style.height=Math.max(60,ta.scrollHeight)+'px';
     });
   },0);
+
+  // Actualizar el botón "Editar preguntas" para reflejar si esta marca tiene preguntas personalizadas
+  const editBtn = document.getElementById('brand-edit-approvals-btn');
+  if(editBtn){
+    const editorOpen = document.getElementById('brand-approvals-editor-wrap')?.style.display !== 'none';
+    const isCustom = !!brand.approvals;
+    if(editorOpen){
+      editBtn.textContent = '✕ Cerrar editor';
+    } else if(isCustom){
+      editBtn.textContent = '✎ Personalizadas';
+      editBtn.title = 'Esta marca tiene preguntas personalizadas — click para editar';
+      editBtn.style.borderColor = 'var(--aire)';
+      editBtn.style.color = 'var(--aire)';
+    } else {
+      editBtn.textContent = '✎ Editar preguntas';
+      editBtn.title = '';
+      editBtn.style.borderColor = 'var(--border)';
+      editBtn.style.color = 'var(--text2)';
+    }
+  }
+}
+
+// Admin: cambia la etapa de una ronda. Renombra el label automáticamente (R1, R2…) en la nueva etapa.
+async function changeRondaStage(brandId, rondaId, newStage){
+  const stageOrder = ['aire','agua','tierra','fuego'];
+  if(!stageOrder.includes(newStage)) return;
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand || !Array.isArray(brand.rondas)) return;
+  const r = brand.rondas.find(x=>x.id===rondaId);
+  if(!r) return;
+  if(r.stage === newStage) return; // no-op
+  r.stage = newStage;
+  // Renumerar el label R{n} basado en el orden en la nueva etapa
+  const sameStage = brand.rondas.filter(x=>x.stage===newStage);
+  // Solo renumeramos si el label actual es del formato "R\d+" (auto-generado)
+  if(r.label && /^R\d+$/.test(r.label)){
+    r.label = 'R' + sameStage.length;
+  }
+  markLocalChange('brands');
+  renderRondas(brand);
+  await upsert();
+  showStatus(`Ronda movida a ${newStage[0].toUpperCase()+newStage.slice(1)} ✓`);
+}
+
+// ── Admin: editar firma de una etapa (nombre + fecha manualmente) ──
+async function adminEditSignature(brandId, stage){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand) return;
+  const signed = brand.portalApprovals?.[stage]?._signed;
+  if(!signed) return;
+
+  const SC_LABELS = {aire:'Aire',agua:'Agua',tierra:'Tierra',fuego:'Fuego'};
+  const currentDate = signed.at ? new Date(signed.at) : new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dtLocalVal = `${currentDate.getFullYear()}-${pad(currentDate.getMonth()+1)}-${pad(currentDate.getDate())}T${pad(currentDate.getHours())}:${pad(currentDate.getMinutes())}`;
+
+  // Modal custom (no uso prompt/confirm por Vercel/iframe)
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+  modal.innerHTML = `
+    <div style="background:var(--bg-card);border-radius:18px;padding:1.5rem;width:360px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);border:1px solid var(--border)">
+      <div style="font-size:1rem;font-weight:800;color:var(--text);margin-bottom:1rem">✏️ Editar firma — Etapa ${SC_LABELS[stage]||stage}</div>
+      <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.35rem">Nombre del firmante</div>
+      <input id="adm-sig-name" type="text" value="${String(signed.by||'').replace(/"/g,'&quot;')}"
+        style="width:100%;box-sizing:border-box;padding:0.55rem 0.8rem;border-radius:10px;border:1.5px solid var(--border);background:var(--input-bg,var(--bg-card2));color:var(--text);font-family:var(--font);font-size:0.88rem;outline:none;margin-bottom:0.9rem"
+        onfocus="this.style.borderColor='var(--aire)'" onblur="this.style.borderColor='var(--border)'">
+      <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.35rem">Fecha y hora</div>
+      <input id="adm-sig-dt" type="datetime-local" value="${dtLocalVal}"
+        style="width:100%;box-sizing:border-box;padding:0.55rem 0.8rem;border-radius:10px;border:1.5px solid var(--border);background:var(--input-bg,var(--bg-card2));color:var(--text);font-family:var(--font);font-size:0.88rem;outline:none;margin-bottom:1.3rem"
+        onfocus="this.style.borderColor='var(--aire)'" onblur="this.style.borderColor='var(--border)'">
+      <div style="display:flex;gap:0.6rem;justify-content:flex-end">
+        <button id="adm-sig-cancel" style="background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.4rem 1rem;font-size:0.78rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font)">Cancelar</button>
+        <button id="adm-sig-save" style="background:var(--aire);color:#fff;border:none;border-radius:99px;padding:0.4rem 1.1rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font)">Guardar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const close = ()=>modal.remove();
+  modal.addEventListener('click', e=>{ if(e.target===modal) close(); });
+  modal.querySelector('#adm-sig-cancel').onclick = close;
+  modal.querySelector('#adm-sig-save').onclick = async ()=>{
+    const newName = modal.querySelector('#adm-sig-name').value.trim();
+    const newDtStr = modal.querySelector('#adm-sig-dt').value;
+    if(!newName){ showStatus('El nombre del firmante es requerido', true); return; }
+    const newAt = newDtStr ? new Date(newDtStr).toISOString() : new Date().toISOString();
+    brand.portalApprovals[stage]._signed = { by: newName, at: newAt };
+    markLocalChange('brands');
+    close();
+    renderRondas(brand);
+    await upsert();
+    showStatus('Firma actualizada ✓');
+  };
+  setTimeout(()=>modal.querySelector('#adm-sig-name').focus(), 30);
+}
+
+// ── Admin: desbloquear firma de una etapa (cliente vuelve a poder editar y firmar) ──
+async function adminUnlockStageSignature(brandId, stage){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand) return;
+  const signed = brand.portalApprovals?.[stage]?._signed;
+  if(!signed?.by) return;
+  const SC_LABELS = {aire:'Aire',agua:'Agua',tierra:'Tierra',fuego:'Fuego'};
+  const ok = await confirmModal(
+    `¿Desbloquear la etapa ${SC_LABELS[stage]||stage}?\n\nLa firma de ${signed.by} se archivará en el historial y el cliente podrá modificar sus respuestas y volver a firmar.`,
+    'Desbloquear',
+    'background:#dc2626;color:#fff;border:none'
+  );
+  if(!ok) return;
+  archiveStageSignature(brand, stage); // mover al historial en vez de solo borrar
+  markLocalChange('brands');
+  renderRondas(brand);
+  await upsert();
+  showStatus('Etapa desbloqueada — firma movida al historial');
 }
 
 async function addRondaToStage(brandId, stage){
@@ -6933,9 +7272,20 @@ async function toggleRonda(brandId,rondaId){
   const r=brand.rondas.find(x=>x.id===rondaId);
   if(!r)return;
   r.done=!r.done;
+
+  // Si la ronda quedó completada y pertenece a una etapa con firma "approved-with-notes",
+  // chequear si TODAS las rondas de esa etapa ya están completas → auto-reabrir para re-firma
+  if(r.done && r.stage){
+    const reopened = maybeReopenStageForReSign(brand, r.stage);
+    if(reopened){
+      const stageLabel = {aire:'Aire',agua:'Agua',tierra:'Tierra',fuego:'Fuego'}[r.stage] || r.stage;
+      showStatus(`Etapa ${stageLabel} reabierta — cliente puede volver a firmar`);
+    }
+  }
+
   renderRondas(brand);
-    markLocalChange('brands');
-await upsert();
+  markLocalChange('brands');
+  await upsert();
 }
 
 async function deleteRonda(brandId,rondaId){
@@ -6971,11 +7321,14 @@ async function addRondaToStage(brandId, stage){
 }
 
 async function addRonda(){
+  // Legacy: el botón "+ Ronda general" fue removido. Esta función persiste como fallback
+  // por si algún código viejo aún la invoca. Siempre asigna stage (nunca crea huérfanas).
   const brand = appData.brands.find(b=>b.id===currentBrandId);
   if(!brand) return;
   if(!brand.rondas) brand.rondas = [];
-  const n = brand.rondas.filter(r=>!r.stage).length + 1;
-  brand.rondas.push({id:uid(), label:'R'+n, done:false, fecha:'', notas:''});
+  const stage = brand.stage || 'aire';
+  const n = brand.rondas.filter(r=>r.stage===stage).length + 1;
+  brand.rondas.push({id:uid(), label:'R'+n, done:false, fecha:'', notas:'', stage});
   renderRondas(brand);
   markLocalChange('brands');
   await upsert();
@@ -8579,6 +8932,9 @@ async function saveBrand(){ markLocalChange("brands");
       createdAt:new Date().toISOString(),
       cronograma,
       brandingPoints:buildBpFromTemplate(tplWithNaming),
+      // Copia profunda del template.approvals al momento de creación — cambios futuros al
+      // template no afectarán esta marca, y viceversa.
+      approvals: JSON.parse(JSON.stringify(tpl.approvals || defaultApprovalsForTemplate())),
     };
     if(!Array.isArray(appData.brands))appData.brands=[];
     appData.brands.push(newBrand);
@@ -8667,8 +9023,37 @@ const SCV={
   fuego:{emoji:'🔥',label:'Etapa Fuego',color:'var(--fuego)'},
 };
 
+// Tab activo en la página de template (persiste mientras dure la sesión)
+let _tplActiveTab = 'crono';
+
+function setTplTab(tab){
+  _tplActiveTab = tab;
+  const tabs = ['crono','bp','approvals'];
+  const SC_TAB = {
+    crono: {color:'var(--aire)', bg:'rgba(52,166,216,0.1)'},
+    bp: {color:'var(--agua)', bg:'rgba(52,166,216,0.1)'},
+    approvals: {color:'var(--tierra)', bg:'rgba(76,175,80,0.1)'},
+  };
+  tabs.forEach(t=>{
+    const panel = document.getElementById('tpl-tab-'+t);
+    const btn = document.getElementById('tpl-tab-btn-'+t);
+    if(!panel || !btn) return;
+    const active = t === tab;
+    panel.style.display = active ? 'block' : 'none';
+    const sc = SC_TAB[t] || {};
+    btn.style.background = active ? (sc.color || 'var(--text)') : 'transparent';
+    btn.style.color = active ? '#fff' : 'var(--text2)';
+    btn.style.fontWeight = active ? 800 : 700;
+  });
+}
+
 function renderTemplate(){
   const t=appData.template;
+  // Auto-migración: si el template no tiene approvals (creado antes de esta feature), agregar los defaults
+  if(!t.approvals){
+    t.approvals = defaultApprovalsForTemplate();
+    markLocalChange('template');
+  }
   (document.getElementById('tpl-industria')||{}).value=t.industria||'';
   (document.getElementById('tpl-prioridad')||{}).value=t.prioridad||'media';
   (document.getElementById('tpl-notas')||{}).value=t.notas||'';
@@ -8686,6 +9071,421 @@ function renderTemplate(){
   renderTplSummary();
   (document.getElementById('bp-total')||{}).value=t.brandingPoints.total||15;
   renderTplBpCats();
+  renderTplApprovals();
+  setTplTab(_tplActiveTab);
+}
+
+/* ═══ TEMPLATE: APROBACIONES (editor de preguntas por etapa) ═══ */
+
+function renderTplApprovals(){
+  const wrap = document.getElementById('tpl-approvals-body');
+  if(!wrap) return;
+  const t = appData.template;
+  if(!t.approvals) t.approvals = defaultApprovalsForTemplate();
+  const SC_LBL = {aire:'Aire', agua:'Agua', tierra:'Tierra', fuego:'Fuego'};
+  const SC_EMO = {aire:'🌬️', agua:'💧', tierra:'🌱', fuego:'🔥'};
+
+  const stagesHTML = ['aire','agua','tierra','fuego'].map(stage=>{
+    const c = SCV[stage];
+    const questions = t.approvals[stage] || [];
+    const qsHTML = questions.map((q, qi)=>{
+      const optsHTML = (q.options||[]).map((opt, oi)=>`
+        <div style="display:flex;gap:0.4rem;align-items:center;padding:0.3rem 0">
+          <span style="font-size:0.6rem;color:var(--text3);width:18px;text-align:center;flex-shrink:0">${oi===0?'✓':oi+1}</span>
+          <input type="text" value="${String(opt).replace(/"/g,'&quot;')}"
+            onchange="tplUpdateApprovalOption('${stage}',${qi},${oi},this.value)"
+            style="flex:1;padding:0.35rem 0.55rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:0.78rem;font-family:var(--font);color:var(--text);outline:none"
+            onfocus="this.style.borderColor='${c.color}'"
+            onblur="this.style.borderColor='var(--border)'"
+            placeholder="${oi===0?'Opción positiva (ej: Sí, 100% aprobado ✓)':'Opción con ajustes u observación'}">
+          ${(q.options.length > 2 || oi !== 0) ? `<button onclick="tplDeleteApprovalOption('${stage}',${qi},${oi})" title="Eliminar opción"
+            style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.85rem;padding:0.15rem 0.35rem;border-radius:4px"
+            onmouseover="this.style.color='#dc2626'"
+            onmouseout="this.style.color='var(--text3)'">×</button>` : ''}
+        </div>
+      `).join('');
+
+      return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.8rem 0.95rem;margin-bottom:0.55rem">
+        <div style="display:flex;gap:0.5rem;align-items:flex-start;margin-bottom:0.55rem">
+          <div style="flex:1;min-width:0">
+            <input type="text" value="${String(q.label||'').replace(/"/g,'&quot;')}" placeholder="Nombre corto (ej: Investigación)"
+              onchange="tplUpdateApprovalQ('${stage}',${qi},'label',this.value)"
+              style="width:100%;padding:0.45rem 0.6rem;border:1px solid var(--border);border-radius:7px;background:var(--bg);font-size:0.82rem;font-weight:700;font-family:var(--font);color:var(--text);outline:none;margin-bottom:0.35rem"
+              onfocus="this.style.borderColor='${c.color}'"
+              onblur="this.style.borderColor='var(--border)'">
+            <textarea placeholder="Pregunta completa que verá el cliente"
+              onchange="tplUpdateApprovalQ('${stage}',${qi},'q',this.value)"
+              style="width:100%;box-sizing:border-box;padding:0.45rem 0.6rem;border:1px solid var(--border);border-radius:7px;background:var(--bg);font-size:0.78rem;font-family:var(--font);color:var(--text2);outline:none;resize:vertical;min-height:50px;line-height:1.4"
+              onfocus="this.style.borderColor='${c.color}'"
+              onblur="this.style.borderColor='var(--border)'">${String(q.q||'').replace(/</g,'&lt;')}</textarea>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0.3rem;flex-shrink:0">
+            <button onclick="tplMoveApprovalQ('${stage}',${qi},-1)" title="Subir"
+              style="background:none;border:1px solid var(--border);border-radius:5px;padding:0.2rem 0.4rem;font-size:0.7rem;cursor:pointer;color:var(--text3)"
+              ${qi===0?'disabled style="opacity:0.3;cursor:not-allowed;background:none;border:1px solid var(--border);border-radius:5px;padding:0.2rem 0.4rem;font-size:0.7rem;color:var(--text3)"':''}>↑</button>
+            <button onclick="tplMoveApprovalQ('${stage}',${qi},1)" title="Bajar"
+              style="background:none;border:1px solid var(--border);border-radius:5px;padding:0.2rem 0.4rem;font-size:0.7rem;cursor:pointer;color:var(--text3)"
+              ${qi===questions.length-1?'disabled style="opacity:0.3;cursor:not-allowed;background:none;border:1px solid var(--border);border-radius:5px;padding:0.2rem 0.4rem;font-size:0.7rem;color:var(--text3)"':''}>↓</button>
+            <button onclick="tplDeleteApprovalQ('${stage}',${qi})" title="Eliminar pregunta"
+              style="background:none;border:1px solid var(--border);border-radius:5px;padding:0.2rem 0.4rem;font-size:0.7rem;cursor:pointer;color:#dc2626"
+              onmouseover="this.style.background='rgba(220,38,38,0.08)'"
+              onmouseout="this.style.background='none'">🗑</button>
+          </div>
+        </div>
+        <div style="margin-top:0.35rem">
+          <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.3rem">Opciones de respuesta (la primera se considera 100% aprobado)</div>
+          ${optsHTML}
+          <button onclick="tplAddApprovalOption('${stage}',${qi})"
+            style="margin-top:0.35rem;background:none;border:1px dashed var(--border);border-radius:6px;padding:0.3rem 0.6rem;font-size:0.7rem;cursor:pointer;color:var(--text3);font-family:var(--font)"
+            onmouseover="this.style.borderColor='${c.color}';this.style.color='${c.color}'"
+            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">+ Opción</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div style="background:${c.bg||'var(--bg-card2)'};border:1.5px solid ${c.border||'var(--border)'};border-radius:14px;padding:0.85rem 1rem;margin-bottom:0.7rem">
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.7rem">
+        <span style="font-size:1.1rem">${SC_EMO[stage]}</span>
+        <div style="flex:1">
+          <div style="font-size:0.88rem;font-weight:800;color:${c.color}">Etapa ${SC_LBL[stage]}</div>
+          <div style="font-size:0.68rem;color:var(--text3);margin-top:0.1rem">${questions.length} pregunta${questions.length===1?'':'s'}</div>
+        </div>
+        <button onclick="tplAddApprovalQ('${stage}')"
+          style="background:${c.color};color:#fff;border:none;border-radius:8px;padding:0.35rem 0.7rem;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:var(--font)"
+          onmouseover="this.style.filter='brightness(1.1)'"
+          onmouseout="this.style.filter=''">+ Pregunta</button>
+      </div>
+      ${qsHTML || '<div style="text-align:center;padding:1rem;font-size:0.76rem;color:var(--text3);font-style:italic">Sin preguntas en esta etapa — agrega la primera con el botón de arriba</div>'}
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = stagesHTML;
+}
+
+// Helpers de persistencia (todos marcan template dirty y guardan con debounce)
+function _tplApprovalsDirty(){
+  markLocalChange('template');
+  scheduleTplSave();
+}
+function tplUpdateApprovalQ(stage, qi, field, value){
+  const t = appData.template;
+  if(!t.approvals?.[stage]?.[qi]) return;
+  t.approvals[stage][qi][field] = String(value||'');
+  _tplApprovalsDirty();
+  // No re-renderizamos para no perder foco
+}
+function tplUpdateApprovalOption(stage, qi, oi, value){
+  const t = appData.template;
+  if(!t.approvals?.[stage]?.[qi]?.options) return;
+  t.approvals[stage][qi].options[oi] = String(value||'');
+  _tplApprovalsDirty();
+}
+function tplAddApprovalOption(stage, qi){
+  const t = appData.template;
+  if(!t.approvals?.[stage]?.[qi]) return;
+  if(!Array.isArray(t.approvals[stage][qi].options)) t.approvals[stage][qi].options = [];
+  t.approvals[stage][qi].options.push('Nueva opción');
+  _tplApprovalsDirty();
+  renderTplApprovals();
+}
+async function tplDeleteApprovalOption(stage, qi, oi){
+  const t = appData.template;
+  if(!t.approvals?.[stage]?.[qi]?.options) return;
+  if(t.approvals[stage][qi].options.length <= 2){
+    showStatus('Debe haber al menos 2 opciones por pregunta', true);
+    return;
+  }
+  t.approvals[stage][qi].options.splice(oi, 1);
+  _tplApprovalsDirty();
+  renderTplApprovals();
+}
+function tplAddApprovalQ(stage){
+  const t = appData.template;
+  if(!t.approvals) t.approvals = defaultApprovalsForTemplate();
+  if(!Array.isArray(t.approvals[stage])) t.approvals[stage] = [];
+  const uniqueId = stage + '_custom_' + Date.now().toString(36);
+  t.approvals[stage].push({
+    id: uniqueId,
+    label: 'Nueva pregunta',
+    q: '¿Confirmas la aprobación de…?',
+    options: ['Sí, 100% aprobado ✓', 'Sí, pero tengo ajustes'],
+  });
+  _tplApprovalsDirty();
+  renderTplApprovals();
+}
+async function tplDeleteApprovalQ(stage, qi){
+  const t = appData.template;
+  const q = t.approvals?.[stage]?.[qi];
+  if(!q) return;
+  const ok = await confirmModal(
+    `¿Eliminar la pregunta "${q.label}" de la etapa ${stage}?\n\nEsto solo afecta marcas futuras — las marcas ya creadas mantienen su copia.`,
+    'Eliminar',
+    'background:#dc2626;color:#fff;border:none'
+  );
+  if(!ok) return;
+  t.approvals[stage].splice(qi, 1);
+  _tplApprovalsDirty();
+  renderTplApprovals();
+}
+function tplMoveApprovalQ(stage, qi, delta){
+  const t = appData.template;
+  const arr = t.approvals?.[stage];
+  if(!arr) return;
+  const newIdx = qi + delta;
+  if(newIdx < 0 || newIdx >= arr.length) return;
+  const [item] = arr.splice(qi, 1);
+  arr.splice(newIdx, 0, item);
+  _tplApprovalsDirty();
+  renderTplApprovals();
+}
+
+/* ═══ BRAND: EDITOR DE PREGUNTAS DE APROBACIÓN (por marca individual) ═══ */
+
+// Toggle visibilidad del editor. Si brand.approvals no existe, pregunta confirmación para crearla
+// a partir del template actual (ese acto copia template → brand, desvinculando a la marca del template).
+async function toggleBrandApprovalsEditor(){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand) return;
+  const wrap = document.getElementById('brand-approvals-editor-wrap');
+  if(!wrap) return;
+  const isOpen = wrap.style.display !== 'none';
+
+  if(isOpen){
+    wrap.style.display = 'none';
+    document.getElementById('brand-edit-approvals-btn').textContent = '✎ Editar preguntas';
+    return;
+  }
+
+  // Primera apertura: si la marca no tiene approvals propias, confirmar copia desde template
+  if(!brand.approvals){
+    const ok = await confirmModal(
+      '¿Personalizar las preguntas de aprobación de esta marca?\n\nSe copiarán las preguntas actuales del template a esta marca. Desde entonces, los cambios aquí solo afectarán a esta marca, y los cambios al template no se propagarán acá.',
+      'Personalizar',
+      'background:var(--aire);color:#fff;border:none'
+    );
+    if(!ok) return;
+    const tpl = appData.template || defaultTemplate();
+    brand.approvals = JSON.parse(JSON.stringify(tpl.approvals || defaultApprovalsForTemplate()));
+    markLocalChange('brands');
+    try{ upsert(); }catch(e){}
+  }
+
+  wrap.style.display = 'block';
+  document.getElementById('brand-edit-approvals-btn').textContent = '✕ Cerrar editor';
+  renderBrandApprovalsEditor();
+}
+
+function renderBrandApprovalsEditor(){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand) return;
+  const wrap = document.getElementById('brand-approvals-editor-wrap');
+  if(!wrap) return;
+
+  // Si no hay brand.approvals (recién cerrado y reabierto tras revert), asegurar
+  if(!brand.approvals){
+    const tpl = appData.template || defaultTemplate();
+    brand.approvals = JSON.parse(JSON.stringify(tpl.approvals || defaultApprovalsForTemplate()));
+    markLocalChange('brands');
+  }
+
+  const SC_LBL = {aire:'Aire', agua:'Agua', tierra:'Tierra', fuego:'Fuego'};
+  const SC_EMO = {aire:'🌬️', agua:'💧', tierra:'🌱', fuego:'🔥'};
+
+  const stagesHTML = ['aire','agua','tierra','fuego'].map(stage=>{
+    const c = SCV[stage];
+    const questions = brand.approvals[stage] || [];
+    const qsHTML = questions.map((q, qi)=>{
+      const optsHTML = (q.options||[]).map((opt, oi)=>`
+        <div style="display:flex;gap:0.4rem;align-items:center;padding:0.3rem 0">
+          <span style="font-size:0.6rem;color:var(--text3);width:18px;text-align:center;flex-shrink:0">${oi===0?'✓':oi+1}</span>
+          <input type="text" value="${String(opt).replace(/"/g,'&quot;')}"
+            onchange="brandUpdateApprovalOption('${stage}',${qi},${oi},this.value)"
+            style="flex:1;padding:0.35rem 0.55rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:0.78rem;font-family:var(--font);color:var(--text);outline:none"
+            onfocus="this.style.borderColor='${c.color}'"
+            onblur="this.style.borderColor='var(--border)'"
+            placeholder="${oi===0?'Opción positiva (ej: Sí, 100% aprobado ✓)':'Opción con ajustes u observación'}">
+          ${(q.options.length > 2 || oi !== 0) ? `<button onclick="brandDeleteApprovalOption('${stage}',${qi},${oi})" title="Eliminar opción"
+            style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.85rem;padding:0.15rem 0.35rem;border-radius:4px"
+            onmouseover="this.style.color='#dc2626'"
+            onmouseout="this.style.color='var(--text3)'">×</button>` : ''}
+        </div>
+      `).join('');
+
+      return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.8rem 0.95rem;margin-bottom:0.55rem">
+        <div style="display:flex;gap:0.5rem;align-items:flex-start;margin-bottom:0.55rem">
+          <div style="flex:1;min-width:0">
+            <input type="text" value="${String(q.label||'').replace(/"/g,'&quot;')}" placeholder="Nombre corto (ej: Investigación)"
+              onchange="brandUpdateApprovalQ('${stage}',${qi},'label',this.value)"
+              style="width:100%;padding:0.45rem 0.6rem;border:1px solid var(--border);border-radius:7px;background:var(--bg);font-size:0.82rem;font-weight:700;font-family:var(--font);color:var(--text);outline:none;margin-bottom:0.35rem"
+              onfocus="this.style.borderColor='${c.color}'"
+              onblur="this.style.borderColor='var(--border)'">
+            <textarea placeholder="Pregunta completa que verá el cliente"
+              onchange="brandUpdateApprovalQ('${stage}',${qi},'q',this.value)"
+              style="width:100%;box-sizing:border-box;padding:0.45rem 0.6rem;border:1px solid var(--border);border-radius:7px;background:var(--bg);font-size:0.78rem;font-family:var(--font);color:var(--text2);outline:none;resize:vertical;min-height:50px;line-height:1.4"
+              onfocus="this.style.borderColor='${c.color}'"
+              onblur="this.style.borderColor='var(--border)'">${String(q.q||'').replace(/</g,'&lt;')}</textarea>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0.3rem;flex-shrink:0">
+            <button onclick="brandMoveApprovalQ('${stage}',${qi},-1)" title="Subir"
+              style="background:none;border:1px solid var(--border);border-radius:5px;padding:0.2rem 0.4rem;font-size:0.7rem;cursor:pointer;color:var(--text3);${qi===0?'opacity:0.3;cursor:not-allowed':''}"
+              ${qi===0?'disabled':''}>↑</button>
+            <button onclick="brandMoveApprovalQ('${stage}',${qi},1)" title="Bajar"
+              style="background:none;border:1px solid var(--border);border-radius:5px;padding:0.2rem 0.4rem;font-size:0.7rem;cursor:pointer;color:var(--text3);${qi===questions.length-1?'opacity:0.3;cursor:not-allowed':''}"
+              ${qi===questions.length-1?'disabled':''}>↓</button>
+            <button onclick="brandDeleteApprovalQ('${stage}',${qi})" title="Eliminar pregunta"
+              style="background:none;border:1px solid var(--border);border-radius:5px;padding:0.2rem 0.4rem;font-size:0.7rem;cursor:pointer;color:#dc2626"
+              onmouseover="this.style.background='rgba(220,38,38,0.08)'"
+              onmouseout="this.style.background='none'">🗑</button>
+          </div>
+        </div>
+        <div style="margin-top:0.35rem">
+          <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.3rem">Opciones de respuesta (la primera se considera 100% aprobado)</div>
+          ${optsHTML}
+          <button onclick="brandAddApprovalOption('${stage}',${qi})"
+            style="margin-top:0.35rem;background:none;border:1px dashed var(--border);border-radius:6px;padding:0.3rem 0.6rem;font-size:0.7rem;cursor:pointer;color:var(--text3);font-family:var(--font)"
+            onmouseover="this.style.borderColor='${c.color}';this.style.color='${c.color}'"
+            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">+ Opción</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div style="background:${c.bg||'var(--bg-card2)'};border:1.5px solid ${c.border||'var(--border)'};border-radius:14px;padding:0.85rem 1rem;margin-bottom:0.7rem">
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.7rem">
+        <span style="font-size:1.1rem">${SC_EMO[stage]}</span>
+        <div style="flex:1">
+          <div style="font-size:0.88rem;font-weight:800;color:${c.color}">Etapa ${SC_LBL[stage]}</div>
+          <div style="font-size:0.68rem;color:var(--text3);margin-top:0.1rem">${questions.length} pregunta${questions.length===1?'':'s'}</div>
+        </div>
+        <button onclick="brandAddApprovalQ('${stage}')"
+          style="background:${c.color};color:#fff;border:none;border-radius:8px;padding:0.35rem 0.7rem;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:var(--font)"
+          onmouseover="this.style.filter='brightness(1.1)'"
+          onmouseout="this.style.filter=''">+ Pregunta</button>
+      </div>
+      ${qsHTML || '<div style="text-align:center;padding:1rem;font-size:0.76rem;color:var(--text3);font-style:italic">Sin preguntas en esta etapa — agrega la primera con el botón de arriba</div>'}
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div style="background:rgba(59,158,221,0.06);border:1.5px solid rgba(59,158,221,0.3);border-radius:12px;padding:0.85rem 1rem;margin-bottom:0.8rem">
+      <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
+        <span style="font-size:1.05rem">✎</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.82rem;font-weight:800;color:var(--aire)">Preguntas personalizadas para esta marca</div>
+          <div style="font-size:0.7rem;color:var(--text3);margin-top:0.12rem;line-height:1.5">Estos cambios solo afectan a <strong>${String(brand.name||'esta marca').replace(/</g,'&lt;')}</strong>. No se propagan al template ni a otras marcas.</div>
+        </div>
+        <button onclick="brandRevertApprovalsToTemplate()"
+          style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.35rem 0.7rem;font-size:0.7rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font)"
+          onmouseover="this.style.borderColor='#dc2626';this.style.color='#dc2626'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">↺ Revertir al template</button>
+      </div>
+    </div>
+    ${stagesHTML}
+  `;
+}
+
+// Persistencia
+function _brandApprovalsDirty(){
+  markLocalChange('brands');
+  // Re-render de rondas para que la cards reflejen las preguntas nuevas
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(brand) renderRondas(brand);
+  // Debounced save
+  if(typeof scheduleTplSave === 'function') scheduleTplSave();
+  else {
+    clearTimeout(window._brandApprovalsSaveT);
+    window._brandApprovalsSaveT = setTimeout(()=>upsert(), 600);
+  }
+}
+
+function brandUpdateApprovalQ(stage, qi, field, value){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand?.approvals?.[stage]?.[qi]) return;
+  brand.approvals[stage][qi][field] = String(value||'');
+  _brandApprovalsDirty();
+}
+function brandUpdateApprovalOption(stage, qi, oi, value){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand?.approvals?.[stage]?.[qi]?.options) return;
+  brand.approvals[stage][qi].options[oi] = String(value||'');
+  _brandApprovalsDirty();
+}
+function brandAddApprovalOption(stage, qi){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand?.approvals?.[stage]?.[qi]) return;
+  if(!Array.isArray(brand.approvals[stage][qi].options)) brand.approvals[stage][qi].options = [];
+  brand.approvals[stage][qi].options.push('Nueva opción');
+  _brandApprovalsDirty();
+  renderBrandApprovalsEditor();
+}
+async function brandDeleteApprovalOption(stage, qi, oi){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand?.approvals?.[stage]?.[qi]?.options) return;
+  if(brand.approvals[stage][qi].options.length <= 2){
+    showStatus('Debe haber al menos 2 opciones por pregunta', true);
+    return;
+  }
+  brand.approvals[stage][qi].options.splice(oi, 1);
+  _brandApprovalsDirty();
+  renderBrandApprovalsEditor();
+}
+function brandAddApprovalQ(stage){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand) return;
+  if(!brand.approvals) brand.approvals = defaultApprovalsForTemplate();
+  if(!Array.isArray(brand.approvals[stage])) brand.approvals[stage] = [];
+  const uniqueId = stage + '_custom_' + Date.now().toString(36);
+  brand.approvals[stage].push({
+    id: uniqueId,
+    label: 'Nueva pregunta',
+    q: '¿Confirmas la aprobación de…?',
+    options: ['Sí, 100% aprobado ✓', 'Sí, pero tengo ajustes'],
+  });
+  _brandApprovalsDirty();
+  renderBrandApprovalsEditor();
+}
+async function brandDeleteApprovalQ(stage, qi){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  const q = brand?.approvals?.[stage]?.[qi];
+  if(!q) return;
+  const ok = await confirmModal(
+    `¿Eliminar la pregunta "${q.label}" de la etapa ${stage}?\n\nSi el cliente ya la respondió, esa respuesta quedará huérfana pero no se borra del historial.`,
+    'Eliminar',
+    'background:#dc2626;color:#fff;border:none'
+  );
+  if(!ok) return;
+  brand.approvals[stage].splice(qi, 1);
+  _brandApprovalsDirty();
+  renderBrandApprovalsEditor();
+}
+function brandMoveApprovalQ(stage, qi, delta){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  const arr = brand?.approvals?.[stage];
+  if(!arr) return;
+  const newIdx = qi + delta;
+  if(newIdx < 0 || newIdx >= arr.length) return;
+  const [item] = arr.splice(qi, 1);
+  arr.splice(newIdx, 0, item);
+  _brandApprovalsDirty();
+  renderBrandApprovalsEditor();
+}
+async function brandRevertApprovalsToTemplate(){
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
+  if(!brand) return;
+  const ok = await confirmModal(
+    '¿Revertir las preguntas de aprobación al template?\n\nTodas las personalizaciones que hiciste en esta marca se perderán — las preguntas volverán a leerse del template, y los cambios futuros al template sí afectarán a esta marca.\n\nLas respuestas del cliente y firmas anteriores no se tocan.',
+    'Revertir',
+    'background:#dc2626;color:#fff;border:none'
+  );
+  if(!ok) return;
+  delete brand.approvals;
+  markLocalChange('brands');
+  try{ await upsert(); }catch(e){}
+  const wrap = document.getElementById('brand-approvals-editor-wrap');
+  if(wrap) wrap.style.display = 'none';
+  const btn = document.getElementById('brand-edit-approvals-btn');
+  if(btn) btn.textContent = '✎ Editar preguntas';
+  renderRondas(brand);
+  showStatus('Preguntas revertidas al template ✓');
 }
 
 function renderTplStage(stage){
@@ -12390,6 +13190,163 @@ function _portalCronoHTML(brand){
   return `<div class="card" style="padding:1.5rem">${html||'<div style="color:var(--text3);font-size:0.84rem">Sin cronograma aún.</div>'}</div>`;
 }
 
+// ── Clasificación de respuestas de aprobación ──────────────────────
+// Cada pregunta tiene opciones ordenadas: la primera es siempre 100% positiva,
+// las siguientes van de "sí con ajustes" a "no, aún no".
+// Clasificamos cada respuesta en uno de tres niveles: 'positive', 'adjustments', 'blocked'.
+const APPROVAL_QUESTIONS = {
+  aire: [
+    {id:'aire_investigacion', label:'Investigación y hallazgos', q:'¿Confirmas la aprobación de la investigación, hallazgos e insights presentados en esta etapa?', options:['Sí, 100% aprobado ✓','Sí, pero tengo ajustes','No, aún no']},
+    {id:'aire_caminos', label:'Caminos creativos', q:'¿Confirmas la aprobación de los caminos creativos y propuesta de dirección presentados?', options:['Sí, 100% aprobado ✓','Sí, pero tengo ajustes','No, aún no']},
+  ],
+  agua: [
+    {id:'agua_logotipo', label:'Aprobación de logotipo', q:'¿Confirmas la aprobación del logotipo presentado en esta etapa?', options:['Sí, 100% aprobado ✓','Sí, pero tengo ajustes','No, aún no']},
+    {id:'agua_cromatica', label:'Sistema cromático', q:'¿Confirmas la aprobación de la cromática de marca presentada en esta etapa?', options:['Sí, aprobado 🎨','No, tengo ajustes']},
+    {id:'agua_tipografia', label:'Sistema tipográfico', q:'¿Confirmas la aprobación de la tipografía de marca presentada en esta etapa?', options:['Sí, me encanta ✓','No, tengo ajustes']},
+    {id:'agua_verbal', label:'Sistema verbal', q:'¿Confirmas la aprobación del sistema verbal y valores de marca desarrollados en esta etapa?', options:['Sí, aprobado ✓','Sí, pero aún tengo ajustes']},
+    {id:'agua_avance', label:'Confirmación de avance', q:'¿Autorizas avanzar a la siguiente etapa del proyecto?', options:['Sí, avancemos ✓','Sí, pero con ajustes menores','Prefiero revisar algunos puntos antes de avanzar']},
+  ],
+  tierra: [
+    {id:'tierra_visual', label:'Identidad visual integral', q:'¿Confirmas la aprobación de la identidad visual integral de marca presentada?', options:['Sí, aprobada ✓','Sí, pero tengo ajustes','No, aún no']},
+    {id:'tierra_verbal', label:'Identidad verbal integral', q:'¿Confirmas la aprobación de la identidad verbal integral de marca?', options:['Sí, aprobada ✓','Sí, pero tengo ajustes','No, aún no']},
+    {id:'tierra_entregables', label:'Entregables de marca', q:'¿Confirmas la aprobación de los entregables de marca presentados alineados a la estrategia?', options:['Sí, avancemos ✓','Sí, pero tengo ajustes']},
+    {id:'tierra_comunicacionales', label:'Elementos comunicacionales', q:'¿Confirmas la aprobación de los elementos comunicacionales estratégicos de marca?', options:['Sí, aprobados ✓','Sí, pero tengo ajustes','No, aún no']},
+    {id:'tierra_avance', label:'Confirmación de avance', q:'¿Autorizas avanzar a la etapa final del proyecto?', options:['Sí, avancemos ✓','Sí, pero con ajustes menores','Prefiero revisar algunos puntos antes de avanzar']},
+  ],
+  fuego: [
+    {id:'fuego_manual', label:'Manual de marca integral', q:'¿Confirmas la aprobación del manual de marca integral con todas las notas y correcciones ejecutadas?', options:['Sí, aprobado al 100% ✓','Sí, pero tengo ajustes finales','No, aún necesito revisiones']},
+    {id:'fuego_entrega', label:'Aprobación de entrega final', q:'¿Confirmas la aprobación de la entrega final del proyecto y das por concluido el proceso?', options:['Sí, proyecto aprobado y concluido ✓','Tengo algunos ajustes finales pendientes']},
+  ],
+};
+
+// Resolver: retorna las preguntas de aprobación efectivas para una marca y etapa.
+// Orden de precedencia:
+//   1. brand.approvals[stage] — preguntas personalizadas para la marca (editadas desde la page individual)
+//   2. appData.template.approvals[stage] — preguntas del template al momento de crear la marca (copia)
+//   3. APPROVAL_QUESTIONS[stage] — fallback hardcodeado (solo para marcas legacy sin approvals ni template)
+// La marca DEBE recibir su copia del template al crearse (ver createBrand). Este resolver existe
+// principalmente para brands legacy o edge cases donde brand.approvals pueda faltar.
+function getApprovalQuestions(brand, stage){
+  if(brand?.approvals?.[stage] && Array.isArray(brand.approvals[stage])){
+    return brand.approvals[stage];
+  }
+  if(appData?.template?.approvals?.[stage] && Array.isArray(appData.template.approvals[stage])){
+    return appData.template.approvals[stage];
+  }
+  return APPROVAL_QUESTIONS[stage] || [];
+}
+
+// Clasifica una respuesta individual comparándola con las opciones de su pregunta.
+// Retorna 'positive' | 'adjustments' | null (sin respuesta)
+// NOTA: anteriormente existía 'blocked' para "No, aún no", pero ahora todas las respuestas
+// no-positivas se tratan como 'adjustments' y permiten firmar con observaciones.
+// `brand` es opcional — si no se pasa, usa fallback global (solo para edge cases).
+function classifyApprovalAnswer(stage, questionId, answer, brand){
+  if(!answer) return null;
+  const qs = brand ? getApprovalQuestions(brand, stage) : (APPROVAL_QUESTIONS[stage]||[]);
+  const qDef = qs.find(q=>q.id===questionId);
+  if(!qDef) return null;
+  const idx = qDef.options.indexOf(answer);
+  if(idx < 0) return 'adjustments'; // respuesta no reconocida, asumimos ajustes por seguridad
+  if(idx === 0) return 'positive';
+  return 'adjustments';
+}
+
+// Clasifica el estado agregado de una etapa:
+// 'approved' → todas positive
+// 'approved-with-notes' → todas respondidas, al menos una con ajustes
+// 'incomplete' → falta alguna respuesta
+function classifyStageApprovals(stage, stageApprovals, brand){
+  const qs = brand ? getApprovalQuestions(brand, stage) : (APPROVAL_QUESTIONS[stage]||[]);
+  const results = qs.map(q => classifyApprovalAnswer(stage, q.id, stageApprovals?.[q.id], brand));
+  if(results.some(r => r === null)) return 'incomplete';
+  if(results.some(r => r === 'adjustments')) return 'approved-with-notes';
+  return 'approved';
+}
+
+// Retorna array de {id, label, answer, note} para los puntos con ajustes de una etapa
+function getStageAdjustmentPoints(stage, stageApprovals, brand){
+  const qs = brand ? getApprovalQuestions(brand, stage) : (APPROVAL_QUESTIONS[stage]||[]);
+  return qs
+    .filter(q => classifyApprovalAnswer(stage, q.id, stageApprovals?.[q.id], brand) === 'adjustments')
+    .map(q => ({
+      id: q.id,
+      label: q.label,
+      answer: stageApprovals[q.id],
+      note: stageApprovals[q.id+'_note'] || '',
+    }));
+}
+
+// Mueve la firma actual de una etapa a _signedHistory y borra la activa.
+// También guarda snapshot completo de respuestas/notas para poder renderizar la encuesta anterior.
+// Si había observaciones, borra SOLO las respuestas de preguntas con observaciones para que
+// el cliente las vuelva a contestar (preservando las que ya estaban 100%).
+// Retorna true si hubo movimiento, false si no había firma que mover.
+function archiveStageSignature(brand, stage){
+  const sa = brand?.portalApprovals?.[stage];
+  if(!sa || !sa._signed?.by) return false;
+  if(!Array.isArray(sa._signedHistory)) sa._signedHistory = [];
+
+  const wasWithNotes = sa._signed.status === 'approved-with-notes';
+  // Snapshot de observaciones al momento de esta firma (para auditoría)
+  const adjustmentsSnapshot = wasWithNotes ? getStageAdjustmentPoints(stage, sa, brand) : [];
+
+  // Snapshot completo de respuestas y notas para mostrar la encuesta anterior al cliente
+  const qs = getApprovalQuestions(brand, stage);
+  const answersSnapshot = {};
+  const notesSnapshot = {};
+  qs.forEach(q=>{
+    if(sa[q.id] !== undefined) answersSnapshot[q.id] = sa[q.id];
+    if(sa[q.id+'_note'] !== undefined) notesSnapshot[q.id] = sa[q.id+'_note'];
+  });
+
+  // Identificar preguntas con observaciones (las que hay que volver a contestar)
+  const questionsToReReply = wasWithNotes
+    ? adjustmentsSnapshot.map(p => p.id)
+    : [];
+
+  sa._signedHistory.push({
+    by: sa._signed.by,
+    at: sa._signed.at,
+    status: sa._signed.status || 'approved',
+    adjustments: adjustmentsSnapshot,
+    answers: answersSnapshot,
+    notes: notesSnapshot,
+    questionsToReReply, // cuáles preguntas se borraron para re-responder
+    reopenedAt: new Date().toISOString(),
+  });
+
+  // Borrar SOLO respuestas y notas de las preguntas que tenían observaciones
+  // Las respuestas 100% se preservan — el cliente no tiene que re-contestarlas
+  questionsToReReply.forEach(qid=>{
+    delete sa[qid];
+    delete sa[qid+'_note'];
+  });
+
+  delete sa._signed;
+  return true;
+}
+
+// Chequea si todas las rondas de una etapa están completadas.
+// Retorna true si la etapa tiene al menos 1 ronda Y todas están done.
+function allStageRondasCompleted(brand, stage){
+  const rondas = (brand?.rondas||[]).filter(r => r.stage === stage);
+  if(rondas.length === 0) return false;
+  return rondas.every(r => r.done === true);
+}
+
+// Trigger automático: si la etapa estaba firmada con observaciones y TODAS sus rondas
+// acaban de quedar completadas, archivar la firma y desbloquear para re-firma.
+// Retorna true si se reabrió la etapa.
+function maybeReopenStageForReSign(brand, stage){
+  const sa = brand?.portalApprovals?.[stage];
+  if(!sa?._signed?.by) return false;
+  if(sa._signed.status !== 'approved-with-notes') return false; // solo aplica a observaciones
+  if(!allStageRondasCompleted(brand, stage)) return false;
+  archiveStageSignature(brand, stage);
+  return true;
+}
+
 function portalRenderAprobaciones(brand){
   const stageOrder = ['aire','agua','tierra','fuego'];
 
@@ -12446,31 +13403,8 @@ function portalRenderAprobaciones(brand){
     fuego:  {emoji:'🔥',  label:'Fuego',  color:'var(--fuego)',  bg:'rgba(232,98,42,0.06)',    border:'rgba(232,98,42,0.2)'},
   };
 
-  // Approval questions per stage
-  const APPROVALS = {
-    aire: [
-      {id:'aire_investigacion', label:'Investigación y hallazgos', q:'¿Confirmas la aprobación de la investigación, hallazgos e insights presentados en esta etapa?', options:['Sí, 100% aprobado ✓','Sí, pero tengo ajustes','No, aún no']},
-      {id:'aire_caminos', label:'Caminos creativos', q:'¿Confirmas la aprobación de los caminos creativos y propuesta de dirección presentados?', options:['Sí, 100% aprobado ✓','Sí, pero tengo ajustes','No, aún no']},
-    ],
-    agua: [
-      {id:'agua_logotipo', label:'Aprobación de logotipo', q:'¿Confirmas la aprobación del logotipo presentado en esta etapa?', options:['Sí, 100% aprobado ✓','Sí, pero tengo ajustes','No, aún no']},
-      {id:'agua_cromatica', label:'Sistema cromático', q:'¿Confirmas la aprobación de la cromática de marca presentada en esta etapa?', options:['Sí, aprobado 🎨','No, tengo ajustes']},
-      {id:'agua_tipografia', label:'Sistema tipográfico', q:'¿Confirmas la aprobación de la tipografía de marca presentada en esta etapa?', options:['Sí, me encanta ✓','No, tengo ajustes']},
-      {id:'agua_verbal', label:'Sistema verbal', q:'¿Confirmas la aprobación del sistema verbal y valores de marca desarrollados en esta etapa?', options:['Sí, aprobado ✓','Sí, pero aún tengo ajustes']},
-      {id:'agua_avance', label:'Confirmación de avance', q:'¿Autorizas avanzar a la siguiente etapa del proyecto?', options:['Sí, avancemos ✓','Sí, pero con ajustes menores','Prefiero revisar algunos puntos antes de avanzar']},
-    ],
-    tierra: [
-      {id:'tierra_visual', label:'Identidad visual integral', q:'¿Confirmas la aprobación de la identidad visual integral de marca presentada?', options:['Sí, aprobada ✓','Sí, pero tengo ajustes','No, aún no']},
-      {id:'tierra_verbal', label:'Identidad verbal integral', q:'¿Confirmas la aprobación de la identidad verbal integral de marca?', options:['Sí, aprobada ✓','Sí, pero tengo ajustes','No, aún no']},
-      {id:'tierra_entregables', label:'Entregables de marca', q:'¿Confirmas la aprobación de los entregables de marca presentados alineados a la estrategia?', options:['Sí, avancemos ✓','Sí, pero tengo ajustes']},
-      {id:'tierra_comunicacionales', label:'Elementos comunicacionales', q:'¿Confirmas la aprobación de los elementos comunicacionales estratégicos de marca?', options:['Sí, aprobados ✓','Sí, pero tengo ajustes','No, aún no']},
-      {id:'tierra_avance', label:'Confirmación de avance', q:'¿Autorizas avanzar a la etapa final del proyecto?', options:['Sí, avancemos ✓','Sí, pero con ajustes menores','Prefiero revisar algunos puntos antes de avanzar']},
-    ],
-    fuego: [
-      {id:'fuego_manual', label:'Manual de marca integral', q:'¿Confirmas la aprobación del manual de marca integral con todas las notas y correcciones ejecutadas?', options:['Sí, aprobado al 100% ✓','Sí, pero tengo ajustes finales','No, aún necesito revisiones']},
-      {id:'fuego_entrega', label:'Aprobación de entrega final', q:'¿Confirmas la aprobación de la entrega final del proyecto y das por concluido el proceso?', options:['Sí, proyecto aprobado y concluido ✓','Tengo algunos ajustes finales pendientes']},
-    ],
-  };
+  // Approval questions — se resuelven por etapa usando el resolver (brand → template → defaults)
+  // ya no es una constante estática porque cada marca puede tener preguntas personalizadas
 
   const approvals = brand.portalApprovals || {};
   const color = getBrandColor(brand);
@@ -12478,9 +13412,13 @@ function portalRenderAprobaciones(brand){
   const renderStage = (stage) => {
     const sc = SC[stage];
     const active = isStageActive(stage);
-    const questions = APPROVALS[stage] || [];
+    const questions = getApprovalQuestions(brand, stage);
     const stageApprovals = approvals[stage] || {};
     const allAnswered = questions.length > 0 && questions.every(q => stageApprovals[q.id]);
+    const stageStatus = classifyStageApprovals(stage, stageApprovals, brand);
+    const signed = stageApprovals._signed && stageApprovals._signed.by;
+    const signedStatus = signed ? (stageApprovals._signed.status || 'approved') : null;
+    const isLocked = !!signed; // read-only para el cliente
     const isCurrent = brand.stage === stage;
     const isOpen = isCurrent; // default: only current stage open
 
@@ -12496,48 +13434,517 @@ function portalRenderAprobaciones(brand){
       </div>`;
     }
 
+    // Colores por escenario
+    const AMBER = '#d97706', AMBER_BG = 'rgba(217,119,6,0.08)', AMBER_BORDER = 'rgba(217,119,6,0.3)';
+    const RED   = '#dc2626', RED_BG   = 'rgba(220,38,38,0.06)',  RED_BORDER   = 'rgba(220,38,38,0.3)';
+
+    // Timestamp formateado
+    const signedAtStr = signed && stageApprovals._signed.at
+      ? new Date(stageApprovals._signed.at).toLocaleString('es-EC',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
+      : '';
+
+    // ── Lista de puntos con ajustes (para badge y cuadro de firma) ──
+    const adjustmentPoints = getStageAdjustmentPoints(stage, stageApprovals, brand);
+    const renderAdjustmentList = (themeColor) => adjustmentPoints.length ? `
+      <div style="margin-top:0.7rem;background:var(--bg-card);border:1px solid ${themeColor};border-radius:10px;padding:0.75rem 0.9rem">
+        <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:${themeColor};margin-bottom:0.5rem">Puntos con ajustes (${adjustmentPoints.length})</div>
+        ${adjustmentPoints.map(p=>`
+          <div style="padding:0.45rem 0;border-bottom:1px solid var(--border2,rgba(0,0,0,0.08))">
+            <div style="font-size:0.74rem;font-weight:700;color:var(--text)">• ${p.label}</div>
+            <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem"><em>${p.answer}</em></div>
+            ${p.note ? `<div style="font-size:0.72rem;color:var(--text2);margin-top:0.25rem;padding:0.4rem 0.55rem;background:var(--bg-card2);border-radius:6px;line-height:1.45">💬 ${p.note.replace(/</g,'&lt;')}</div>` : ''}
+          </div>`).join('')}
+      </div>
+    ` : '';
+
+    // ── Cuadro pre-firma: cambia según el status agregado de las respuestas ──
+    let signBoxHTML = '';
+    if(allAnswered && !signed){
+      if(stageStatus === 'approved-with-notes'){
+        // Al menos una "sí con ajustes" → permitir firmar con advertencia ámbar
+        signBoxHTML = `
+          <div style="margin-top:0.9rem;background:${AMBER_BG};border:2px solid ${AMBER};border-radius:14px;padding:1.1rem 1.2rem">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.7rem">
+              <span style="font-size:1.1rem">⚠️</span>
+              <span style="font-size:0.92rem;font-weight:800;color:${AMBER}">Firmar con observaciones</span>
+            </div>
+            <div style="font-size:0.82rem;color:var(--text2);margin-bottom:0.6rem;line-height:1.55">
+              Hay <strong>${adjustmentPoints.length} ${adjustmentPoints.length===1?'punto que requiere':'puntos que requieren'} ajustes</strong>. Al firmar, autorizas avanzar con estos cambios pendientes — el equipo los trabajará y los resolverá en rondas de revisión. Los puntos quedan registrados oficialmente:
+            </div>
+            ${renderAdjustmentList(AMBER)}
+            <div style="margin-top:0.85rem;padding:0.6rem 0.75rem;background:var(--bg-card2);border-radius:8px;font-size:0.72rem;color:var(--text3);line-height:1.5">
+              ℹ️ Esto <em>no</em> es una aprobación 100%. Se guardará como <strong>"Aprobado con observaciones"</strong> con constancia de los puntos a revisar.
+            </div>
+            <input id="portal-sign-input-${stage}" type="text" placeholder="Tu nombre completo"
+              style="width:100%;box-sizing:border-box;padding:0.65rem 0.9rem;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:0.88rem;font-family:var(--font);outline:none;margin-top:0.9rem;margin-bottom:0.7rem;transition:border-color 0.15s"
+              onfocus="this.style.borderColor='${AMBER}'"
+              onblur="this.style.borderColor='var(--border)'">
+            <button onclick="portalSignStage('${brand.id}','${stage}')"
+              style="width:100%;background:${AMBER};color:#fff;border:none;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:var(--font);transition:all 0.15s"
+              onmouseover="this.style.filter='brightness(1.08)'"
+              onmouseout="this.style.filter=''">Firmar con observaciones ⚠</button>
+          </div>`;
+      } else if(stageStatus === 'approved'){
+        // Todas 100% — flujo feliz original
+        signBoxHTML = `
+          <div style="margin-top:0.9rem;background:var(--bg-card);border:2px solid ${sc.color};border-radius:14px;padding:1.1rem 1.2rem">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.7rem">
+              <span style="font-size:1.1rem">✍️</span>
+              <span style="font-size:0.92rem;font-weight:800;color:${sc.color}">Firmar y enviar</span>
+            </div>
+            <div style="font-size:0.82rem;color:var(--text2);margin-bottom:0.8rem;line-height:1.5">
+              Todas las aprobaciones están al 100%. Escribe tu nombre y envía para dejar constancia oficial de esta etapa. Una vez enviado, las respuestas quedan fijas.
+            </div>
+            <input id="portal-sign-input-${stage}" type="text" placeholder="Tu nombre completo"
+              style="width:100%;box-sizing:border-box;padding:0.65rem 0.9rem;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:0.88rem;font-family:var(--font);outline:none;margin-bottom:0.7rem;transition:border-color 0.15s"
+              onfocus="this.style.borderColor='${sc.color}'"
+              onblur="this.style.borderColor='var(--border)'">
+            <button onclick="portalSignStage('${brand.id}','${stage}')"
+              style="width:100%;background:${sc.color};color:#fff;border:none;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:var(--font);transition:all 0.15s"
+              onmouseover="this.style.filter='brightness(1.08)'"
+              onmouseout="this.style.filter=''">Firmar y enviar ✓</button>
+          </div>`;
+      }
+    }
+
+    // ── Badge post-firma: cambia según signedStatus ──
+    let signedBadgeHTML = '';
+    if(signed){
+      if(signedStatus === 'approved-with-notes'){
+        signedBadgeHTML = `
+          <div style="margin-top:0.8rem;background:${AMBER_BG};border:1.5px solid ${AMBER};border-radius:12px;padding:0.85rem 1rem">
+            <div style="display:flex;align-items:center;gap:0.7rem">
+              <span style="font-size:1.15rem;flex-shrink:0">⚠️</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:0.8rem;font-weight:800;color:${AMBER};line-height:1.3">Aprobado con observaciones por ${stageApprovals._signed.by}</div>
+                <div style="font-size:0.7rem;color:var(--text3);margin-top:0.15rem">${signedAtStr} · ${adjustmentPoints.length} ${adjustmentPoints.length===1?'punto':'puntos'} con ajustes</div>
+              </div>
+              <span style="font-size:0.62rem;font-weight:700;color:${AMBER};background:var(--bg-card);border:1px solid ${AMBER};border-radius:99px;padding:0.2rem 0.6rem;letter-spacing:0.5px;white-space:nowrap">CONSTANCIA</span>
+            </div>
+            ${renderAdjustmentList(AMBER)}
+          </div>`;
+      } else {
+        // approved (100%) o default para firmas viejas sin status
+        signedBadgeHTML = `
+          <div style="margin-top:0.8rem;background:${sc.bg};border:1.5px solid ${sc.color};border-radius:12px;padding:0.85rem 1rem;display:flex;align-items:center;gap:0.7rem">
+            <span style="font-size:1.15rem;flex-shrink:0">✅</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:0.8rem;font-weight:800;color:${sc.color};line-height:1.3">Aprobado por ${stageApprovals._signed.by}</div>
+              <div style="font-size:0.7rem;color:var(--text3);margin-top:0.15rem">${signedAtStr}</div>
+            </div>
+            <span style="font-size:0.62rem;font-weight:700;color:${sc.color};background:var(--bg-card);border:1px solid ${sc.color};border-radius:99px;padding:0.2rem 0.6rem;letter-spacing:0.5px;white-space:nowrap">CONSTANCIA</span>
+          </div>`;
+      }
+    }
+
+    // ── Historial de firmas previas (expandible) ──
+    const history = Array.isArray(stageApprovals._signedHistory) ? stageApprovals._signedHistory : [];
+    const fmtHistDate = (iso) => iso
+      ? new Date(iso).toLocaleString('es-EC',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
+      : '—';
+
+    // Flag: etapa reabierta (tiene historial pero no firma activa)
+    const wasReopened = !signed && history.length > 0;
+
+    // ── Header del stage: texto + badge pequeño dinámicos ──
+    const headerSubtitle = (() => {
+      if(signed){
+        return signedStatus === 'approved-with-notes'
+          ? `⚠️ Aprobado con observaciones · ${stageApprovals._signed.by}`
+          : `✅ Aprobado · ${stageApprovals._signed.by}`;
+      }
+      if(wasReopened) return `🔄 Reabierta — lista para volver a firmar`;
+      if(stageStatus === 'approved-with-notes') return `⚠️ Listo para firmar con observaciones (${adjustmentPoints.length})`;
+      if(stageStatus === 'approved') return 'Listo para firmar';
+      const answeredCount = Object.keys(stageApprovals).filter(k=>!k.startsWith('_')&&!k.endsWith('_note')).length;
+      return `${answeredCount}/${questions.length} aprobaciones registradas`;
+    })();
+
+    const headerBadge = (() => {
+      if(signed){
+        const col = signedStatus === 'approved-with-notes' ? AMBER : sc.color;
+        const text = signedStatus === 'approved-with-notes' ? 'Con observaciones' : 'Firmado';
+        return `<span style="background:${col};color:#fff;font-size:0.65rem;font-weight:700;border-radius:99px;padding:0.2rem 0.6rem;white-space:nowrap">${text}</span>`;
+      }
+      if(wasReopened)
+        return `<span style="background:${sc.color};color:#fff;font-size:0.65rem;font-weight:700;border-radius:99px;padding:0.2rem 0.6rem;white-space:nowrap">Re-firma</span>`;
+      if(stageStatus === 'approved-with-notes')
+        return `<span style="background:var(--bg-card);color:${AMBER};border:1px solid ${AMBER};font-size:0.65rem;font-weight:700;border-radius:99px;padding:0.2rem 0.6rem;white-space:nowrap">Falta firma</span>`;
+      if(stageStatus === 'approved')
+        return `<span style="background:var(--bg-card);color:${sc.color};border:1px solid ${sc.color};font-size:0.65rem;font-weight:700;border-radius:99px;padding:0.2rem 0.6rem;white-space:nowrap">Falta firma</span>`;
+      return '';
+    })();
+
+    // ══════════════════════════════════════════════════════════════
+    // Construcción del body del stage — layout difiere según el caso
+    // ══════════════════════════════════════════════════════════════
+
+    // Helper: renderizar una pregunta (versión normal, para editar) ──
+    const renderQuestionEditable = (q) => {
+      const saved = stageApprovals[q.id];
+      // Buscar nota previa en el historial (última) para mostrar como recordatorio
+      const lastHist = history.length ? history[history.length-1] : null;
+      const prevNote = lastHist?.notes?.[q.id] || '';
+      const prevAnswer = lastHist?.answers?.[q.id] || '';
+
+      return `<div style="background:var(--bg-card);border-radius:12px;padding:1rem 1.1rem;margin-bottom:0.6rem">
+        <div style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.4rem">${q.label}</div>
+        <div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.7rem;line-height:1.5">${q.q}</div>
+        ${(wasReopened && prevAnswer) ? `
+          <div style="margin-bottom:0.7rem;padding:0.55rem 0.75rem;background:var(--bg-card2);border:1px dashed var(--border);border-radius:8px">
+            <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text3);margin-bottom:0.25rem">Tu respuesta anterior</div>
+            <div style="font-size:0.75rem;color:var(--text2);font-style:italic">${prevAnswer}</div>
+            ${prevNote ? `<div style="margin-top:0.45rem;padding:0.4rem 0.55rem;background:var(--bg-card);border-radius:6px;font-size:0.72rem;color:var(--text2);line-height:1.45">💬 ${prevNote.replace(/</g,'&lt;')}</div>` : ''}
+            ${history.length >= 2 ? `
+              <div style="margin-top:0.45rem;text-align:right">
+                <a href="#" onclick="openFullHistory('${stage}');return false;"
+                  style="font-size:0.66rem;color:${sc.color};text-decoration:none;font-weight:600;border-bottom:1px dashed ${sc.color};padding-bottom:1px">ver histórico del proyecto →</a>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+        <div style="display:flex;flex-direction:column;gap:0.35rem">
+          ${q.options.map((opt)=>{
+            const isSelected = saved === opt;
+            const safeOpt = opt.replace(/'/g,"&#39;").replace(/"/g,"&quot;");
+            return `<button onclick="portalSaveApproval('${brand.id}','${stage}','${q.id}','${safeOpt}',${isSelected})"
+              style="text-align:left;padding:0.55rem 0.85rem;border-radius:10px;border:1.5px solid ${isSelected?sc.color:'var(--border)'};background:${isSelected?sc.color+'18':'var(--bg-card2)'};color:${isSelected?sc.color:'var(--text2)'};font-size:0.8rem;font-weight:${isSelected?700:400};cursor:pointer;font-family:var(--font);transition:all 0.15s;display:flex;align-items:center;gap:0.5rem">
+              <span style="width:16px;height:16px;border-radius:50%;border:1.5px solid ${isSelected?sc.color:'var(--border)'};background:${isSelected?sc.color:'none'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.6rem;color:#fff">${isSelected?'✓':''}</span>
+              ${opt}
+            </button>`;
+          }).join('')}
+          ${(saved && saved !== q.options[0]) ? `
+          <div style="margin-top:0.6rem">
+            <textarea
+              placeholder="Sin problema, trabajemos en ello. ¿Cuáles son los cambios? Puedes especificarlos aquí, por el grupo (domo), en la plataforma Ruttl o en una reunión virtual."
+              onchange="portalSaveApprovalNote('${brand.id}','${stage}','${q.id}',this.value)"
+              style="width:100%;box-sizing:border-box;padding:0.65rem 0.8rem;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:0.79rem;font-family:var(--font);line-height:1.5;resize:none;min-height:80px;transition:border-color 0.15s;outline:none"
+              onfocus="this.style.borderColor='${sc.color}'"
+              onblur="this.style.borderColor='var(--border)'"
+            >${(stageApprovals[q.id+'_note']||'')}</textarea>
+          </div>` : ''}
+        </div>
+      </div>`;
+    };
+
+    // Helper: pregunta en modo read-only (firmada) — solo muestra la opción elegida ──
+    const renderQuestionReadOnly = (q) => {
+      const saved = stageApprovals[q.id];
+      return `<div style="background:var(--bg-card);border-radius:12px;padding:1rem 1.1rem;margin-bottom:0.6rem;opacity:0.9">
+        <div style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.4rem">${q.label}</div>
+        <div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.7rem;line-height:1.5">${q.q}</div>
+        <div style="display:flex;flex-direction:column;gap:0.35rem">
+          ${q.options.filter(opt=>opt===saved).map((opt)=>`
+            <div style="text-align:left;padding:0.55rem 0.85rem;border-radius:10px;border:1.5px solid ${sc.color};background:${sc.color}18;color:${sc.color};font-size:0.8rem;font-weight:700;display:flex;align-items:center;gap:0.5rem">
+              <span style="width:16px;height:16px;border-radius:50%;border:1.5px solid ${sc.color};background:${sc.color};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.6rem;color:#fff">✓</span>
+              ${opt}
+            </div>`).join('')}
+          ${(saved && saved !== q.options[0] && stageApprovals[q.id+'_note']) ? `
+            <div style="margin-top:0.4rem;padding:0.55rem 0.75rem;background:var(--bg-card2);border-radius:8px;font-size:0.75rem;color:var(--text2);line-height:1.5">💬 ${stageApprovals[q.id+'_note'].replace(/</g,'&lt;')}</div>
+          ` : ''}
+        </div>
+      </div>`;
+    };
+
+    // Helper: versión comprimida de una pregunta (una fila por pregunta) ──
+    const renderQuestionCompact = (q, answer, note) => {
+      const isFirst = q.options && q.options[0] === answer;
+      return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.3rem;border-bottom:1px solid var(--border)">
+        <span style="font-size:0.74rem;font-weight:600;color:var(--text);flex:1;min-width:0">${q.label}</span>
+        <span style="font-size:0.68rem;font-weight:600;color:${isFirst?sc.color:'#d97706'};background:${isFirst?sc.color+'18':'rgba(217,119,6,0.1)'};border-radius:99px;padding:0.15rem 0.55rem;white-space:nowrap;flex-shrink:0">${isFirst?'✓':'⚠'} ${answer||'—'}</span>
+      </div>${note?`<div style="padding:0.3rem 0.5rem 0.5rem;font-size:0.7rem;color:var(--text3);font-style:italic;line-height:1.45">💬 ${note.replace(/</g,'&lt;')}</div>`:''}`;
+    };
+
+    // ─── RAMA 1: Etapa reabierta para re-firma (wasReopened) ───
+    let bodyHTML = '';
+    if(wasReopened){
+      const lastHist = history[history.length-1];
+      const histAdjustments = Array.isArray(lastHist?.adjustments) ? lastHist.adjustments : [];
+
+      // FALLBACKS para snapshots antiguos que no tienen answers/notes/questionsToReReply:
+      // derivar desde adjustments[] que sí existe en todas las versiones del historial.
+      const hasAnswersInSnapshot = lastHist?.answers && Object.keys(lastHist.answers).length > 0;
+      const hasNotesInSnapshot = lastHist?.notes && Object.keys(lastHist.notes).length > 0;
+      const hasQuestionsToReReply = Array.isArray(lastHist?.questionsToReReply);
+
+      // Reconstruir answers: lo que haya en el snapshot, o aproximar usando adjustments + respuestas actuales preservadas
+      let prevAnswers = lastHist?.answers || {};
+      if(!hasAnswersInSnapshot){
+        prevAnswers = {};
+        // Las respuestas con observación están en adjustments
+        histAdjustments.forEach(p => { prevAnswers[p.id] = p.answer; });
+        // Las respuestas 100% están preservadas en stageApprovals (no se borraron cuando no había el campo questionsToReReply)
+        getApprovalQuestions(brand, stage).forEach(q=>{
+          if(!prevAnswers[q.id] && stageApprovals[q.id]){
+            prevAnswers[q.id] = stageApprovals[q.id];
+          }
+        });
+      }
+
+      // Reconstruir notes: del snapshot si existe, o de adjustments
+      let prevNotes = lastHist?.notes || {};
+      if(!hasNotesInSnapshot){
+        prevNotes = {};
+        histAdjustments.forEach(p => { if(p.note) prevNotes[p.id] = p.note; });
+      }
+
+      // Reconstruir questionsToReReply: del snapshot si existe, o derivar de adjustments
+      const questionsToReAnswer = hasQuestionsToReReply
+        ? lastHist.questionsToReReply
+        : histAdjustments.map(p => p.id);
+      const reReplySet = new Set(questionsToReAnswer);
+
+      // FALLBACK EXTRA para firmas legacy: si el snapshot no tenía questionsToReReply,
+      // las respuestas de preguntas con observación NO fueron borradas al archivar.
+      // Las borramos AHORA para forzar re-contestar. Una sola vez por firma legacy.
+      if(!hasQuestionsToReReply && reReplySet.size > 0){
+        let cleaned = false;
+        reReplySet.forEach(qid=>{
+          if(stageApprovals[qid] !== undefined){
+            delete stageApprovals[qid];
+            delete stageApprovals[qid+'_note'];
+            cleaned = true;
+          }
+        });
+        if(cleaned){
+          // Persistir el snapshot rellenado en el historial para no tener que recalcular
+          lastHist.answers = prevAnswers;
+          lastHist.notes = prevNotes;
+          lastHist.questionsToReReply = questionsToReAnswer;
+          markLocalChange('brands');
+          try{ upsert(); }catch(e){}
+        }
+      }
+
+      // Constancia anterior destacada
+      const prevSigStatus = lastHist?.status || 'approved';
+      const prevIsWithNotes = prevSigStatus === 'approved-with-notes';
+      const prevBadgeColor = prevIsWithNotes ? AMBER : sc.color;
+      const prevBadgeBg = prevIsWithNotes ? AMBER_BG : sc.bg;
+      const prevSignedAtStr = lastHist?.at
+        ? new Date(lastHist.at).toLocaleString('es-EC',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
+        : '';
+      const prevSignatureBadgeHTML = `
+        <details style="margin-bottom:0.7rem;background:${prevBadgeBg};border:1.5px solid ${prevBadgeColor};border-radius:12px;padding:0;overflow:hidden">
+          <summary style="padding:0.75rem 1rem;cursor:pointer;display:flex;align-items:center;gap:0.6rem;list-style:none;user-select:none">
+            <span style="font-size:1.05rem;flex-shrink:0">${prevIsWithNotes?'⚠️':'✅'}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:0.78rem;font-weight:800;color:${prevBadgeColor};line-height:1.25">Firma anterior${prevIsWithNotes?' con observaciones':''}: ${lastHist.by||'—'}</div>
+              <div style="font-size:0.67rem;color:var(--text3);margin-top:0.12rem">${prevSignedAtStr}</div>
+            </div>
+            <span style="font-size:0.6rem;color:var(--text3)">ver detalle ▾</span>
+          </summary>
+          <div style="padding:0.7rem 1rem 0.9rem;border-top:1px solid ${prevBadgeColor}44">
+            ${(lastHist?.adjustments||[]).length ? `
+              <div style="font-size:0.67rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${prevBadgeColor};margin-bottom:0.4rem">Observaciones que solicitaste</div>
+              ${(lastHist.adjustments||[]).map(p=>`
+                <div style="padding:0.35rem 0;border-bottom:1px dashed var(--border)">
+                  <div style="font-size:0.73rem;font-weight:700;color:var(--text)">• ${p.label}</div>
+                  <div style="font-size:0.68rem;color:var(--text3);margin-top:0.08rem"><em>${p.answer||''}</em></div>
+                  ${p.note ? `<div style="font-size:0.68rem;color:var(--text2);margin-top:0.2rem;padding:0.3rem 0.45rem;background:var(--bg-card);border-radius:5px;line-height:1.45">💬 ${p.note.replace(/</g,'&lt;')}</div>` : ''}
+                </div>`).join('')}
+            ` : '<div style="font-size:0.72rem;color:var(--text3)">Firma sin observaciones.</div>'}
+          </div>
+        </details>`;
+
+      // Resumen comprimido de toda la encuesta anterior
+      const compactSurveyHTML = `
+        <details style="margin-bottom:0.7rem;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0;overflow:hidden">
+          <summary style="padding:0.75rem 1rem;cursor:pointer;display:flex;align-items:center;gap:0.5rem;list-style:none;user-select:none">
+            <span style="font-size:0.95rem;flex-shrink:0">📋</span>
+            <span style="font-size:0.76rem;font-weight:700;color:var(--text);flex:1">Tus respuestas anteriores (${questions.length})</span>
+            <span style="font-size:0.6rem;color:var(--text3)">expandir ▾</span>
+          </summary>
+          <div style="padding:0.4rem 1rem 0.85rem;border-top:1px solid var(--border)">
+            ${questions.map(q=>renderQuestionCompact(q, prevAnswers[q.id], prevNotes[q.id])).join('')}
+          </div>
+        </details>`;
+
+      // Banner de contexto
+      const reopenedBannerHTML = `
+        <div style="margin-bottom:0.9rem;background:${sc.bg};border:1.5px solid ${sc.color};border-radius:12px;padding:0.9rem 1rem">
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem">
+            <span style="font-size:1.05rem">🔄</span>
+            <span style="font-size:0.84rem;font-weight:800;color:${sc.color}">Etapa reabierta para tu re-firma</span>
+          </div>
+          <div style="font-size:0.76rem;color:var(--text2);line-height:1.55">
+            El equipo completó las correcciones solicitadas. A continuación están <strong>solo las preguntas que tuvieron observaciones</strong> — contéstalas nuevamente según tu criterio actual. Tus demás respuestas se mantienen tal como estaban.
+          </div>
+        </div>`;
+
+      // Preguntas a re-responder (solo las que tuvieron observaciones)
+      const reReplyQuestions = questions.filter(q => reReplySet.has(q.id));
+      const reReplyHTML = reReplyQuestions.length ? `
+        <div style="margin-bottom:0.6rem">
+          <div style="font-size:0.67rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text3);margin-bottom:0.5rem;padding-left:0.2rem">
+            Preguntas a re-contestar (${reReplyQuestions.length})
+          </div>
+          ${reReplyQuestions.map(renderQuestionEditable).join('')}
+        </div>
+      ` : '';
+
+      bodyHTML = reopenedBannerHTML + prevSignatureBadgeHTML + compactSurveyHTML + reReplyHTML + signBoxHTML;
+
+    // ─── RAMA 2: Firma actual activa (read-only) ───
+    } else if(isLocked){
+      bodyHTML = questions.map(renderQuestionReadOnly).join('') + signedBadgeHTML;
+
+    // ─── RAMA 3: Flujo normal (primera vez o no firmado aún) ───
+    } else {
+      bodyHTML = questions.map(renderQuestionEditable).join('') + signBoxHTML;
+    }
+
     return `<div style="background:${sc.bg};border:1.5px solid ${sc.border};border-radius:16px;margin-bottom:0.6rem;overflow:hidden">
       <div onclick="toggleAprobStage('${stage}')" style="display:flex;align-items:center;gap:0.6rem;padding:1.1rem 1.4rem;cursor:pointer;user-select:none">
         <span style="font-size:1.2rem">${sc.emoji}</span>
         <div style="flex:1">
           <div style="font-size:0.95rem;font-weight:800;color:${sc.color}">Etapa ${sc.label}</div>
-          <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem">${allAnswered ? '✅ Completado' : `${Object.keys(stageApprovals).length}/${questions.length} aprobaciones registradas`}</div>
+          <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem">${headerSubtitle}</div>
         </div>
-        ${allAnswered ? `<span style="background:${sc.color};color:#fff;font-size:0.65rem;font-weight:700;border-radius:99px;padding:0.2rem 0.6rem">Completo</span>` : ''}
+        ${headerBadge}
         <span id="aprob-arrow-${stage}" style="font-size:0.75rem;color:var(--text3);transition:transform 0.2s;transform:rotate(${isOpen?'0':'180'}deg)">▲</span>
       </div>
       <div id="aprob-body-${stage}" style="display:${isOpen?'block':'none'};padding:0 1rem 1rem">
-        ${questions.map(q=>{
-          const saved = stageApprovals[q.id];
-          return `<div style="background:var(--bg-card);border-radius:12px;padding:1rem 1.1rem;margin-bottom:0.6rem">
-            <div style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.4rem">${q.label}</div>
-            <div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.7rem;line-height:1.5">${q.q}</div>
-            <div style="display:flex;flex-direction:column;gap:0.35rem">
-              ${q.options.map((opt, optIdx)=>{
-                const isSelected = saved === opt;
-                const safeOpt = opt.replace(/'/g,"&#39;").replace(/"/g,"&quot;");
-                return `<button onclick="portalSaveApproval('${brand.id}','${stage}','${q.id}','${safeOpt}',${isSelected})"
-                  style="text-align:left;padding:0.55rem 0.85rem;border-radius:10px;border:1.5px solid ${isSelected?sc.color:'var(--border)'};background:${isSelected?sc.color+'18':'var(--bg-card2)'};color:${isSelected?sc.color:'var(--text2)'};font-size:0.8rem;font-weight:${isSelected?700:400};cursor:pointer;font-family:var(--font);transition:all 0.15s;display:flex;align-items:center;gap:0.5rem">
-                  <span style="width:16px;height:16px;border-radius:50%;border:1.5px solid ${isSelected?sc.color:'var(--border)'};background:${isSelected?sc.color:'none'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.6rem;color:#fff">${isSelected?'✓':''}</span>
-                  ${opt}
-                </button>`;
-              }).join('')}
-              ${(saved && saved !== q.options[0]) ? `
-              <div style="margin-top:0.6rem">
-                <textarea
-                  placeholder="Sin problema, trabajemos en ello. ¿Cuáles son los cambios? Puedes especificarlos aquí, por el grupo (domo), en la plataforma Ruttl o en una reunión virtual."
-                  onchange="portalSaveApprovalNote('${brand.id}','${stage}','${q.id}',this.value)"
-                  style="width:100%;box-sizing:border-box;padding:0.65rem 0.8rem;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:0.79rem;font-family:var(--font);line-height:1.5;resize:none;min-height:80px;transition:border-color 0.15s;outline:none"
-                  onfocus="this.style.borderColor='${sc.color}'"
-                  onblur="this.style.borderColor='var(--border)'"
-                >${(stageApprovals[q.id+'_note']||'')}</textarea>
-              </div>` : ''}
-            </div>
-          </div>`;
-        }).join('')}
+        ${bodyHTML}
       </div>
     </div>`;
   };
+
+  // ═══════════════════════════════════════════════════════════════
+  // HISTÓRICO UNIFICADO DE FIRMAS DEL PROYECTO
+  // Se muestra al final, recolectando firmas de TODAS las etapas,
+  // ordenadas cronológicamente. Solo aparece si hay 2+ firmas en total.
+  // ═══════════════════════════════════════════════════════════════
+  const AMBER_COLOR = '#d97706';
+  const fmtHistDateUnif = (iso) => iso
+    ? new Date(iso).toLocaleString('es-EC',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
+    : '—';
+
+  // Recolectar todas las firmas de todas las etapas con metadata de stage
+  const allSignatures = [];
+  stageOrder.forEach(stage => {
+    const sa = approvals[stage] || {};
+    const history = Array.isArray(sa._signedHistory) ? sa._signedHistory : [];
+    history.forEach(h => {
+      allSignatures.push({ ...h, _stage: stage, _isCurrent: false });
+    });
+    // Firma activa (si existe) también va al histórico
+    if(sa._signed?.by){
+      allSignatures.push({
+        by: sa._signed.by,
+        at: sa._signed.at,
+        status: sa._signed.status || 'approved',
+        adjustments: sa._signed.status === 'approved-with-notes' ? getStageAdjustmentPoints(stage, sa, brand) : [],
+        answers: (()=>{
+          const out = {};
+          getApprovalQuestions(brand, stage).forEach(q=>{ if(sa[q.id] !== undefined) out[q.id] = sa[q.id]; });
+          return out;
+        })(),
+        notes: (()=>{
+          const out = {};
+          getApprovalQuestions(brand, stage).forEach(q=>{ if(sa[q.id+'_note'] !== undefined) out[q.id] = sa[q.id+'_note']; });
+          return out;
+        })(),
+        _stage: stage,
+        _isCurrent: true,
+      });
+    }
+  });
+  // Ordenar cronológicamente (más antigua arriba, más reciente abajo)
+  allSignatures.sort((a, b) => {
+    const ta = a.at ? new Date(a.at).getTime() : 0;
+    const tb = b.at ? new Date(b.at).getTime() : 0;
+    return ta - tb;
+  });
+
+  let unifiedHistoryHTML = '';
+  if(allSignatures.length >= 2){
+    const items = allSignatures.map((h, hi)=>{
+      const stage = h._stage;
+      const sc = SC[stage];
+      const questions = getApprovalQuestions(brand, stage);
+      const col = h.status === 'approved-with-notes' ? AMBER_COLOR : sc.color;
+      const lbl = h.status === 'approved-with-notes' ? 'Con observaciones' : 'Aprobado al 100%';
+      const icon = h.status === 'approved-with-notes' ? '⚠️' : '✅';
+      const atStr = fmtHistDateUnif(h.at);
+      const reopenedStr = h.reopenedAt ? fmtHistDateUnif(h.reopenedAt) : '';
+
+      // Fallback para snapshots legacy
+      const hAdjustments = Array.isArray(h.adjustments) ? h.adjustments : [];
+      const hasA = h.answers && Object.keys(h.answers).length > 0;
+      const hAnswers = hasA ? h.answers : (()=>{
+        const a = {};
+        hAdjustments.forEach(p => { a[p.id] = p.answer; });
+        return a;
+      })();
+      const hNotes = (h.notes && Object.keys(h.notes).length > 0) ? h.notes : (()=>{
+        const n = {};
+        hAdjustments.forEach(p => { if(p.note) n[p.id] = p.note; });
+        return n;
+      })();
+
+      const qItems = questions.map(q => {
+        const ans = hAnswers[q.id];
+        const note = hNotes[q.id];
+        if(!ans) return `
+          <div style="padding:0.4rem 0.3rem;border-bottom:1px dashed var(--border)">
+            <div style="font-size:0.72rem;font-weight:600;color:var(--text)">${q.label}</div>
+            <div style="font-size:0.66rem;color:var(--text3);font-style:italic;margin-top:0.1rem">— sin registro</div>
+          </div>`;
+        const isFirst = q.options && q.options[0] === ans;
+        const qCol = isFirst ? sc.color : AMBER_COLOR;
+        return `
+          <div style="padding:0.4rem 0.3rem;border-bottom:1px dashed var(--border)">
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+              <span style="font-size:0.72rem;font-weight:600;color:var(--text);flex:1;min-width:0">${q.label}</span>
+              <span style="font-size:0.65rem;font-weight:600;color:${qCol};background:${qCol}18;border-radius:99px;padding:0.12rem 0.5rem;white-space:nowrap">${isFirst?'✓':'⚠'} ${ans}</span>
+            </div>
+            ${note?`<div style="margin-top:0.3rem;padding:0.35rem 0.5rem;background:var(--bg-card2);border-radius:6px;font-size:0.68rem;color:var(--text2);line-height:1.45;font-style:italic">💬 ${note.replace(/</g,'&lt;')}</div>`:''}
+          </div>`;
+      }).join('');
+
+      const stageBadgeHTML = `<span style="font-size:0.6rem;font-weight:700;color:${sc.color};background:${sc.color}18;border:1px solid ${sc.color}44;border-radius:99px;padding:0.15rem 0.55rem;white-space:nowrap;display:inline-flex;align-items:center;gap:0.25rem">${sc.emoji} ${sc.label}</span>`;
+      const currentBadge = h._isCurrent
+        ? `<span style="font-size:0.58rem;font-weight:700;color:var(--text2);background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.15rem 0.5rem;white-space:nowrap">Firma actual</span>`
+        : '';
+
+      return `
+        <details id="unified-hist-item-${hi}" style="background:var(--bg-card);border:1px solid var(--border);border-left:3px solid ${col};border-radius:8px;overflow:hidden">
+          <summary style="padding:0.7rem 0.9rem;cursor:pointer;display:flex;align-items:center;gap:0.55rem;list-style:none;user-select:none;flex-wrap:wrap">
+            <span style="font-size:0.9rem;flex-shrink:0">${icon}</span>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.15rem">
+                ${stageBadgeHTML}
+                ${currentBadge}
+              </div>
+              <div style="font-size:0.76rem;font-weight:700;color:var(--text);line-height:1.25">${h.by||'—'}</div>
+              <div style="font-size:0.64rem;color:var(--text3);margin-top:0.1rem">${atStr} · <span style="color:${col};font-weight:600">${lbl}</span></div>
+            </div>
+            <span style="font-size:0.58rem;color:var(--text3);flex-shrink:0">ver ▾</span>
+          </summary>
+          <div style="padding:0.5rem 0.9rem 0.85rem;border-top:1px solid var(--border);background:var(--bg-card2)">
+            ${reopenedStr ? `<div style="font-size:0.63rem;color:var(--text3);font-style:italic;margin-bottom:0.5rem">Reabierta: ${reopenedStr}</div>` : ''}
+            <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.45rem">Respuestas en esta firma</div>
+            ${qItems}
+          </div>
+        </details>`;
+    }).join('');
+
+    unifiedHistoryHTML = `
+      <details id="unified-full-history" style="margin-top:1rem;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:0;overflow:hidden">
+        <summary style="padding:1rem 1.3rem;cursor:pointer;display:flex;align-items:center;gap:0.6rem;list-style:none;user-select:none">
+          <span style="font-size:1.1rem;flex-shrink:0">📜</span>
+          <div style="flex:1">
+            <div style="font-size:0.9rem;font-weight:800;color:var(--text)">Histórico de firmas del proyecto</div>
+            <div style="font-size:0.68rem;color:var(--text3);margin-top:0.15rem">${allSignatures.length} firmas a lo largo del proyecto · orden cronológico</div>
+          </div>
+          <span style="font-size:0.65rem;color:var(--text3)">expandir ▾</span>
+        </summary>
+        <div style="padding:0.65rem 1rem 1.1rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:0.55rem">
+          ${items}
+        </div>
+      </details>`;
+  }
 
   return `
     <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.4rem 1.6rem;margin-bottom:0.8rem">
@@ -12545,9 +13952,33 @@ function portalRenderAprobaciones(brand){
       <p style="font-size:0.82rem;color:var(--text2);line-height:1.6;margin:0">A medida que tu proyecto avanza, cada etapa habilitará su formulario de aprobación. Confirmar cada sección nos permite continuar con la siguiente con total alineación.</p>
     </div>
     ${stageOrder.map(renderStage).join('')}
+    ${unifiedHistoryHTML}
   `;
 }
 
+
+// Abre el histórico unificado del proyecto, hace scroll, y expande el item
+// de la firma más reciente de la etapa indicada (para dar contexto al cliente).
+function openFullHistory(stage){
+  const panel = document.getElementById('unified-full-history');
+  if(!panel) return;
+  panel.open = true;
+  setTimeout(()=>{
+    panel.scrollIntoView({behavior:'smooth', block:'start'});
+    // Expandir el item más reciente de la etapa pedida si se puede identificar
+    const items = panel.querySelectorAll('details[id^="unified-hist-item-"]');
+    let lastMatch = null;
+    items.forEach(d=>{
+      // Buscar el badge de la etapa dentro del summary
+      const html = d.querySelector('summary')?.innerHTML || '';
+      // Match por el label de la etapa (Aire, Agua, Tierra, Fuego)
+      const stageLabels = {aire:'Aire', agua:'Agua', tierra:'Tierra', fuego:'Fuego'};
+      const wanted = stageLabels[stage];
+      if(wanted && html.includes(wanted)) lastMatch = d;
+    });
+    if(lastMatch) lastMatch.open = true;
+  }, 80);
+}
 
 function toggleAprobStage(stage){
   const body = document.getElementById('aprob-body-'+stage);
@@ -12561,6 +13992,8 @@ function toggleAprobStage(stage){
 function portalSaveApprovalNote(brandId, stage, questionId, value){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand) return;
+  // Si ya está firmado, el cliente no puede editar
+  if(brand.portalApprovals?.[stage]?._signed?.by) return;
   if(!brand.portalApprovals) brand.portalApprovals = {};
   if(!brand.portalApprovals[stage]) brand.portalApprovals[stage] = {};
   brand.portalApprovals[stage][questionId+'_note'] = value;
@@ -12573,6 +14006,8 @@ async function portalSaveApproval(brandId, stage, questionId, value, isCurrently
   const decoded = value.replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,'&');
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand) return;
+  // Si ya está firmado, bloquear cualquier cambio
+  if(brand.portalApprovals?.[stage]?._signed?.by) return;
   if(!brand.portalApprovals) brand.portalApprovals = {};
   if(!brand.portalApprovals[stage]) brand.portalApprovals[stage] = {};
 
@@ -12606,6 +14041,92 @@ async function portalSaveApproval(brandId, stage, questionId, value, isCurrently
   });
 
   upsert();
+}
+
+// Cliente firma una etapa. Guarda nombre + timestamp + status en portalApprovals[stage]._signed
+// Si hay observaciones, crea rondas automáticas para el equipo.
+async function portalSignStage(brandId, stage){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand) return;
+  const input = document.getElementById('portal-sign-input-'+stage);
+  const name = (input?.value || '').trim();
+  if(!name){
+    if(input){
+      input.style.borderColor = '#dc2626';
+      input.focus();
+    }
+    return;
+  }
+  // Verificación final de seguridad: todas las preguntas deben estar respondidas
+  const required = getApprovalQuestions(brand, stage).map(q=>q.id);
+  const stageApprovals = brand.portalApprovals?.[stage] || {};
+  const missing = required.filter(k => !stageApprovals[k]);
+  if(missing.length){
+    if(input){
+      input.style.borderColor = '#dc2626';
+      input.placeholder = 'Faltan respuestas antes de firmar';
+    }
+    return;
+  }
+  const status = classifyStageApprovals(stage, stageApprovals, brand);
+  // Ya firmado: no permitir re-firmar sin desbloqueo
+  if(stageApprovals._signed?.by) return;
+
+  if(!brand.portalApprovals) brand.portalApprovals = {};
+  if(!brand.portalApprovals[stage]) brand.portalApprovals[stage] = {};
+  brand.portalApprovals[stage]._signed = {
+    by: name,
+    at: new Date().toISOString(),
+    status, // 'approved' | 'approved-with-notes'
+  };
+
+  // Crear UNA ronda consolidada para la etapa cuando se firma con observaciones
+  if(status === 'approved-with-notes'){
+    if(!Array.isArray(brand.rondas)) brand.rondas = [];
+    const adjustmentPoints = getStageAdjustmentPoints(stage, stageApprovals, brand);
+    // Numeración: cuenta rondas previas de este stage para continuar (R1, R2, R3…)
+    const existingCount = brand.rondas.filter(r=>r.stage===stage).length;
+    const roundNumber = existingCount + 1;
+
+    // Consolidar todos los puntos con observaciones en una sola nota
+    const notasConsolidadas = adjustmentPoints.map(p=>{
+      const header = `📝 ${p.label}`;
+      const respuesta = `Respuesta del cliente: "${p.answer}"`;
+      const comentario = p.note ? `\nComentario:\n${p.note}` : '';
+      return `${header}\n${respuesta}${comentario}`;
+    }).join('\n\n━━━━━━━━━━\n\n');
+
+    brand.rondas.push({
+      id: uid(),
+      stage,
+      label: `R${roundNumber}`,
+      fecha: new Date().toISOString().slice(0,10),
+      notas: notasConsolidadas,
+      done: false,
+      autoGenerated: true,
+      sourceQuestionIds: adjustmentPoints.map(p=>p.id), // referencia a los puntos incluidos
+    });
+  }
+
+  markLocalChange('brands');
+
+  // Re-render manteniendo stages abiertos
+  const openStages = ['aire','agua','tierra','fuego'].filter(s=>{
+    const el = document.getElementById('aprob-body-'+s);
+    return el && el.style.display !== 'none';
+  });
+  const panel = document.getElementById('portal-content-area');
+  if(panel) panel.innerHTML = portalRenderAprobaciones(brand);
+  ['aire','agua','tierra','fuego'].forEach(s=>{
+    const body = document.getElementById('aprob-body-'+s);
+    const arrow = document.getElementById('aprob-arrow-'+s);
+    if(!body) return;
+    const shouldBeOpen = openStages.includes(s) || s===stage;
+    body.style.display = shouldBeOpen ? 'block' : 'none';
+    if(arrow) arrow.style.transform = shouldBeOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  });
+
+  await upsert();
 }
 
 function portalRenderBp(brand){
