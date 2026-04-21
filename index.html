@@ -1323,6 +1323,9 @@ body.portal-mode .main{ height:100vh; }
     <button class="nav-item" id="nav-backup" onclick="goTo('backup')">
       <span class="nav-icon">💾</span><span class="nav-text">Backup</span>
     </button>
+    <button class="nav-item" id="nav-diag" onclick="goTo('diag')">
+      <span class="nav-icon">🔬</span><span class="nav-text">Diagnóstico</span>
+    </button>
   </div>
   <!-- Interno toggle -->
   <button class="nav-item" onclick="toggleInternoNav()" id="nav-interno-toggle" style="justify-content:space-between">
@@ -2572,6 +2575,42 @@ body.portal-mode .main{ height:100vh; }
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- PAGE: DIAGNÓSTICO -->
+  <div class="page" id="page-diag">
+    <div class="content">
+      <div style="margin-bottom:1.5rem">
+        <div style="font-size:1.3rem;font-weight:800;letter-spacing:-0.5px">🔬 Diagnóstico</div>
+        <div style="font-size:0.82rem;color:var(--text3);margin-top:0.3rem">Herramienta de solo lectura para inspeccionar integridad de datos</div>
+      </div>
+
+      <!-- Selector de marca -->
+      <div class="section-card" style="margin-bottom:1rem">
+        <div class="section-head">
+          <div class="section-head-left">
+            <div class="section-head-title">📁 Selecciona marca a inspeccionar</div>
+            <div class="section-head-sub">Se analizará cronograma, cobros, branding points y aprobaciones</div>
+          </div>
+        </div>
+        <div class="section-body">
+          <div style="display:flex;gap:0.8rem;flex-wrap:wrap;align-items:center">
+            <select id="diag-brand-select" onchange="runDiagnostic()"
+              style="flex:1;min-width:260px;padding:0.65rem 0.9rem;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:0.9rem;font-family:var(--font);color:var(--text);outline:none">
+              <option value="">— Elige una marca —</option>
+            </select>
+            <button onclick="runDiagnostic()"
+              style="background:var(--aire);color:#fff;border:none;border-radius:8px;padding:0.65rem 1rem;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:var(--font)">🔍 Re-analizar</button>
+            <button onclick="diagCheckAllBrands()"
+              style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.65rem 1rem;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:var(--font);color:var(--text2)"
+              title="Analizar todas las marcas">🗂️ Escanear todas</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resultado -->
+      <div id="diag-result"></div>
     </div>
   </div>
 
@@ -6184,6 +6223,7 @@ function renderCurrentPage(){
     if(currentPage==='finanzas'&&_finUnlocked)renderFinMes();
     if(currentPage==='cobranzas'&&_cobUnlocked)renderCobranzas();
     if(currentPage==='archivo')renderArchivo();
+    if(currentPage==='diag')renderDiag();
   } catch(e) {
     console.error('renderCurrentPage error:', e);
   }
@@ -17634,6 +17674,394 @@ window.diagnosePolen = function(){
     }
   };
 };
+
+/* ═══ DIAGNÓSTICO ═══ */
+function renderDiag(){
+  const sel = document.getElementById('diag-brand-select');
+  if(!sel) return;
+  const current = sel.value;
+  const brands = (appData.brands||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+  sel.innerHTML = '<option value="">— Elige una marca —</option>' +
+    brands.map(b=>`<option value="${b.id}" ${b.id===current?'selected':''}>${String(b.name||'(sin nombre)').replace(/</g,'&lt;')}</option>`).join('');
+  if(current) runDiagnostic();
+  else {
+    const res = document.getElementById('diag-result');
+    if(res) res.innerHTML = '';
+  }
+}
+
+// Analiza una marca y retorna un objeto con hallazgos:
+// { critical: [...], warning: [...], info: [...], stats: {...} }
+function diagnoseBrand(brand){
+  const critical = []; // problemas serios, data probablemente perdida
+  const warning  = []; // inconsistencias que vale la pena revisar
+  const info     = []; // observaciones neutrales
+  const stats    = {};
+
+  if(!brand){
+    critical.push('Marca no existe en appData.brands');
+    return {critical, warning, info, stats};
+  }
+
+  // ───────── CRONOGRAMA ─────────
+  const crono = brand.cronograma || {};
+  const stages = ['aire','agua','tierra','fuego'];
+  let totalActs = 0, actsWithoutDate = 0, actsInvalidDate = 0, hitos = 0;
+  const allActIds = new Set();
+  const duplicateActIds = [];
+
+  stages.forEach(st=>{
+    const acts = Array.isArray(crono[st]) ? crono[st] : [];
+    if(!Array.isArray(crono[st])){
+      if(crono[st] !== undefined) critical.push(`cronograma.${st} no es un array (tipo: ${typeof crono[st]}) — esto NO debería pasar`);
+      return;
+    }
+    acts.forEach((a, i)=>{
+      totalActs++;
+      if(a.isHito) hitos++;
+      // ID duplicado
+      if(a.id){
+        if(allActIds.has(a.id)) duplicateActIds.push(`${a.id} (en ${st})`);
+        allActIds.add(a.id);
+      } else {
+        critical.push(`Actividad sin id en ${st}[${i}]: "${a.name||'(sin nombre)'}"`);
+      }
+      // Fecha
+      if(!a.startDate || !a.endDate){
+        actsWithoutDate++;
+        warning.push(`Actividad sin fecha en ${st}: "${a.name||'(sin nombre)'}" (${!a.startDate?'sin startDate':''}${!a.startDate&&!a.endDate?' y ':''}${!a.endDate?'sin endDate':''})`);
+      } else if(a.startDate > a.endDate){
+        actsInvalidDate++;
+        critical.push(`Fechas inválidas en ${st}: "${a.name}" — startDate (${a.startDate}) es posterior a endDate (${a.endDate})`);
+      }
+      // Días vs fechas
+      if(a.startDate && a.endDate && a.days){
+        const expected = wdDeltaBetween(a.startDate, a.endDate) + 1;
+        if(Math.abs(expected - a.days) > 1){
+          warning.push(`Inconsistencia días/fechas en ${st}: "${a.name}" marca ${a.days} días pero el rango ${a.startDate}→${a.endDate} son ${expected} días hábiles`);
+        }
+      }
+    });
+  });
+
+  if(duplicateActIds.length){
+    critical.push(`IDs de actividad duplicados: ${duplicateActIds.join(', ')} — esto causa comportamiento impredecible`);
+  }
+
+  // _sinUbicar (actividades que no caen en ninguna etapa)
+  const sinUbicar = Array.isArray(crono._sinUbicar) ? crono._sinUbicar : [];
+  if(sinUbicar.length){
+    info.push(`${sinUbicar.length} actividad${sinUbicar.length===1?'':'es'} en "sin ubicar" — pendientes de asignar a una etapa`);
+  }
+
+  stats.actividades = totalActs;
+  stats.hitos = hitos;
+  stats.actividadesSinFecha = actsWithoutDate;
+  stats.actividadesFechaInvalida = actsInvalidDate;
+
+  // ───────── COBROS ─────────
+  const cobros = appData.cobros?.[brand.id];
+  if(!cobros){
+    warning.push('No existe entrada en appData.cobros para esta marca — el sistema debería haberla creado al crear la marca');
+  } else {
+    if(!Array.isArray(cobros.pagos)){
+      critical.push(`cobros.pagos no es un array (tipo: ${typeof cobros.pagos}) — estructura dañada`);
+    } else {
+      stats.pagos = cobros.pagos.length;
+      let pagosCobrados = 0, pagosSinTrigger = 0, pagosTriggerHuerfano = 0;
+      cobros.pagos.forEach((p, i)=>{
+        if(!p.id){
+          critical.push(`Pago sin id en cobros.pagos[${i}]`);
+        }
+        if(p.cobrado) pagosCobrados++;
+        if(!p.triggerActId && !p.triggerType){
+          pagosSinTrigger++;
+        }
+        // Verificar que el triggerActId apunta a una actividad real
+        if(p.triggerActId){
+          const found = stages.some(st=> (crono[st]||[]).some(a=>a.id===p.triggerActId)) ||
+                        sinUbicar.some(a=>a.id===p.triggerActId);
+          if(!found){
+            pagosTriggerHuerfano++;
+            warning.push(`Pago "${p.label||p.name||p.id}" apunta a triggerActId ${p.triggerActId} pero esa actividad NO existe en el cronograma — pago huérfano`);
+          }
+        }
+        if(p.valor !== undefined && p.valor !== null && isNaN(Number(p.valor))){
+          warning.push(`Pago "${p.label||p.id}" tiene valor inválido: "${p.valor}"`);
+        }
+      });
+      stats.pagosCobrados = pagosCobrados;
+      stats.pagosPendientes = cobros.pagos.length - pagosCobrados;
+      if(pagosSinTrigger) info.push(`${pagosSinTrigger} pago${pagosSinTrigger===1?'':'s'} sin trigger definido`);
+      if(cobros.useTotal !== undefined && (cobros.valorTotal === undefined || cobros.valorTotal === null)){
+        warning.push('cobros.useTotal activo pero sin cobros.valorTotal — cálculos pueden estar mal');
+      }
+    }
+  }
+
+  // ───────── BRANDING POINTS ─────────
+  const bp = brand.brandingPoints;
+  if(!bp){
+    warning.push('brand.brandingPoints no existe — la marca no tiene estructura de BP');
+  } else {
+    if(!Array.isArray(bp.categories)){
+      critical.push(`brandingPoints.categories no es un array (tipo: ${typeof bp.categories})`);
+    } else {
+      let totalItems = 0, selectedItems = 0, ptsUsados = 0;
+      bp.categories.forEach((cat, ci)=>{
+        if(!Array.isArray(cat.items)){
+          warning.push(`Categoría BP "${cat.name||ci}" tiene items no-array`);
+          return;
+        }
+        cat.items.forEach(it=>{
+          totalItems++;
+          if(it.selected){
+            selectedItems++;
+            ptsUsados += (Number(it.pts)||0) * (Number(it.qty)||1);
+          }
+        });
+      });
+      stats.bpCategorias = bp.categories.length;
+      stats.bpItemsTotal = totalItems;
+      stats.bpItemsSeleccionados = selectedItems;
+      stats.bpPuntosUsados = ptsUsados;
+      stats.bpPuntosTotal = bp.total || 15;
+      if(ptsUsados > (bp.total||15)){
+        warning.push(`Puntos usados (${ptsUsados}) exceden el total asignado (${bp.total||15})`);
+      }
+    }
+  }
+
+  // ───────── APROBACIONES ─────────
+  const pa = brand.portalApprovals || {};
+  let firmasActivas = 0, firmasHistoricas = 0, respuestasHuerfanas = 0;
+  stages.forEach(st=>{
+    const sa = pa[st] || {};
+    if(sa._signed?.by) firmasActivas++;
+    if(Array.isArray(sa._signedHistory)) firmasHistoricas += sa._signedHistory.length;
+    // Respuestas huérfanas: están en portalApprovals pero no hay pregunta con ese id
+    const validQs = new Set(getApprovalQuestions(brand, st).map(q=>q.id));
+    Object.keys(sa).forEach(k=>{
+      if(k.startsWith('_')) return;
+      const baseId = k.endsWith('_note') ? k.slice(0,-5) : k;
+      if(!validQs.has(baseId)){
+        respuestasHuerfanas++;
+      }
+    });
+  });
+  stats.firmasActivas = firmasActivas;
+  stats.firmasHistoricas = firmasHistoricas;
+  if(respuestasHuerfanas > 0){
+    info.push(`${respuestasHuerfanas} respuesta${respuestasHuerfanas===1?'':'s'} de aprobación huérfana${respuestasHuerfanas===1?'':'s'} (apuntan a preguntas que ya no existen) — normal si se editaron/eliminaron preguntas`);
+  }
+
+  // ───────── RONDAS ─────────
+  if(Array.isArray(brand.rondas)){
+    stats.rondas = brand.rondas.length;
+    const rondasSinStage = brand.rondas.filter(r=>!r.stage || !stages.includes(r.stage)).length;
+    if(rondasSinStage){
+      warning.push(`${rondasSinStage} ronda${rondasSinStage===1?'':'s'} sin etapa asignada`);
+    }
+    const rondasCompletadas = brand.rondas.filter(r=>r.done).length;
+    stats.rondasCompletadas = rondasCompletadas;
+  }
+
+  // ───────── META ─────────
+  if(!brand.createdAt) warning.push('Marca sin createdAt');
+  if(!brand.stage) warning.push('Marca sin etapa actual (brand.stage)');
+
+  return {critical, warning, info, stats};
+}
+
+function runDiagnostic(){
+  const sel = document.getElementById('diag-brand-select');
+  const res = document.getElementById('diag-result');
+  if(!sel || !res) return;
+  const brandId = sel.value;
+  if(!brandId){ res.innerHTML = ''; return; }
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand){
+    res.innerHTML = '<div style="color:#dc2626;padding:1rem">Marca no encontrada</div>';
+    return;
+  }
+  const r = diagnoseBrand(brand);
+  res.innerHTML = renderDiagResult(brand, r);
+}
+
+function renderDiagResult(brand, r){
+  const {critical, warning, info, stats} = r;
+  const sev = critical.length ? 'critical' : warning.length ? 'warning' : 'ok';
+  const sevColor = sev === 'critical' ? '#dc2626' : sev === 'warning' ? '#d97706' : '#16a34a';
+  const sevBg = sev === 'critical' ? 'rgba(220,38,38,0.08)' : sev === 'warning' ? 'rgba(217,119,6,0.08)' : 'rgba(22,163,74,0.08)';
+  const sevLabel = sev === 'critical' ? '❌ Problemas críticos detectados' : sev === 'warning' ? '⚠️ Inconsistencias encontradas' : '✅ Todo consistente';
+
+  const renderList = (arr, color) => arr.length ? `
+    <div style="display:flex;flex-direction:column;gap:0.35rem">
+      ${arr.map(msg=>`<div style="padding:0.5rem 0.75rem;background:var(--bg-card2);border-left:3px solid ${color};border-radius:6px;font-size:0.8rem;line-height:1.5;color:var(--text2)">${String(msg).replace(/</g,'&lt;')}</div>`).join('')}
+    </div>
+  ` : '<div style="font-size:0.78rem;color:var(--text3);font-style:italic">— Ninguno —</div>';
+
+  const statsHTML = Object.entries(stats).map(([k,v])=>`
+    <div style="display:flex;justify-content:space-between;padding:0.4rem 0.7rem;background:var(--bg-card2);border-radius:6px">
+      <span style="font-size:0.76rem;color:var(--text3)">${k}</span>
+      <span style="font-size:0.8rem;font-weight:700;color:var(--text)">${v}</span>
+    </div>`).join('');
+
+  return `
+    <div class="section-card" style="border-color:${sevColor};border-width:1.5px;margin-bottom:1rem">
+      <div class="section-head" style="background:${sevBg}">
+        <div class="section-head-left">
+          <div class="section-head-title" style="color:${sevColor}">${sevLabel}</div>
+          <div class="section-head-sub">Marca: <strong>${String(brand.name||'').replace(/</g,'&lt;')}</strong> · id: <code style="font-size:0.72rem">${brand.id}</code></div>
+        </div>
+      </div>
+    </div>
+
+    ${critical.length ? `
+    <div class="section-card" style="margin-bottom:1rem">
+      <div class="section-head"><div class="section-head-left">
+        <div class="section-head-title" style="color:#dc2626">❌ Críticos (${critical.length})</div>
+        <div class="section-head-sub">Estos probablemente requieren arreglo manual</div>
+      </div></div>
+      <div class="section-body">${renderList(critical, '#dc2626')}</div>
+    </div>` : ''}
+
+    ${warning.length ? `
+    <div class="section-card" style="margin-bottom:1rem">
+      <div class="section-head"><div class="section-head-left">
+        <div class="section-head-title" style="color:#d97706">⚠️ Advertencias (${warning.length})</div>
+        <div class="section-head-sub">Inconsistencias que vale la pena revisar</div>
+      </div></div>
+      <div class="section-body">${renderList(warning, '#d97706')}</div>
+    </div>` : ''}
+
+    ${info.length ? `
+    <div class="section-card" style="margin-bottom:1rem">
+      <div class="section-head"><div class="section-head-left">
+        <div class="section-head-title" style="color:var(--text2)">ℹ️ Notas (${info.length})</div>
+      </div></div>
+      <div class="section-body">${renderList(info, 'var(--text3)')}</div>
+    </div>` : ''}
+
+    <div class="section-card" style="margin-bottom:1rem">
+      <div class="section-head"><div class="section-head-left">
+        <div class="section-head-title">📊 Estadísticas</div>
+      </div></div>
+      <div class="section-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.5rem">${statsHTML}</div>
+      </div>
+    </div>
+
+    <div class="section-card" style="margin-bottom:1rem">
+      <div class="section-head"><div class="section-head-left">
+        <div class="section-head-title">📋 Datos crudos</div>
+        <div class="section-head-sub">Copia y comparte para revisar en detalle</div>
+      </div></div>
+      <div class="section-body">
+        <div style="display:flex;gap:0.5rem;margin-bottom:0.7rem;flex-wrap:wrap">
+          <button onclick="diagCopyBrandJSON('${brand.id}')"
+            style="background:var(--aire);color:#fff;border:none;border-radius:8px;padding:0.5rem 0.9rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font)">📋 Copiar JSON de la marca</button>
+          <button onclick="diagCopyCobrosJSON('${brand.id}')"
+            style="background:var(--aire);color:#fff;border:none;border-radius:8px;padding:0.5rem 0.9rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font)">💳 Copiar cobros de la marca</button>
+          <button onclick="diagDownloadBrandSnapshot('${brand.id}')"
+            style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.9rem;font-size:0.78rem;font-weight:600;cursor:pointer;color:var(--text2);font-family:var(--font)">💾 Descargar snapshot (JSON)</button>
+        </div>
+        <details>
+          <summary style="cursor:pointer;font-size:0.82rem;font-weight:700;color:var(--text);padding:0.4rem 0;user-select:none">Ver JSON inline</summary>
+          <pre style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.85rem;font-size:0.72rem;overflow:auto;max-height:400px;color:var(--text2);line-height:1.5;white-space:pre-wrap;word-break:break-word">${JSON.stringify({brand, cobros: appData.cobros?.[brand.id] || null}, null, 2).replace(/</g,'&lt;')}</pre>
+        </details>
+      </div>
+    </div>
+  `;
+}
+
+function diagCopyBrandJSON(brandId){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand) return;
+  const txt = JSON.stringify(brand, null, 2);
+  navigator.clipboard.writeText(txt).then(()=>{
+    showStatus('JSON de marca copiado ✓');
+  }).catch(()=>{
+    showStatus('No se pudo copiar — usa "Descargar snapshot"', true);
+  });
+}
+function diagCopyCobrosJSON(brandId){
+  const co = appData.cobros?.[brandId];
+  if(!co){ showStatus('Esta marca no tiene cobros', true); return; }
+  navigator.clipboard.writeText(JSON.stringify(co, null, 2)).then(()=>{
+    showStatus('JSON de cobros copiado ✓');
+  }).catch(()=>{
+    showStatus('No se pudo copiar', true);
+  });
+}
+function diagDownloadBrandSnapshot(brandId){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand) return;
+  const snapshot = {
+    brand,
+    cobros: appData.cobros?.[brandId] || null,
+    diagnostic: diagnoseBrand(brand),
+    capturedAt: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(snapshot, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `diagnostico_${(brand.name||'marca').replace(/[^a-z0-9]/gi,'_')}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function diagCheckAllBrands(){
+  const res = document.getElementById('diag-result');
+  if(!res) return;
+  const brands = (appData.brands||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+  if(!brands.length){
+    res.innerHTML = '<div style="padding:1rem;color:var(--text3)">No hay marcas para analizar</div>';
+    return;
+  }
+  const results = brands.map(b => ({ brand: b, diag: diagnoseBrand(b) }));
+  const totalCritical = results.reduce((s,r)=>s+r.diag.critical.length, 0);
+  const totalWarning  = results.reduce((s,r)=>s+r.diag.warning.length, 0);
+  const brandsWithIssues = results.filter(r=>r.diag.critical.length||r.diag.warning.length);
+
+  const summaryColor = totalCritical > 0 ? '#dc2626' : totalWarning > 0 ? '#d97706' : '#16a34a';
+  const summaryBg = totalCritical > 0 ? 'rgba(220,38,38,0.08)' : totalWarning > 0 ? 'rgba(217,119,6,0.08)' : 'rgba(22,163,74,0.08)';
+
+  const rowsHTML = results.map(({brand, diag})=>{
+    const sev = diag.critical.length ? 'critical' : diag.warning.length ? 'warning' : 'ok';
+    const col = sev === 'critical' ? '#dc2626' : sev === 'warning' ? '#d97706' : '#16a34a';
+    const icon = sev === 'critical' ? '❌' : sev === 'warning' ? '⚠️' : '✅';
+    return `
+      <div onclick="document.getElementById('diag-brand-select').value='${brand.id}';runDiagnostic();window.scrollTo({top:0,behavior:'smooth'})"
+        style="display:flex;align-items:center;gap:0.7rem;padding:0.65rem 0.9rem;background:var(--bg-card);border:1px solid var(--border);border-left:3px solid ${col};border-radius:8px;cursor:pointer;transition:all 0.15s"
+        onmouseover="this.style.background='var(--bg-card2)'"
+        onmouseout="this.style.background='var(--bg-card)'">
+        <span style="font-size:1rem">${icon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.84rem;font-weight:700;color:var(--text)">${String(brand.name||'').replace(/</g,'&lt;')}</div>
+          <div style="font-size:0.68rem;color:var(--text3);margin-top:0.1rem">${diag.critical.length} crítico${diag.critical.length===1?'':'s'} · ${diag.warning.length} advertencia${diag.warning.length===1?'':'s'} · ${diag.info.length} nota${diag.info.length===1?'':'s'}</div>
+        </div>
+        <span style="font-size:0.7rem;color:var(--text3)">→</span>
+      </div>`;
+  }).join('');
+
+  res.innerHTML = `
+    <div class="section-card" style="border-color:${summaryColor};border-width:1.5px;margin-bottom:1rem">
+      <div class="section-head" style="background:${summaryBg}">
+        <div class="section-head-left">
+          <div class="section-head-title" style="color:${summaryColor}">🗂️ Escaneo completo de ${brands.length} marcas</div>
+          <div class="section-head-sub">${totalCritical} crítico${totalCritical===1?'':'s'} · ${totalWarning} advertencia${totalWarning===1?'':'s'} · ${brandsWithIssues.length} marca${brandsWithIssues.length===1?'':'s'} con issues</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div style="display:flex;flex-direction:column;gap:0.35rem">
+          ${rowsHTML}
+        </div>
+      </div>
+    </div>`;
+}
+
 </script>
 
 <!-- MODAL: Nuevo / Editar Miembro -->
