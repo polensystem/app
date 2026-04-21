@@ -3155,13 +3155,9 @@ function setConnDot(online){
   const dot=document.getElementById('conn-dot');
   if(dot){ dot.className=online?'':'offline'; dot.title=online?'Conectado a Supabase':'Sin conexión — los cambios pueden no guardarse'; }
 }
-setInterval(async()=>{
-  try{
-    // Usar la misma anon key que el cliente Supabase para evitar 401
-    const r=await fetch('https://abfgnaavzqvfhmyyfvpn.supabase.co/rest/v1/',{method:'HEAD',headers:{'apikey':SB_KEY}});
-    setConnDot(r.ok||r.status===400||r.status===401);
-  }catch(e){ setConnDot(false); }
-},30000);
+// Health check deshabilitado — estaba generando 401 cosméticos y confundiendo el estado de la bolita.
+// La bolita ahora solo refleja el estado real de los upserts (saving/saved/error).
+// Si se quiere re-habilitar en el futuro, usar una query real (select) en lugar de HEAD.
 
 /* ═══ SUPABASE I/O ═══ */
 async function loadData(){
@@ -3640,17 +3636,20 @@ window._upsertDebounceTimer = _upsertDebounceTimer;
 const _UPSERT_DEBOUNCE_MS = 600; // Group rapid changes into one save
 
 async function upsert(immediate=false){
-  // Show saving indicator
-  const connDot = document.getElementById('conn-dot');
-  if(connDot){ connDot.className = 'saving'; connDot.title = 'Guardando…'; }
-
   // Debounce: wait for more changes before actually sending to Supabase
+  // IMPORTANTE: NO poner la bolita amarilla aquí. Solo se debe poner amarilla cuando
+  // realmente estamos enviando al servidor (en _doUpsert). Si ponemos amarilla aquí,
+  // cada re-render de UI que llame upsert() vuelve a poner amarilla y nunca se ve verde.
   if(!immediate){
     clearTimeout(_upsertDebounceTimer);
     _upsertDebounceTimer = setTimeout(()=>{ upsert(true); }, _UPSERT_DEBOUNCE_MS);
     window._upsertDebounceTimer = _upsertDebounceTimer;
     return;
   }
+
+  // Mostrar indicador de guardado SOLO cuando realmente vamos a enviar
+  const connDot = document.getElementById('conn-dot');
+  if(connDot){ connDot.className = 'saving'; connDot.title = 'Guardando…'; }
 
   // Protección anti-vaciado: no guardar si brands tiene menos de 3 elementos y había más antes
   if((appData.brands||[]).length < 3){
@@ -3661,6 +3660,7 @@ async function upsert(immediate=false){
         if((parsed.data?.brands||[]).length >= 3){
           console.warn('⚠️ upsert cancelado: brands tiene', appData.brands?.length, 'elementos, backup tiene', parsed.data.brands.length);
           showStatus('⚠️ Guardado cancelado — datos incompletos detectados', true);
+          if(connDot){ connDot.className = 'offline'; connDot.title = 'Guardado cancelado por seguridad'; }
           return false;
         }
       }
