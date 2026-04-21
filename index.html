@@ -3499,8 +3499,14 @@ function deepMergeAppData(server, local){
   // ── cobros: merge por brandId, fusionando pagos por id ──
   // Estructura real: appData.cobros = { [brandId]: { pagos: [...], useTotal, valorTotal, expanded } }
   // NO es un array, es un objeto. Cada pago tiene .id (no .pagoId).
-  // Si YO cambié cobros localmente → mi versión gana por pago, pero preservo pagos del server que no conozco
-  // Si NO cambié → server gana, pero preservo mis pagos nuevos no sincronizados
+  //
+  // 🔧 RESOLUCIÓN DE CONFLICTOS POR TIMESTAMP:
+  // Cada pago tiene un campo opcional _updatedAt (ISO timestamp) que se actualiza CADA VEZ
+  // que se modifica. El merge usa "el más reciente gana" por pago individual, lo que protege
+  // contra sobreescrituras cuando otros usuarios envían appData.cobros viejo al servidor.
+  //
+  // Si un pago no tiene _updatedAt (ej: legacy o creado por buildPagosFromCrono),
+  // caemos al comportamiento anterior: _localChangedKeys.has('cobros') indica quién gana.
   {
     const localCobros  = (local.cobros  && typeof local.cobros ==='object' && !Array.isArray(local.cobros))  ? local.cobros  : {};
     const serverCobros = (server.cobros && typeof server.cobros==='object' && !Array.isArray(server.cobros)) ? server.cobros : {};
@@ -3527,24 +3533,33 @@ function deepMergeAppData(server, local){
       const serverPagos = Array.isArray(serverObj?.pagos) ? serverObj.pagos : [];
       const deletedSet  = localDeletedPagos[brandId] instanceof Set ? localDeletedPagos[brandId] : new Set();
 
-      // Fusionar pagos por id
+      // Indexar por id para resolver por timestamp
+      const localByPid  = {};
+      localPagos.forEach(p=>{ if(p?.id) localByPid[p.id] = p; });
+      const serverByPid = {};
+      serverPagos.forEach(p=>{ if(p?.id) serverByPid[p.id] = p; });
+      const allPagoIds = new Set([...Object.keys(localByPid), ...Object.keys(serverByPid)]);
+
       const pagoMap = {};
-      // Primero server (base)
-      serverPagos.forEach(p=>{ if(p && p.id && !deletedSet.has(p.id)) pagoMap[p.id] = {...p}; });
-      // Después local: si yo cambié cobros, mi versión gana por pago; si no, server gana (ya está), pero añado pagos que solo tengo yo
-      if(localChanged){
-        localPagos.forEach(p=>{
-          if(!p || !p.id) return;
-          if(deletedSet.has(p.id)) return;
-          pagoMap[p.id] = {...p}; // local wins
-        });
-      } else {
-        localPagos.forEach(p=>{
-          if(!p || !p.id) return;
-          if(deletedSet.has(p.id)) return;
-          if(!pagoMap[p.id]) pagoMap[p.id] = {...p}; // solo si server no lo tiene
-        });
-      }
+      allPagoIds.forEach(pid=>{
+        if(deletedSet.has(pid)) return;
+        const lp = localByPid[pid];
+        const sp = serverByPid[pid];
+        if(lp && !sp){ pagoMap[pid] = {...lp}; return; }
+        if(sp && !lp){ pagoMap[pid] = {...sp}; return; }
+
+        // Conflicto: existe en ambos. Usar timestamp si está disponible.
+        const lt = lp._updatedAt ? new Date(lp._updatedAt).getTime() : 0;
+        const st = sp._updatedAt ? new Date(sp._updatedAt).getTime() : 0;
+
+        if(lt > 0 || st > 0){
+          // Al menos uno tiene timestamp → el más reciente gana
+          pagoMap[pid] = lt >= st ? {...lp} : {...sp};
+        } else {
+          // Ninguno tiene timestamp (legacy) → fallback a _localChangedKeys
+          pagoMap[pid] = localChanged ? {...lp} : {...sp};
+        }
+      });
 
       // Metadata del brand entry (useTotal, valorTotal, expanded): mismo patrón
       const baseMeta = {
@@ -5570,6 +5585,7 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
   pago.cobrado = !pago.cobrado;
+  pago._updatedAt = new Date().toISOString(); // timestamp para resolver conflictos en merge
   if(pago.cobrado){
     pago.fechaCobrado = todayStr();
     if(!pago.fechaProyectada) pago.fechaProyectada = pago.fechaCobrado;
@@ -5618,6 +5634,7 @@ async function editCobNombre(brandId, pagoId){
   if(val === null) return;
   const nuevoNombre = val.trim() || pago.nombre;
   pago.nombre = nuevoNombre;
+  pago._updatedAt = new Date().toISOString();
   // Sincronizar nombre en el cronograma de la marca
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(brand){
@@ -5641,6 +5658,7 @@ async function saveCobField(brandId, pagoId, field, val){
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
   pago[field] = field==='monto' ? (parseFloat(val)||0) : val;
+  pago._updatedAt = new Date().toISOString();
   markLocalChange("cobros");
   if(field === 'monto'){
     renderCobCard(brandId);
@@ -5962,6 +5980,7 @@ async function toggleCobPagoTabla(brandId, pagoId){ markLocalChange("cobros","fi
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
   pago.cobrado = !pago.cobrado;
+  pago._updatedAt = new Date().toISOString();
   if(pago.cobrado){
     pago.fechaCobrado = todayStr();
     if(!pago.fechaProyectada) pago.fechaProyectada = pago.fechaCobrado;
@@ -8218,6 +8237,9 @@ function _cascadeFrom(brand, fromStage, fromIdx, wdDelta){
 }
 
 function cascadeAfterDate(brand, referenceDate, wdDelta, skipActId){
+  // Snapshot antes del cascade para poder hacer rollback si produce inconsistencias
+  const snapshot = JSON.parse(JSON.stringify(brand.cronograma));
+
   ['aire','agua','tierra','fuego'].forEach(st=>{
     (brand.cronograma[st]||[]).forEach(a=>{
       if(a.id === skipActId) return;
@@ -8229,6 +8251,25 @@ function cascadeAfterDate(brand, referenceDate, wdDelta, skipActId){
       if(a.revDateOverride) a.revDateOverride = shiftWD(a.revDateOverride, wdDelta);
     });
   });
+
+  // ─── Validación post-cascade: detectar inconsistencias ───
+  const issues = [];
+  ['aire','agua','tierra','fuego'].forEach(st=>{
+    (brand.cronograma[st]||[]).forEach(a=>{
+      if(a.startDate && a.endDate && a.startDate > a.endDate){
+        issues.push(`"${a.name}" en ${st}: startDate(${a.startDate}) > endDate(${a.endDate})`);
+      }
+    });
+  });
+
+  if(issues.length){
+    // Rollback
+    console.error('[Polen] cascadeAfterDate produjo fechas inválidas — rollback. Issues:', issues);
+    brand.cronograma = snapshot;
+    showStatus('⚠️ Cascade abortado — habría producido fechas inválidas', true);
+    return false;
+  }
+  return true;
 }
 
 // Count workday delta between two YYYY-MM-DD strings
@@ -17758,6 +17799,38 @@ function diagnoseBrand(brand){
   stats.hitos = hitos;
   stats.actividadesSinFecha = actsWithoutDate;
   stats.actividadesFechaInvalida = actsInvalidDate;
+
+  // ───────── DETECCIÓN DE SOLAPAMIENTOS CRONOLÓGICOS ─────────
+  // Analiza si dos actividades consecutivas en el array tienen fechas que se pisan
+  // o que están en orden inverso al orden del array.
+  stages.forEach(st=>{
+    const acts = Array.isArray(crono[st]) ? crono[st] : [];
+    for(let i=1; i<acts.length; i++){
+      const prev = acts[i-1];
+      const curr = acts[i];
+      if(!prev.startDate || !curr.startDate) continue;
+      if(curr.startDate < prev.startDate){
+        warning.push(`Orden cronológico roto en ${st}: "${curr.name}" (${curr.startDate}) inicia ANTES que "${prev.name}" (${prev.startDate}) — el array las tiene en orden pero las fechas están invertidas`);
+      }
+    }
+  });
+
+  // Hitos consecutivos que comparten la misma fecha (probable resultado de cascade mal calculado)
+  stages.forEach(st=>{
+    const acts = Array.isArray(crono[st]) ? crono[st] : [];
+    const byDate = {};
+    acts.forEach(a=>{
+      if(a.isHito && a.startDate){
+        byDate[a.startDate] = byDate[a.startDate] || [];
+        byDate[a.startDate].push(a.name);
+      }
+    });
+    Object.entries(byDate).forEach(([d, names])=>{
+      if(names.length > 1){
+        warning.push(`Múltiples hitos en ${st} comparten fecha ${d}: ${names.join(', ')} — posible resultado de un cascade mal ejecutado`);
+      }
+    });
+  });
 
   // ───────── COBROS ─────────
   const cobros = appData.cobros?.[brand.id];
