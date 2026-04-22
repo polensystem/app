@@ -3581,6 +3581,244 @@ window.CobrosDB = (function(){
   return { loadAll, savePago, deletePago, savePagosBatch, migrateFromJson, subscribeRealtime, rowToPago, pagoToRow };
 })();
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   🔒 MÓDULO BRAND-BP-DB — Persistencia de Branding Points por marca
+   ══════════════════════════════════════════════════════════════════════════════
+   BP de marca viven en polen_brand_bp (una fila por item).
+   Clave primaria compuesta: (brand_id, category_id, item_id).
+   Cada marca/deselección o edit toca UNA fila, imposible pisar otros cambios.
+
+   Estructura en memoria (sin cambios): brand.brandingPoints.categories[].items[]
+   Estructura en DB: una fila por item con (brand_id, category_id, item_id, ...)
+
+   API:
+     await BrandBpDB.loadAll()               — carga todos los items agrupados por marca
+     await BrandBpDB.saveItem(brandId, cat, item, catOrden, itemOrden)
+     await BrandBpDB.deleteItem(brandId, categoryId, itemId)
+     await BrandBpDB.deleteCategory(brandId, categoryId)
+     await BrandBpDB.migrateFromJson()       — migra JSON viejo a la tabla
+     BrandBpDB.subscribeRealtime(onChange)
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.BrandBpDB = (function(){
+  const TABLE = 'polen_brand_bp';
+
+  // Protección anti-eco (como en CobrosDB)
+  const _recentOps = new Map(); // key = `${brandId}:${categoryId}:${itemId}` → ts
+  function opKey(brandId, categoryId, itemId){ return `${brandId}:${categoryId}:${itemId}`; }
+  function markOwnOp(brandId, categoryId, itemId){
+    _recentOps.set(opKey(brandId, categoryId, itemId), Date.now());
+    setTimeout(()=>_recentOps.delete(opKey(brandId, categoryId, itemId)), 2500);
+  }
+  function isOwnEcho(brandId, categoryId, itemId){
+    const ts = _recentOps.get(opKey(brandId, categoryId, itemId));
+    return ts && (Date.now() - ts) < 2500;
+  }
+
+  // Convertir fila DB → item de memoria
+  function rowToItem(row){
+    const extra = (row.extra && typeof row.extra === 'object') ? row.extra : {};
+    return {
+      id: row.item_id,
+      name: row.item_name || '',
+      pts: (row.pts === null || row.pts === undefined) ? null : Number(row.pts),
+      qty: Number(row.qty) || 1,
+      selected: !!row.selected,
+      notes: row.notes || '',
+      notesOpen: !!extra.notesOpen,
+      _selectedUpdatedAt: extra._selectedUpdatedAt || null,
+      ...(extra.custom || {}),
+    };
+  }
+
+  // Convertir item de memoria → fila DB
+  function itemToRow(brandId, category, item, catOrden, itemOrden){
+    const extra = {
+      notesOpen: !!item.notesOpen,
+      _selectedUpdatedAt: item._selectedUpdatedAt || null,
+    };
+    return {
+      brand_id: brandId,
+      category_id: category.id,
+      item_id: item.id,
+      category_name: category.name || '',
+      item_name: item.name || '',
+      pts: item.pts === null || item.pts === undefined ? null : Number(item.pts),
+      qty: Number(item.qty) || 1,
+      selected: !!item.selected,
+      notes: item.notes || '',
+      orden_cat: Number(catOrden) || 0,
+      orden_item: Number(itemOrden) || 0,
+      category_open: category.open === false ? false : true,
+      extra: extra,
+    };
+  }
+
+  // Reconstruir la estructura agrupada (brandId → categorías → items)
+  async function loadAll(){
+    try {
+      const { data, error } = await sb.from(TABLE).select('*').order('brand_id').order('orden_cat').order('orden_item');
+      if(error){ console.error('[BrandBpDB] loadAll error:', error); return null; }
+      const byBrand = {};
+      (data||[]).forEach(row=>{
+        const bid = row.brand_id;
+        if(!byBrand[bid]) byBrand[bid] = {};
+        const catKey = row.category_id;
+        if(!byBrand[bid][catKey]){
+          byBrand[bid][catKey] = {
+            id: row.category_id,
+            name: row.category_name || '',
+            open: row.category_open !== false,
+            _orden: row.orden_cat || 0,
+            items: [],
+          };
+        }
+        byBrand[bid][catKey].items.push({
+          ...rowToItem(row),
+          _orden: row.orden_item || 0,
+        });
+      });
+      // Convertir el Map de categorías a array ordenado por _orden
+      const result = {};
+      Object.keys(byBrand).forEach(bid=>{
+        const cats = Object.values(byBrand[bid]).sort((a,b)=>(a._orden||0)-(b._orden||0));
+        cats.forEach(c=>{ delete c._orden; c.items.sort((a,b)=>(a._orden||0)-(b._orden||0)); c.items.forEach(i=>delete i._orden); });
+        result[bid] = { categories: cats };
+      });
+      console.log('[BrandBpDB] Cargados items de', Object.keys(result).length, 'marcas');
+      return result;
+    } catch(e){ console.error('[BrandBpDB] loadAll crashed:', e); return null; }
+  }
+
+  async function saveItem(brandId, category, item, catOrden, itemOrden){
+    if(!brandId || !category?.id || !item?.id) return false;
+    try {
+      markOwnOp(brandId, category.id, item.id);
+      const row = itemToRow(brandId, category, item, catOrden, itemOrden);
+      const { error } = await sb.from(TABLE).upsert(row, { onConflict: 'brand_id,category_id,item_id' });
+      if(error){ console.error('[BrandBpDB] saveItem error:', error, row); return false; }
+      console.log('[BrandBpDB] ✓ Item guardado:', item.name, item.selected?'✓':'·');
+      return true;
+    } catch(e){ console.error('[BrandBpDB] saveItem crashed:', e); return false; }
+  }
+
+  async function saveItemsBatch(rows){
+    if(!rows?.length) return true;
+    try {
+      for(let i=0; i<rows.length; i+=100){
+        const chunk = rows.slice(i, i+100);
+        chunk.forEach(r=>markOwnOp(r.brand_id, r.category_id, r.item_id));
+        const { error } = await sb.from(TABLE).upsert(chunk, { onConflict: 'brand_id,category_id,item_id' });
+        if(error){ console.error('[BrandBpDB] saveItemsBatch error (chunk '+i+'):', error); return false; }
+      }
+      return true;
+    } catch(e){ console.error('[BrandBpDB] saveItemsBatch crashed:', e); return false; }
+  }
+
+  async function deleteItem(brandId, categoryId, itemId){
+    if(!brandId || !categoryId || !itemId) return false;
+    try {
+      markOwnOp(brandId, categoryId, itemId);
+      const { error } = await sb.from(TABLE).delete().eq('brand_id', brandId).eq('category_id', categoryId).eq('item_id', itemId);
+      if(error){ console.error('[BrandBpDB] deleteItem error:', error); return false; }
+      return true;
+    } catch(e){ console.error('[BrandBpDB] deleteItem crashed:', e); return false; }
+  }
+
+  async function deleteCategory(brandId, categoryId){
+    if(!brandId || !categoryId) return false;
+    try {
+      const { error } = await sb.from(TABLE).delete().eq('brand_id', brandId).eq('category_id', categoryId);
+      if(error){ console.error('[BrandBpDB] deleteCategory error:', error); return false; }
+      return true;
+    } catch(e){ console.error('[BrandBpDB] deleteCategory crashed:', e); return false; }
+  }
+
+  async function migrateFromJson(){
+    try {
+      const { count, error: countErr } = await sb.from(TABLE).select('*', { count:'exact', head:true });
+      if(countErr){ console.error('[BrandBpDB] migration count error:', countErr); return false; }
+      if((count||0) > 0){
+        console.log('[BrandBpDB] Tabla nueva ya tiene', count, 'filas — no migramos');
+        return true;
+      }
+      const rows = [];
+      (appData?.brands||[]).forEach(brand=>{
+        const bp = brand.brandingPoints;
+        if(!bp?.categories?.length) return;
+        bp.categories.forEach((cat, ci)=>{
+          (cat.items||[]).forEach((item, ii)=>{
+            if(!cat.id || !item.id) return;
+            rows.push(itemToRow(brand.id, cat, item, ci, ii));
+          });
+        });
+      });
+      if(!rows.length){
+        console.log('[BrandBpDB] No hay items de BP para migrar');
+        return true;
+      }
+      console.log('[BrandBpDB] Migrando', rows.length, 'items a tabla nueva…');
+      const ok = await saveItemsBatch(rows);
+      if(ok) console.log('[BrandBpDB] ✅ Migración completa');
+      else console.error('[BrandBpDB] ❌ Migración falló');
+      return ok;
+    } catch(e){ console.error('[BrandBpDB] migrateFromJson crashed:', e); return false; }
+  }
+
+  function subscribeRealtime(onChange){
+    sb.channel('polen_brand_bp_rt')
+      .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
+        try {
+          const { eventType, new:newRow, old:oldRow } = payload;
+          const bid = newRow?.brand_id || oldRow?.brand_id;
+          const cid = newRow?.category_id || oldRow?.category_id;
+          const iid = newRow?.item_id || oldRow?.item_id;
+          if(bid && cid && iid && isOwnEcho(bid, cid, iid)){
+            return; // eco propio — ignorar en silencio
+          }
+
+          const brand = (appData.brands||[]).find(b=>b.id === bid);
+          if(!brand) return;
+          if(!brand.brandingPoints) brand.brandingPoints = { categories: [], total: 0 };
+          if(!Array.isArray(brand.brandingPoints.categories)) brand.brandingPoints.categories = [];
+
+          if(eventType === 'DELETE'){
+            // Quitar item de memoria
+            const cat = brand.brandingPoints.categories.find(c=>c.id === cid);
+            if(cat){
+              cat.items = (cat.items||[]).filter(i=>i.id !== iid);
+              // Si la categoría queda vacía, NO la borramos aquí — el delete de categoría lo hace explícito
+            }
+          } else if(newRow){
+            // INSERT/UPDATE
+            let cat = brand.brandingPoints.categories.find(c=>c.id === newRow.category_id);
+            if(!cat){
+              cat = {
+                id: newRow.category_id,
+                name: newRow.category_name || '',
+                open: newRow.category_open !== false,
+                items: [],
+              };
+              brand.brandingPoints.categories.push(cat);
+            } else {
+              // Sync metadata de la categoría
+              cat.name = newRow.category_name || cat.name;
+            }
+            if(!Array.isArray(cat.items)) cat.items = [];
+            const idx = cat.items.findIndex(i=>i.id === newRow.item_id);
+            const nuevo = rowToItem(newRow);
+            if(idx >= 0) cat.items[idx] = { ...cat.items[idx], ...nuevo };
+            else cat.items.push(nuevo);
+          }
+          if(onChange) onChange(payload);
+        } catch(e){ console.error('[BrandBpDB] realtime handler error:', e); }
+      })
+      .subscribe();
+    console.log('[BrandBpDB] ✓ Realtime suscrito a', TABLE);
+  }
+
+  return { loadAll, saveItem, saveItemsBatch, deleteItem, deleteCategory, migrateFromJson, subscribeRealtime, rowToItem, itemToRow };
+})();
+
 async function loadData(){
   // Show loading message on screen
   const lsub = document.querySelector('.loading-sub');
@@ -3682,6 +3920,45 @@ async function loadData(){
       } catch(cobrosErr) {
         console.error('[Polen] Error cargando cobros de tabla nueva:', cobrosErr);
         // Seguir con el JSON viejo si algo falla — safety net
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // 🔒 CARGAR BRANDING POINTS DE MARCA DESDE TABLA NUEVA (polen_brand_bp)
+      // La tabla nueva es la fuente de verdad para BP de marca (NO template BP).
+      // Si está vacía, migramos desde el JSON viejo (one-time).
+      // ══════════════════════════════════════════════════════════════════════
+      try {
+        if(lsub) lsub.textContent = 'Cargando branding points…';
+
+        if(!appData._brandBpMigratedToTable){
+          console.log('[Polen] Primera vez — migrando BP de marca a tabla nueva');
+          await BrandBpDB.migrateFromJson();
+          appData._brandBpMigratedToTable = true;
+        }
+
+        const bpDeLaTabla = await BrandBpDB.loadAll();
+        if(bpDeLaTabla){
+          (appData.brands||[]).forEach(b=>{
+            const nuevo = bpDeLaTabla[b.id];
+            // Preservar .total (escalar) del JSON, reemplazar categories+items por la tabla
+            const totalViejo = b.brandingPoints?.total || 0;
+            if(nuevo){
+              b.brandingPoints = {
+                total: totalViejo,
+                categories: nuevo.categories || [],
+              };
+            } else {
+              // Marca sin BP en tabla — mantener lo que hubiera en el JSON viejo
+              if(!b.brandingPoints) b.brandingPoints = { total: 0, categories: [] };
+              if(!Array.isArray(b.brandingPoints.categories)) b.brandingPoints.categories = [];
+            }
+          });
+          console.log('[Polen] ✓ BP de marca cargados de tabla nueva');
+        } else {
+          console.warn('[Polen] No se pudo cargar tabla de BP — usando JSON viejo como fallback');
+        }
+      } catch(bpErr) {
+        console.error('[Polen] Error cargando BP de tabla nueva:', bpErr);
       }
 
       // 🛡️ RECUPERACIÓN DE CAMBIOS LOCALES RECIENTES
@@ -3886,92 +4163,19 @@ function _mergePortalApprovalsSafe(serverPA, localPA, localWins){
 // - Admin hace otro cambio no relacionado → sube su versión SIN la selección
 // - Sin este merge, la selección del cliente se perdería
 function _mergeBrandingPointsSafe(serverBp, localBp){
-  // Si uno está vacío, gana el otro
+  // 🔒 REFACTOR: BP vive en polen_brand_bp. El JSON solo tiene 'total' (escalar).
+  // Si el local tiene categories (cargadas de la tabla), SIEMPRE ganan.
+  // El server solo aporta 'total' si local no lo tiene.
+  const lCats = (localBp?.categories && Array.isArray(localBp.categories)) ? localBp.categories : null;
   const sCats = (serverBp?.categories && Array.isArray(serverBp.categories)) ? serverBp.categories : null;
-  const lCats = (localBp?.categories  && Array.isArray(localBp.categories))  ? localBp.categories  : null;
-  if(!sCats && !lCats) return localBp || serverBp || null;
-  if(!sCats) return localBp;
-  if(!lCats) return serverBp;
+  const total = (localBp?.total !== undefined) ? localBp.total : (serverBp?.total || 0);
 
-  // Indexar items por id en ambos lados
-  const sItemMap = {}; // id → {catId, item}
-  sCats.forEach(cat=>{
-    (cat.items||[]).forEach(it=>{ if(it?.id) sItemMap[it.id] = {catId: cat.id, item: it}; });
-  });
-  const lItemMap = {};
-  lCats.forEach(cat=>{
-    (cat.items||[]).forEach(it=>{ if(it?.id) lItemMap[it.id] = {catId: cat.id, item: it}; });
-  });
-
-  // Para cada item, elegir la versión correcta:
-  // - Si ambos lados tienen el item: comparar _selectedUpdatedAt → el más reciente gana en `selected` y `qty`.
-  //   Estructura (name, pts) viene del que tenga la versión más reciente o del server por defecto.
-  // - Si solo uno tiene el item: usar esa versión tal cual.
-  const resolveItem = (localItem, serverItem) => {
-    if(!serverItem) return localItem;
-    if(!localItem)  return serverItem;
-    const lt = localItem._selectedUpdatedAt ? new Date(localItem._selectedUpdatedAt).getTime() : 0;
-    const st = serverItem._selectedUpdatedAt ? new Date(serverItem._selectedUpdatedAt).getTime() : 0;
-
-    if(lt > 0 || st > 0){
-      // Al menos uno tiene timestamp → el más reciente gana para selected y qty
-      const winner = lt >= st ? localItem : serverItem;
-      // Para los demás campos (name, pts, etc.), preferimos el que NO tenga timestamp (suele ser la definición "oficial"),
-      // o si ambos tienen, el más reciente también.
-      return {
-        ...serverItem,
-        ...localItem,  // local prioridad en campos de definición
-        selected: winner.selected,
-        qty: winner.qty,
-        _selectedUpdatedAt: winner._selectedUpdatedAt,
-      };
-    }
-    // Ninguno tiene timestamp: preservar selected:true de cualquier lado (modo defensivo)
-    const selected = !!(localItem.selected || serverItem.selected);
-    return {
-      ...serverItem,
-      ...localItem,
-      selected,
-      qty: localItem.qty || serverItem.qty || 1,
-    };
-  };
-
-  // Construir categorías del resultado: usamos la estructura de local como base (porque admin la mantiene),
-  // pero añadimos items/cats nuevos que solo estén en server.
-  const mergedCats = lCats.map(lcat => {
-    const scatEquiv = sCats.find(sc => sc.id === lcat.id);
-    const lItems = lcat.items || [];
-    const sItems = scatEquiv?.items || [];
-    // Merge items: por cada item del local, buscar el equivalente en server y resolver
-    const resolvedItems = lItems.map(li => {
-      const si = sItems.find(s => s.id === li.id);
-      return resolveItem(li, si);
-    });
-    // Añadir items que solo estén en server (por si el admin los borró y el server aún los tiene,
-    // o al revés — en duda, preservar los que el admin eliminó explícitamente)
-    const lItemIds = new Set(lItems.map(it => it.id));
-    sItems.forEach(si => {
-      if(si.id && !lItemIds.has(si.id) && si.selected){
-        // Solo recuperamos items del server que estén SELECTED (probable que el cliente los seleccionó)
-        resolvedItems.push(si);
-      }
-    });
-    return {...lcat, items: resolvedItems};
-  });
-
-  // Categorías que solo están en server (caso raro)
-  const lCatIds = new Set(lCats.map(c=>c.id));
-  sCats.forEach(sc => {
-    if(sc.id && !lCatIds.has(sc.id)){
-      mergedCats.push(sc);
-    }
-  });
-
-  return {
-    ...serverBp,
-    ...localBp,
-    categories: mergedCats,
-  };
+  // Local tiene categories → local gana (vienen de polen_brand_bp)
+  if(lCats) return { ...localBp, total, categories: lCats };
+  // Local no tiene pero server sí → fallback para marcas que aún no están en la tabla
+  if(sCats) return { ...serverBp, total };
+  // Ninguno tiene → vacío
+  return { total, categories: [] };
 }
 
 function deepMergeAppData(server, local){
@@ -4402,6 +4606,22 @@ async function _doUpsert(){
           };
         });
         toWriteSafe.cobros = cobrosMeta;
+      }
+
+      // 🔒 REFACTOR: BP de marca viven en tabla polen_brand_bp, NO en el JSON.
+      // Preservamos solo el campo 'total' (escalar) del brandingPoints de cada marca.
+      // Las categories/items viven en la tabla. Eliminar categories del JSON evita que
+      // el JSON pise cambios hechos directamente a la tabla.
+      if(Array.isArray(toWriteSafe.brands)){
+        toWriteSafe.brands = toWriteSafe.brands.map(b=>{
+          if(b && b.brandingPoints){
+            return {
+              ...b,
+              brandingPoints: { total: b.brandingPoints.total || 0 }, // solo total
+            };
+          }
+          return b;
+        });
       }
 
       console.log('[Polen] Payload después de strip:', Math.round(JSON.stringify(toWriteSafe).length/1024) + 'KB');
@@ -9376,8 +9596,12 @@ function toggleBpItemNotes(brandId,ci,ii){
 async function saveBpItemNotes(brandId,ci,ii,val){
   const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand?.brandingPoints)return;
-  brand.brandingPoints.categories[ci].items[ii].notes=val;
-  upsert().then(()=>{});
+  const cat = brand.brandingPoints.categories[ci];
+  const item = cat?.items?.[ii];
+  if(!item) return;
+  item.notes=val;
+  // 🔒 Guardar directo en tabla
+  await BrandBpDB.saveItem(brandId, cat, item, ci, ii);
 }
 
 async function saveBrandBpTotal(val){
@@ -9386,6 +9610,8 @@ async function saveBrandBpTotal(val){
   const n=parseInt(val)||0;
   brand.brandingPoints.total=n;
   renderBrandBp(brand);
+  // Total es escalar, sigue en el JSON
+  markLocalChange('brands');
   upsert().then(()=>showStatus('Total actualizado ✓'));
 }
 
@@ -9393,9 +9619,14 @@ async function setBpItemPts(brandId,ci,ii,val){
   const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand?.brandingPoints)return;
   const v=val.trim();
-  brand.brandingPoints.categories[ci].items[ii].pts = v===''?null:Math.max(0,parseInt(v)||0);
+  const cat = brand.brandingPoints.categories[ci];
+  const item = cat?.items?.[ii];
+  if(!item) return;
+  item.pts = v===''?null:Math.max(0,parseInt(v)||0);
   renderBrandBp(brand);
-  upsert().then(()=>showStatus('Puntos actualizados ✓'));
+  // 🔒 Guardar directo en tabla
+  await BrandBpDB.saveItem(brandId, cat, item, ci, ii);
+  showStatus('Puntos actualizados ✓');
 }
 
 async function toggleBrandBpCat(brandId,ci){
@@ -9404,29 +9635,45 @@ async function toggleBrandBpCat(brandId,ci){
   const cat=brand.brandingPoints.categories[ci];
   cat.open=cat.open===false?true:false;
   renderBrandBp(brand);
+  // Persistir el estado open en la tabla (queda en la categoría de cada item)
+  // Lo guardamos solo en el primer item de la categoría para no hacer N upserts
+  if(cat.items?.[0]){
+    await BrandBpDB.saveItem(brandId, cat, cat.items[0], ci, 0);
+  }
 }
 
 async function toggleBrandBpItem(brandId,ci,ii,val){
   const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.brandingPoints)return;
-  const item = brand.brandingPoints.categories[ci].items[ii];
+  const cat = brand.brandingPoints.categories[ci];
+  const item = cat?.items?.[ii];
+  if(!item) return;
   item.selected=val;
   item._selectedUpdatedAt = new Date().toISOString();
   renderBrandBp(brand);
-    markLocalChange('brands');
-await upsert();
+  // 🔒 Guardar directo en tabla
+  const ok = await BrandBpDB.saveItem(brandId, cat, item, ci, ii);
+  if(!ok){
+    // Revertir si falla
+    item.selected = !val;
+    renderBrandBp(brand);
+    showStatus('❌ Error guardando — reintenta', true);
+    return;
+  }
   showStatus('Guardado ✓');
 }
 
 async function updateBrandBpQty(brandId,ci,ii,val){
   const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.brandingPoints)return;
-  const item = brand.brandingPoints.categories[ci].items[ii];
+  const cat = brand.brandingPoints.categories[ci];
+  const item = cat?.items?.[ii];
+  if(!item) return;
   item.qty=parseInt(val)||1;
   item._selectedUpdatedAt = new Date().toISOString();
   renderBrandBp(brand);
-    markLocalChange('brands');
-await upsert();
+  // 🔒 Guardar directo en tabla
+  await BrandBpDB.saveItem(brandId, cat, item, ci, ii);
 }
 
 async function addBrandBpItem(brandId,ci){
@@ -9436,10 +9683,12 @@ async function addBrandBpItem(brandId,ci){
   if(!name||!name.trim())return;
   const ptsStr=await askModal({label:`Branding points para "${name}"`,type:'number',defaultValue:'1'});
   const pts=parseInt(ptsStr)||1;
-  brand.brandingPoints.categories[ci].items.push({id:uid(),name:name.trim(),pts,qty:1,selected:false});
+  const cat = brand.brandingPoints.categories[ci];
+  const newItem = {id:uid(),name:name.trim(),pts,qty:1,selected:false};
+  cat.items.push(newItem);
   renderBrandBp(brand);
-    markLocalChange('brands');
-await upsert();
+  // 🔒 Guardar nuevo item en tabla
+  await BrandBpDB.saveItem(brandId, cat, newItem, ci, cat.items.length - 1);
 }
 
 /* ═══ MODAL: Nueva/Editar marca ═══ */
@@ -10569,34 +10818,42 @@ async function addBrandBpCat(brandId){
   if(!brand?.brandingPoints) return;
   const name = await askModal({label:'Nombre de la nueva categoría', placeholder:'Ej: Fotografía'});
   if(!name||!name.trim()) return;
-  brand.brandingPoints.categories.push({id:uid(), name:name.trim(), open:true, items:[]});
+  const newCat = {id:uid(), name:name.trim(), open:true, items:[]};
+  brand.brandingPoints.categories.push(newCat);
   renderBrandBp(brand);
-  markLocalChange('brands');
-  await upsert();
-  showStatus('Categoría creada ✓');
+  // NOTA: Una categoría vacía NO se persiste en la tabla (la tabla es por item).
+  // Se guardará cuando se agregue el primer item.
+  // Para que la categoría sea visible a otros usuarios, agregamos un item placeholder.
+  showStatus('Categoría creada ✓ — agrega al menos un entregable para que se sincronice');
 }
 
 async function deleteBrandBpCat(brandId, ci){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand?.brandingPoints) return;
   const cat = brand.brandingPoints.categories[ci];
+  if(!cat) return;
   if(cat.items.length > 0){
     const ok = await confirmModal(`¿Eliminar la categoría "${cat.name}" y todos sus entregables?`, 'Eliminar', 'background:#ef4444;color:#fff;border:none');
     if(!ok) return;
   }
+  // 🔒 Borrar todos los items de esta categoría en la tabla
+  await BrandBpDB.deleteCategory(brandId, cat.id);
   brand.brandingPoints.categories.splice(ci,1);
   renderBrandBp(brand);
-  markLocalChange('brands');
-  await upsert();
   showStatus('Categoría eliminada ✓');
 }
 
 async function renameBrandBpCat(brandId, ci, val){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand?.brandingPoints?.categories[ci]) return;
-  brand.brandingPoints.categories[ci].name = val.trim()||brand.brandingPoints.categories[ci].name;
-  markLocalChange('brands');
-  await upsert();
+  const cat = brand.brandingPoints.categories[ci];
+  cat.name = val.trim() || cat.name;
+  // 🔒 Resync todos los items de esta categoría para propagar el nuevo nombre
+  if(Array.isArray(cat.items) && cat.items.length){
+    for(let ii=0; ii<cat.items.length; ii++){
+      await BrandBpDB.saveItem(brandId, cat, cat.items[ii], ci, ii);
+    }
+  }
 }
 
   function onBpTotalChange(){appData.template.brandingPoints.total=parseInt(document.getElementById('bp-total').value)||0;renderTplBpCats();markLocalChange('template');scheduleTplSave();}
@@ -13714,6 +13971,18 @@ async function boot(){
     try { syncCobrosToFin(); } catch(e){}
   });
 
+  // 🔒 Suscripción realtime a la tabla de BP de marca
+  // Cambios de otros usuarios llegan por item, no por JSON completo
+  BrandBpDB.subscribeRealtime((payload)=>{
+    try {
+      const bid = payload?.new?.brand_id || payload?.old?.brand_id;
+      if(currentPage==='brand' && currentBrandId === bid){
+        const brand = (appData.brands||[]).find(b=>b.id===bid);
+        if(brand) renderBrandBp(brand);
+      }
+    } catch(e){}
+  });
+
   // ═══════════════════════════════════════════════════════════════════════════════
   // MIGRACIONES DE BOOT DESACTIVADAS
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -14980,21 +15249,30 @@ function portalRenderBp(brand){
 async function portalToggleBpItem(brandId, ci, ii, val){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand?.brandingPoints) return;
-  const item = brand.brandingPoints.categories[ci].items[ii];
+  const cat = brand.brandingPoints.categories[ci];
+  const item = cat?.items?.[ii];
+  if(!item) return;
   item.selected = val;
-  item._selectedUpdatedAt = new Date().toISOString(); // timestamp para resolver conflictos en merge
+  item._selectedUpdatedAt = new Date().toISOString();
   _portalRefreshBp(brand);
   _portalMarkDirty();
+  // 🔒 Guardar directo en tabla (cliente puede marcar muchos antes de presionar Guardar,
+  // pero cada uno se persiste al momento — no se pierde si cierran la pestaña)
+  await BrandBpDB.saveItem(brandId, cat, item, ci, ii);
 }
 
 async function portalChangeQty(brandId, ci, ii, delta){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand?.brandingPoints) return;
-  const item = brand.brandingPoints.categories[ci].items[ii];
+  const cat = brand.brandingPoints.categories[ci];
+  const item = cat?.items?.[ii];
+  if(!item) return;
   item.qty = Math.max(1, (item.qty||1) + delta);
   item._selectedUpdatedAt = new Date().toISOString();
   _portalRefreshBp(brand);
   _portalMarkDirty();
+  // 🔒 Guardar directo en tabla
+  await BrandBpDB.saveItem(brandId, cat, item, ci, ii);
 }
 
 function _portalMarkDirty(){
@@ -15005,10 +15283,8 @@ function _portalMarkDirty(){
 }
 
 async function portalSaveAll(brandId){
+  // Ya se guarda cada cambio al instante en la tabla, así que este botón solo confirma.
   const btn = document.getElementById('portal-save-btn');
-  if(btn){ btn.textContent='Guardando…'; btn.style.opacity='0.7'; btn.disabled=true; }
-  const ok =   markLocalChange('brands');
-await upsert();
   if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.background='var(--agua)'; btn.style.boxShadow='0 2px 10px rgba(45,195,179,0.3)'; btn.textContent='✓ Guardado'; }
   const st = document.getElementById('portal-save-status');
   if(st){ st.style.display='block'; st.textContent='✓ Cambios guardados correctamente'; }
