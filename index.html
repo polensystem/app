@@ -3367,6 +3367,103 @@ function _mergePortalApprovalsSafe(serverPA, localPA, localWins){
   return out;
 }
 
+// Merge de brandingPoints de una marca: fusiona por-item usando timestamp cuando hay conflicto,
+// preserva estructura (categorías, items, nombres, pts) del lado que la tenga más completa,
+// y resuelve campos del cliente (selected, qty) usando _selectedUpdatedAt.
+//
+// Caso crítico que esto resuelve:
+// - Cliente marca entregable desde portal → sube al server con selected:true
+// - Admin hace otro cambio no relacionado → sube su versión SIN la selección
+// - Sin este merge, la selección del cliente se perdería
+function _mergeBrandingPointsSafe(serverBp, localBp){
+  // Si uno está vacío, gana el otro
+  const sCats = (serverBp?.categories && Array.isArray(serverBp.categories)) ? serverBp.categories : null;
+  const lCats = (localBp?.categories  && Array.isArray(localBp.categories))  ? localBp.categories  : null;
+  if(!sCats && !lCats) return localBp || serverBp || null;
+  if(!sCats) return localBp;
+  if(!lCats) return serverBp;
+
+  // Indexar items por id en ambos lados
+  const sItemMap = {}; // id → {catId, item}
+  sCats.forEach(cat=>{
+    (cat.items||[]).forEach(it=>{ if(it?.id) sItemMap[it.id] = {catId: cat.id, item: it}; });
+  });
+  const lItemMap = {};
+  lCats.forEach(cat=>{
+    (cat.items||[]).forEach(it=>{ if(it?.id) lItemMap[it.id] = {catId: cat.id, item: it}; });
+  });
+
+  // Para cada item, elegir la versión correcta:
+  // - Si ambos lados tienen el item: comparar _selectedUpdatedAt → el más reciente gana en `selected` y `qty`.
+  //   Estructura (name, pts) viene del que tenga la versión más reciente o del server por defecto.
+  // - Si solo uno tiene el item: usar esa versión tal cual.
+  const resolveItem = (localItem, serverItem) => {
+    if(!serverItem) return localItem;
+    if(!localItem)  return serverItem;
+    const lt = localItem._selectedUpdatedAt ? new Date(localItem._selectedUpdatedAt).getTime() : 0;
+    const st = serverItem._selectedUpdatedAt ? new Date(serverItem._selectedUpdatedAt).getTime() : 0;
+
+    if(lt > 0 || st > 0){
+      // Al menos uno tiene timestamp → el más reciente gana para selected y qty
+      const winner = lt >= st ? localItem : serverItem;
+      // Para los demás campos (name, pts, etc.), preferimos el que NO tenga timestamp (suele ser la definición "oficial"),
+      // o si ambos tienen, el más reciente también.
+      return {
+        ...serverItem,
+        ...localItem,  // local prioridad en campos de definición
+        selected: winner.selected,
+        qty: winner.qty,
+        _selectedUpdatedAt: winner._selectedUpdatedAt,
+      };
+    }
+    // Ninguno tiene timestamp: preservar selected:true de cualquier lado (modo defensivo)
+    const selected = !!(localItem.selected || serverItem.selected);
+    return {
+      ...serverItem,
+      ...localItem,
+      selected,
+      qty: localItem.qty || serverItem.qty || 1,
+    };
+  };
+
+  // Construir categorías del resultado: usamos la estructura de local como base (porque admin la mantiene),
+  // pero añadimos items/cats nuevos que solo estén en server.
+  const mergedCats = lCats.map(lcat => {
+    const scatEquiv = sCats.find(sc => sc.id === lcat.id);
+    const lItems = lcat.items || [];
+    const sItems = scatEquiv?.items || [];
+    // Merge items: por cada item del local, buscar el equivalente en server y resolver
+    const resolvedItems = lItems.map(li => {
+      const si = sItems.find(s => s.id === li.id);
+      return resolveItem(li, si);
+    });
+    // Añadir items que solo estén en server (por si el admin los borró y el server aún los tiene,
+    // o al revés — en duda, preservar los que el admin eliminó explícitamente)
+    const lItemIds = new Set(lItems.map(it => it.id));
+    sItems.forEach(si => {
+      if(si.id && !lItemIds.has(si.id) && si.selected){
+        // Solo recuperamos items del server que estén SELECTED (probable que el cliente los seleccionó)
+        resolvedItems.push(si);
+      }
+    });
+    return {...lcat, items: resolvedItems};
+  });
+
+  // Categorías que solo están en server (caso raro)
+  const lCatIds = new Set(lCats.map(c=>c.id));
+  sCats.forEach(sc => {
+    if(sc.id && !lCatIds.has(sc.id)){
+      mergedCats.push(sc);
+    }
+  });
+
+  return {
+    ...serverBp,
+    ...localBp,
+    categories: mergedCats,
+  };
+}
+
 function deepMergeAppData(server, local){
   const merged = {...server};
 
@@ -3387,9 +3484,9 @@ function deepMergeAppData(server, local){
       .map(b=>{
         const sv = serverBrandMap[b.id];
         if(!sv) return b;
-        // For portal-owned fields: server wins if server has data and local doesn't have newer
-        const bp = (sv.brandingPoints && sv.brandingPoints.categories?.length)
-          ? sv.brandingPoints : b.brandingPoints;
+        // brandingPoints: merge por-item usando timestamp. Ya no "server siempre gana"
+        // porque eso pisaba selecciones del cliente cuando el admin hacía upserts sin cambios en BP.
+        const bp = _mergeBrandingPointsSafe(sv.brandingPoints, b.brandingPoints);
         // portalApprovals: merge por stage. Si yo (admin) modifiqué explícitamente brands,
         // mi versión gana PARA LOS STAGES que yo modifiqué (ediciones/desbloqueos de firma).
         // Para stages que no tengo, o tengo menos data, server gana (el cliente llenó desde el portal).
@@ -3404,8 +3501,7 @@ function deepMergeAppData(server, local){
         if(brandMap[b.id]){
           // Merge: local wins for most fields, server wins for portal-owned fields
           const sv = brandMap[b.id];
-          const bp = (sv.brandingPoints && sv.brandingPoints.categories?.length)
-            ? sv.brandingPoints : b.brandingPoints;
+          const bp = _mergeBrandingPointsSafe(sv.brandingPoints, b.brandingPoints);
           // No cambié brands → server gana en portalApprovals (cliente llenó), pero preservo stages que solo yo tengo
           const pa = _mergePortalApprovalsSafe(sv.portalApprovals, b.portalApprovals, /*localWins=*/false);
           brandMap[b.id] = {...sv, ...b, brandingPoints: bp, portalApprovals: pa};
@@ -3690,9 +3786,39 @@ window.upsert = upsert; // Para diagnóstico
 async function _doUpsert(){
   console.log('[polen] Starting _doUpsert at', new Date().toISOString());
   try{
-      // Escribir directamente desde appData local — sin leer del servidor primero.
-      // appData ya es la fuente de verdad y se mantiene actualizado via realtime.
-      // Esto elimina 1 round-trip y hace los saves ~2x más rápidos.
+      // 🛡️ PRE-UPSERT MERGE: Leer del server los campos "propiedad del cliente" (brandingPoints selected/qty,
+      // portalApprovals) ANTES de escribir, para no pisar selecciones del cliente que aún no hayamos recibido
+      // via realtime. Esto resuelve el bug clásico: admin hace cambio no-relacionado, sube appData entero,
+      // y pisa sin querer la selección que el cliente acabó de hacer desde el portal.
+      try {
+        const {data: serverRow} = await sb.from('polen_shared').select('data').eq('id', REC_ID).single();
+        const serverData = serverRow?.data;
+        if(serverData && Array.isArray(serverData.brands)){
+          const serverBrandMap = {};
+          serverData.brands.forEach(sb => { if(sb?.id) serverBrandMap[sb.id] = sb; });
+          (appData.brands||[]).forEach(lb => {
+            const sv = serverBrandMap[lb.id];
+            if(!sv) return;
+            // Fusionar brandingPoints: preserva selecciones del cliente si son más recientes
+            if(lb.brandingPoints || sv.brandingPoints){
+              const mergedBp = _mergeBrandingPointsSafe(sv.brandingPoints, lb.brandingPoints);
+              if(mergedBp) lb.brandingPoints = mergedBp;
+            }
+            // Fusionar portalApprovals: si admin no tocó esta marca explícitamente, preservar respuestas del cliente
+            // que aún no hayamos recibido.
+            if(sv.portalApprovals && lb.portalApprovals){
+              lb.portalApprovals = _mergePortalApprovalsSafe(sv.portalApprovals, lb.portalApprovals, /*localWins=*/_localChangedKeys.has('brands'));
+            } else if(sv.portalApprovals && !lb.portalApprovals){
+              lb.portalApprovals = sv.portalApprovals;
+            }
+          });
+        }
+      } catch(preErr) {
+        console.warn('[polen] Pre-upsert merge falló (continuando con escritura normal):', preErr);
+        // No fallamos — mejor continuar con la escritura que perder el cambio del usuario
+      }
+
+      // Escribir desde appData local (ya mergeado arriba para portal-owned fields).
       const toWrite = {...appData};
 
       // Re-apply local deletes como safety net
@@ -8721,7 +8847,9 @@ async function toggleBrandBpCat(brandId,ci){
 async function toggleBrandBpItem(brandId,ci,ii,val){
   const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.brandingPoints)return;
-  brand.brandingPoints.categories[ci].items[ii].selected=val;
+  const item = brand.brandingPoints.categories[ci].items[ii];
+  item.selected=val;
+  item._selectedUpdatedAt = new Date().toISOString();
   renderBrandBp(brand);
     markLocalChange('brands');
 await upsert();
@@ -8731,7 +8859,9 @@ await upsert();
 async function updateBrandBpQty(brandId,ci,ii,val){
   const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.brandingPoints)return;
-  brand.brandingPoints.categories[ci].items[ii].qty=parseInt(val)||1;
+  const item = brand.brandingPoints.categories[ci].items[ii];
+  item.qty=parseInt(val)||1;
+  item._selectedUpdatedAt = new Date().toISOString();
   renderBrandBp(brand);
     markLocalChange('brands');
 await upsert();
@@ -14306,7 +14436,9 @@ function portalRenderBp(brand){
 async function portalToggleBpItem(brandId, ci, ii, val){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand?.brandingPoints) return;
-  brand.brandingPoints.categories[ci].items[ii].selected = val;
+  const item = brand.brandingPoints.categories[ci].items[ii];
+  item.selected = val;
+  item._selectedUpdatedAt = new Date().toISOString(); // timestamp para resolver conflictos en merge
   _portalRefreshBp(brand);
   _portalMarkDirty();
 }
@@ -14316,6 +14448,7 @@ async function portalChangeQty(brandId, ci, ii, delta){
   if(!brand?.brandingPoints) return;
   const item = brand.brandingPoints.categories[ci].items[ii];
   item.qty = Math.max(1, (item.qty||1) + delta);
+  item._selectedUpdatedAt = new Date().toISOString();
   _portalRefreshBp(brand);
   _portalMarkDirty();
 }
