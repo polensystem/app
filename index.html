@@ -3328,6 +3328,216 @@ window.addEventListener('beforeunload', (e) => {
 })();
 
 /* ═══ SUPABASE I/O ═══ */
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   🔒 MÓDULO COBROS-TABLA — Persistencia robusta de pagos
+   ══════════════════════════════════════════════════════════════════════════════
+   Los cobros viven en su tabla propia `polen_cobros` (una fila por pago).
+   Esto elimina las race conditions del JSON gigante: cada toggle/edit de un pago
+   hace un UPDATE a UNA sola fila, nunca pisa cambios de otros usuarios.
+
+   Estructura en memoria (sin cambios): appData.cobros[brandId].pagos[]
+   Estructura en DB: fila con (id, brand_id, nombre, valor, cobrado, ...)
+
+   API pública:
+     await CobrosDB.loadAll()              — carga todos los pagos desde tabla nueva
+     await CobrosDB.savePago(brandId, pago) — guarda un pago (upsert)
+     await CobrosDB.deletePago(pagoId)     — borra un pago
+     await CobrosDB.migrateFromJson()      — migra pagos del JSON viejo a la tabla
+     CobrosDB.subscribeRealtime(onChange)   — suscribe a cambios de otros usuarios
+
+   El JSON viejo (appData.cobros en polen_shared) YA NO se guarda/lee. Ignorado.
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.CobrosDB = (function(){
+  const TABLE = 'polen_cobros';
+
+  // Convertir una fila de DB a formato de pago en memoria (estructura original)
+  function rowToPago(row){
+    return {
+      id: row.id,
+      nombre: row.nombre || '',
+      valor: Number(row.valor) || 0,
+      cobrado: !!row.cobrado,
+      fechaProyectada: row.fecha_proyectada || '',
+      fechaCobrado: row.fecha_cobrado || '',
+      triggerActId: row.trigger_act_id || '',
+      isNaming: !!row.is_naming,
+      notas: row.notas || '',
+      orden: row.orden || 0,
+      _updatedAt: row.updated_at, // ISO string del server
+    };
+  }
+
+  // Convertir pago de memoria a fila de DB (para insertar/actualizar)
+  function pagoToRow(brandId, pago){
+    return {
+      id: pago.id,
+      brand_id: brandId,
+      nombre: pago.nombre || '',
+      valor: Number(pago.valor) || 0,
+      cobrado: !!pago.cobrado,
+      fecha_proyectada: pago.fechaProyectada || null,
+      fecha_cobrado: pago.fechaCobrado || null,
+      trigger_act_id: pago.triggerActId || null,
+      is_naming: !!pago.isNaming,
+      notas: pago.notas || '',
+      orden: pago.orden || 0,
+    };
+  }
+
+  // Cargar TODOS los pagos de la tabla nueva, agrupados por brandId
+  async function loadAll(){
+    try {
+      const { data, error } = await sb.from(TABLE).select('*');
+      if(error) {
+        console.error('[CobrosDB] loadAll error:', error);
+        return null;
+      }
+      const byBrand = {};
+      (data||[]).forEach(row=>{
+        if(!byBrand[row.brand_id]) byBrand[row.brand_id] = [];
+        byBrand[row.brand_id].push(rowToPago(row));
+      });
+      // Ordenar por `orden` dentro de cada marca
+      Object.keys(byBrand).forEach(bid=>{
+        byBrand[bid].sort((a,b)=>(a.orden||0)-(b.orden||0));
+      });
+      console.log('[CobrosDB] Cargados', (data||[]).length, 'pagos de', Object.keys(byBrand).length, 'marcas');
+      return byBrand;
+    } catch(e) {
+      console.error('[CobrosDB] loadAll crashed:', e);
+      return null;
+    }
+  }
+
+  // Guardar UN pago (upsert — inserta si no existe, actualiza si sí)
+  async function savePago(brandId, pago){
+    if(!pago?.id || !brandId) { console.warn('[CobrosDB] savePago sin id'); return false; }
+    try {
+      const row = pagoToRow(brandId, pago);
+      const { error } = await sb.from(TABLE).upsert(row, { onConflict: 'id' });
+      if(error) {
+        console.error('[CobrosDB] savePago error:', error, row);
+        return false;
+      }
+      console.log('[CobrosDB] ✓ Pago guardado:', pago.nombre, '→', pago.cobrado?'cobrado':'pendiente');
+      return true;
+    } catch(e) {
+      console.error('[CobrosDB] savePago crashed:', e);
+      return false;
+    }
+  }
+
+  // Borrar un pago por id
+  async function deletePago(pagoId){
+    if(!pagoId) return false;
+    try {
+      const { error } = await sb.from(TABLE).delete().eq('id', pagoId);
+      if(error) { console.error('[CobrosDB] deletePago error:', error); return false; }
+      console.log('[CobrosDB] ✓ Pago eliminado:', pagoId);
+      return true;
+    } catch(e) {
+      console.error('[CobrosDB] deletePago crashed:', e);
+      return false;
+    }
+  }
+
+  // Upsert batch — para migración masiva
+  async function savePagosBatch(rows){
+    if(!rows?.length) return true;
+    try {
+      // Dividir en chunks de 100 para no exceder el límite del endpoint
+      for(let i=0; i<rows.length; i+=100){
+        const chunk = rows.slice(i, i+100);
+        const { error } = await sb.from(TABLE).upsert(chunk, { onConflict: 'id' });
+        if(error) { console.error('[CobrosDB] savePagosBatch error (chunk '+i+'):', error); return false; }
+      }
+      return true;
+    } catch(e) {
+      console.error('[CobrosDB] savePagosBatch crashed:', e);
+      return false;
+    }
+  }
+
+  // Migración del JSON viejo a la tabla nueva (se ejecuta UNA vez)
+  // Si la tabla ya tiene datos, NO hace nada (no pisa).
+  async function migrateFromJson(){
+    try {
+      // ¿La tabla ya tiene datos?
+      const { count, error: countErr } = await sb.from(TABLE).select('*', { count:'exact', head:true });
+      if(countErr) { console.error('[CobrosDB] migration count error:', countErr); return false; }
+      if((count||0) > 0) {
+        console.log('[CobrosDB] Tabla nueva ya tiene', count, 'filas — no migramos nada');
+        return true;
+      }
+
+      // Recolectar todos los pagos del JSON viejo en memoria
+      const rows = [];
+      if(appData?.cobros && typeof appData.cobros === 'object'){
+        Object.keys(appData.cobros).forEach(brandId=>{
+          const entry = appData.cobros[brandId];
+          const pagos = entry?.pagos || [];
+          pagos.forEach((p, idx)=>{
+            if(!p?.id) return;
+            const row = pagoToRow(brandId, {...p, orden: p.orden ?? idx});
+            rows.push(row);
+          });
+        });
+      }
+
+      if(!rows.length){
+        console.log('[CobrosDB] No hay pagos en JSON viejo para migrar');
+        return true;
+      }
+
+      console.log('[CobrosDB] Migrando', rows.length, 'pagos a tabla nueva…');
+      const ok = await savePagosBatch(rows);
+      if(ok) console.log('[CobrosDB] ✅ Migración completa');
+      else console.error('[CobrosDB] ❌ Migración falló — REVISAR');
+      return ok;
+    } catch(e) {
+      console.error('[CobrosDB] migrateFromJson crashed:', e);
+      return false;
+    }
+  }
+
+  // Suscripción a cambios realtime de la tabla de cobros
+  function subscribeRealtime(onChange){
+    sb.channel('polen_cobros_rt')
+      .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
+        try {
+          const { eventType, new:newRow, old:oldRow } = payload;
+          if(eventType === 'DELETE'){
+            // Eliminar de memoria
+            const bid = oldRow?.brand_id;
+            const pid = oldRow?.id;
+            if(bid && pid && appData.cobros?.[bid]?.pagos){
+              appData.cobros[bid].pagos = appData.cobros[bid].pagos.filter(p=>p.id!==pid);
+            }
+          } else if(newRow) {
+            // INSERT o UPDATE — actualizar memoria
+            const bid = newRow.brand_id;
+            if(!appData.cobros) appData.cobros = {};
+            if(!appData.cobros[bid]) appData.cobros[bid] = { expanded:false, pagos:[] };
+            if(!Array.isArray(appData.cobros[bid].pagos)) appData.cobros[bid].pagos = [];
+            const pagos = appData.cobros[bid].pagos;
+            const idx = pagos.findIndex(p=>p.id === newRow.id);
+            const pago = rowToPago(newRow);
+            if(idx >= 0) pagos[idx] = pago;
+            else pagos.push(pago);
+          }
+          if(onChange) onChange(payload);
+        } catch(e) {
+          console.error('[CobrosDB] realtime handler error:', e);
+        }
+      })
+      .subscribe();
+    console.log('[CobrosDB] ✓ Realtime suscrito a', TABLE);
+  }
+
+  return { loadAll, savePago, deletePago, savePagosBatch, migrateFromJson, subscribeRealtime, rowToPago, pagoToRow };
+})();
+
 async function loadData(){
   // Show loading message on screen
   const lsub = document.querySelector('.loading-sub');
@@ -3389,6 +3599,47 @@ async function loadData(){
       if(!Array.isArray(appData.tareas)) appData.tareas=[];
       ensureFinData();
       if(!Array.isArray(appData.digitalTools)){appData.digitalTools=DEFAULT_TOOLS.map(t=>({...t}));}
+
+      // ══════════════════════════════════════════════════════════════════════
+      // 🔒 CARGAR COBROS DESDE TABLA NUEVA (polen_cobros)
+      // La tabla nueva es la fuente de verdad para pagos.
+      // Si está vacía, migramos desde el JSON viejo (one-time).
+      // ══════════════════════════════════════════════════════════════════════
+      try {
+        if(lsub) lsub.textContent = 'Cargando cobros…';
+
+        // Migrar datos viejos si la tabla está vacía (primera vez)
+        if(!appData._cobrosMigratedToTable){
+          console.log('[Polen] Primera vez — intentando migrar cobros a tabla nueva');
+          await CobrosDB.migrateFromJson();
+          appData._cobrosMigratedToTable = true;
+          // No marcamos como local change, se guardará en el siguiente upsert normal
+        }
+
+        // Cargar pagos de la tabla — ESTA es la fuente de verdad
+        const pagosDeLaTabla = await CobrosDB.loadAll();
+        if(pagosDeLaTabla){
+          // Reconstruir appData.cobros usando los pagos de la tabla
+          // Preservamos useTotal, valorTotal, expanded del JSON viejo (son UI/config)
+          const nuevosCobros = {};
+          (appData.brands||[]).forEach(b=>{
+            const entryViejo = appData.cobros?.[b.id] || {};
+            nuevosCobros[b.id] = {
+              expanded: entryViejo.expanded || false,
+              useTotal: entryViejo.useTotal || false,
+              valorTotal: entryViejo.valorTotal || 0,
+              pagos: pagosDeLaTabla[b.id] || [],
+            };
+          });
+          appData.cobros = nuevosCobros;
+          console.log('[Polen] ✓ Cobros cargados de tabla nueva');
+        } else {
+          console.warn('[Polen] No se pudo cargar tabla de cobros — usando JSON viejo como fallback');
+        }
+      } catch(cobrosErr) {
+        console.error('[Polen] Error cargando cobros de tabla nueva:', cobrosErr);
+        // Seguir con el JSON viejo si algo falla — safety net
+      }
 
       // 🛡️ RECUPERACIÓN DE CAMBIOS LOCALES RECIENTES
       // Si otro usuario pisó mis cambios en el server (subiendo su appData sin mi update),
@@ -3804,82 +4055,33 @@ function deepMergeAppData(server, local){
   // template: local ALWAYS wins — same as cobros (realtime must never overwrite local edits)
   merged.template = local.template ?? server.template;
 
-  // ── cobros: merge por brandId, fusionando pagos por id ──
-  // Estructura real: appData.cobros = { [brandId]: { pagos: [...], useTotal, valorTotal, expanded } }
-  // NO es un array, es un objeto. Cada pago tiene .id (no .pagoId).
-  //
-  // 🔧 RESOLUCIÓN DE CONFLICTOS POR TIMESTAMP:
-  // Cada pago tiene un campo opcional _updatedAt (ISO timestamp) que se actualiza CADA VEZ
-  // que se modifica. El merge usa "el más reciente gana" por pago individual, lo que protege
-  // contra sobreescrituras cuando otros usuarios envían appData.cobros viejo al servidor.
-  //
-  // Si un pago no tiene _updatedAt (ej: legacy o creado por buildPagosFromCrono),
-  // caemos al comportamiento anterior: _localChangedKeys.has('cobros') indica quién gana.
+  // ── cobros META: la estructura de pagos vive en tabla polen_cobros.
+  // En el JSON solo sobreviven useTotal, valorTotal, expanded (UI/config).
+  // Los pagos en memoria (appData.cobros[bid].pagos) NO se tocan aquí —
+  // se mantienen por la suscripción realtime a polen_cobros.
   {
     const localCobros  = (local.cobros  && typeof local.cobros ==='object' && !Array.isArray(local.cobros))  ? local.cobros  : {};
     const serverCobros = (server.cobros && typeof server.cobros==='object' && !Array.isArray(server.cobros)) ? server.cobros : {};
     const mergedCobros = {};
-    const allBrandIds = new Set([...Object.keys(localCobros), ...Object.keys(serverCobros)]);
     const localChanged = _localChangedKeys.has('cobros');
-    const localDeletedPagos = (typeof _localDeletedPagoIds === 'object' && _localDeletedPagoIds) ? _localDeletedPagoIds : {};
+    const allBrandIds = new Set([...Object.keys(localCobros), ...Object.keys(serverCobros)]);
 
     allBrandIds.forEach(brandId=>{
-      const localEntry  = localCobros[brandId];
-      const serverEntry = serverCobros[brandId];
+      const lo = localCobros[brandId];
+      const so = serverCobros[brandId];
+      const localObj  = (lo && typeof lo ==='object' && !Array.isArray(lo)) ? lo : null;
+      const serverObj = (so && typeof so==='object' && !Array.isArray(so)) ? so : null;
+      if(!localObj && !serverObj) return;
 
-      // Normalizar: aceptar entrada legacy que sea array (formato viejo) o undefined
-      const localObj  = (localEntry  && typeof localEntry ==='object' && !Array.isArray(localEntry))
-        ? localEntry
-        : (Array.isArray(localEntry)  ? {pagos: localEntry}  : null);
-      const serverObj = (serverEntry && typeof serverEntry==='object' && !Array.isArray(serverEntry))
-        ? serverEntry
-        : (Array.isArray(serverEntry) ? {pagos: serverEntry} : null);
-
-      if(!localObj && !serverObj) return; // nada que hacer
-
-      const localPagos  = Array.isArray(localObj?.pagos)  ? localObj.pagos  : [];
-      const serverPagos = Array.isArray(serverObj?.pagos) ? serverObj.pagos : [];
-      const deletedSet  = localDeletedPagos[brandId] instanceof Set ? localDeletedPagos[brandId] : new Set();
-
-      // Indexar por id para resolver por timestamp
-      const localByPid  = {};
-      localPagos.forEach(p=>{ if(p?.id) localByPid[p.id] = p; });
-      const serverByPid = {};
-      serverPagos.forEach(p=>{ if(p?.id) serverByPid[p.id] = p; });
-      const allPagoIds = new Set([...Object.keys(localByPid), ...Object.keys(serverByPid)]);
-
-      const pagoMap = {};
-      allPagoIds.forEach(pid=>{
-        if(deletedSet.has(pid)) return;
-        const lp = localByPid[pid];
-        const sp = serverByPid[pid];
-        if(lp && !sp){ pagoMap[pid] = {...lp}; return; }
-        if(sp && !lp){ pagoMap[pid] = {...sp}; return; }
-
-        // Conflicto: existe en ambos. Usar timestamp si está disponible.
-        const lt = lp._updatedAt ? new Date(lp._updatedAt).getTime() : 0;
-        const st = sp._updatedAt ? new Date(sp._updatedAt).getTime() : 0;
-
-        if(lt > 0 || st > 0){
-          // Al menos uno tiene timestamp → el más reciente gana
-          pagoMap[pid] = lt >= st ? {...lp} : {...sp};
-        } else {
-          // Ninguno tiene timestamp (legacy) → fallback a _localChangedKeys
-          pagoMap[pid] = localChanged ? {...lp} : {...sp};
-        }
-      });
-
-      // Metadata del brand entry (useTotal, valorTotal, expanded): mismo patrón
-      const baseMeta = {
-        useTotal:    (localChanged ? (localObj?.useTotal    ?? serverObj?.useTotal)    : (serverObj?.useTotal    ?? localObj?.useTotal))    || false,
-        valorTotal:  (localChanged ? (localObj?.valorTotal  ?? serverObj?.valorTotal)  : (serverObj?.valorTotal  ?? localObj?.valorTotal))  ?? 0,
-        expanded:    localObj?.expanded ?? serverObj?.expanded ?? false, // estado UI solo local
+      // Meta: local gana si cambió, server si no
+      const meta = {
+        useTotal:   (localChanged ? (localObj?.useTotal   ?? serverObj?.useTotal)   : (serverObj?.useTotal   ?? localObj?.useTotal))   || false,
+        valorTotal: (localChanged ? (localObj?.valorTotal ?? serverObj?.valorTotal) : (serverObj?.valorTotal ?? localObj?.valorTotal)) ?? 0,
+        expanded:   localObj?.expanded ?? serverObj?.expanded ?? false, // UI solo local
+        // IMPORTANTE: preservar los pagos que YA tenemos en memoria (vienen de polen_cobros)
+        pagos: Array.isArray(localObj?.pagos) ? localObj.pagos : [],
       };
-
-      mergedCobros[brandId] = {
-        ...baseMeta,
-        pagos: Object.values(pagoMap),
-      };
+      mergedCobros[brandId] = meta;
     });
     merged.cobros = mergedCobros;
   }
@@ -4140,6 +4342,23 @@ async function _doUpsert(){
           }
           return item;
         });
+      }
+
+      // 🔒 REFACTOR: Cobros viven en tabla polen_cobros, NO en el JSON.
+      // Preservamos solo las claves meta (useTotal, valorTotal, expanded) — no los pagos.
+      // Esto evita que el JSON pise cambios hechos directamente a la tabla de cobros.
+      if(toWriteSafe.cobros && typeof toWriteSafe.cobros === 'object'){
+        const cobrosMeta = {};
+        Object.keys(toWriteSafe.cobros).forEach(bid=>{
+          const entry = toWriteSafe.cobros[bid] || {};
+          cobrosMeta[bid] = {
+            expanded: entry.expanded || false,
+            useTotal: entry.useTotal || false,
+            valorTotal: entry.valorTotal || 0,
+            // NO guardamos pagos aquí — viven en polen_cobros
+          };
+        });
+        toWriteSafe.cobros = cobrosMeta;
       }
 
       console.log('[Polen] Payload después de strip:', Math.round(JSON.stringify(toWriteSafe).length/1024) + 'KB');
@@ -5621,6 +5840,13 @@ function ensureCobrosData(){
       // Solo inicializar si la marca es completamente nueva (sin entrada en cobros)
       const pagos = buildPagosFromCrono(b);
       appData.cobros[b.id] = { expanded:false, pagos };
+      // 🔒 Persistir los pagos nuevos en la tabla
+      if(pagos.length && window.CobrosDB){
+        pagos.forEach((p, idx)=>{
+          if(!p.orden) p.orden = idx;
+          CobrosDB.savePago(b.id, p);
+        });
+      }
     } else {
       // Ya existe — reconciliar sin duplicar
       _reconcilePagosWithCrono(b);
@@ -5975,8 +6201,8 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
   if(!pago) return;
   const nuevoEstado = !pago.cobrado;
   pago.cobrado = nuevoEstado;
-  pago._updatedAt = new Date().toISOString(); // timestamp para resolver conflictos en merge
-  console.log('[cobros] toggle', pago.nombre, '→', nuevoEstado, 'ts:', pago._updatedAt);
+  pago._updatedAt = new Date().toISOString();
+  console.log('[cobros] toggle', pago.nombre, '→', nuevoEstado);
   if(pago.cobrado){
     pago.fechaCobrado = todayStr();
     if(!pago.fechaProyectada) pago.fechaProyectada = pago.fechaCobrado;
@@ -5984,8 +6210,20 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
     delete pago.fechaCobrado;
   }
 
+  // 🔒 GUARDAR DIRECTO EN TABLA NUEVA — una sola fila, imposible pisar otros cambios
+  const ok = await CobrosDB.savePago(brandId, pago);
+  if(!ok){
+    // Revertir cambio si falla el guardado
+    pago.cobrado = !nuevoEstado;
+    if(pago.cobrado){ pago.fechaCobrado = pago.fechaCobrado || todayStr(); }
+    else { delete pago.fechaCobrado; }
+    showStatus('❌ Error guardando — reintenta', true);
+    renderCobCard(brandId);
+    renderCobTabla();
+    return;
+  }
+
   // ── Sync cobros → crono ──
-  // Buscar la actividad vinculada en el cronograma y sincronizar su estado
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(brand){
     let actEncontrada = null;
@@ -6003,6 +6241,8 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
         markLocalChange('brands');
         syncBrandStage(brand);
         if(currentBrandId===brandId) renderBrandCrono(brand);
+        // Upsert para guardar el cambio de crono (no es cobro)
+        upsert();
       }
     }
   }
@@ -6010,13 +6250,9 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
   renderCobCard(brandId);
   renderCobTabla();
   syncCobrosToFin();
-  // 🚨 Guardado INMEDIATO (sin debounce) para cobros — son críticos
-  console.log('[cobros] forzando upsert inmediato para', pago.nombre);
-  const result = await upsert(true);
-  console.log('[cobros] upsert resultado:', result);
   checkAutoArchive(brandId);
   if((appData.clientNotes||[]).some(n=>n.brandId===brandId&&n.type==='archive-request'&&!n.done)){
-    await upsert(true);
+    upsert(true);
   }
 }
 
@@ -6029,6 +6265,8 @@ async function editCobNombre(brandId, pagoId){
   const nuevoNombre = val.trim() || pago.nombre;
   pago.nombre = nuevoNombre;
   pago._updatedAt = new Date().toISOString();
+  // 🔒 Guardar directo en tabla nueva
+  await CobrosDB.savePago(brandId, pago);
   // Sincronizar nombre en el cronograma de la marca
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(brand){
@@ -6039,11 +6277,10 @@ async function editCobNombre(brandId, pagoId){
     const actSin = sinUbicar.find(a => a.id === pago.triggerActId);
     if(actSin) actSin.name = nuevoNombre;
     markLocalChange('brands');
+    await upsert();
   }
-  markLocalChange('cobros');
   renderCobCard(brandId);
   if(brand) renderBrandCrono(brand);
-  await upsert();
   showStatus('Nombre actualizado ✓');
 }
 
@@ -6053,11 +6290,11 @@ async function saveCobField(brandId, pagoId, field, val){
   if(!pago) return;
   pago[field] = field==='monto' ? (parseFloat(val)||0) : val;
   pago._updatedAt = new Date().toISOString();
-  markLocalChange("cobros");
+  // 🔒 Guardar directo a tabla nueva
+  await CobrosDB.savePago(brandId, pago);
   if(field === 'monto'){
     renderCobCard(brandId);
     renderCobTabla();
-    await upsert();
   }
 }
 
@@ -6066,23 +6303,23 @@ async function addCobPago(brandId){
   const pagos = appData.cobros?.[brandId]?.pagos||[];
   const newId = uid();
   const nombre = `Pago ${pagos.length+1}`;
-  const newPago = {id:newId, nombre, monto:0, cobrado:false, triggerType:'manual', triggerActName:'', triggerActId:newId};
+  const newPago = {id:newId, nombre, monto:0, cobrado:false, triggerType:'manual', triggerActName:'', triggerActId:newId, orden: pagos.length};
   pagos.push(newPago);
+  // 🔒 Guardar pago en tabla nueva
+  await CobrosDB.savePago(brandId, newPago);
   // Add unlocated activity to brand cronograma so it can be placed
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(brand){
     if(!brand.cronograma) brand.cronograma = {aire:[],agua:[],tierra:[],fuego:[]};
     if(!brand.cronograma._sinUbicar) brand.cronograma._sinUbicar = [];
-    if(!brand.cronograma._sinUbicar) brand.cronograma._sinUbicar = [];
-  brand.cronograma._sinUbicar.push({
+    brand.cronograma._sinUbicar.push({
       id:newId, name:nombre, days:1, isHito:true,
       status:'pendiente', startDate:'', endDate:'',
       _cobPago:true, _sinUbicar:true
     });
     markLocalChange('brands');
+    await upsert();
   }
-  markLocalChange('cobros');
-  await upsert();
   renderCobCard(brandId);
   renderCobTabla();
   if(brand) renderBrandCrono(brand);
@@ -6100,6 +6337,8 @@ async function deleteCobPago(brandId, pagoId){
   const cob = appData.cobros[brandId];
   if(!cob){ _deletingPagoIds.delete(pagoId); return; }
   const pago = cob.pagos.find(p=>p.id===pagoId);
+  // 🔒 Borrar de tabla nueva
+  await CobrosDB.deletePago(pagoId);
   // Eliminar también la actividad del cronograma vinculada
   if(pago){
     const brand = (appData.brands||[]).find(b=>b.id===brandId);
@@ -6119,15 +6358,13 @@ async function deleteCobPago(brandId, pagoId){
       if(removedFromCrono){
         markLocalChange('brands');
         if(currentBrandId===brandId) renderBrandCrono(brand);
+        upsert();
       }
     }
   }
   cob.pagos = cob.pagos.filter(p=>p.id!==pagoId);
-  markLocalChange('cobros');
   renderCobCard(brandId);
   renderCobTabla();
-  const saved = await upsert();
-  if(!saved) showStatus('❌ Error al eliminar pago — recarga e intenta de nuevo.', true);
   setTimeout(()=>{
     _deletingPagoIds.delete(pagoId);
     _localDeletedPagoIds[brandId]?.delete(pagoId);
@@ -6382,6 +6619,19 @@ async function toggleCobPagoTabla(brandId, pagoId){ markLocalChange("cobros","fi
     delete pago.fechaCobrado;
   }
 
+  // 🔒 Guardar directo en tabla nueva
+  const ok = await CobrosDB.savePago(brandId, pago);
+  if(!ok){
+    // Revertir
+    pago.cobrado = !pago.cobrado;
+    if(pago.cobrado){ pago.fechaCobrado = pago.fechaCobrado || todayStr(); }
+    else { delete pago.fechaCobrado; }
+    showStatus('❌ Error guardando — reintenta', true);
+    renderCobros();
+    renderCobTabla();
+    return;
+  }
+
   // ── Sync cobros → crono ──
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(brand){
@@ -6400,6 +6650,7 @@ async function toggleCobPagoTabla(brandId, pagoId){ markLocalChange("cobros","fi
         markLocalChange('brands');
         syncBrandStage(brand);
         if(currentBrandId===brandId) renderBrandCrono(brand);
+        upsert();
       }
     }
   }
@@ -6407,18 +6658,16 @@ async function toggleCobPagoTabla(brandId, pagoId){ markLocalChange("cobros","fi
   renderCobros();
   renderCobTabla();
   syncCobrosToFin();
-  console.log('[cobros tabla] forzando upsert inmediato para', pago.nombre);
-  const result = await upsert(true);
-  console.log('[cobros tabla] upsert resultado:', result);
 }
 
-async function saveCobTablaField(brandId, pagoId, field, val){ markLocalChange("cobros");
+async function saveCobTablaField(brandId, pagoId, field, val){
   ensureCobrosData();
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
   pago[field] = val;
-  await upsert();
-  // If fecha proyectada changed, refresh the cobranzas meta totals
+  pago._updatedAt = new Date().toISOString();
+  // 🔒 Guardar directo a tabla nueva
+  await CobrosDB.savePago(brandId, pago);
   if(field === 'fechaProyectada') syncCobrosToFin();
 }
 
@@ -13413,6 +13662,14 @@ async function boot(){
   ensurePapelera();
   dedupCobros();
   subscribeRealtime();
+
+  // 🔒 Suscripción realtime a la tabla de cobros
+  // Los cambios de otros usuarios en cobros llegan por fila, no por JSON completo
+  CobrosDB.subscribeRealtime(()=>{
+    try { if(currentPage==='cobranzas') renderCobros(); } catch(e){}
+    try { renderCobTabla(); } catch(e){}
+    try { syncCobrosToFin(); } catch(e){}
+  });
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // MIGRACIONES DE BOOT DESACTIVADAS
