@@ -3175,6 +3175,60 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
+// 🔬 MONITOR FORENSE DEL TEMPLATE BP
+// Registra cada cambio en el template.brandingPoints con timestamp + stack trace.
+// Si los BP se borran misteriosamente, revisar localStorage['polen-tpl-bp-log'] para ver QUIÉN lo hizo.
+// Para ver el log: JSON.parse(localStorage.getItem('polen-tpl-bp-log'))
+// Para limpiar el log: localStorage.removeItem('polen-tpl-bp-log')
+(function installTemplateBpMonitor(){
+  let _lastSnapshot = null;
+  let _initialized = false;
+
+  setInterval(()=>{
+    try {
+      if(!window.appData?.template?.brandingPoints) return;
+      const bp = appData.template.brandingPoints;
+      const categories = bp.categories || [];
+      const totalItems = categories.reduce((s,c)=>s+(c.items||[]).length, 0);
+      const selectedItems = categories.reduce((s,c)=>s+(c.items||[]).filter(i=>i.selected).length, 0);
+      const snapshot = {
+        cats: categories.length,
+        totalItems,
+        selectedItems,
+        hash: JSON.stringify(categories.map(c=>({n:c.name, i:(c.items||[]).map(i=>({n:i.name, s:!!i.selected, p:i.pts})) }))),
+      };
+
+      if(!_initialized){
+        _lastSnapshot = snapshot;
+        _initialized = true;
+        return;
+      }
+
+      if(snapshot.hash !== _lastSnapshot.hash){
+        // Hubo un cambio — registrarlo
+        const event = {
+          at: new Date().toISOString(),
+          before: { cats: _lastSnapshot.cats, totalItems: _lastSnapshot.totalItems, selectedItems: _lastSnapshot.selectedItems },
+          after: { cats: snapshot.cats, totalItems: snapshot.totalItems, selectedItems: snapshot.selectedItems },
+          trigger: new Error().stack?.split('\n').slice(2,6).join(' | ')?.substring(0, 400) || 'unknown',
+        };
+        // Log a consola si hubo PÉRDIDA significativa (items, o items seleccionados)
+        if(snapshot.totalItems < _lastSnapshot.totalItems || snapshot.selectedItems < _lastSnapshot.selectedItems){
+          console.warn('[TPL-BP-MONITOR] ⚠️ PÉRDIDA DETECTADA:', event);
+        }
+        // Guardar en localStorage (mantener últimos 50 eventos)
+        try {
+          const log = JSON.parse(localStorage.getItem('polen-tpl-bp-log') || '[]');
+          log.push(event);
+          if(log.length > 50) log.shift();
+          localStorage.setItem('polen-tpl-bp-log', JSON.stringify(log));
+        } catch(e) {}
+        _lastSnapshot = snapshot;
+      }
+    } catch(e) {}
+  }, 2000); // Chequear cada 2 segundos
+})();
+
 /* ═══ SUPABASE I/O ═══ */
 async function loadData(){
   // Show loading message on screen
@@ -3827,8 +3881,14 @@ async function upsert(immediate=false){
     }catch(e){}
   }
 
-  // If already saving, skip (debounce handles grouping)
-  if(_isSaving) return;
+  // If already saving, re-schedule upsert for after current save finishes.
+  // CRITICAL: No descartar silenciosamente. Si _isSaving es true significa que hay cambios nuevos
+  // que NO están en el upsert actual — necesitamos un upsert adicional para ellos.
+  if(_isSaving){
+    console.log('[polen] upsert en curso — encolando otro para cuando termine');
+    window._pendingUpsertAfterSave = true;
+    return;
+  }
   _isSaving = true;
   window._isSaving = _isSaving;
   try {
@@ -3843,6 +3903,13 @@ async function upsert(immediate=false){
   } finally {
     _isSaving = false;
     window._isSaving = _isSaving;
+    // Si se encoló un upsert mientras estábamos guardando, ejecutarlo ahora.
+    // CRITICAL para no perder cambios hechos durante el save anterior.
+    if(window._pendingUpsertAfterSave){
+      window._pendingUpsertAfterSave = false;
+      console.log('[polen] ejecutando upsert encolado');
+      setTimeout(()=>upsert(true), 50);
+    }
   }
 }
 window.upsert = upsert; // Para diagnóstico
@@ -3850,12 +3917,45 @@ window.upsert = upsert; // Para diagnóstico
 async function _doUpsert(){
   console.log('[polen] Starting _doUpsert at', new Date().toISOString());
   try{
-      // Escribir directamente desde appData local. El pre-upsert merge fue removido porque
-      // introducía latencia y race conditions con múltiples usuarios editando simultáneamente.
-      // La protección contra pérdida de datos ahora viene via:
-      //   1) timestamps _updatedAt por pago/item (merge resuelve conflictos)
-      //   2) save inmediato (sin debounce) en cobros
-      //   3) beforeunload warning si hay cambios pendientes
+      // 🛡️ PRE-UPSERT MERGE para campos portal-owned (BP + portalApprovals):
+      // Supabase upsert con onConflict:'id' REEMPLAZA el JSON entero — no hace merge.
+      // Eso significa que si otro usuario acabó de cambiar brandingPoints de una marca
+      // y tú haces cualquier upsert, pisas su cambio aunque tú no lo tocaste.
+      //
+      // Solución: ANTES de escribir, leer la última versión del server SOLO de brandingPoints
+      // y portalApprovals, fusionarlos por-ítem con timestamps, y escribir el resultado.
+      // Cobros no necesita este tratamiento porque ya tiene save inmediato (menos ventana
+      // de race) + merge por timestamp.
+      //
+      // Esto agrega ~200-500ms al upsert pero previene pérdida de BP y firmas del portal.
+      try {
+        const {data: serverRow} = await sb.from('polen_shared').select('data').eq('id', REC_ID).single();
+        const serverData = serverRow?.data;
+        if(serverData && Array.isArray(serverData.brands)){
+          const serverBrandMap = {};
+          serverData.brands.forEach(sb_ => { if(sb_?.id) serverBrandMap[sb_.id] = sb_; });
+          (appData.brands||[]).forEach(lb => {
+            const sv = serverBrandMap[lb.id];
+            if(!sv) return;
+            // Fusionar brandingPoints: preserva selecciones con timestamp más reciente
+            if(lb.brandingPoints || sv.brandingPoints){
+              const mergedBp = _mergeBrandingPointsSafe(sv.brandingPoints, lb.brandingPoints);
+              if(mergedBp) lb.brandingPoints = mergedBp;
+            }
+            // Fusionar portalApprovals: si yo no toqué brands explícitamente, el server (cliente) gana
+            if(sv.portalApprovals && lb.portalApprovals){
+              lb.portalApprovals = _mergePortalApprovalsSafe(sv.portalApprovals, lb.portalApprovals, /*localWins=*/_localChangedKeys.has('brands'));
+            } else if(sv.portalApprovals && !lb.portalApprovals){
+              lb.portalApprovals = sv.portalApprovals;
+            }
+          });
+        }
+      } catch(preErr) {
+        console.warn('[polen] Pre-upsert merge falló (continuando con escritura normal):', preErr);
+        // No fallamos — mejor continuar con la escritura que perder el cambio del usuario
+      }
+
+      // Escribir desde appData local (ya mergeado arriba para portal-owned fields).
       const toWrite = {...appData};
 
       // Re-apply local deletes como safety net
@@ -13216,45 +13316,19 @@ async function boot(){
   dedupCobros();
   subscribeRealtime();
 
-  // One-time BP migration for specific brands — runs once then never again
-  if(!appData._bpMigrated_v5){
-    await migrateBpToTemplate(['GULA', 'Beauty Craft', 'Soluciones T&L']);
-    appData._bpMigrated_v5 = true;
-    markLocalChange('brands');
-    await upsert();
-  }
-
-  // Full clean replace of template BP with defaultTemplate (removes all duplicates)
-  if(!appData._tplSynced_v4){
-    const def = defaultTemplate();
-    const tpl = appData.template;
-    if(tpl?.brandingPoints){
-      // Collect all currently selected item names across ALL existing categories
-      const selectedNames = new Set();
-      (tpl.brandingPoints.categories||[]).forEach(cat=>{
-        (cat.items||[]).forEach(item=>{
-          if(item.selected) selectedNames.add(item.name.toLowerCase().trim());
-        });
-      });
-      // Replace with clean defaultTemplate structure, re-applying selected state by name
-      const newBp = JSON.parse(JSON.stringify(def.brandingPoints));
-      newBp.total = tpl.brandingPoints.total || def.brandingPoints.total;
-      newBp.categories.forEach(cat=>{
-        cat.items.forEach(item=>{
-          if(selectedNames.has(item.name.toLowerCase().trim())) item.selected = true;
-        });
-      });
-      tpl.brandingPoints = newBp;
-    }
-    appData._tplSynced_v4 = true;
-    markLocalChange('template');
-    await upsert();
-    // Also re-run brand migration with now-clean template
-    await migrateBpToTemplate(['GULA', 'Beauty Craft', 'Soluciones T&L']);
-    markLocalChange('brands');
-    await upsert();
-    showStatus('Template limpiado y marcas actualizadas ✓');
-  }
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // MIGRACIONES DE BOOT DESACTIVADAS
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // Las migraciones _bpMigrated_v5 y _tplSynced_v4 se ejecutaron hace tiempo y ya
+  // hicieron su trabajo. Mantenerlas activas era riesgoso: si los flags se perdían
+  // (por un merge realtime, por ejemplo), la migración re-corría y potencialmente
+  // sobreescribía BP que un usuario acabó de digitar manualmente (especialmente
+  // items que no existen en el template estándar).
+  //
+  // Si alguna vez se necesita re-ejecutar, llamar manualmente:
+  //   await migrateBpToTemplate(['GULA', 'Beauty Craft', 'Soluciones T&L'])
+  // desde la consola. NUNCA en boot automático.
+  // ═══════════════════════════════════════════════════════════════════════════════
 }
 
 function dedupCobros(){
