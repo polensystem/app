@@ -3175,58 +3175,156 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
-// 🔬 MONITOR FORENSE DEL TEMPLATE BP
-// Registra cada cambio en el template.brandingPoints con timestamp + stack trace.
-// Si los BP se borran misteriosamente, revisar localStorage['polen-tpl-bp-log'] para ver QUIÉN lo hizo.
-// Para ver el log: JSON.parse(localStorage.getItem('polen-tpl-bp-log'))
-// Para limpiar el log: localStorage.removeItem('polen-tpl-bp-log')
-(function installTemplateBpMonitor(){
-  let _lastSnapshot = null;
-  let _initialized = false;
+// 🔬 MONITOR FORENSE COMPLETO
+// Registra cambios en: template.brandingPoints, brand.brandingPoints (por marca), cobros (por brand+pago)
+// También wrapea deepMergeAppData para detectar cuando realtime del server pisa cambios locales
+//
+// Comandos útiles (pegar en consola):
+//   JSON.parse(localStorage.getItem('polen-forensic-log'))        // ver todo el log
+//   localStorage.removeItem('polen-forensic-log')                 // limpiar log
+//   window._dumpForensic()                                        // resumen bonito
+//
+(function installForensicMonitor(){
+  const LOG_KEY = 'polen-forensic-log';
+  const MAX_EVENTS = 200;
 
-  setInterval(()=>{
+  function log(event){
+    event.at = new Date().toISOString();
     try {
-      if(!window.appData?.template?.brandingPoints) return;
-      const bp = appData.template.brandingPoints;
-      const categories = bp.categories || [];
-      const totalItems = categories.reduce((s,c)=>s+(c.items||[]).length, 0);
-      const selectedItems = categories.reduce((s,c)=>s+(c.items||[]).filter(i=>i.selected).length, 0);
-      const snapshot = {
-        cats: categories.length,
-        totalItems,
-        selectedItems,
-        hash: JSON.stringify(categories.map(c=>({n:c.name, i:(c.items||[]).map(i=>({n:i.name, s:!!i.selected, p:i.pts})) }))),
-      };
-
-      if(!_initialized){
-        _lastSnapshot = snapshot;
-        _initialized = true;
-        return;
-      }
-
-      if(snapshot.hash !== _lastSnapshot.hash){
-        // Hubo un cambio — registrarlo
-        const event = {
-          at: new Date().toISOString(),
-          before: { cats: _lastSnapshot.cats, totalItems: _lastSnapshot.totalItems, selectedItems: _lastSnapshot.selectedItems },
-          after: { cats: snapshot.cats, totalItems: snapshot.totalItems, selectedItems: snapshot.selectedItems },
-          trigger: new Error().stack?.split('\n').slice(2,6).join(' | ')?.substring(0, 400) || 'unknown',
-        };
-        // Log a consola si hubo PÉRDIDA significativa (items, o items seleccionados)
-        if(snapshot.totalItems < _lastSnapshot.totalItems || snapshot.selectedItems < _lastSnapshot.selectedItems){
-          console.warn('[TPL-BP-MONITOR] ⚠️ PÉRDIDA DETECTADA:', event);
-        }
-        // Guardar en localStorage (mantener últimos 50 eventos)
-        try {
-          const log = JSON.parse(localStorage.getItem('polen-tpl-bp-log') || '[]');
-          log.push(event);
-          if(log.length > 50) log.shift();
-          localStorage.setItem('polen-tpl-bp-log', JSON.stringify(log));
-        } catch(e) {}
-        _lastSnapshot = snapshot;
-      }
+      const arr = JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
+      arr.push(event);
+      if(arr.length > MAX_EVENTS) arr.splice(0, arr.length - MAX_EVENTS);
+      localStorage.setItem(LOG_KEY, JSON.stringify(arr));
     } catch(e) {}
-  }, 2000); // Chequear cada 2 segundos
+  }
+
+  // Snapshot del estado actual
+  function snapshot(){
+    try {
+      if(!window.appData) return null;
+      const tplBp = appData.template?.brandingPoints;
+      const tplItems = (tplBp?.categories||[]).reduce((s,c)=>s+(c.items||[]).length, 0);
+      const tplSelected = (tplBp?.categories||[]).reduce((s,c)=>s+(c.items||[]).filter(i=>i.selected).length, 0);
+
+      const brandsData = (appData.brands||[]).map(b=>{
+        const bp = b.brandingPoints;
+        const items = (bp?.categories||[]).reduce((s,c)=>s+(c.items||[]).length, 0);
+        const selected = (bp?.categories||[]).reduce((s,c)=>s+(c.items||[]).filter(i=>i.selected).length, 0);
+        return { id: b.id, name: b.name, bpItems: items, bpSelected: selected };
+      });
+
+      const cobrosData = {};
+      Object.keys(appData.cobros||{}).forEach(brandId=>{
+        const entry = appData.cobros[brandId];
+        const pagos = entry?.pagos || [];
+        cobrosData[brandId] = {
+          totalPagos: pagos.length,
+          cobrados: pagos.filter(p=>p.cobrado).length,
+          pagosCobrados: pagos.filter(p=>p.cobrado).map(p=>({n:p.nombre, t:p._updatedAt})),
+        };
+      });
+
+      return { tplItems, tplSelected, brands: brandsData, cobros: cobrosData };
+    } catch(e){ return null; }
+  }
+
+  let _lastSnap = null;
+  setInterval(()=>{
+    const cur = snapshot();
+    if(!cur) return;
+    if(!_lastSnap){ _lastSnap = cur; return; }
+
+    // Detectar pérdida en template BP
+    if(cur.tplItems < _lastSnap.tplItems || cur.tplSelected < _lastSnap.tplSelected){
+      const event = {
+        type: 'TEMPLATE_BP_LOSS',
+        before: { items: _lastSnap.tplItems, selected: _lastSnap.tplSelected },
+        after: { items: cur.tplItems, selected: cur.tplSelected },
+        trigger: new Error().stack?.split('\n').slice(2,8).join(' | ')?.substring(0,500) || 'unknown',
+      };
+      console.warn('[FORENSIC] ⚠️ PÉRDIDA TEMPLATE BP:', event);
+      log(event);
+    }
+
+    // Detectar pérdida en BP de cada marca
+    cur.brands.forEach(curB=>{
+      const prevB = _lastSnap.brands.find(b=>b.id===curB.id);
+      if(!prevB) return;
+      if(curB.bpItems < prevB.bpItems || curB.bpSelected < prevB.bpSelected){
+        const event = {
+          type: 'BRAND_BP_LOSS',
+          brandId: curB.id,
+          brandName: curB.name,
+          before: { items: prevB.bpItems, selected: prevB.bpSelected },
+          after: { items: curB.bpItems, selected: curB.bpSelected },
+          trigger: new Error().stack?.split('\n').slice(2,8).join(' | ')?.substring(0,500) || 'unknown',
+        };
+        console.warn('[FORENSIC] ⚠️ PÉRDIDA BP MARCA '+curB.name+':', event);
+        log(event);
+      }
+    });
+
+    // Detectar pérdida de cobros (cobrados que se des-cobran)
+    Object.keys(cur.cobros).forEach(brandId=>{
+      const prev = _lastSnap.cobros[brandId];
+      const curC = cur.cobros[brandId];
+      if(!prev) return;
+      if(curC.cobrados < prev.cobrados){
+        const brandName = (appData.brands||[]).find(b=>b.id===brandId)?.name || brandId;
+        const event = {
+          type: 'COBROS_LOSS',
+          brandId,
+          brandName,
+          before: { cobrados: prev.cobrados, detalle: prev.pagosCobrados },
+          after: { cobrados: curC.cobrados, detalle: curC.pagosCobrados },
+          trigger: new Error().stack?.split('\n').slice(2,8).join(' | ')?.substring(0,500) || 'unknown',
+        };
+        console.warn('[FORENSIC] ⚠️ PÉRDIDA COBROS '+brandName+':', event);
+        log(event);
+      }
+    });
+
+    _lastSnap = cur;
+  }, 1500);
+
+  // Wrapper de realtime para saber cuándo el server pisa local
+  setTimeout(()=>{
+    if(typeof window.deepMergeAppData === 'function'){
+      const orig = window.deepMergeAppData;
+      window.deepMergeAppData = function(server, local){
+        const preTplItems = (local?.template?.brandingPoints?.categories||[]).reduce((s,c)=>s+(c.items||[]).length, 0);
+        const preTplSel = (local?.template?.brandingPoints?.categories||[]).reduce((s,c)=>s+(c.items||[]).filter(i=>i.selected).length, 0);
+        const result = orig.apply(this, arguments);
+        const postTplItems = (result?.template?.brandingPoints?.categories||[]).reduce((s,c)=>s+(c.items||[]).length, 0);
+        const postTplSel = (result?.template?.brandingPoints?.categories||[]).reduce((s,c)=>s+(c.items||[]).filter(i=>i.selected).length, 0);
+        if(postTplItems < preTplItems || postTplSel < preTplSel){
+          const event = {
+            type: 'MERGE_PISÓ_LOCAL_TEMPLATE',
+            before: { items: preTplItems, selected: preTplSel },
+            after: { items: postTplItems, selected: postTplSel },
+            serverItems: (server?.template?.brandingPoints?.categories||[]).reduce((s,c)=>s+(c.items||[]).length, 0),
+            serverSelected: (server?.template?.brandingPoints?.categories||[]).reduce((s,c)=>s+(c.items||[]).filter(i=>i.selected).length, 0),
+          };
+          console.warn('[FORENSIC] ⚠️ MERGE PISÓ TEMPLATE LOCAL:', event);
+          log(event);
+        }
+        return result;
+      };
+      console.log('[FORENSIC] Monitor instalado ✓');
+    }
+  }, 3000);
+
+  // Comando público para ver resumen
+  window._dumpForensic = function(){
+    const arr = JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
+    console.log('=== FORENSIC LOG ('+arr.length+' eventos) ===');
+    arr.forEach((e,i)=>{
+      console.log(`[${i}] ${e.at} | ${e.type} ${e.brandName?'('+e.brandName+')':''}`);
+      console.log('   before:', e.before, '→ after:', e.after);
+      if(e.trigger) console.log('   trigger:', e.trigger);
+    });
+    return arr;
+  };
 })();
 
 /* ═══ SUPABASE I/O ═══ */
