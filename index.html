@@ -3149,15 +3149,31 @@ function showStatus(msg,err=false){
 let _connOnline=true;
 window._connOnline = _connOnline;
 function setConnDot(online){
-  if(_connOnline===online) return;
   _connOnline=online;
   window._connOnline = _connOnline; // Sync con window
   const dot=document.getElementById('conn-dot');
-  if(dot){ dot.className=online?'':'offline'; dot.title=online?'Conectado a Supabase':'Sin conexión — los cambios pueden no guardarse'; }
+  if(dot){
+    // SIEMPRE re-asignar la clase, incluso si _connOnline no cambió — la clase actual de la bolita
+    // puede ser 'saving' y necesitamos resetearla a '' (verde) cuando el upsert termina exitosamente.
+    dot.className=online?'':'offline';
+    dot.title=online?'Conectado a Supabase':'Sin conexión — los cambios pueden no guardarse';
+  }
 }
 // Health check deshabilitado — estaba generando 401 cosméticos y confundiendo el estado de la bolita.
 // La bolita ahora solo refleja el estado real de los upserts (saving/saved/error).
 // Si se quiere re-habilitar en el futuro, usar una query real (select) en lugar de HEAD.
+
+// 🚨 PROTECCIÓN ANTI-PÉRDIDA DE DATOS: Si el usuario intenta cerrar/recargar la página mientras hay
+// un guardado pendiente, el navegador le muestra una advertencia. Esto evita que pierdan cambios
+// recién hechos por impaciencia al recargar.
+window.addEventListener('beforeunload', (e) => {
+  const hayPendiente = _isSaving || (window._upsertDebounceTimer != null) || (_localChangedKeys && _localChangedKeys.size > 0);
+  if(hayPendiente){
+    e.preventDefault();
+    e.returnValue = 'Tienes cambios sin guardar. ¿Seguro quieres salir?';
+    return e.returnValue;
+  }
+});
 
 /* ═══ SUPABASE I/O ═══ */
 async function loadData(){
@@ -3221,6 +3237,54 @@ async function loadData(){
       if(!Array.isArray(appData.tareas)) appData.tareas=[];
       ensureFinData();
       if(!Array.isArray(appData.digitalTools)){appData.digitalTools=DEFAULT_TOOLS.map(t=>({...t}));}
+
+      // 🛡️ RECUPERACIÓN DE CAMBIOS LOCALES RECIENTES
+      // Si otro usuario pisó mis cambios en el server (subiendo su appData sin mi update),
+      // mi copia local tiene versiones de pagos/items con timestamps más recientes que el server.
+      // Al cargar, restauro esos cambios locales que son más nuevos que lo del server.
+      try {
+        const localBak = localStorage.getItem('polen-localbak');
+        if(localBak){
+          const parsed = JSON.parse(localBak);
+          const savedAt = parsed?.savedAt || 0;
+          const ageMin = (Date.now() - savedAt) / 60000;
+          // Solo considerar backup si es reciente (< 24h) — evita restaurar data muy vieja
+          if(ageMin < 24*60 && parsed?.data?.cobros){
+            let restoredCount = 0;
+            Object.keys(parsed.data.cobros).forEach(bid=>{
+              const localEntry = parsed.data.cobros[bid];
+              if(!localEntry?.pagos) return;
+              if(!appData.cobros[bid]) return; // si la marca ya no existe en server, skip
+              const serverPagos = appData.cobros[bid].pagos || [];
+              const serverPagoMap = {};
+              serverPagos.forEach(p=>{ if(p?.id) serverPagoMap[p.id] = p; });
+
+              localEntry.pagos.forEach(lp=>{
+                if(!lp?.id || !lp._updatedAt) return; // solo considerar pagos con timestamp
+                const sp = serverPagoMap[lp.id];
+                const lt = new Date(lp._updatedAt).getTime();
+                const st = sp?._updatedAt ? new Date(sp._updatedAt).getTime() : 0;
+                // Si mi versión local es más reciente que la del server → restaurar
+                if(lt > st){
+                  const idx = serverPagos.findIndex(p=>p.id===lp.id);
+                  if(idx >= 0){
+                    serverPagos[idx] = {...serverPagos[idx], ...lp};
+                    restoredCount++;
+                  }
+                }
+              });
+            });
+            if(restoredCount > 0){
+              console.log(`[Polen] Restaurados ${restoredCount} pagos desde backup local (más recientes que server)`);
+              markLocalChange('cobros');
+              // Disparar upsert en background para sincronizar server con data restaurada
+              setTimeout(()=>upsert(), 1500);
+            }
+          }
+        }
+      } catch(restoreErr){
+        console.warn('[Polen] Restauración desde localbak falló:', restoreErr);
+      }
 
       // Restore member photos from localStorage backup (will be overridden by Supabase table later)
       try{
@@ -3786,39 +3850,12 @@ window.upsert = upsert; // Para diagnóstico
 async function _doUpsert(){
   console.log('[polen] Starting _doUpsert at', new Date().toISOString());
   try{
-      // 🛡️ PRE-UPSERT MERGE: Leer del server los campos "propiedad del cliente" (brandingPoints selected/qty,
-      // portalApprovals) ANTES de escribir, para no pisar selecciones del cliente que aún no hayamos recibido
-      // via realtime. Esto resuelve el bug clásico: admin hace cambio no-relacionado, sube appData entero,
-      // y pisa sin querer la selección que el cliente acabó de hacer desde el portal.
-      try {
-        const {data: serverRow} = await sb.from('polen_shared').select('data').eq('id', REC_ID).single();
-        const serverData = serverRow?.data;
-        if(serverData && Array.isArray(serverData.brands)){
-          const serverBrandMap = {};
-          serverData.brands.forEach(sb => { if(sb?.id) serverBrandMap[sb.id] = sb; });
-          (appData.brands||[]).forEach(lb => {
-            const sv = serverBrandMap[lb.id];
-            if(!sv) return;
-            // Fusionar brandingPoints: preserva selecciones del cliente si son más recientes
-            if(lb.brandingPoints || sv.brandingPoints){
-              const mergedBp = _mergeBrandingPointsSafe(sv.brandingPoints, lb.brandingPoints);
-              if(mergedBp) lb.brandingPoints = mergedBp;
-            }
-            // Fusionar portalApprovals: si admin no tocó esta marca explícitamente, preservar respuestas del cliente
-            // que aún no hayamos recibido.
-            if(sv.portalApprovals && lb.portalApprovals){
-              lb.portalApprovals = _mergePortalApprovalsSafe(sv.portalApprovals, lb.portalApprovals, /*localWins=*/_localChangedKeys.has('brands'));
-            } else if(sv.portalApprovals && !lb.portalApprovals){
-              lb.portalApprovals = sv.portalApprovals;
-            }
-          });
-        }
-      } catch(preErr) {
-        console.warn('[polen] Pre-upsert merge falló (continuando con escritura normal):', preErr);
-        // No fallamos — mejor continuar con la escritura que perder el cambio del usuario
-      }
-
-      // Escribir desde appData local (ya mergeado arriba para portal-owned fields).
+      // Escribir directamente desde appData local. El pre-upsert merge fue removido porque
+      // introducía latencia y race conditions con múltiples usuarios editando simultáneamente.
+      // La protección contra pérdida de datos ahora viene via:
+      //   1) timestamps _updatedAt por pago/item (merge resuelve conflictos)
+      //   2) save inmediato (sin debounce) en cobros
+      //   3) beforeunload warning si hay cambios pendientes
       const toWrite = {...appData};
 
       // Re-apply local deletes como safety net
@@ -3869,17 +3906,45 @@ async function _doUpsert(){
       toWrite.cobros = appData.cobros;
 
       // 4. Strip large base64 images before writing (Supabase 500 = payload too large)
+      //
+      // 🚨 STRIPPING AGRESIVO: El payload total NO debe exceder ~50KB para que los upserts sean
+      // rápidos (bolita pasa de amarilla a verde en < 1s). Las imágenes pesan mucho y NO necesitan
+      // vivir en el JSON principal: photos ya están en polen_photos, y los logos de marca se
+      // pueden comprimir o moverse a una tabla separada en el futuro.
       const toWriteSafe = JSON.parse(JSON.stringify(toWrite, (key, val) => {
-        if(key === 'image' && typeof val === 'string' && val.startsWith('data:') && val.length > 80000){
-          console.warn('[Polen] Logo descartado por ser muy grande:', Math.round(val.length/1000)+'KB');
+        // Logos de marca: descartar cualquier base64 > 20KB (antes era 80KB)
+        if(key === 'image' && typeof val === 'string' && val.startsWith('data:') && val.length > 20000){
+          console.warn('[Polen] Logo base64 descartado (' + Math.round(val.length/1000) + 'KB) — considera subirlo a una URL pública');
           return '';
         }
+        // Fotos de miembros: SIEMPRE descartar del JSON (viven en tabla polen_photos)
         if(key === 'photo' && typeof val === 'string' && val.startsWith('data:')){
-          // Photos are stored in separate `polen_photos` table — never include in main payload
+          return '';
+        }
+        // Avatar alternativo — algunos miembros legacy pueden tener avatar en vez de photo
+        if(key === 'avatar' && typeof val === 'string' && val.startsWith('data:')){
+          return '';
+        }
+        // Imagen comprimida (podría existir en legacy)
+        if(key === 'photoThumb' && typeof val === 'string' && val.startsWith('data:')){
           return '';
         }
         return val;
       }));
+
+      // ADICIONAL: limpiar imágenes de marcas en papelera (no las necesitan ahí)
+      if(Array.isArray(toWriteSafe.papelera)){
+        toWriteSafe.papelera = toWriteSafe.papelera.map(item => {
+          if(item && typeof item === 'object'){
+            // Si tiene data.image o data.logo, removerlo
+            if(item.data?.image) item.data = {...item.data, image: ''};
+            if(item.image) item = {...item, image: ''};
+          }
+          return item;
+        });
+      }
+
+      console.log('[Polen] Payload después de strip:', Math.round(JSON.stringify(toWriteSafe).length/1024) + 'KB');
 
       // 5. Write merged result
       console.log('[polen] Sending upsert to Supabase, payload size:', Math.round(JSON.stringify(toWriteSafe).length/1000)+'KB');
@@ -5710,8 +5775,10 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
   ensureCobrosData();
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
-  pago.cobrado = !pago.cobrado;
+  const nuevoEstado = !pago.cobrado;
+  pago.cobrado = nuevoEstado;
   pago._updatedAt = new Date().toISOString(); // timestamp para resolver conflictos en merge
+  console.log('[cobros] toggle', pago.nombre, '→', nuevoEstado, 'ts:', pago._updatedAt);
   if(pago.cobrado){
     pago.fechaCobrado = todayStr();
     if(!pago.fechaProyectada) pago.fechaProyectada = pago.fechaCobrado;
@@ -5745,10 +5812,13 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
   renderCobCard(brandId);
   renderCobTabla();
   syncCobrosToFin();
-  await upsert();
+  // 🚨 Guardado INMEDIATO (sin debounce) para cobros — son críticos
+  console.log('[cobros] forzando upsert inmediato para', pago.nombre);
+  const result = await upsert(true);
+  console.log('[cobros] upsert resultado:', result);
   checkAutoArchive(brandId);
   if((appData.clientNotes||[]).some(n=>n.brandId===brandId&&n.type==='archive-request'&&!n.done)){
-    await upsert();
+    await upsert(true);
   }
 }
 
@@ -6139,7 +6209,9 @@ async function toggleCobPagoTabla(brandId, pagoId){ markLocalChange("cobros","fi
   renderCobros();
   renderCobTabla();
   syncCobrosToFin();
-  await upsert();
+  console.log('[cobros tabla] forzando upsert inmediato para', pago.nombre);
+  const result = await upsert(true);
+  console.log('[cobros tabla] upsert resultado:', result);
 }
 
 async function saveCobTablaField(brandId, pagoId, field, val){ markLocalChange("cobros");
