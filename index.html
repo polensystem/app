@@ -379,9 +379,40 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .act-days-number-input{width:36px;background:none;border:none;outline:none;font-size:0.7rem;font-weight:700;color:var(--aire);font-family:var(--font);text-align:center;}
 /* ── PORTAL MODE ── */
 body.portal-mode .sidebar,
-body.portal-mode .header,
-body.portal-mode #loading-screen{ display:none!important; }
-body.portal-mode .main{ height:100vh; }
+body.portal-mode .header{ display:none!important; }
+/* IMPORTANTE: ocultar el main del sistema hasta que el portal se monte,
+   para que el cliente NO vea el dashboard interno parpadeando. */
+body.portal-mode .main{ display:none!important; }
+body.portal-mode.portal-ready .main{ display:flex!important; height:100vh; }
+
+/* Loader del portal — diseño minimal sin exponer marca interna */
+body.portal-mode #loading-screen{
+  background: #ffffff;
+  color: #1a1a1a;
+}
+body.portal-mode .loading-logo-wrap{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: #f5f5f7;
+  margin-bottom: 0.4rem;
+}
+body.portal-mode .loading-logo-wrap img{
+  width: 44px; height: 44px; object-fit: contain; border-radius: 10px;
+}
+body.portal-mode .loading-logo-fallback{
+  font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; color: #1a1a1a;
+}
+body.portal-mode .loading-logo{ display: none; }
+body.portal-mode .loading-spinner{
+  border-color: rgba(0,0,0,0.08);
+  border-top-color: rgba(0,0,0,0.5);
+}
+body.portal-mode .loading-sub{ color: #888; }
+body.portal-mode #loading-skip-btn{ display:none!important; }
 
 /* ── PORTAL VIEW ── */
 #portal-view{ display:none; flex-direction:column; min-height:100vh; background:var(--bg); font-family:var(--font); }
@@ -1287,6 +1318,9 @@ body.portal-mode .main{ height:100vh; }
 </div>
 
 <div id="loading-screen">
+  <div class="loading-logo-wrap" id="portal-loading-logo" style="display:none">
+    <span class="loading-logo-fallback" id="portal-loading-logo-fallback">✦</span>
+  </div>
   <div class="loading-logo">Polen ✦</div>
   <div class="loading-spinner" id="loading-spinner"></div>
   <div class="loading-sub" style="text-align:center;line-height:1.7;max-width:280px">Conectando con Supabase…</div>
@@ -3819,6 +3853,222 @@ window.BrandBpDB = (function(){
   return { loadAll, saveItem, saveItemsBatch, deleteItem, deleteCategory, migrateFromJson, subscribeRealtime, rowToItem, itemToRow };
 })();
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   🔒 MÓDULO TEMPLATE-BP-DB — Template de Branding Points (global, no por marca)
+   ══════════════════════════════════════════════════════════════════════════════
+   Similar a BrandBpDB pero para el template compartido. Una fila por item.
+   Clave primaria: (category_id, item_id). No hay brand_id porque es global.
+
+   Estructura en memoria (sin cambios): appData.template.brandingPoints.categories[].items[]
+   Estructura en DB: una fila por item.
+
+   API:
+     await TemplateBpDB.loadAll()            — carga template completo desde tabla
+     await TemplateBpDB.saveItem(cat, item, catOrden, itemOrden)
+     await TemplateBpDB.deleteItem(categoryId, itemId)
+     await TemplateBpDB.deleteCategory(categoryId)
+     await TemplateBpDB.migrateFromJson()    — migra JSON viejo a la tabla
+     TemplateBpDB.subscribeRealtime(onChange)
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.TemplateBpDB = (function(){
+  const TABLE = 'polen_template_bp';
+
+  // Protección anti-eco
+  const _recentOps = new Map();
+  function opKey(categoryId, itemId){ return `${categoryId}:${itemId}`; }
+  function markOwnOp(categoryId, itemId){
+    _recentOps.set(opKey(categoryId, itemId), Date.now());
+    setTimeout(()=>_recentOps.delete(opKey(categoryId, itemId)), 2500);
+  }
+  function isOwnEcho(categoryId, itemId){
+    const ts = _recentOps.get(opKey(categoryId, itemId));
+    return ts && (Date.now() - ts) < 2500;
+  }
+
+  function rowToItem(row){
+    const extra = (row.extra && typeof row.extra === 'object') ? row.extra : {};
+    return {
+      id: row.item_id,
+      name: row.item_name || '',
+      pts: (row.pts === null || row.pts === undefined) ? null : Number(row.pts),
+      qty: Number(row.qty) || 1,
+      selected: !!row.selected,
+      notes: row.notes || '',
+      notesOpen: !!extra.notesOpen,
+      ...(extra.custom || {}),
+    };
+  }
+
+  function itemToRow(category, item, catOrden, itemOrden){
+    const extra = {
+      notesOpen: !!item.notesOpen,
+    };
+    return {
+      category_id: category.id,
+      item_id: item.id,
+      category_name: category.name || '',
+      item_name: item.name || '',
+      pts: item.pts === null || item.pts === undefined ? null : Number(item.pts),
+      qty: Number(item.qty) || 1,
+      selected: !!item.selected,
+      notes: item.notes || '',
+      orden_cat: Number(catOrden) || 0,
+      orden_item: Number(itemOrden) || 0,
+      category_open: category.open === false ? false : true,
+      extra: extra,
+    };
+  }
+
+  async function loadAll(){
+    try {
+      const { data, error } = await sb.from(TABLE).select('*').order('orden_cat').order('orden_item');
+      if(error){ console.error('[TemplateBpDB] loadAll error:', error); return null; }
+      if(!data?.length) return { categories: [] };
+      const catMap = {};
+      data.forEach(row=>{
+        const cid = row.category_id;
+        if(!catMap[cid]){
+          catMap[cid] = {
+            id: cid,
+            name: row.category_name || '',
+            open: row.category_open !== false,
+            _orden: row.orden_cat || 0,
+            items: [],
+          };
+        }
+        catMap[cid].items.push({
+          ...rowToItem(row),
+          _orden: row.orden_item || 0,
+        });
+      });
+      const categories = Object.values(catMap).sort((a,b)=>(a._orden||0)-(b._orden||0));
+      categories.forEach(c=>{ delete c._orden; c.items.sort((a,b)=>(a._orden||0)-(b._orden||0)); c.items.forEach(i=>delete i._orden); });
+      console.log('[TemplateBpDB] Cargado template con', categories.length, 'categorías');
+      return { categories };
+    } catch(e){ console.error('[TemplateBpDB] loadAll crashed:', e); return null; }
+  }
+
+  async function saveItem(category, item, catOrden, itemOrden){
+    if(!category?.id || !item?.id) return false;
+    try {
+      markOwnOp(category.id, item.id);
+      const row = itemToRow(category, item, catOrden, itemOrden);
+      const { error } = await sb.from(TABLE).upsert(row, { onConflict: 'category_id,item_id' });
+      if(error){ console.error('[TemplateBpDB] saveItem error:', error, row); return false; }
+      console.log('[TemplateBpDB] ✓ Item guardado:', item.name);
+      return true;
+    } catch(e){ console.error('[TemplateBpDB] saveItem crashed:', e); return false; }
+  }
+
+  async function saveItemsBatch(rows){
+    if(!rows?.length) return true;
+    try {
+      for(let i=0; i<rows.length; i+=100){
+        const chunk = rows.slice(i, i+100);
+        chunk.forEach(r=>markOwnOp(r.category_id, r.item_id));
+        const { error } = await sb.from(TABLE).upsert(chunk, { onConflict: 'category_id,item_id' });
+        if(error){ console.error('[TemplateBpDB] saveItemsBatch error (chunk '+i+'):', error); return false; }
+      }
+      return true;
+    } catch(e){ console.error('[TemplateBpDB] saveItemsBatch crashed:', e); return false; }
+  }
+
+  async function deleteItem(categoryId, itemId){
+    if(!categoryId || !itemId) return false;
+    try {
+      markOwnOp(categoryId, itemId);
+      const { error } = await sb.from(TABLE).delete().eq('category_id', categoryId).eq('item_id', itemId);
+      if(error){ console.error('[TemplateBpDB] deleteItem error:', error); return false; }
+      return true;
+    } catch(e){ console.error('[TemplateBpDB] deleteItem crashed:', e); return false; }
+  }
+
+  async function deleteCategory(categoryId){
+    if(!categoryId) return false;
+    try {
+      const { error } = await sb.from(TABLE).delete().eq('category_id', categoryId);
+      if(error){ console.error('[TemplateBpDB] deleteCategory error:', error); return false; }
+      return true;
+    } catch(e){ console.error('[TemplateBpDB] deleteCategory crashed:', e); return false; }
+  }
+
+  async function migrateFromJson(){
+    try {
+      const { count, error: countErr } = await sb.from(TABLE).select('*', { count:'exact', head:true });
+      if(countErr){ console.error('[TemplateBpDB] migration count error:', countErr); return false; }
+      if((count||0) > 0){
+        console.log('[TemplateBpDB] Tabla ya tiene', count, 'filas — no migramos');
+        return true;
+      }
+      const rows = [];
+      const tpl = appData?.template?.brandingPoints;
+      if(tpl?.categories?.length){
+        tpl.categories.forEach((cat, ci)=>{
+          (cat.items||[]).forEach((item, ii)=>{
+            if(!cat.id || !item.id) return;
+            rows.push(itemToRow(cat, item, ci, ii));
+          });
+        });
+      }
+      if(!rows.length){
+        console.log('[TemplateBpDB] No hay items de template para migrar');
+        return true;
+      }
+      console.log('[TemplateBpDB] Migrando', rows.length, 'items');
+      const ok = await saveItemsBatch(rows);
+      if(ok) console.log('[TemplateBpDB] ✅ Migración completa');
+      return ok;
+    } catch(e){ console.error('[TemplateBpDB] migrateFromJson crashed:', e); return false; }
+  }
+
+  function subscribeRealtime(onChange){
+    sb.channel('polen_template_bp_rt')
+      .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
+        try {
+          const { eventType, new:newRow, old:oldRow } = payload;
+          const cid = newRow?.category_id || oldRow?.category_id;
+          const iid = newRow?.item_id || oldRow?.item_id;
+          if(cid && iid && isOwnEcho(cid, iid)) return;
+
+          if(!appData.template) return;
+          if(!appData.template.brandingPoints) appData.template.brandingPoints = { total:0, categories:[] };
+          if(!Array.isArray(appData.template.brandingPoints.categories)) appData.template.brandingPoints.categories = [];
+          const cats = appData.template.brandingPoints.categories;
+
+          if(eventType === 'DELETE'){
+            const cat = cats.find(c=>c.id === cid);
+            if(cat){
+              cat.items = (cat.items||[]).filter(i=>i.id !== iid);
+            }
+          } else if(newRow){
+            let cat = cats.find(c=>c.id === newRow.category_id);
+            if(!cat){
+              cat = {
+                id: newRow.category_id,
+                name: newRow.category_name || '',
+                open: newRow.category_open !== false,
+                items: [],
+              };
+              cats.push(cat);
+            } else {
+              cat.name = newRow.category_name || cat.name;
+            }
+            if(!Array.isArray(cat.items)) cat.items = [];
+            const idx = cat.items.findIndex(i=>i.id === newRow.item_id);
+            const nuevo = rowToItem(newRow);
+            if(idx >= 0) cat.items[idx] = { ...cat.items[idx], ...nuevo };
+            else cat.items.push(nuevo);
+          }
+          if(onChange) onChange(payload);
+        } catch(e){ console.error('[TemplateBpDB] realtime error:', e); }
+      })
+      .subscribe();
+    console.log('[TemplateBpDB] ✓ Realtime suscrito a', TABLE);
+  }
+
+  return { loadAll, saveItem, saveItemsBatch, deleteItem, deleteCategory, migrateFromJson, subscribeRealtime, rowToItem, itemToRow };
+})();
+
 async function loadData(){
   // Show loading message on screen
   const lsub = document.querySelector('.loading-sub');
@@ -3959,6 +4209,38 @@ async function loadData(){
         }
       } catch(bpErr) {
         console.error('[Polen] Error cargando BP de tabla nueva:', bpErr);
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // 🔒 CARGAR TEMPLATE BP DESDE TABLA NUEVA (polen_template_bp)
+      // El template es global (no por marca). Una fila por item.
+      // ══════════════════════════════════════════════════════════════════════
+      try {
+        if(lsub) lsub.textContent = 'Cargando template…';
+
+        if(!appData._templateBpMigratedToTable){
+          console.log('[Polen] Primera vez — migrando template BP a tabla nueva');
+          await TemplateBpDB.migrateFromJson();
+          appData._templateBpMigratedToTable = true;
+        }
+
+        const tplFromTable = await TemplateBpDB.loadAll();
+        if(tplFromTable && Array.isArray(tplFromTable.categories)){
+          // Preservar .total (escalar) y otros campos del template, reemplazar categories
+          if(!appData.template) appData.template = defaultTemplate();
+          if(!appData.template.brandingPoints) appData.template.brandingPoints = { total: 0, categories: [] };
+          const totalViejo = appData.template.brandingPoints.total || 0;
+          // Solo reemplazar si la tabla devolvió algo no vacío (protección contra primer load)
+          if(tplFromTable.categories.length > 0){
+            appData.template.brandingPoints.categories = tplFromTable.categories;
+            appData.template.brandingPoints.total = totalViejo;
+            console.log('[Polen] ✓ Template BP cargado de tabla nueva');
+          } else {
+            console.log('[Polen] Tabla de template vacía, usando JSON viejo');
+          }
+        }
+      } catch(tplErr) {
+        console.error('[Polen] Error cargando template BP:', tplErr);
       }
 
       // 🛡️ RECUPERACIÓN DE CAMBIOS LOCALES RECIENTES
@@ -4299,8 +4581,21 @@ function deepMergeAppData(server, local){
     merged[k] = _localChangedKeys.has(k) ? local[k] : (server[k] ?? local[k]);
   });
 
-  // template: local ALWAYS wins — same as cobros (realtime must never overwrite local edits)
+  // template: local ALWAYS wins para la estructura general
+  // Además: como brandingPoints.categories vive ahora en polen_template_bp,
+  // si local tiene categories debemos preservarlas aunque el server traiga un template
+  // con brandingPoints.categories vacío/inexistente (que es lo esperado después del strip).
   merged.template = local.template ?? server.template;
+  if(merged.template && local.template?.brandingPoints?.categories?.length){
+    merged.template = {
+      ...merged.template,
+      brandingPoints: {
+        ...(merged.template.brandingPoints || {}),
+        total: merged.template.brandingPoints?.total ?? local.template.brandingPoints.total ?? 0,
+        categories: local.template.brandingPoints.categories, // siempre ganan las locales (de la tabla)
+      },
+    };
+  }
 
   // ── cobros META: la estructura de pagos vive en tabla polen_cobros.
   // En el JSON solo sobreviven useTotal, valorTotal, expanded (UI/config).
@@ -4622,6 +4917,19 @@ async function _doUpsert(){
           }
           return b;
         });
+      }
+
+      // 🔒 REFACTOR: Template BP también vive en polen_template_bp.
+      // Preservamos total y otros campos escalares, pero NO categories/items.
+      if(toWriteSafe.template && toWriteSafe.template.brandingPoints){
+        const tplBp = toWriteSafe.template.brandingPoints;
+        toWriteSafe.template = {
+          ...toWriteSafe.template,
+          brandingPoints: {
+            total: tplBp.total || 0,
+            // NO guardamos categories aquí — viven en polen_template_bp
+          },
+        };
       }
 
       console.log('[Polen] Payload después de strip:', Math.round(JSON.stringify(toWriteSafe).length/1024) + 'KB');
@@ -10581,19 +10889,27 @@ async function tplAddAct(stage){const name=await askModal({label:'Nueva activida
 
 function tplRenameCat(ci, val){
   if(!val.trim()) return;
-  appData.template.brandingPoints.categories[ci].name = val.trim();
-  markLocalChange('template');
-  scheduleTplSave();
+  const cat = appData.template.brandingPoints.categories[ci];
+  if(!cat) return;
+  cat.name = val.trim();
+  // 🔒 Resync todos los items de esta categoría (el nombre de categoría vive replicado en cada fila)
+  if(Array.isArray(cat.items) && cat.items.length){
+    cat.items.forEach((item, ii)=>{ TemplateBpDB.saveItem(cat, item, ci, ii); });
+  }
 }
 function tplRenameItem(ci, ii, val){
-  appData.template.brandingPoints.categories[ci].items[ii].name = val.trim()||'Sin nombre';
-  markLocalChange('template');
-  scheduleTplSave();
+  const cat = appData.template.brandingPoints.categories[ci];
+  const item = cat?.items?.[ii];
+  if(!item) return;
+  item.name = val.trim()||'Sin nombre';
+  TemplateBpDB.saveItem(cat, item, ci, ii);
 }
 function tplUpdateItemNotes(ci, ii, val){
-  appData.template.brandingPoints.categories[ci].items[ii].notes = val;
-  markLocalChange('template');
-  scheduleTplSave();
+  const cat = appData.template.brandingPoints.categories[ci];
+  const item = cat?.items?.[ii];
+  if(!item) return;
+  item.notes = val;
+  TemplateBpDB.saveItem(cat, item, ci, ii);
 }
 function tplToggleItemNotes(ci, ii){
   const item = appData.template.brandingPoints.categories[ci].items[ii];
@@ -10602,6 +10918,8 @@ function tplToggleItemNotes(ci, ii){
 }
 
 let _tplSaveTimer = null;
+// scheduleTplSave queda solo para el scalar `total` y otros campos del template que aún viven en el JSON.
+// Los items/categorías de BP ya NO usan esto — se guardan directamente en polen_template_bp.
 function scheduleTplSave(){
   clearTimeout(_tplSaveTimer);
   _tplSaveTimer = setTimeout(async ()=>{
@@ -10673,11 +10991,47 @@ function renderTplBpCats(){
     </div>`).join('');
 }
 
-function tplToggleBpCat(ci){const cat=appData.template.brandingPoints.categories[ci];cat.open=cat.open===false?true:false;renderTplBpCats();}
-function tplToggleBpItem(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].selected=val;renderTplBpCats();markLocalChange('template');scheduleTplSave();}
-function tplUpdateBpPts(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].pts=parseInt(val)||0;renderTplBpCats();markLocalChange('template');scheduleTplSave();}
-function tplUpdateBpQty(ci,ii,val){appData.template.brandingPoints.categories[ci].items[ii].qty=parseInt(val)||1;renderTplBpCats();markLocalChange('template');scheduleTplSave();}
-function tplDeleteBpItem(ci,ii){appData.template.brandingPoints.categories[ci].items.splice(ii,1);renderTplBpCats();markLocalChange('template');scheduleTplSave();}
+function tplToggleBpCat(ci){
+  const cat=appData.template.brandingPoints.categories[ci];
+  cat.open=cat.open===false?true:false;
+  renderTplBpCats();
+  // Persistir el estado open en el primer item (se replica en cada fila via category_open)
+  if(cat.items?.[0]){ TemplateBpDB.saveItem(cat, cat.items[0], ci, 0); }
+}
+function tplToggleBpItem(ci,ii,val){
+  const cat=appData.template.brandingPoints.categories[ci];
+  const item=cat?.items?.[ii];
+  if(!item) return;
+  item.selected=val;
+  renderTplBpCats();
+  TemplateBpDB.saveItem(cat, item, ci, ii);
+}
+function tplUpdateBpPts(ci,ii,val){
+  const cat=appData.template.brandingPoints.categories[ci];
+  const item=cat?.items?.[ii];
+  if(!item) return;
+  item.pts=parseInt(val)||0;
+  renderTplBpCats();
+  TemplateBpDB.saveItem(cat, item, ci, ii);
+}
+function tplUpdateBpQty(ci,ii,val){
+  const cat=appData.template.brandingPoints.categories[ci];
+  const item=cat?.items?.[ii];
+  if(!item) return;
+  item.qty=parseInt(val)||1;
+  renderTplBpCats();
+  TemplateBpDB.saveItem(cat, item, ci, ii);
+}
+function tplDeleteBpItem(ci,ii){
+  const cat=appData.template.brandingPoints.categories[ci];
+  const item=cat?.items?.[ii];
+  if(!item) return;
+  const itemId=item.id;
+  const catId=cat.id;
+  cat.items.splice(ii,1);
+  renderTplBpCats();
+  TemplateBpDB.deleteItem(catId, itemId);
+}
 
 // ── BP Expand/Collapse All ──
 function toggleAllBrandBpCats(){
@@ -10760,9 +11114,15 @@ function bpCatDrop(event, targetCi, ctx){
     const cats = appData.template.brandingPoints.categories;
     const [moved] = cats.splice(_bpDragCi, 1);
     cats.splice(targetCi, 0, moved);
-    markLocalChange('template');
-    scheduleTplSave();
     renderTplBpCats();
+    // 🔒 Resync: el orden de categorías cambió, re-guardar todos los items para que orden_cat se actualice
+    const rows = [];
+    cats.forEach((cat, ci)=>{
+      (cat.items||[]).forEach((item, ii)=>{
+        rows.push(TemplateBpDB.itemToRow(cat, item, ci, ii));
+      });
+    });
+    if(rows.length) TemplateBpDB.saveItemsBatch(rows);
   } else if(ctx.startsWith('brand:')){
     const brandId = ctx.slice(6);
     const brand = (appData.brands||[]).find(b=>b.id===brandId);
@@ -10770,9 +11130,15 @@ function bpCatDrop(event, targetCi, ctx){
     const cats = brand.brandingPoints.categories;
     const [moved] = cats.splice(_bpDragCi, 1);
     cats.splice(targetCi, 0, moved);
-    markLocalChange('brands');
-    upsert();
     renderBrandBp(brand);
+    // 🔒 Resync orden en tabla brand_bp
+    const rows = [];
+    cats.forEach((cat, ci)=>{
+      (cat.items||[]).forEach((item, ii)=>{
+        rows.push(BrandBpDB.itemToRow(brandId, cat, item, ci, ii));
+      });
+    });
+    if(rows.length) BrandBpDB.saveItemsBatch(rows);
   }
   _bpDragCi = null;
   _bpDragCtx = null;
@@ -10784,32 +11150,43 @@ function bpCatDragEnd(event){
   _bpDragCi = null;
   _bpDragCtx = null;
 }
-async function tplAddBpItem(ci){const name=await askModal({label:'Nombre del entregable',placeholder:'Ej: Manual de marca'});if(!name||!name.trim())return;const ptsStr=await askModal({label:`Branding points para "${name}"`,type:'number',defaultValue:'1'});const pts=parseInt(ptsStr)||1;appData.template.brandingPoints.categories[ci].items.push({id:uid(),name:name.trim(),pts,qty:1,selected:false});renderTplBpCats();markLocalChange('template');scheduleTplSave();}
+async function tplAddBpItem(ci){
+  const cat = appData.template.brandingPoints.categories[ci];
+  if(!cat) return;
+  const name=await askModal({label:'Nombre del entregable',placeholder:'Ej: Manual de marca'});
+  if(!name||!name.trim())return;
+  const ptsStr=await askModal({label:`Branding points para "${name}"`,type:'number',defaultValue:'1'});
+  const pts=parseInt(ptsStr)||1;
+  const newItem = {id:uid(),name:name.trim(),pts,qty:1,selected:false};
+  cat.items.push(newItem);
+  renderTplBpCats();
+  await TemplateBpDB.saveItem(cat, newItem, ci, cat.items.length - 1);
+}
 
 async function tplAddBpCat(){
   const name = await askModal({label:'Nombre de la nueva categoría', placeholder:'Ej: Fotografía'});
   if(!name||!name.trim()) return;
-  appData.template.brandingPoints.categories.push({id:uid(), name:name.trim(), open:true, items:[]});
+  const newCat = {id:uid(), name:name.trim(), open:true, items:[]};
+  appData.template.brandingPoints.categories.push(newCat);
   renderTplBpCats();
-  markLocalChange('template');
-  await upsert();
-  showStatus('Categoría creada ✓');
+  showStatus('Categoría creada ✓ — agrega al menos un entregable para que se sincronice');
 }
 
-function tplDeleteBpCat(ci){
-  if(appData.template.brandingPoints.categories[ci].items.length > 0){
-    confirmModal(`¿Eliminar la categoría "${appData.template.brandingPoints.categories[ci].name}" y todos sus entregables?`, 'Eliminar', 'background:#ef4444;color:#fff;border:none').then(ok=>{
-      if(!ok) return;
-      appData.template.brandingPoints.categories.splice(ci,1);
-      renderTplBpCats();
-      markLocalChange('template');
-      upsert();
-    });
-  } else {
+async function tplDeleteBpCat(ci){
+  const cat = appData.template.brandingPoints.categories[ci];
+  if(!cat) return;
+  const doDelete = async ()=>{
+    // 🔒 Borrar todos los items de esta categoría en la tabla
+    await TemplateBpDB.deleteCategory(cat.id);
     appData.template.brandingPoints.categories.splice(ci,1);
     renderTplBpCats();
-    markLocalChange('template');
-    upsert();
+  };
+  if(cat.items.length > 0){
+    const ok = await confirmModal(`¿Eliminar la categoría "${cat.name}" y todos sus entregables?`, 'Eliminar', 'background:#ef4444;color:#fff;border:none');
+    if(!ok) return;
+    await doDelete();
+  } else {
+    await doDelete();
   }
 }
 
@@ -13890,19 +14267,24 @@ async function boot(){
     document.body.classList.add('portal-mode');
     setTheme(localStorage.getItem('polen-theme')||'light');
     const ls = document.getElementById('loading-screen');
+
+    // 🎨 Loader apropiado para el cliente (no mencionar Supabase ni nada interno)
+    const loadingSub = ls?.querySelector('.loading-sub');
+    if(loadingSub) loadingSub.textContent = 'Cargando…';
+    // Mostrar el slot de logo con placeholder mientras cargan los datos
+    const logoWrap = document.getElementById('portal-loading-logo');
+    if(logoWrap) logoWrap.style.display = 'flex';
+
     await Promise.race([loadData(), new Promise(res=>setTimeout(res,10000))]);
-    ls.classList.add('hide'); setTimeout(()=>{ ls.style.display='none'; },600);
+
     // Resolver slug → brandId real
     const allBrands = appData.brands||[];
     let resolvedId = portalParam;
-    // Si no es un ID raw, buscar por slug
     const bySlug = allBrands.find(b=>b.portalSlug===portalParam);
     if(bySlug) resolvedId = bySlug.id;
     else {
-      // Compatibilidad: buscar por id directo
       const byId = allBrands.find(b=>b.id===portalParam);
       if(!byId){
-        // Último recurso: buscar por slug generado dinámicamente
         const byDynSlug = allBrands.find(b=>{
           _ensurePortalSlug(b);
           return b.portalSlug===portalParam;
@@ -13910,8 +14292,36 @@ async function boot(){
         if(byDynSlug) resolvedId = byDynSlug.id;
       }
     }
+
+    // 🎨 Reemplazar el placeholder con el logo/inicial real de la marca
+    try {
+      const brand = allBrands.find(b=>b.id===resolvedId);
+      if(brand && logoWrap){
+        if(brand.image && typeof brand.image === 'string'){
+          // Tiene imagen de marca
+          logoWrap.innerHTML = '<img src="'+brand.image+'" alt="'+(brand.name||'')+'">';
+        } else {
+          // Sin imagen → usar inicial con color de la marca
+          const initial = (brand.name||'?').charAt(0).toUpperCase();
+          const bg = brand.color || '#5d8ce8';
+          logoWrap.innerHTML = '<span class="loading-logo-fallback" style="color:'+bg+'">'+initial+'</span>';
+        }
+      }
+    } catch(e){}
+
+    // Renderizar el portal PRIMERO (aún oculto), luego revelarlo con una transición
     renderPortal(resolvedId);
     subscribeRealtime(()=>renderPortal(resolvedId));
+
+    // Pequeña pausa para que el DOM del portal esté listo
+    await new Promise(res=>setTimeout(res, 150));
+
+    // Revelar el portal y ocultar el loader
+    document.body.classList.add('portal-ready');
+    if(ls){
+      ls.classList.add('hide');
+      setTimeout(()=>{ ls.style.display='none'; }, 600);
+    }
     return;
   }
 
@@ -13981,6 +14391,11 @@ async function boot(){
         if(brand) renderBrandBp(brand);
       }
     } catch(e){}
+  });
+
+  // 🔒 Suscripción realtime a la tabla de Template BP
+  TemplateBpDB.subscribeRealtime(()=>{
+    try { if(currentPage==='template') renderTplBpCats(); } catch(e){}
   });
 
   // ═══════════════════════════════════════════════════════════════════════════════
