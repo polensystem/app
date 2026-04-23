@@ -4069,6 +4069,197 @@ window.TemplateBpDB = (function(){
   return { loadAll, saveItem, saveItemsBatch, deleteItem, deleteCategory, migrateFromJson, subscribeRealtime, rowToItem, itemToRow };
 })();
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   🔒 MÓDULO PORTAL-APPROVALS-DB — Respuestas del cliente en el portal
+   ══════════════════════════════════════════════════════════════════════════════
+   Una fila por respuesta del cliente.
+   Clave primaria: (brand_id, stage, field_key).
+   field_key puede ser: 'q1' (respuesta), 'q1_note' (nota), '_signed' (firma de etapa).
+
+   Estructura en memoria (sin cambios): brand.portalApprovals[stage][field_key]
+   Estructura en DB: fila con (brand_id, stage, field_key, field_val, extra).
+
+   Para _signed: field_val guarda el nombre del firmante, extra guarda {at, status}.
+
+   API:
+     await PortalApprovalsDB.loadAll()           — carga todas las respuestas agrupadas por marca
+     await PortalApprovalsDB.saveField(brandId, stage, fieldKey, fieldVal, extra)
+     await PortalApprovalsDB.deleteField(brandId, stage, fieldKey)
+     await PortalApprovalsDB.migrateFromJson()
+     PortalApprovalsDB.subscribeRealtime(onChange)
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.PortalApprovalsDB = (function(){
+  const TABLE = 'polen_portal_approvals';
+
+  const _recentOps = new Map();
+  function opKey(brandId, stage, fieldKey){ return `${brandId}:${stage}:${fieldKey}`; }
+  function markOwnOp(brandId, stage, fieldKey){
+    _recentOps.set(opKey(brandId, stage, fieldKey), Date.now());
+    setTimeout(()=>_recentOps.delete(opKey(brandId, stage, fieldKey)), 2500);
+  }
+  function isOwnEcho(brandId, stage, fieldKey){
+    const ts = _recentOps.get(opKey(brandId, stage, fieldKey));
+    return ts && (Date.now() - ts) < 2500;
+  }
+
+  // Convertir valor de memoria → formato DB
+  // Los valores pueden ser: string, boolean, object (para _signed), o undefined
+  function valueToRow(brandId, stage, fieldKey, fieldVal){
+    let field_val = null;
+    let extra = null;
+    if(fieldKey === '_signed' && fieldVal && typeof fieldVal === 'object'){
+      // Objeto firma: { by, at, status }
+      field_val = fieldVal.by || '';
+      extra = { at: fieldVal.at, status: fieldVal.status };
+    } else if(typeof fieldVal === 'object' && fieldVal !== null){
+      // Cualquier otro objeto — serializar en extra
+      extra = { obj: fieldVal };
+      field_val = null;
+    } else if(fieldVal === true || fieldVal === false){
+      field_val = String(fieldVal);
+      extra = { bool: true };
+    } else {
+      field_val = (fieldVal === null || fieldVal === undefined) ? '' : String(fieldVal);
+    }
+    return {
+      brand_id: brandId,
+      stage: stage,
+      field_key: fieldKey,
+      field_val: field_val,
+      extra: extra,
+    };
+  }
+
+  // Convertir fila DB → valor de memoria
+  function rowToValue(row){
+    const extra = (row.extra && typeof row.extra === 'object') ? row.extra : null;
+    if(row.field_key === '_signed'){
+      return {
+        by: row.field_val || '',
+        at: extra?.at || null,
+        status: extra?.status || null,
+      };
+    }
+    if(extra?.obj) return extra.obj;
+    if(extra?.bool) return row.field_val === 'true';
+    return row.field_val || '';
+  }
+
+  async function loadAll(){
+    try {
+      const { data, error } = await sb.from(TABLE).select('*');
+      if(error){ console.error('[PortalApprovalsDB] loadAll error:', error); return null; }
+      const byBrand = {};
+      (data||[]).forEach(row=>{
+        const bid = row.brand_id;
+        if(!byBrand[bid]) byBrand[bid] = {};
+        if(!byBrand[bid][row.stage]) byBrand[bid][row.stage] = {};
+        byBrand[bid][row.stage][row.field_key] = rowToValue(row);
+      });
+      console.log('[PortalApprovalsDB] Cargadas respuestas de', Object.keys(byBrand).length, 'marcas');
+      return byBrand;
+    } catch(e){ console.error('[PortalApprovalsDB] loadAll crashed:', e); return null; }
+  }
+
+  async function saveField(brandId, stage, fieldKey, fieldVal){
+    if(!brandId || !stage || !fieldKey) return false;
+    try {
+      markOwnOp(brandId, stage, fieldKey);
+      const row = valueToRow(brandId, stage, fieldKey, fieldVal);
+      const { error } = await sb.from(TABLE).upsert(row, { onConflict: 'brand_id,stage,field_key' });
+      if(error){ console.error('[PortalApprovalsDB] saveField error:', error, row); return false; }
+      console.log('[PortalApprovalsDB] ✓ Guardado:', stage, '→', fieldKey);
+      return true;
+    } catch(e){ console.error('[PortalApprovalsDB] saveField crashed:', e); return false; }
+  }
+
+  async function saveFieldsBatch(rows){
+    if(!rows?.length) return true;
+    try {
+      for(let i=0; i<rows.length; i+=100){
+        const chunk = rows.slice(i, i+100);
+        chunk.forEach(r=>markOwnOp(r.brand_id, r.stage, r.field_key));
+        const { error } = await sb.from(TABLE).upsert(chunk, { onConflict: 'brand_id,stage,field_key' });
+        if(error){ console.error('[PortalApprovalsDB] saveFieldsBatch error:', error); return false; }
+      }
+      return true;
+    } catch(e){ console.error('[PortalApprovalsDB] saveFieldsBatch crashed:', e); return false; }
+  }
+
+  async function deleteField(brandId, stage, fieldKey){
+    if(!brandId || !stage || !fieldKey) return false;
+    try {
+      markOwnOp(brandId, stage, fieldKey);
+      const { error } = await sb.from(TABLE).delete()
+        .eq('brand_id', brandId).eq('stage', stage).eq('field_key', fieldKey);
+      if(error){ console.error('[PortalApprovalsDB] deleteField error:', error); return false; }
+      return true;
+    } catch(e){ console.error('[PortalApprovalsDB] deleteField crashed:', e); return false; }
+  }
+
+  async function migrateFromJson(){
+    try {
+      const { count, error: countErr } = await sb.from(TABLE).select('*', { count:'exact', head:true });
+      if(countErr){ console.error('[PortalApprovalsDB] migration count error:', countErr); return false; }
+      if((count||0) > 0){
+        console.log('[PortalApprovalsDB] Tabla ya tiene', count, 'filas — no migramos');
+        return true;
+      }
+      const rows = [];
+      (appData?.brands||[]).forEach(brand=>{
+        const pa = brand.portalApprovals;
+        if(!pa || typeof pa !== 'object') return;
+        Object.keys(pa).forEach(stage=>{
+          const stageData = pa[stage];
+          if(!stageData || typeof stageData !== 'object') return;
+          Object.keys(stageData).forEach(fieldKey=>{
+            rows.push(valueToRow(brand.id, stage, fieldKey, stageData[fieldKey]));
+          });
+        });
+      });
+      if(!rows.length){
+        console.log('[PortalApprovalsDB] No hay respuestas para migrar');
+        return true;
+      }
+      console.log('[PortalApprovalsDB] Migrando', rows.length, 'respuestas');
+      const ok = await saveFieldsBatch(rows);
+      if(ok) console.log('[PortalApprovalsDB] ✅ Migración completa');
+      return ok;
+    } catch(e){ console.error('[PortalApprovalsDB] migrateFromJson crashed:', e); return false; }
+  }
+
+  function subscribeRealtime(onChange){
+    sb.channel('polen_portal_approvals_rt')
+      .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
+        try {
+          const { eventType, new:newRow, old:oldRow } = payload;
+          const bid = newRow?.brand_id || oldRow?.brand_id;
+          const stage = newRow?.stage || oldRow?.stage;
+          const fieldKey = newRow?.field_key || oldRow?.field_key;
+          if(bid && stage && fieldKey && isOwnEcho(bid, stage, fieldKey)) return;
+
+          const brand = (appData.brands||[]).find(b=>b.id === bid);
+          if(!brand) return;
+          if(!brand.portalApprovals) brand.portalApprovals = {};
+
+          if(eventType === 'DELETE'){
+            if(brand.portalApprovals[stage]){
+              delete brand.portalApprovals[stage][fieldKey];
+            }
+          } else if(newRow){
+            if(!brand.portalApprovals[newRow.stage]) brand.portalApprovals[newRow.stage] = {};
+            brand.portalApprovals[newRow.stage][newRow.field_key] = rowToValue(newRow);
+          }
+          if(onChange) onChange(payload);
+        } catch(e){ console.error('[PortalApprovalsDB] realtime error:', e); }
+      })
+      .subscribe();
+    console.log('[PortalApprovalsDB] ✓ Realtime suscrito a', TABLE);
+  }
+
+  return { loadAll, saveField, saveFieldsBatch, deleteField, migrateFromJson, subscribeRealtime, valueToRow, rowToValue };
+})();
+
 async function loadData(){
   // Show loading message on screen
   const lsub = document.querySelector('.loading-sub');
@@ -4241,6 +4432,35 @@ async function loadData(){
         }
       } catch(tplErr) {
         console.error('[Polen] Error cargando template BP:', tplErr);
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // 🔒 CARGAR PORTAL APPROVALS DESDE TABLA NUEVA (polen_portal_approvals)
+      // Respuestas del cliente en el portal. Una fila por campo.
+      // ══════════════════════════════════════════════════════════════════════
+      try {
+        if(lsub) lsub.textContent = 'Cargando aprobaciones…';
+
+        if(!appData._portalApprovalsMigratedToTable){
+          console.log('[Polen] Primera vez — migrando portal approvals');
+          await PortalApprovalsDB.migrateFromJson();
+          appData._portalApprovalsMigratedToTable = true;
+        }
+
+        const paFromTable = await PortalApprovalsDB.loadAll();
+        if(paFromTable){
+          (appData.brands||[]).forEach(b=>{
+            const nuevo = paFromTable[b.id];
+            if(nuevo){
+              b.portalApprovals = nuevo;
+            } else if(!b.portalApprovals){
+              b.portalApprovals = {};
+            }
+          });
+          console.log('[Polen] ✓ Portal approvals cargadas de tabla nueva');
+        }
+      } catch(paErr) {
+        console.error('[Polen] Error cargando portal approvals:', paErr);
       }
 
       // 🛡️ RECUPERACIÓN DE CAMBIOS LOCALES RECIENTES
@@ -4483,11 +4703,9 @@ function deepMergeAppData(server, local){
         // brandingPoints: merge por-item usando timestamp. Ya no "server siempre gana"
         // porque eso pisaba selecciones del cliente cuando el admin hacía upserts sin cambios en BP.
         const bp = _mergeBrandingPointsSafe(sv.brandingPoints, b.brandingPoints);
-        // portalApprovals: merge por stage. Si yo (admin) modifiqué explícitamente brands,
-        // mi versión gana PARA LOS STAGES que yo modifiqué (ediciones/desbloqueos de firma).
-        // Para stages que no tengo, o tengo menos data, server gana (el cliente llenó desde el portal).
-        const pa = _mergePortalApprovalsSafe(sv.portalApprovals, b.portalApprovals, /*localWins=*/true);
-        return {...b, brandingPoints: bp, portalApprovals: pa};
+        // 🔒 portalApprovals vive en polen_portal_approvals — local (sincronizado con tabla)
+        // siempre gana. El JSON ya no trae portalApprovals desde el server (stripped).
+        return {...b, brandingPoints: bp, portalApprovals: b.portalApprovals || {}};
       });
   } else {
     const brandMap = {};
@@ -4498,9 +4716,8 @@ function deepMergeAppData(server, local){
           // Merge: local wins for most fields, server wins for portal-owned fields
           const sv = brandMap[b.id];
           const bp = _mergeBrandingPointsSafe(sv.brandingPoints, b.brandingPoints);
-          // No cambié brands → server gana en portalApprovals (cliente llenó), pero preservo stages que solo yo tengo
-          const pa = _mergePortalApprovalsSafe(sv.portalApprovals, b.portalApprovals, /*localWins=*/false);
-          brandMap[b.id] = {...sv, ...b, brandingPoints: bp, portalApprovals: pa};
+          // 🔒 portalApprovals vive en polen_portal_approvals — local siempre gana
+          brandMap[b.id] = {...sv, ...b, brandingPoints: bp, portalApprovals: b.portalApprovals || {}};
         } else {
           brandMap[b.id] = {...b};
         }
@@ -4784,12 +5001,8 @@ async function _doUpsert(){
               const mergedBp = _mergeBrandingPointsSafe(sv.brandingPoints, lb.brandingPoints);
               if(mergedBp) lb.brandingPoints = mergedBp;
             }
-            // Fusionar portalApprovals: si yo no toqué brands explícitamente, el server (cliente) gana
-            if(sv.portalApprovals && lb.portalApprovals){
-              lb.portalApprovals = _mergePortalApprovalsSafe(sv.portalApprovals, lb.portalApprovals, /*localWins=*/_localChangedKeys.has('brands'));
-            } else if(sv.portalApprovals && !lb.portalApprovals){
-              lb.portalApprovals = sv.portalApprovals;
-            }
+            // 🔒 portalApprovals vive en polen_portal_approvals — no hacemos merge aquí.
+            // Local (sincronizado con tabla vía realtime) siempre gana.
           });
         }
       } catch(preErr) {
@@ -4930,6 +5143,18 @@ async function _doUpsert(){
             // NO guardamos categories aquí — viven en polen_template_bp
           },
         };
+      }
+
+      // 🔒 REFACTOR: portalApprovals viven en polen_portal_approvals.
+      // Eliminamos portalApprovals del JSON para evitar que pisen los cambios hechos en la tabla.
+      if(Array.isArray(toWriteSafe.brands)){
+        toWriteSafe.brands = toWriteSafe.brands.map(b=>{
+          if(b && b.portalApprovals !== undefined){
+            const { portalApprovals, ...rest } = b;
+            return rest;
+          }
+          return b;
+        });
       }
 
       console.log('[Polen] Payload después de strip:', Math.round(JSON.stringify(toWriteSafe).length/1024) + 'KB');
@@ -8499,11 +8724,12 @@ async function adminEditSignature(brandId, stage){
     const newDtStr = modal.querySelector('#adm-sig-dt').value;
     if(!newName){ showStatus('El nombre del firmante es requerido', true); return; }
     const newAt = newDtStr ? new Date(newDtStr).toISOString() : new Date().toISOString();
-    brand.portalApprovals[stage]._signed = { by: newName, at: newAt };
-    markLocalChange('brands');
+    const newSigned = { by: newName, at: newAt };
+    brand.portalApprovals[stage]._signed = newSigned;
+    // 🔒 Actualizar firma en tabla
+    await PortalApprovalsDB.saveField(brand.id, stage, '_signed', newSigned);
     close();
     renderRondas(brand);
-    await upsert();
     showStatus('Firma actualizada ✓');
   };
   setTimeout(()=>modal.querySelector('#adm-sig-name').focus(), 30);
@@ -8522,10 +8748,8 @@ async function adminUnlockStageSignature(brandId, stage){
     'background:#dc2626;color:#fff;border:none'
   );
   if(!ok) return;
-  archiveStageSignature(brand, stage); // mover al historial en vez de solo borrar
-  markLocalChange('brands');
+  await archiveStageSignature(brand, stage); // mover al historial en vez de solo borrar
   renderRondas(brand);
-  await upsert();
   showStatus('Etapa desbloqueada — firma movida al historial');
 }
 
@@ -8551,7 +8775,7 @@ async function toggleRonda(brandId,rondaId){
   // Si la ronda quedó completada y pertenece a una etapa con firma "approved-with-notes",
   // chequear si TODAS las rondas de esa etapa ya están completas → auto-reabrir para re-firma
   if(r.done && r.stage){
-    const reopened = maybeReopenStageForReSign(brand, r.stage);
+    const reopened = await maybeReopenStageForReSign(brand, r.stage);
     if(reopened){
       const stageLabel = {aire:'Aire',agua:'Agua',tierra:'Tierra',fuego:'Fuego'}[r.stage] || r.stage;
       showStatus(`Etapa ${stageLabel} reabierta — cliente puede volver a firmar`);
@@ -14398,6 +14622,31 @@ async function boot(){
     try { if(currentPage==='template') renderTplBpCats(); } catch(e){}
   });
 
+  // 🔒 Suscripción realtime a portal approvals
+  // Cuando el cliente firma/responde desde el portal, llega aquí por la tabla
+  PortalApprovalsDB.subscribeRealtime((payload)=>{
+    try {
+      const bid = payload?.new?.brand_id || payload?.old?.brand_id;
+      // Si estamos viendo el brand detail de esta marca, re-render sus aprobaciones
+      if(currentPage==='brand' && currentBrandId === bid){
+        const brand = (appData.brands||[]).find(b=>b.id===bid);
+        if(brand){
+          try { renderRondas(brand); } catch(e){}
+        }
+      }
+      // Si estamos en el portal del cliente (portal-mode), actualizar el panel
+      if(document.body.classList.contains('portal-mode') && window._portalBrandId === bid){
+        const brand = (appData.brands||[]).find(b=>b.id===bid);
+        if(brand){
+          const panel = document.getElementById('portal-content-area');
+          if(panel && typeof portalRenderAprobaciones === 'function'){
+            try { panel.innerHTML = portalRenderAprobaciones(brand); } catch(e){}
+          }
+        }
+      }
+    } catch(e){}
+  });
+
   // ═══════════════════════════════════════════════════════════════════════════════
   // MIGRACIONES DE BOOT DESACTIVADAS
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -14721,7 +14970,7 @@ function getStageAdjustmentPoints(stage, stageApprovals, brand){
 // Si había observaciones, borra SOLO las respuestas de preguntas con observaciones para que
 // el cliente las vuelva a contestar (preservando las que ya estaban 100%).
 // Retorna true si hubo movimiento, false si no había firma que mover.
-function archiveStageSignature(brand, stage){
+async function archiveStageSignature(brand, stage){
   const sa = brand?.portalApprovals?.[stage];
   if(!sa || !sa._signed?.by) return false;
   if(!Array.isArray(sa._signedHistory)) sa._signedHistory = [];
@@ -14751,18 +15000,29 @@ function archiveStageSignature(brand, stage){
     adjustments: adjustmentsSnapshot,
     answers: answersSnapshot,
     notes: notesSnapshot,
-    questionsToReReply, // cuáles preguntas se borraron para re-responder
+    questionsToReReply,
     reopenedAt: new Date().toISOString(),
   });
 
   // Borrar SOLO respuestas y notas de las preguntas que tenían observaciones
   // Las respuestas 100% se preservan — el cliente no tiene que re-contestarlas
-  questionsToReReply.forEach(qid=>{
+  for(const qid of questionsToReReply){
     delete sa[qid];
     delete sa[qid+'_note'];
-  });
+    // 🔒 Borrar de la tabla también
+    await PortalApprovalsDB.deleteField(brand.id, stage, qid);
+    await PortalApprovalsDB.deleteField(brand.id, stage, qid+'_note');
+  }
 
   delete sa._signed;
+  // 🔒 Borrar firma de la tabla
+  await PortalApprovalsDB.deleteField(brand.id, stage, '_signed');
+
+  // 🔒 Persistir el historial actualizado (se guarda en el JSON gigante por ahora —
+  // el _signedHistory es un array dentro de sa, que vive en el brand.portalApprovals
+  // que ya se persiste en la tabla... pero no el historial. Lo guardamos como field especial).
+  await PortalApprovalsDB.saveField(brand.id, stage, '_signedHistory', sa._signedHistory);
+
   return true;
 }
 
@@ -14777,12 +15037,12 @@ function allStageRondasCompleted(brand, stage){
 // Trigger automático: si la etapa estaba firmada con observaciones y TODAS sus rondas
 // acaban de quedar completadas, archivar la firma y desbloquear para re-firma.
 // Retorna true si se reabrió la etapa.
-function maybeReopenStageForReSign(brand, stage){
+async function maybeReopenStageForReSign(brand, stage){
   const sa = brand?.portalApprovals?.[stage];
   if(!sa?._signed?.by) return false;
   if(sa._signed.status !== 'approved-with-notes') return false; // solo aplica a observaciones
   if(!allStageRondasCompleted(brand, stage)) return false;
-  archiveStageSignature(brand, stage);
+  await archiveStageSignature(brand, stage);
   return true;
 }
 
@@ -15435,9 +15695,10 @@ function portalSaveApprovalNote(brandId, stage, questionId, value){
   if(brand.portalApprovals?.[stage]?._signed?.by) return;
   if(!brand.portalApprovals) brand.portalApprovals = {};
   if(!brand.portalApprovals[stage]) brand.portalApprovals[stage] = {};
-  brand.portalApprovals[stage][questionId+'_note'] = value;
-  markLocalChange('brands');
-  upsert();
+  const fieldKey = questionId+'_note';
+  brand.portalApprovals[stage][fieldKey] = value;
+  // 🔒 Guardar directo a tabla (una fila por nota)
+  PortalApprovalsDB.saveField(brandId, stage, fieldKey, value);
 }
 
 async function portalSaveApproval(brandId, stage, questionId, value, isCurrentlySelected=false){
@@ -15454,10 +15715,14 @@ async function portalSaveApproval(brandId, stage, questionId, value, isCurrently
   if(isCurrentlySelected){
     delete brand.portalApprovals[stage][questionId];
     delete brand.portalApprovals[stage][questionId+'_note'];
+    // 🔒 Borrar de la tabla
+    await PortalApprovalsDB.deleteField(brandId, stage, questionId);
+    await PortalApprovalsDB.deleteField(brandId, stage, questionId+'_note');
   } else {
     brand.portalApprovals[stage][questionId] = decoded;
+    // 🔒 Guardar en tabla
+    await PortalApprovalsDB.saveField(brandId, stage, questionId, decoded);
   }
-  markLocalChange('brands');
 
   // Remember which stages are currently open before re-render
   const openStages = ['aire','agua','tierra','fuego'].filter(s=>{
@@ -15478,8 +15743,6 @@ async function portalSaveApproval(brandId, stage, questionId, value, isCurrently
     body.style.display = shouldBeOpen ? 'block' : 'none';
     if(arrow) arrow.style.transform = shouldBeOpen ? 'rotate(0deg)' : 'rotate(180deg)';
   });
-
-  upsert();
 }
 
 // Cliente firma una etapa. Guarda nombre + timestamp + status en portalApprovals[stage]._signed
@@ -15513,11 +15776,14 @@ async function portalSignStage(brandId, stage){
 
   if(!brand.portalApprovals) brand.portalApprovals = {};
   if(!brand.portalApprovals[stage]) brand.portalApprovals[stage] = {};
-  brand.portalApprovals[stage]._signed = {
+  const signedObj = {
     by: name,
     at: new Date().toISOString(),
     status, // 'approved' | 'approved-with-notes'
   };
+  brand.portalApprovals[stage]._signed = signedObj;
+  // 🔒 Guardar firma en tabla
+  await PortalApprovalsDB.saveField(brandId, stage, '_signed', signedObj);
 
   // Crear UNA ronda consolidada para la etapa cuando se firma con observaciones
   if(status === 'approved-with-notes'){
