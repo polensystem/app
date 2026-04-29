@@ -10463,9 +10463,9 @@ function renderBrandBp(brand){
           <span class="bp-cat-meta">${cat.items.filter(i=>i.selected).length} sel. · ${cat.items.filter(i=>i.selected&&i.pts!=null).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0)} pts</span>
         </div>
         <button onclick="event.stopPropagation();deleteBrandBpCat('${brand.id}',${ci})" title="Eliminar categoría" style="background:none;border:none;cursor:pointer;font-size:0.75rem;color:var(--text3);padding:0.1rem 0.25rem;border-radius:4px;opacity:0.4;transition:all 0.15s" onmouseover="this.style.opacity=1;this.style.color='#ef4444'" onmouseout="this.style.opacity=0.4;this.style.color='var(--text3)'">🗑</button>
-        <span style="font-size:0.75rem;color:var(--text3)">${cat.open!==false?'▲':'▼'}</span>
+        <span style="font-size:0.75rem;color:var(--text3)">${cat._uiCollapsed?'▼':'▲'}</span>
       </div>
-      <div class="bp-cat-body ${cat.open===false?'hidden':''}">
+      <div class="bp-cat-body ${cat._uiCollapsed?'hidden':''}">
         ${cat.items.map((item,ii)=>`
           <div style="border-bottom:1px solid var(--border2)">
             <div class="bp-item" style="padding:0.7rem 1rem;gap:0.8rem">
@@ -10562,13 +10562,10 @@ async function toggleBrandBpCat(brandId,ci){
   const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.brandingPoints)return;
   const cat=brand.brandingPoints.categories[ci];
-  cat.open=cat.open===false?true:false;
+  // Usar _uiCollapsed (solo memoria, no se persiste) para que al recargar
+  // siempre estén expandidas como default.
+  cat._uiCollapsed = !cat._uiCollapsed;
   renderBrandBp(brand);
-  // Persistir el estado open en la tabla (queda en la categoría de cada item)
-  // Lo guardamos solo en el primer item de la categoría para no hacer N upserts
-  if(cat.items?.[0]){
-    await BrandBpDB.saveItem(brandId, cat, cat.items[0], ci, 0);
-  }
 }
 
 async function toggleBrandBpItem(brandId,ci,ii,val){
@@ -11605,9 +11602,9 @@ function renderTplBpCats(){
           <span class="bp-cat-meta">${cat.items.filter(i=>i.selected).length} sel. · ${cat.items.filter(i=>i.selected).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0)} pts</span>
         </div>
         <button onclick="event.stopPropagation();tplDeleteBpCat(${ci})" title="Eliminar categoría" style="background:none;border:none;cursor:pointer;font-size:0.75rem;color:var(--text3);padding:0.1rem 0.25rem;border-radius:4px;opacity:0.4;transition:all 0.15s" onmouseover="this.style.opacity=1;this.style.color='#ef4444'" onmouseout="this.style.opacity=0.4;this.style.color='var(--text3)'">🗑</button>
-        <span style="font-size:0.75rem;color:var(--text3)">${cat.open!==false?'▲':'▼'}</span>
+        <span style="font-size:0.75rem;color:var(--text3)">${cat._uiCollapsed?'▼':'▲'}</span>
       </div>
-      <div class="bp-cat-body ${cat.open===false?'hidden':''}">
+      <div class="bp-cat-body ${cat._uiCollapsed?'hidden':''}">
         ${cat.items.map((item,ii)=>`
           <div class="tpl-bp-item-wrap">
             <div class="tpl-bp-item">
@@ -11642,10 +11639,10 @@ function renderTplBpCats(){
 
 function tplToggleBpCat(ci){
   const cat=appData.template.brandingPoints.categories[ci];
-  cat.open=cat.open===false?true:false;
+  // Usar _uiCollapsed (solo memoria, no se persiste) para que al recargar
+  // siempre estén expandidas como default.
+  cat._uiCollapsed = !cat._uiCollapsed;
   renderTplBpCats();
-  // Persistir el estado open en el primer item (se replica en cada fila via category_open)
-  if(cat.items?.[0]){ TemplateBpDB.saveItem(cat, cat.items[0], ci, 0); }
 }
 function tplToggleBpItem(ci,ii,val){
   const cat=appData.template.brandingPoints.categories[ci];
@@ -11687,8 +11684,8 @@ function toggleAllBrandBpCats(){
   const brand = (appData.brands||[]).find(b=>b.id===currentBrandId);
   if(!brand?.brandingPoints?.categories) return;
   const cats = brand.brandingPoints.categories;
-  const allOpen = cats.every(c=>c.open!==false);
-  cats.forEach(c=>c.open = allOpen ? false : true);
+  const allOpen = cats.every(c=>!c._uiCollapsed);
+  cats.forEach(c=>c._uiCollapsed = allOpen ? true : false);
   const btn = document.getElementById('brand-bp-collapse-btn');
   if(btn) btn.textContent = allOpen ? '⊞ Expandir' : '⊟ Colapsar';
   renderBrandBp(brand);
@@ -11697,12 +11694,10 @@ function toggleAllBrandBpCats(){
 function toggleAllTplBpCats(){
   const cats = appData.template?.brandingPoints?.categories;
   if(!cats) return;
-  const allOpen = cats.every(c=>c.open!==false);
-  cats.forEach(c=>c.open = allOpen ? false : true);
+  const allOpen = cats.every(c=>!c._uiCollapsed);
+  cats.forEach(c=>c._uiCollapsed = allOpen ? true : false);
   const btn = document.getElementById('tpl-bp-collapse-btn');
   if(btn) btn.textContent = allOpen ? '⊞ Expandir' : '⊟ Colapsar';
-  markLocalChange('template');
-  scheduleTplSave();
   renderTplBpCats();
 }
 
@@ -11710,24 +11705,25 @@ function portalToggleBpCat(ci){
   const brand = (appData.brands||[]).find(b=>b.id===window._portalBrandId);
   if(!brand?.brandingPoints?.categories?.[ci]) return;
   const cat = brand.brandingPoints.categories[ci];
-  cat.open = cat.open===false ? true : false;
+  // Solo memoria — al recargar el portal siempre se ven expandidas
+  cat._uiCollapsed = !cat._uiCollapsed;
   const body = document.getElementById('portal-bp-cat-body-'+ci);
   const arrow = document.getElementById('portal-bp-cat-arrow-'+ci);
-  if(body) body.style.display = cat.open===false ? 'none' : 'block';
-  if(arrow) arrow.textContent = cat.open===false ? '▼' : '▲';
+  if(body) body.style.display = cat._uiCollapsed ? 'none' : 'block';
+  if(arrow) arrow.textContent = cat._uiCollapsed ? '▼' : '▲';
 }
 
 function toggleAllPortalBpCats(){
   const brand = (appData.brands||[]).find(b=>b.id===window._portalBrandId);
   if(!brand?.brandingPoints?.categories) return;
   const cats = brand.brandingPoints.categories;
-  const allOpen = cats.every(c=>c.open!==false);
+  const allOpen = cats.every(c=>!c._uiCollapsed);
   cats.forEach((c,ci)=>{
-    c.open = allOpen ? false : true;
+    c._uiCollapsed = allOpen ? true : false;
     const body = document.getElementById('portal-bp-cat-body-'+ci);
     const arrow = document.getElementById('portal-bp-cat-arrow-'+ci);
-    if(body) body.style.display = c.open===false ? 'none' : 'block';
-    if(arrow) arrow.textContent = c.open===false ? '▼' : '▲';
+    if(body) body.style.display = c._uiCollapsed ? 'none' : 'block';
+    if(arrow) arrow.textContent = c._uiCollapsed ? '▼' : '▲';
   });
   const btn = document.getElementById('portal-bp-collapse-btn');
   if(btn) btn.textContent = allOpen ? '⊞ Expandir' : '⊟ Colapsar';
@@ -11815,10 +11811,21 @@ async function tplAddBpItem(ci){
 async function tplAddBpCat(){
   const name = await askModal({label:'Nombre de la nueva categoría', placeholder:'Ej: Fotografía'});
   if(!name||!name.trim()) return;
-  const newCat = {id:uid(), name:name.trim(), open:true, items:[]};
+  // Auto-crear un item placeholder para que la categoría se sincronice a la tabla
+  const placeholderItem = {
+    id: uid(),
+    name: 'Nuevo entregable',
+    pts: null,
+    qty: 1,
+    selected: false,
+  };
+  const newCat = {id:uid(), name:name.trim(), open:true, items:[placeholderItem]};
   appData.template.brandingPoints.categories.push(newCat);
   renderTplBpCats();
-  showStatus('Categoría creada ✓ — agrega al menos un entregable para que se sincronice');
+  // 🔒 Guardar en tabla
+  const ci = appData.template.brandingPoints.categories.length - 1;
+  await TemplateBpDB.saveItem(newCat, placeholderItem, ci, 0);
+  showStatus('Categoría creada ✓ — edita el entregable de ejemplo o agrega más');
 }
 
 async function tplDeleteBpCat(ci){
@@ -11844,13 +11851,22 @@ async function addBrandBpCat(brandId){
   if(!brand?.brandingPoints) return;
   const name = await askModal({label:'Nombre de la nueva categoría', placeholder:'Ej: Fotografía'});
   if(!name||!name.trim()) return;
-  const newCat = {id:uid(), name:name.trim(), open:true, items:[]};
+  // Auto-crear un item placeholder para que la categoría se sincronice a la tabla
+  // (la tabla guarda una fila por item, sin items la categoría no existe en DB).
+  const placeholderItem = {
+    id: uid(),
+    name: 'Nuevo entregable',
+    pts: null,
+    qty: 1,
+    selected: false,
+  };
+  const newCat = {id:uid(), name:name.trim(), open:true, items:[placeholderItem]};
   brand.brandingPoints.categories.push(newCat);
   renderBrandBp(brand);
-  // NOTA: Una categoría vacía NO se persiste en la tabla (la tabla es por item).
-  // Se guardará cuando se agregue el primer item.
-  // Para que la categoría sea visible a otros usuarios, agregamos un item placeholder.
-  showStatus('Categoría creada ✓ — agrega al menos un entregable para que se sincronice');
+  // 🔒 Guardar en tabla — el item placeholder hace que la categoría exista en DB
+  const ci = brand.brandingPoints.categories.length - 1;
+  await BrandBpDB.saveItem(brandId, newCat, placeholderItem, ci, 0);
+  showStatus('Categoría creada ✓ — edita el entregable de ejemplo o agrega más');
 }
 
 async function deleteBrandBpCat(brandId, ci){
@@ -16306,10 +16322,10 @@ function portalRenderBp(brand){
         <span>${cat.name}</span>
         <span style="display:flex;align-items:center;gap:0.6rem">
           <span style="color:var(--text3)">${cat.items.filter(i=>i.selected).length} sel.</span>
-          <span id="portal-bp-cat-arrow-${ci}" style="font-size:0.7rem;color:var(--text3)">${cat.open===false?'▼':'▲'}</span>
+          <span id="portal-bp-cat-arrow-${ci}" style="font-size:0.7rem;color:var(--text3)">${cat._uiCollapsed?'▼':'▲'}</span>
         </span>
       </div>
-      <div id="portal-bp-cat-body-${ci}" style="display:${cat.open===false?'none':'block'}">
+      <div id="portal-bp-cat-body-${ci}" style="display:${cat._uiCollapsed?'none':'block'}">
       ${cat.items.map((item,ii)=>{
         const qty = item.qty||1;
         const ptsLabel = item.pts==null ? '?' : (item.pts * qty) + ' pts';
