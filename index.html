@@ -10471,7 +10471,12 @@ function renderBrandBp(brand){
             <div class="bp-item" style="padding:0.7rem 1rem;gap:0.8rem">
               <input type="checkbox" ${item.selected?'checked':''} style="width:15px;height:15px;accent-color:var(--agua);cursor:pointer;flex-shrink:0"
                 onchange="toggleBrandBpItem('${brand.id}',${ci},${ii},this.checked)">
-              <span class="bp-item-name" style="flex:1;${item.selected?'':'color:var(--text2)'}">${item.name}${item.fromPortal?'<span style="font-size:0.6rem;background:rgba(59,158,221,0.15);color:var(--aire);border-radius:4px;padding:0.1rem 0.35rem;margin-left:0.4rem">cliente</span>':''}</span>
+              <input class="bp-item-name-input" value="${item.name}"
+                onchange="renameBrandBpItem('${brand.id}',${ci},${ii},this.value)"
+                onclick="event.stopPropagation();this.select()"
+                style="flex:1;${item.selected?'':'color:var(--text2)'}"
+                placeholder="Definir entregable">
+              ${item.fromPortal?'<span style="font-size:0.6rem;background:rgba(59,158,221,0.15);color:var(--aire);border-radius:4px;padding:0.1rem 0.35rem;flex-shrink:0">cliente</span>':''}
               <button onclick="toggleBpItemNotes('${brand.id}',${ci},${ii})"
                 title="Notas"
                 style="background:none;border:none;cursor:pointer;font-size:0.82rem;padding:0.2rem 0.4rem;border-radius:6px;opacity:${item.notes?'1':'0.3'};transition:all 0.15s;flex-shrink:0"
@@ -11814,7 +11819,7 @@ async function tplAddBpCat(){
   // Auto-crear un item placeholder para que la categoría se sincronice a la tabla
   const placeholderItem = {
     id: uid(),
-    name: 'Nuevo entregable',
+    name: 'Definir entregable',
     pts: null,
     qty: 1,
     selected: false,
@@ -11825,7 +11830,7 @@ async function tplAddBpCat(){
   // 🔒 Guardar en tabla
   const ci = appData.template.brandingPoints.categories.length - 1;
   await TemplateBpDB.saveItem(newCat, placeholderItem, ci, 0);
-  showStatus('Categoría creada ✓ — edita el entregable de ejemplo o agrega más');
+  showStatus('Categoría creada ✓ — click en "Definir entregable" para nombrarlo');
 }
 
 async function tplDeleteBpCat(ci){
@@ -11855,7 +11860,7 @@ async function addBrandBpCat(brandId){
   // (la tabla guarda una fila por item, sin items la categoría no existe en DB).
   const placeholderItem = {
     id: uid(),
-    name: 'Nuevo entregable',
+    name: 'Definir entregable',
     pts: null,
     qty: 1,
     selected: false,
@@ -11866,7 +11871,7 @@ async function addBrandBpCat(brandId){
   // 🔒 Guardar en tabla — el item placeholder hace que la categoría exista en DB
   const ci = brand.brandingPoints.categories.length - 1;
   await BrandBpDB.saveItem(brandId, newCat, placeholderItem, ci, 0);
-  showStatus('Categoría creada ✓ — edita el entregable de ejemplo o agrega más');
+  showStatus('Categoría creada ✓ — click en "Definir entregable" para nombrarlo');
 }
 
 async function deleteBrandBpCat(brandId, ci){
@@ -11896,6 +11901,17 @@ async function renameBrandBpCat(brandId, ci, val){
       await BrandBpDB.saveItem(brandId, cat, cat.items[ii], ci, ii);
     }
   }
+}
+
+async function renameBrandBpItem(brandId, ci, ii, val){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand?.brandingPoints?.categories?.[ci]?.items?.[ii]) return;
+  const cat = brand.brandingPoints.categories[ci];
+  const item = cat.items[ii];
+  const trimmed = (val||'').trim();
+  if(!trimmed || trimmed === item.name) return;
+  item.name = trimmed;
+  await BrandBpDB.saveItem(brandId, cat, item, ci, ii);
 }
 
   function onBpTotalChange(){appData.template.brandingPoints.total=parseInt(document.getElementById('bp-total').value)||0;renderTplBpCats();markLocalChange('template');scheduleTplSave();}
