@@ -4260,6 +4260,229 @@ window.PortalApprovalsDB = (function(){
   return { loadAll, saveField, saveFieldsBatch, deleteField, migrateFromJson, subscribeRealtime, valueToRow, rowToValue };
 })();
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   🔒 MÓDULO CRONO-DB — Cronograma de actividades por marca
+   ══════════════════════════════════════════════════════════════════════════════
+   Una fila por actividad. PK: id (único entre todas las actividades).
+   Columnas: brand_id, stage, name, days, is_hito, is_naming, status, start_date,
+             end_date, orden, extra (jsonb para campos custom).
+
+   Estructura en memoria (sin cambios): brand.cronograma[stage][] (arrays por stage)
+   Estructura especial: brand.cronograma._sinUbicar[] (actividades fuera de stage)
+
+   API:
+     await CronoDB.loadAll()          — carga todas las actividades agrupadas por marca
+     await CronoDB.saveAct(brandId, stage, act, orden)
+     await CronoDB.saveActsBatch(rows)
+     await CronoDB.deleteAct(actId)
+     await CronoDB.deleteBrandStage(brandId, stage)   — borra todo de un stage
+     await CronoDB.migrateFromJson()
+     CronoDB.subscribeRealtime(onChange)
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.CronoDB = (function(){
+  const TABLE = 'polen_crono';
+
+  // Anti-eco: por actId (suficiente, ya que actId es único global)
+  const _recentOps = new Map();
+  function markOwnOp(actId){
+    _recentOps.set(actId, Date.now());
+    setTimeout(()=>_recentOps.delete(actId), 2500);
+  }
+  function isOwnEcho(actId){
+    const ts = _recentOps.get(actId);
+    return ts && (Date.now() - ts) < 2500;
+  }
+
+  // Campos "core" que tienen columna propia
+  const CORE_FIELDS = new Set(['id','name','days','isHito','isNaming','status','startDate','endDate']);
+
+  function actToRow(brandId, stage, act, orden){
+    // Separar campos core del resto → extra jsonb
+    const extra = {};
+    Object.keys(act||{}).forEach(k=>{
+      if(!CORE_FIELDS.has(k) && act[k] !== undefined){
+        extra[k] = act[k];
+      }
+    });
+    return {
+      id: act.id,
+      brand_id: brandId,
+      stage: stage,
+      name: act.name || '',
+      days: Number(act.days) || 1,
+      is_hito: !!act.isHito,
+      is_naming: !!act.isNaming,
+      status: act.status || 'pendiente',
+      start_date: act.startDate || null,
+      end_date: act.endDate || null,
+      orden: Number(orden) || 0,
+      extra: Object.keys(extra).length ? extra : null,
+    };
+  }
+
+  function rowToAct(row){
+    const extra = (row.extra && typeof row.extra === 'object') ? row.extra : {};
+    const act = {
+      id: row.id,
+      name: row.name || '',
+      days: Number(row.days) || 1,
+      isHito: !!row.is_hito,
+      isNaming: !!row.is_naming,
+      status: row.status || 'pendiente',
+      ...extra,
+    };
+    if(row.start_date) act.startDate = row.start_date;
+    if(row.end_date) act.endDate = row.end_date;
+    return act;
+  }
+
+  async function loadAll(){
+    try {
+      const { data, error } = await sb.from(TABLE).select('*').order('brand_id').order('stage').order('orden');
+      if(error){ console.error('[CronoDB] loadAll error:', error); return null; }
+      const byBrand = {};
+      (data||[]).forEach(row=>{
+        const bid = row.brand_id;
+        if(!byBrand[bid]) byBrand[bid] = {};
+        if(!byBrand[bid][row.stage]) byBrand[bid][row.stage] = [];
+        byBrand[bid][row.stage].push(rowToAct(row));
+      });
+      console.log('[CronoDB] Cargadas actividades de', Object.keys(byBrand).length, 'marcas');
+      return byBrand;
+    } catch(e){ console.error('[CronoDB] loadAll crashed:', e); return null; }
+  }
+
+  async function saveAct(brandId, stage, act, orden){
+    if(!brandId || !stage || !act?.id) return false;
+    try {
+      markOwnOp(act.id);
+      const row = actToRow(brandId, stage, act, orden);
+      const { error } = await sb.from(TABLE).upsert(row, { onConflict: 'id' });
+      if(error){ console.error('[CronoDB] saveAct error:', error, row); return false; }
+      return true;
+    } catch(e){ console.error('[CronoDB] saveAct crashed:', e); return false; }
+  }
+
+  async function saveActsBatch(rows){
+    if(!rows?.length) return true;
+    try {
+      for(let i=0; i<rows.length; i+=100){
+        const chunk = rows.slice(i, i+100);
+        chunk.forEach(r=>markOwnOp(r.id));
+        const { error } = await sb.from(TABLE).upsert(chunk, { onConflict: 'id' });
+        if(error){ console.error('[CronoDB] saveActsBatch error:', error); return false; }
+      }
+      return true;
+    } catch(e){ console.error('[CronoDB] saveActsBatch crashed:', e); return false; }
+  }
+
+  async function deleteAct(actId){
+    if(!actId) return false;
+    try {
+      markOwnOp(actId);
+      const { error } = await sb.from(TABLE).delete().eq('id', actId);
+      if(error){ console.error('[CronoDB] deleteAct error:', error); return false; }
+      return true;
+    } catch(e){ console.error('[CronoDB] deleteAct crashed:', e); return false; }
+  }
+
+  async function deleteBrandStage(brandId, stage){
+    if(!brandId || !stage) return false;
+    try {
+      const { error } = await sb.from(TABLE).delete().eq('brand_id', brandId).eq('stage', stage);
+      if(error){ console.error('[CronoDB] deleteBrandStage error:', error); return false; }
+      return true;
+    } catch(e){ console.error('[CronoDB] deleteBrandStage crashed:', e); return false; }
+  }
+
+  async function migrateFromJson(){
+    try {
+      const { count, error: countErr } = await sb.from(TABLE).select('*', { count:'exact', head:true });
+      if(countErr){ console.error('[CronoDB] migration count error:', countErr); return false; }
+      if((count||0) > 0){
+        console.log('[CronoDB] Tabla ya tiene', count, 'filas — no migramos');
+        return true;
+      }
+      const rows = [];
+      (appData?.brands||[]).forEach(brand=>{
+        const crono = brand.cronograma;
+        if(!crono || typeof crono !== 'object') return;
+        // Stages normales + _sinUbicar
+        const stages = ['aire','agua','tierra','fuego','_sinUbicar'];
+        stages.forEach(stage=>{
+          const acts = crono[stage];
+          if(!Array.isArray(acts)) return;
+          acts.forEach((act, i)=>{
+            if(!act?.id) return;
+            rows.push(actToRow(brand.id, stage, act, i));
+          });
+        });
+      });
+      if(!rows.length){
+        console.log('[CronoDB] No hay actividades para migrar');
+        return true;
+      }
+      console.log('[CronoDB] Migrando', rows.length, 'actividades');
+      const ok = await saveActsBatch(rows);
+      if(ok) console.log('[CronoDB] ✅ Migración completa');
+      return ok;
+    } catch(e){ console.error('[CronoDB] migrateFromJson crashed:', e); return false; }
+  }
+
+  function subscribeRealtime(onChange){
+    sb.channel('polen_crono_rt')
+      .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
+        try {
+          const { eventType, new:newRow, old:oldRow } = payload;
+          const actId = newRow?.id || oldRow?.id;
+          if(actId && isOwnEcho(actId)) return;
+
+          const bid = newRow?.brand_id || oldRow?.brand_id;
+          const brand = (appData.brands||[]).find(b=>b.id === bid);
+          if(!brand) return;
+          if(!brand.cronograma) brand.cronograma = { aire:[], agua:[], tierra:[], fuego:[] };
+
+          if(eventType === 'DELETE'){
+            const oldStage = oldRow?.stage;
+            if(oldStage && Array.isArray(brand.cronograma[oldStage])){
+              brand.cronograma[oldStage] = brand.cronograma[oldStage].filter(a=>a.id !== actId);
+            }
+          } else if(newRow){
+            const newStage = newRow.stage;
+            const newAct = rowToAct(newRow);
+            const newOrden = Number(newRow.orden) || 0;
+            // Si la actividad ya existía en otro stage (move), quitarla del viejo primero
+            ['aire','agua','tierra','fuego','_sinUbicar'].forEach(s=>{
+              if(s === newStage) return;
+              if(Array.isArray(brand.cronograma[s])){
+                brand.cronograma[s] = brand.cronograma[s].filter(a=>a.id !== actId);
+              }
+            });
+            // Insertar/actualizar en el stage correcto respetando orden
+            if(!Array.isArray(brand.cronograma[newStage])) brand.cronograma[newStage] = [];
+            const arr = brand.cronograma[newStage];
+            const idx = arr.findIndex(a=>a.id === actId);
+            if(idx >= 0){
+              // Actualización: reemplazar en su posición actual
+              arr[idx] = newAct;
+            } else {
+              // Nuevo: insertar en la posición que corresponde por orden
+              // Como las posiciones de los demás no las conocemos precisas vía realtime,
+              // insertamos al final si newOrden >= len, si no, intentamos en la posición newOrden
+              if(newOrden >= arr.length) arr.push(newAct);
+              else arr.splice(Math.max(0, newOrden), 0, newAct);
+            }
+          }
+          if(onChange) onChange(payload);
+        } catch(e){ console.error('[CronoDB] realtime error:', e); }
+      })
+      .subscribe();
+    console.log('[CronoDB] ✓ Realtime suscrito a', TABLE);
+  }
+
+  return { loadAll, saveAct, saveActsBatch, deleteAct, deleteBrandStage, migrateFromJson, subscribeRealtime, actToRow, rowToAct };
+})();
+
 async function loadData(){
   // Show loading message on screen
   const lsub = document.querySelector('.loading-sub');
@@ -4461,6 +4684,40 @@ async function loadData(){
         }
       } catch(paErr) {
         console.error('[Polen] Error cargando portal approvals:', paErr);
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // 🔒 CARGAR CRONOGRAMA DESDE TABLA NUEVA (polen_crono)
+      // Una fila por actividad. Los stages se reconstruyen agrupando por brand_id + stage.
+      // ══════════════════════════════════════════════════════════════════════
+      try {
+        if(lsub) lsub.textContent = 'Cargando cronogramas…';
+
+        if(!appData._cronoMigratedToTable){
+          console.log('[Polen] Primera vez — migrando cronograma a tabla nueva');
+          await CronoDB.migrateFromJson();
+          appData._cronoMigratedToTable = true;
+        }
+
+        const cronoFromTable = await CronoDB.loadAll();
+        if(cronoFromTable){
+          (appData.brands||[]).forEach(b=>{
+            const nuevo = cronoFromTable[b.id];
+            if(nuevo){
+              // Preservar estructura completa: aire, agua, tierra, fuego, _sinUbicar
+              if(!b.cronograma) b.cronograma = {};
+              ['aire','agua','tierra','fuego','_sinUbicar'].forEach(stage=>{
+                b.cronograma[stage] = Array.isArray(nuevo[stage]) ? nuevo[stage] : [];
+              });
+            } else {
+              // Marca sin cronograma en tabla — mantener lo del JSON si hay
+              if(!b.cronograma) b.cronograma = { aire:[], agua:[], tierra:[], fuego:[] };
+            }
+          });
+          console.log('[Polen] ✓ Cronogramas cargados de tabla nueva');
+        }
+      } catch(cronoErr) {
+        console.error('[Polen] Error cargando cronograma:', cronoErr);
       }
 
       // 🛡️ RECUPERACIÓN DE CAMBIOS LOCALES RECIENTES
@@ -4705,7 +4962,8 @@ function deepMergeAppData(server, local){
         const bp = _mergeBrandingPointsSafe(sv.brandingPoints, b.brandingPoints);
         // 🔒 portalApprovals vive en polen_portal_approvals — local (sincronizado con tabla)
         // siempre gana. El JSON ya no trae portalApprovals desde el server (stripped).
-        return {...b, brandingPoints: bp, portalApprovals: b.portalApprovals || {}};
+        // 🔒 cronograma vive en polen_crono — local siempre gana.
+        return {...b, brandingPoints: bp, portalApprovals: b.portalApprovals || {}, cronograma: b.cronograma || { aire:[], agua:[], tierra:[], fuego:[] }};
       });
   } else {
     const brandMap = {};
@@ -4716,8 +4974,8 @@ function deepMergeAppData(server, local){
           // Merge: local wins for most fields, server wins for portal-owned fields
           const sv = brandMap[b.id];
           const bp = _mergeBrandingPointsSafe(sv.brandingPoints, b.brandingPoints);
-          // 🔒 portalApprovals vive en polen_portal_approvals — local siempre gana
-          brandMap[b.id] = {...sv, ...b, brandingPoints: bp, portalApprovals: b.portalApprovals || {}};
+          // 🔒 portalApprovals + cronograma viven en tablas — local siempre gana
+          brandMap[b.id] = {...sv, ...b, brandingPoints: bp, portalApprovals: b.portalApprovals || {}, cronograma: b.cronograma || { aire:[], agua:[], tierra:[], fuego:[] }};
         } else {
           brandMap[b.id] = {...b};
         }
@@ -5151,6 +5409,20 @@ async function _doUpsert(){
         toWriteSafe.brands = toWriteSafe.brands.map(b=>{
           if(b && b.portalApprovals !== undefined){
             const { portalApprovals, ...rest } = b;
+            return rest;
+          }
+          return b;
+        });
+      }
+
+      // 🔒 REFACTOR: cronograma de marca vive en polen_crono.
+      // Eliminamos cronograma del JSON para evitar race conditions multi-usuario.
+      // También se elimina de las marcas en la papelera (si se restauran, el crono se reconstruye vacío
+      // porque al hacer soft delete no se borraba la tabla — las filas siguen ahí).
+      if(Array.isArray(toWriteSafe.brands)){
+        toWriteSafe.brands = toWriteSafe.brands.map(b=>{
+          if(b && b.cronograma !== undefined){
+            const { cronograma, ...rest } = b;
             return rest;
           }
           return b;
@@ -5901,8 +6173,14 @@ async function calDrop(event, newDateStr){
   if(currentBrandId===brand.id) renderBrandCrono(brand);
   const activeTab2 = window._eqTab;
   if(activeTab2==='week') renderEqWeek(); else renderEqMonth();
-  markLocalChange('brands');
-  upsert().then(ok=>{ if(!ok) showStatus('Error al guardar ❌', true); });
+  // 🔒 Guardar cronograma en tabla (batch todas las stages por si hubo cascade)
+  const allRows = [];
+  ['aire','agua','tierra','fuego','_sinUbicar'].forEach(st=>{
+    (brand.cronograma[st]||[]).forEach((a, i)=>{
+      allRows.push(CronoDB.actToRow(dragBrandId, st, a, i));
+    });
+  });
+  CronoDB.saveActsBatch(allRows).then(ok=>{ if(!ok) showStatus('Error al guardar ❌', true); });
 }
 
 async function moveSinUbicar(brandId, actId, stage){
@@ -5911,22 +6189,24 @@ async function moveSinUbicar(brandId, actId, stage){
   const idx = (brand.cronograma._sinUbicar||[]).findIndex(a=>a.id===actId);
   if(idx===-1) return;
   const act = brand.cronograma._sinUbicar.splice(idx,1)[0];
-  // Remove internal flags
   delete act._sinUbicar;
-  // Add to chosen stage
   if(!brand.cronograma[stage]) brand.cronograma[stage]=[];
   brand.cronograma[stage].push(act);
-  // Update cobros trigger to point to this activity in the right stage
+  // 🔒 Guardar: actividad cambió de stage — una sola saveAct con el nuevo stage basta,
+  // porque PK = id. También necesitamos resync del stage destino por si el orden cambió.
+  const dstActs = brand.cronograma[stage];
+  const rows = dstActs.map((a, i) => CronoDB.actToRow(brandId, stage, a, i));
+  await CronoDB.saveActsBatch(rows);
+
+  // Update cobros trigger
   if(act._cobPago && appData.cobros?.[brandId]){
     const pago = appData.cobros?.[brandId]?.pagos?.find(p=>p.triggerActId===actId);
     if(pago){
       pago.triggerActName = act.name;
       pago.triggerType = 'evento';
+      if(window.CobrosDB) await CobrosDB.savePago(brandId, pago);
     }
-    markLocalChange('cobros');
   }
-  markLocalChange('brands');
-  await upsert();
   renderBrandCrono(brand);
   showStatus(`"${act.name}" movido a ${stage} ✓`);
 }
@@ -5935,8 +6215,8 @@ async function deleteSinUbicar(brandId, actId){
   const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand?.cronograma?._sinUbicar) return;
   brand.cronograma._sinUbicar = brand.cronograma._sinUbicar.filter(a=>a.id!==actId);
-  markLocalChange('brands');
-  await upsert();
+  // 🔒 Borrar de la tabla
+  await CronoDB.deleteAct(actId);
   renderBrandCrono(brand);
 }
 
@@ -5945,19 +6225,17 @@ async function toggleHitoFreeMode(brandId, stage, actId){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand) return;
   const acts = brand.cronograma?.[stage] || [];
-  const act = acts.find(a=>a.id===actId);
-  if(!act) return;
+  const idx = acts.findIndex(a=>a.id===actId);
+  if(idx<0) return;
+  const act = acts[idx];
   if(act.revDateOverride){
-    // Re-link: remove override
     delete act.revDateOverride;
     showStatus('🔗 Revisión re-vinculada al hito (−2 días)');
   } else {
-    // Free mode: set initial override to current computed value
     act.revDateOverride = subtractWorkdays(act.endDate, getRevDays());
     showStatus('🔓 Modo libre activado — arrastra 🔍 independientemente');
   }
-    markLocalChange('brands');
-await upsert();
+  await CronoDB.saveAct(brandId, stage, act, idx);
   renderEqMonth();
   if(currentPage==='brand' && currentBrandId===brandId) renderBrandCrono(brand);
 }
@@ -7140,21 +7418,16 @@ async function deleteCobPago(brandId, pagoId){
     const brand = (appData.brands||[]).find(b=>b.id===brandId);
     if(brand){
       let removedFromCrono = false;
-      ['aire','agua','tierra','fuego'].forEach(st=>{
+      ['aire','agua','tierra','fuego','_sinUbicar'].forEach(st=>{
         const antes = (brand.cronograma?.[st]||[]).length;
+        if(!brand.cronograma) return;
         brand.cronograma[st] = (brand.cronograma?.[st]||[]).filter(a=>a.id!==pago.triggerActId);
-        if(brand.cronograma[st].length !== antes) removedFromCrono = true;
+        if((brand.cronograma[st]||[]).length !== antes) removedFromCrono = true;
       });
-      // También de _sinUbicar
-      if(brand.cronograma?._sinUbicar){
-        const antes = brand.cronograma._sinUbicar.length;
-        brand.cronograma._sinUbicar = brand.cronograma._sinUbicar.filter(a=>a.id!==pago.triggerActId);
-        if(brand.cronograma._sinUbicar.length !== antes) removedFromCrono = true;
-      }
       if(removedFromCrono){
-        markLocalChange('brands');
+        // 🔒 Borrar la actividad de la tabla de crono (por su id único)
+        if(pago.triggerActId) await CronoDB.deleteAct(pago.triggerActId);
         if(currentBrandId===brandId) renderBrandCrono(brand);
-        upsert();
       }
     }
   }
@@ -7779,6 +8052,23 @@ async function permanentDelete(itemId){ markLocalChange("papelera");
   const nombre = item.type==='brand' ? item.data.name : (item.data.apodo||item.data.nombre);
   const confirmResult = await askModal({ label:`¿Eliminar "${nombre}" permanentemente? Esta acción no se puede deshacer.`, type:'select', options:['Cancelar','Sí, eliminar definitivamente'] });
   if(confirmResult!==1) return;
+
+  // 🔒 Si es una marca, borrar sus actividades del cronograma y sus cobros de las tablas
+  if(item.type==='brand' && item.data?.id){
+    try {
+      const brandId = item.data.id;
+      for(const st of ['aire','agua','tierra','fuego','_sinUbicar']){
+        await CronoDB.deleteBrandStage(brandId, st);
+      }
+      // Borrar cobros de la marca (si CobrosDB tiene método; si no, pasa por realtime después)
+      if(window.CobrosDB && item.data.cobros?.pagos){
+        for(const pago of (item.data.cobros.pagos||[])){
+          if(pago?.id) await CobrosDB.deletePago(brandId, pago.id);
+        }
+      }
+    } catch(e) { console.warn('[Polen] Error borrando datos de tabla de marca:', e); }
+  }
+
   appData.papelera = appData.papelera.filter(i=>i.id!==itemId);
   await upsert();
   renderPapelera();
@@ -8840,22 +9130,47 @@ async function renderBrandPage(){
 
   // Auto-fix: if brand is missing cronograma or brandingPoints, inject from template
   let needsSave = false;
+  let cronoInjected = false;
+  let bpInjected = false;
   if(!brand.cronograma || Object.values(brand.cronograma).every(arr=>!arr||arr.length===0)){
     const tpl = appData.template || defaultTemplate();
     const start = brand.createdAt ? brand.createdAt.slice(0,10) : todayStr();
     const tplWithNaming = {...tpl, includeNaming: brand.includeNaming !== false};
     brand.cronograma = buildCronoFromTemplate(tplWithNaming, start);
     needsSave = true;
+    cronoInjected = true;
   }
   if(!brand.brandingPoints || !brand.brandingPoints.categories || brand.brandingPoints.categories.length===0){
     const tpl = appData.template || defaultTemplate();
     const bpTotal = brand.brandingPoints?.total || tpl.brandingPoints.total;
     brand.brandingPoints = buildBpFromTemplate({...tpl, brandingPoints:{...tpl.brandingPoints, total: bpTotal}});
     needsSave = true;
+    bpInjected = true;
   }
   if(!brand.rondas || brand.rondas.length===0){
     brand.rondas = [{id:uid(),label:'R1',done:false},{id:uid(),label:'R2',done:false},{id:uid(),label:'R3',done:false}];
     needsSave = true;
+  }
+  if(cronoInjected){
+    // 🔒 Guardar todas las actividades del cronograma recién inyectado en la tabla
+    const allRows = [];
+    ['aire','agua','tierra','fuego'].forEach(st=>{
+      (brand.cronograma[st]||[]).forEach((a, i)=>{
+        allRows.push(CronoDB.actToRow(brand.id, st, a, i));
+      });
+    });
+    if(allRows.length) await CronoDB.saveActsBatch(allRows);
+  }
+  if(bpInjected && window.BrandBpDB){
+    // 🔒 Guardar BPs recién inyectados a polen_brand_bp para que el portal los vea
+    const bpRows = [];
+    (brand.brandingPoints.categories||[]).forEach((cat, ci)=>{
+      (cat.items||[]).forEach((item, ii)=>{
+        if(!cat.id || !item.id) return;
+        bpRows.push(BrandBpDB.itemToRow(brand.id, cat, item, ci, ii));
+      });
+    });
+    if(bpRows.length) await BrandBpDB.saveItemsBatch(bpRows);
   }
   if(needsSave){ await upsert(); showStatus('Datos del proyecto actualizados ✓'); }
 
@@ -9305,6 +9620,10 @@ async function actDrop(event, brandId, targetStage, targetId){
     if(fromIdx<0||toIdx<0) return;
     const [moved] = acts.splice(fromIdx, 1);
     acts.splice(toIdx, 0, moved);
+    renderBrandCrono(brand);
+    // 🔒 Guardar todas las acts del stage (cambió el orden)
+    const rows = acts.map((a, i)=>CronoDB.actToRow(brandId, srcStage, a, i));
+    await CronoDB.saveActsBatch(rows);
   } else {
     // Mover a otra etapa: insertar antes de targetId
     const srcActs = brand.cronograma[srcStage];
@@ -9315,14 +9634,16 @@ async function actDrop(event, brandId, targetStage, targetId){
     const [moved] = srcActs.splice(fromIdx, 1);
     const insertAt = toIdx >= 0 ? toIdx : dstActs.length;
     dstActs.splice(insertAt, 0, moved);
-    // Recalcular fechas en etapa destino
+    // Recalcular fechas en ambas etapas
     _rechainStage(brand, targetStage);
-    // Recalcular fechas en etapa origen (brecha que quedó)
     _rechainStage(brand, srcStage);
+    renderBrandCrono(brand);
+    // 🔒 Guardar ambas etapas (una tiene la nueva act, la otra puede haber cambiado fechas)
+    const rows = [];
+    dstActs.forEach((a, i)=>rows.push(CronoDB.actToRow(brandId, targetStage, a, i)));
+    srcActs.forEach((a, i)=>rows.push(CronoDB.actToRow(brandId, srcStage, a, i)));
+    await CronoDB.saveActsBatch(rows);
   }
-  renderBrandCrono(brand);
-  markLocalChange('brands');
-  await upsert();
   showStatus('Actividad movida ✓');
 }
 
@@ -9333,21 +9654,25 @@ async function actDropToStage(event, brandId, targetStage){
   const btn = document.getElementById('add-act-btn-'+targetStage+'-'+brandId);
   if(btn){ btn.style.borderColor=''; btn.style.color=''; }
   if(!_actDragId || _actDragBrand !== brandId) return;
-  if(_actDragStage === targetStage) return; // ya está en esa etapa — no hacer nada
+  if(_actDragStage === targetStage) return;
   const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand?.cronograma) return;
   const srcActs = brand.cronograma[_actDragStage];
   const dstActs = brand.cronograma[targetStage];
   const fromIdx = srcActs.findIndex(a=>a.id===_actDragId);
   if(fromIdx<0) return;
+  const srcStage = _actDragStage;
   const [moved] = srcActs.splice(fromIdx, 1);
   dstActs.push(moved);
   _rechainStage(brand, targetStage);
-  _rechainStage(brand, _actDragStage);
+  _rechainStage(brand, srcStage);
   document.querySelectorAll('.act-item').forEach(el=>{ el.style.outline='none'; el.style.opacity=''; });
   renderBrandCrono(brand);
-  markLocalChange('brands');
-  await upsert();
+  // 🔒 Guardar ambas etapas
+  const rows = [];
+  dstActs.forEach((a, i)=>rows.push(CronoDB.actToRow(brandId, targetStage, a, i)));
+  srcActs.forEach((a, i)=>rows.push(CronoDB.actToRow(brandId, srcStage, a, i)));
+  await CronoDB.saveActsBatch(rows);
   showStatus('Actividad movida al final de la etapa ✓');
 }
 
@@ -9431,10 +9756,16 @@ async function saveActName(brandId, stage, actId, newName){
   if(!newName) return;
   const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand?.cronograma?.[stage]) return;
-  const act = brand.cronograma[stage].find(a=>a.id===actId);
-  if(!act || act.name === newName) return;
+  const acts = brand.cronograma[stage];
+  const idx = acts.findIndex(a=>a.id===actId);
+  if(idx < 0) return;
+  const act = acts[idx];
+  if(act.name === newName) return;
   const oldName = act.name;
   act.name = newName;
+
+  // 🔒 Guardar actividad en tabla
+  await CronoDB.saveAct(brandId, stage, act, idx);
 
   // Si la actividad es un pago, sincronizar nombre en cobros
   if(/pago/i.test(newName) || /pago/i.test(oldName)){
@@ -9445,13 +9776,12 @@ async function saveActName(brandId, stage, actId, newName){
       if(pago){
         pago.nombre = newName;
         pago.triggerActName = newName;
-        markLocalChange('cobros');
+        // Persistir pago actualizado en CobrosDB
+        if(window.CobrosDB) await CobrosDB.savePago(brandId, pago);
       }
     }
   }
 
-  markLocalChange('brands');
-  await upsert();
   // Re-renderizar cobros si está visible
   if(document.getElementById('cob-content')?.style.display !== 'none') renderCobCard(brandId);
 }
@@ -9467,11 +9797,12 @@ function tplSaveActName(stage, actId, newName){
 async function toggleInterno(brandId, stage, actId){
   const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand?.cronograma?.[stage]) return;
-  const act = brand.cronograma[stage].find(a=>a.id===actId);
-  if(!act) return;
+  const acts = brand.cronograma[stage];
+  const idx = acts.findIndex(a=>a.id===actId);
+  if(idx<0) return;
+  const act = acts[idx];
   act.isInterno = !act.isInterno;
-  markLocalChange('brands');
-  await upsert();
+  await CronoDB.saveAct(brandId, stage, act, idx);
   renderBrandCrono(brand);
 }
 
@@ -9488,11 +9819,12 @@ function tplToggleInterno(stage, id){
 async function toggleDCReview(brandId, stage, actId){
   const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand?.cronograma?.[stage]) return;
-  const act = brand.cronograma[stage].find(a=>a.id===actId);
-  if(!act) return;
+  const acts = brand.cronograma[stage];
+  const idx = acts.findIndex(a=>a.id===actId);
+  if(idx<0) return;
+  const act = acts[idx];
   act.isDCReview = !act.isDCReview;
-  markLocalChange('brands');
-  await upsert();
+  await CronoDB.saveAct(brandId, stage, act, idx);
   renderBrandCrono(brand);
   showStatus(act.isDCReview ? '🎯 Revisión DC activada' : 'Revisión DC desactivada');
 }
@@ -9500,11 +9832,12 @@ async function toggleDCReview(brandId, stage, actId){
 async function toggleHito(brandId, stage, actId){
   const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand?.cronograma?.[stage]) return;
-  const act = brand.cronograma[stage].find(a=>a.id===actId);
-  if(!act) return;
+  const acts = brand.cronograma[stage];
+  const idx = acts.findIndex(a=>a.id===actId);
+  if(idx<0) return;
+  const act = acts[idx];
   act.isHito = !act.isHito;
-  markLocalChange('brands');
-  await upsert();
+  await CronoDB.saveAct(brandId, stage, act, idx);
   renderBrandCrono(brand);
 }
 
@@ -9522,6 +9855,12 @@ async function toggleStageAll(brandId, stage){
     return sa.length > 0 && sa.some(a=>a.status!=='completada');
   }) || stageOrder.find(s=>(brand.cronograma[s]||[]).length > 0) || brand.stage;
   if(computedStage) brand.stage = computedStage;
+
+  // 🔒 Guardar todas las actividades del stage en batch
+  const rows = acts.map((a, i) => CronoDB.actToRow(brandId, stage, a, i));
+  await CronoDB.saveActsBatch(rows);
+
+  // El cambio a brand.stage sí necesita ir al JSON (no está en la tabla)
   markLocalChange('brands');
   renderBrandCrono(brand);
   await upsert();
@@ -9539,25 +9878,29 @@ async function addCronoActivity(brandId, stage){
   const lastAct = acts[acts.length-1];
   const startDate = lastAct?.endDate ? addWorkdays(lastAct.endDate, 1) : todayStr();
   const endDate = addWorkdays(startDate, days-1);
-  acts.push({id:uid(), name, days, startDate, endDate, status:'pendiente', isHito:false});
-  const newAct = acts[acts.length-1];
+  const newAct = {id:uid(), name, days, startDate, endDate, status:'pendiente', isHito:false};
+  acts.push(newAct);
   brand.cronograma[stage] = acts;
+
+  // 🔒 Guardar actividad en tabla
+  await CronoDB.saveAct(brandId, stage, newAct, acts.length - 1);
+
   // Si el nombre contiene "pago", sincronizar con cobros
   if(_actIsPago(newAct)){
     if(!appData.cobros) appData.cobros = {};
     if(!appData.cobros[brandId]) appData.cobros[brandId] = {expanded:false, pagos:[]};
     const yaExiste = appData.cobros[brandId].pagos.find(p=>p.triggerActId===newAct.id);
     if(!yaExiste){
-      appData.cobros[brandId].pagos.push({
+      const nuevoPago = {
         id: uid(), nombre: newAct.name, monto: 0, cobrado: false,
         triggerType: 'evento', triggerActName: newAct.name, triggerActId: newAct.id,
         fechaProyectada: newAct.endDate||'', nota: '', ultimoSeguimiento: ''
-      });
-      markLocalChange('cobros');
+      };
+      appData.cobros[brandId].pagos.push(nuevoPago);
+      if(window.CobrosDB) await CobrosDB.savePago(brandId, nuevoPago);
     }
   }
-    markLocalChange('brands');
-await upsert();
+
   showStatus('Actividad añadida ✓');
   renderBrandCrono(brand);
 }
@@ -9580,23 +9923,39 @@ async function deleteCronoActivity(brandId, stage, actId){
     }
   }
   brand.cronograma[stage] = acts;
+
+  // 🔒 Borrar de tabla la actividad eliminada
+  await CronoDB.deleteAct(removed.id);
+  // 🔒 Resync las acts que fueron desplazadas (fechas y orden)
+  if(acts.length){
+    const rows = acts.map((a, i) => CronoDB.actToRow(brandId, stage, a, i));
+    await CronoDB.saveActsBatch(rows);
+  }
+
   // Eliminar de cobros cualquier pago vinculado a esta actividad (por id o por nombre)
   if(appData.cobros?.[brandId]){
     const cobrantes = appData.cobros[brandId];
     const antes = cobrantes.pagos.length;
+    const pagosRemovidos = cobrantes.pagos.filter(p =>
+      p.triggerActId === removed.id || p.nombre === removed.name
+    );
     cobrantes.pagos = cobrantes.pagos.filter(p =>
       p.triggerActId !== removed.id && p.nombre !== removed.name
     );
     if(cobrantes.pagos.length !== antes){
-      markLocalChange('cobros');
+      // Borrar cada pago de la tabla de cobros
+      if(window.CobrosDB){
+        for(const pago of pagosRemovidos){
+          await CobrosDB.deletePago(brandId, pago.id);
+        }
+      }
       renderCobCard(brandId);
       renderCobTabla();
     }
   }
-  markLocalChange('brands');
+
   renderBrandCrono(brand);
-  const saved = await upsert();
-  showStatus(saved ? 'Actividad eliminada ✓' : '❌ Error al eliminar actividad — recarga e intenta de nuevo.', !saved);
+  showStatus('Actividad eliminada ✓');
 }
 
 
@@ -9627,6 +9986,7 @@ function startInlineDays(e, brandId, stage, actId){
         acts[i].endDate = addWorkdays(acts[i].startDate, (acts[i].days||1)-1);
       }
       // Preguntar cascade a etapas siguientes
+      let didCascade = false;
       if(delta !== 0 && oldEndDate){
         const hasLater = ['aire','agua','tierra','fuego'].some(st=>
           (brand.cronograma[st]||[]).some(a=> a.id!==actId && a.startDate && a.startDate > oldEndDate)
@@ -9642,12 +10002,25 @@ function startInlineDays(e, brandId, stage, actId){
           );
           if(cascade){
             cascadeAfterDate(brand, oldEndDate, delta, actId);
+            didCascade = true;
           }
         }
       }
       renderBrandCrono(brand);
-      markLocalChange('brands');
-      await upsert();
+      // 🔒 Guardar: si hubo cascade, batch todo el cronograma de la marca;
+      // si no, solo el stage actual
+      if(didCascade){
+        const allRows = [];
+        ['aire','agua','tierra','fuego'].forEach(st=>{
+          (brand.cronograma[st]||[]).forEach((a, i)=>{
+            allRows.push(CronoDB.actToRow(brandId, st, a, i));
+          });
+        });
+        await CronoDB.saveActsBatch(allRows);
+      } else {
+        const stageRows = acts.map((a, i)=>CronoDB.actToRow(brandId, stage, a, i));
+        await CronoDB.saveActsBatch(stageRows);
+      }
       showStatus('Duración actualizada ✓');
     } else {
       badge.classList.remove('editing');
@@ -9741,8 +10114,10 @@ function editDate(e,brandId,stage,actId,field){
   const span=e.currentTarget;
   const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand)return;
-  const act=brand.cronograma[stage].find(a=>a.id===actId);
-  if(!act)return;
+  const acts = brand.cronograma[stage];
+  const idx = acts.findIndex(a=>a.id===actId);
+  if(idx<0) return;
+  const act = acts[idx];
   const current=act[field]||todayStr();
   const input=document.createElement('input');
   input.type='date'; input.value=current;
@@ -9759,33 +10134,46 @@ function editDate(e,brandId,stage,actId,field){
     if(!val || val===current){ renderBrandCrono(brand); return; }
     // Validar que el año sea razonable
     const yearEntered = parseInt(val.slice(0,4));
-    const yearCurrent = parseInt((current||'2026').slice(0,4));
     if(yearEntered < 2020 || yearEntered > 2035){
       showStatus('⚠️ Año fuera de rango — verifica la fecha', true);
       renderBrandCrono(brand);
       return;
     }
 
+    const saveAllStages = async ()=>{
+      // Guardar cambios en todas las stages (porque cascade puede haber tocado varias)
+      const allRows = [];
+      ['aire','agua','tierra','fuego','_sinUbicar'].forEach(st=>{
+        (brand.cronograma[st]||[]).forEach((a, i)=>{
+          allRows.push(CronoDB.actToRow(brandId, st, a, i));
+        });
+      });
+      await CronoDB.saveActsBatch(allRows);
+    };
+    const saveJustThisStage = async ()=>{
+      const stageRows = acts.map((a, i)=>CronoDB.actToRow(brandId, stage, a, i));
+      await CronoDB.saveActsBatch(stageRows);
+    };
+
     // Solo editamos startDate; endDate se deriva de startDate + days
     const oldEndDate = act.endDate;
     act.startDate = val;
     act.endDate = addWorkdays(val, Math.max((act.days||1)-1, 0));
 
-    if(!oldEndDate){ renderBrandCrono(brand); markLocalChange('brands'); await upsert(); showStatus('Fecha actualizada ✓'); return; }
+    if(!oldEndDate){ renderBrandCrono(brand); await saveJustThisStage(); showStatus('Fecha actualizada ✓'); return; }
     const delta = wdDeltaBetween(oldEndDate, act.endDate);
 
+    let didCascade = false;
     if(delta !== 0){
-      // Solo considerar actividades POSTERIORES en orden de etapas (no por fecha)
-      // Esto evita que etapas anteriores con fechas distintas se muevan por error
       const stageOrder = ['aire','agua','tierra','fuego'];
       const stageIdx = stageOrder.indexOf(stage);
       const actIdxInStage = (brand.cronograma[stage]||[]).findIndex(a=>a.id===actId);
 
       const hasLater = stageOrder.some((st, si) => {
-        if(si < stageIdx) return false; // etapa anterior — nunca tocar
+        if(si < stageIdx) return false;
         const acts = brand.cronograma[st]||[];
         return acts.some((a, ai) => {
-          if(st === stage && ai <= actIdxInStage) return false; // antes o igual en misma etapa
+          if(st === stage && ai <= actIdxInStage) return false;
           return true;
         });
       });
@@ -9800,8 +10188,8 @@ function editDate(e,brandId,stage,actId,field){
           'No'
         );
         if(cascade){
-          // Cascade solo desde esta etapa/índice en adelante
           _cascadeFrom(brand, stage, actIdxInStage + 1, delta);
+          didCascade = true;
         }
         renderBrandCrono(brand);
       } else {
@@ -9811,8 +10199,8 @@ function editDate(e,brandId,stage,actId,field){
       renderBrandCrono(brand);
     }
 
-    markLocalChange('brands');
-    await upsert();
+    if(didCascade) await saveAllStages();
+    else await saveJustThisStage();
     showStatus('Fecha actualizada ✓');
   };
 
@@ -9830,51 +10218,56 @@ function editDate(e,brandId,stage,actId,field){
 async function shiftAllDates(brandId,delta){
   const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand)return;
+  const rowsToSave = [];
   ['aire','agua','tierra','fuego'].forEach(stage=>{
-    (brand.cronograma[stage]||[]).forEach(a=>{
+    (brand.cronograma[stage]||[]).forEach((a, i)=>{
       if(a.startDate)a.startDate=shiftWorkdays(a.startDate,delta);
       if(a.endDate)a.endDate=shiftWorkdays(a.endDate,delta);
       if(a.revDateOverride)a.revDateOverride=shiftWorkdays(a.revDateOverride,delta);
+      rowsToSave.push(CronoDB.actToRow(brandId, stage, a, i));
     });
   });
+  // 🔒 Guardar todas las acts en batch
+  await CronoDB.saveActsBatch(rowsToSave);
+
   // Sincronizar fechaProyectada en cobros después de mover el cronograma
   ensureCobrosData();
-  markLocalChange('brands','cobros');
   renderBrandCrono(brand);
-  await upsert();
   showStatus((delta>0?'+':'')+delta+' día'+(Math.abs(delta)>1?'s':'')+' aplicado a todo el cronograma ✓');
 }
 
 async function cycleStatus(brandId,stage,actId){
     const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.cronograma[stage])return;
-  const act=brand.cronograma[stage].find(a=>a.id===actId);
-  if(!act)return;
+  const acts = brand.cronograma[stage];
+  const idx = acts.findIndex(a=>a.id===actId);
+  if(idx<0) return;
+  const act = acts[idx];
   const states=['pendiente','en progreso','completada'];
   act.status=states[(states.indexOf(act.status)+1)%states.length];
 
+  // 🔒 Guardar actividad en tabla
+  await CronoDB.saveAct(brandId, stage, act, idx);
+
   // Auto-advance stage: compute correct stage from completed activities
   const stageOrder=['aire','agua','tierra','fuego'];
-  // A stage is "done" when ALL its activities are completada
-  // The brand should be in the first stage that still has incomplete activities
   const computedStage = stageOrder.find(s=>{
-    const acts = brand.cronograma[s]||[];
-    return acts.length > 0 && acts.some(a=>a.status!=='completada');
+    const sActs = brand.cronograma[s]||[];
+    return sActs.length > 0 && sActs.some(a=>a.status!=='completada');
   }) || stageOrder.find(s=>(brand.cronograma[s]||[]).length > 0) || brand.stage;
+  let stageChanged = false;
   if(computedStage && computedStage !== brand.stage){
     brand.stage = computedStage;
+    stageChanged = true;
     showStatus(`🎉 Etapa completada → avanzando a ${computedStage}`);
   }
 
   renderBrandCrono(brand);
   renderSegmentedProgress(brand);
-  // Actualizar solo el hero-meta (más eficiente que renderBrandPage completo)
   const _bHeroMeta = document.getElementById('brand-hero-meta');
   if(_bHeroMeta) renderBrandPage();
-  markLocalChange('brands');
 
   // ── Sync crono → cobros ──
-  // Si esta actividad ES un pago (tiene pago vinculado) → sync estado cobrado
   {
     ensureCobrosData();
     const cob = appData.cobros[brandId];
@@ -9893,7 +10286,9 @@ async function cycleStatus(brandId,stage,actId){
           } else {
             delete pago.fechaCobrado;
           }
-          markLocalChange('cobros','finanzas');
+          // Persistir pago en CobrosDB
+          if(window.CobrosDB) await CobrosDB.savePago(brandId, pago);
+          markLocalChange('finanzas');
           syncCobrosToFin();
           if(document.getElementById('cob-content')?.style.display!=='none') renderCobCard(brandId);
         }
@@ -9906,13 +10301,15 @@ async function cycleStatus(brandId,stage,actId){
     renderCobTabla();
   }
 
-  await upsert();
+  // Si cambió brand.stage, sí necesitamos upsert del JSON
+  if(stageChanged){
+    markLocalChange('brands');
+    await upsert();
+  }
+
   if(act.status==='completada'){
     showStatus('✓ Completada');
     checkAutoArchive(brandId);
-    if((appData.clientNotes||[]).some(n=>n.brandId===brandId&&n.type==='archive-request'&&!n.done)){
-      await upsert(); // save the new note
-    }
   }
 }
 
@@ -10493,10 +10890,38 @@ async function saveBrand(){ markLocalChange("brands");
     if(!Array.isArray(appData.brands))appData.brands=[];
     appData.brands.push(newBrand);
 
+    // 🔒 Guardar cronograma inicial de la nueva marca en tabla
+    const cronoRows = [];
+    ['aire','agua','tierra','fuego'].forEach(st=>{
+      (newBrand.cronograma?.[st]||[]).forEach((a, i)=>{
+        cronoRows.push(CronoDB.actToRow(newBrand.id, st, a, i));
+      });
+    });
+    if(cronoRows.length) await CronoDB.saveActsBatch(cronoRows);
+
+    // 🔒 Guardar branding points iniciales en tabla polen_brand_bp
+    // Sin esto, el portal del cliente y la vista interna ven la sección vacía
+    // porque ambos leen de la tabla, no del JSON.
+    if(window.BrandBpDB && newBrand.brandingPoints?.categories?.length){
+      const bpRows = [];
+      newBrand.brandingPoints.categories.forEach((cat, ci)=>{
+        (cat.items||[]).forEach((item, ii)=>{
+          if(!cat.id || !item.id) return;
+          bpRows.push(BrandBpDB.itemToRow(newBrand.id, cat, item, ci, ii));
+        });
+      });
+      if(bpRows.length) await BrandBpDB.saveItemsBatch(bpRows);
+    }
+
     // Auto-create cobros structure from cronograma hitos only
     const pagos = buildPagosFromCrono(newBrand);
     appData.cobros[newBrand.id] = { expanded:false, pagos };
-    markLocalChange('cobros');
+    // 🔒 Guardar pagos iniciales en CobrosDB
+    if(window.CobrosDB && pagos.length){
+      for(const pago of pagos){
+        await CobrosDB.savePago(newBrand.id, pago);
+      }
+    }
   }
 
   let saveErr=null;
@@ -14643,6 +15068,37 @@ async function boot(){
             try { panel.innerHTML = portalRenderAprobaciones(brand); } catch(e){}
           }
         }
+      }
+    } catch(e){}
+  });
+
+  // 🔒 Suscripción realtime al cronograma
+  // Cambios de otros usuarios llegan fila por fila en lugar de por JSON completo
+  CronoDB.subscribeRealtime((payload)=>{
+    try {
+      const bid = payload?.new?.brand_id || payload?.old?.brand_id;
+      if(currentPage==='brand' && currentBrandId === bid){
+        const brand = (appData.brands||[]).find(b=>b.id===bid);
+        if(brand){
+          try { renderBrandCrono(brand); } catch(e){}
+          try { renderSegmentedProgress(brand); } catch(e){}
+        }
+      }
+      // Portal cliente también puede estar viendo el cronograma
+      if(document.body.classList.contains('portal-mode') && window._portalBrandId === bid){
+        // El portal re-renderiza con el onChange global del realtime principal
+      }
+      // Si estamos en dashboard, actualizar por si cambió el progreso
+      if(currentPage === 'dashboard'){
+        try { renderDashboard(); } catch(e){}
+      }
+      // Si estamos en equipo/domos, actualizar el calendario
+      if(currentPage === 'equipo'){
+        try {
+          const activeTab = window._eqTab;
+          if(activeTab === 'week') renderEqWeek();
+          else if(activeTab === 'month') renderEqMonth();
+        } catch(e){}
       }
     } catch(e){}
   });
