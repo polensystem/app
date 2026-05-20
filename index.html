@@ -4940,49 +4940,58 @@ function _mergeBrandingPointsSafe(serverBp, localBp){
 function deepMergeAppData(server, local){
   const merged = {...server};
 
-  // ── brands: local always wins (same pattern as cobros) ──
+  // ── brands: merge INCLUSIVO — la unión de local + server, identificadas por ID ──
+  // Razón: si una pestaña tiene local viejo (sin marca X) y server tiene marca X creada
+  // por otra pestaña, NO debemos pisar el server con el local viejo. Las marcas se
+  // preservan a menos que estén explícitamente en _deletedBrandIds.
   const serverBrands = Array.isArray(server.brands) ? server.brands : [];
   const localBrands  = Array.isArray(local.brands)  ? local.brands  : [];
   const deletedBrandIds = _localDeletedIds.brands;
-  // Also respect persisted deleted IDs
   const persistedDeletedBrandIds = new Set([...(local._deletedBrandIds||[]), ...(server._deletedBrandIds||[])]);
   const allDeletedBrandIds = new Set([...deletedBrandIds, ...persistedDeletedBrandIds]);
-  if(_localChangedKeys.has('brands')){
-    // Local changed brands — but preserve server-side portal fields (brandingPoints, portalApprovals)
-    // that the client may have updated via the portal
-    const serverBrandMap = {};
-    serverBrands.forEach(b=>{ serverBrandMap[b.id] = b; });
-    merged.brands = localBrands
-      .filter(b=>!allDeletedBrandIds.has(b.id))
-      .map(b=>{
-        const sv = serverBrandMap[b.id];
-        if(!sv) return b;
-        // brandingPoints: merge por-item usando timestamp. Ya no "server siempre gana"
-        // porque eso pisaba selecciones del cliente cuando el admin hacía upserts sin cambios en BP.
-        const bp = _mergeBrandingPointsSafe(sv.brandingPoints, b.brandingPoints);
-        // 🔒 portalApprovals vive en polen_portal_approvals — local (sincronizado con tabla)
-        // siempre gana. El JSON ya no trae portalApprovals desde el server (stripped).
-        // 🔒 cronograma vive en polen_crono — local siempre gana.
-        return {...b, brandingPoints: bp, portalApprovals: b.portalApprovals || {}, cronograma: b.cronograma || { aire:[], agua:[], tierra:[], fuego:[] }};
-      });
-  } else {
-    const brandMap = {};
-    serverBrands.forEach(b=>{ if(!allDeletedBrandIds.has(b.id)) brandMap[b.id] = {...b}; });
-    localBrands.forEach(b=>{
-      if(!allDeletedBrandIds.has(b.id)){
-        if(brandMap[b.id]){
-          // Merge: local wins for most fields, server wins for portal-owned fields
-          const sv = brandMap[b.id];
-          const bp = _mergeBrandingPointsSafe(sv.brandingPoints, b.brandingPoints);
-          // 🔒 portalApprovals + cronograma viven en tablas — local siempre gana
-          brandMap[b.id] = {...sv, ...b, brandingPoints: bp, portalApprovals: b.portalApprovals || {}, cronograma: b.cronograma || { aire:[], agua:[], tierra:[], fuego:[] }};
-        } else {
-          brandMap[b.id] = {...b};
-        }
+
+  // Map por ID, partiendo del server. Brands que solo están en server NUNCA se pierden.
+  const brandMap = {};
+  serverBrands.forEach(b=>{
+    if(b?.id && !allDeletedBrandIds.has(b.id)) brandMap[b.id] = {...b};
+  });
+
+  // Aplicar local encima — si local tiene una versión más nueva o tiene cambios locales,
+  // gana para sus campos. Pero NO eliminamos brands que solo están en server.
+  const localChangedBrands = _localChangedKeys.has('brands');
+  localBrands.forEach(b=>{
+    if(!b?.id || allDeletedBrandIds.has(b.id)) return;
+    const sv = brandMap[b.id];
+    if(sv){
+      // Existe en ambos → merge por campo
+      const bp = _mergeBrandingPointsSafe(sv.brandingPoints, b.brandingPoints);
+      if(localChangedBrands){
+        // Local cambió: local gana para la mayoría de campos
+        // Portal-owned fields (brandingPoints) usan merge por timestamp
+        // 🔒 portalApprovals + cronograma viven en tablas — local siempre gana
+        brandMap[b.id] = {
+          ...sv,
+          ...b,
+          brandingPoints: bp,
+          portalApprovals: b.portalApprovals || {},
+          cronograma: b.cronograma || { aire:[], agua:[], tierra:[], fuego:[] },
+        };
+      } else {
+        // Local NO cambió: server gana, pero preservamos cosas locales que viven en tablas
+        brandMap[b.id] = {
+          ...sv,
+          brandingPoints: bp,
+          portalApprovals: b.portalApprovals || sv.portalApprovals || {},
+          cronograma: b.cronograma || sv.cronograma || { aire:[], agua:[], tierra:[], fuego:[] },
+        };
       }
-    });
-    merged.brands = Object.values(brandMap);
-  }
+    } else {
+      // Solo está en local — preservar (es nueva, no se ha subido aún)
+      brandMap[b.id] = {...b};
+    }
+  });
+
+  merged.brands = Object.values(brandMap);
   merged._deletedBrandIds = [...persistedDeletedBrandIds];
 
   // ── members: local always wins (same pattern as cobros) ──
@@ -4992,31 +5001,40 @@ function deepMergeAppData(server, local){
   // Also respect persisted deleted IDs
   const persistedDeletedMemberIds = new Set([...(local._deletedMemberIds||[]), ...(server._deletedMemberIds||[])]);
   const allDeletedMemberIds = new Set([...deletedMemberIds, ...persistedDeletedMemberIds]);
-  if(_localChangedKeys.has('members')){
-    merged.members = localMembers.filter(m=>!allDeletedMemberIds.has(m.id));
-  } else {
-    const memberMap = {};
-    serverMembers.forEach(m=>{ if(!allDeletedMemberIds.has(m.id)) memberMap[m.id] = {...m}; });
-    localMembers.forEach(m=>{
-      if(allDeletedMemberIds.has(m.id)) return;
-      if(memberMap[m.id]){
-        // Merge local over server, but preserve photo from whichever has it
-        const serverPhoto = memberMap[m.id].photo;
-        const localPhoto  = m.photo;
-        const bestPhoto   = (localPhoto && localPhoto.startsWith('data:')) ? localPhoto
-                          : (serverPhoto && serverPhoto.startsWith('data:')) ? serverPhoto
-                          : localPhoto || serverPhoto || null;
-        // Also preserve color — never overwrite valid color with empty/undefined
-        const bestColor = (m.color && m.color !== '') ? m.color 
-                        : (memberMap[m.id].color && memberMap[m.id].color !== '') ? memberMap[m.id].color 
-                        : null;
-        memberMap[m.id] = {...memberMap[m.id], ...m, photo: bestPhoto, color: bestColor};
+  // ── members: merge INCLUSIVO (igual que brands) ──
+  // Members del server que no están en local NUNCA se pierden, salvo si están en
+  // _deletedMemberIds explícitamente.
+  const memberMap = {};
+  serverMembers.forEach(m=>{
+    if(m?.id && !allDeletedMemberIds.has(m.id)) memberMap[m.id] = {...m};
+  });
+  const localChangedMembers = _localChangedKeys.has('members');
+  localMembers.forEach(m=>{
+    if(!m?.id || allDeletedMemberIds.has(m.id)) return;
+    if(memberMap[m.id]){
+      // Existe en ambos
+      const sv = memberMap[m.id];
+      const serverPhoto = sv.photo;
+      const localPhoto  = m.photo;
+      const bestPhoto   = (localPhoto && localPhoto.startsWith('data:')) ? localPhoto
+                        : (serverPhoto && serverPhoto.startsWith('data:')) ? serverPhoto
+                        : localPhoto || serverPhoto || null;
+      const bestColor = (m.color && m.color !== '') ? m.color
+                      : (sv.color && sv.color !== '') ? sv.color
+                      : null;
+      if(localChangedMembers){
+        // Local cambió: local gana
+        memberMap[m.id] = {...sv, ...m, photo: bestPhoto, color: bestColor};
       } else {
-        memberMap[m.id] = {...m};
+        // Local no cambió: server gana, pero preservamos photo/color válidos
+        memberMap[m.id] = {...sv, photo: bestPhoto, color: bestColor};
       }
-    });
-    merged.members = Object.values(memberMap);
-  }
+    } else {
+      // Solo en local — preservar (es nuevo)
+      memberMap[m.id] = {...m};
+    }
+  });
+  merged.members = Object.values(memberMap);
   merged._deletedMemberIds = [...persistedDeletedMemberIds];
 
   // ── clientNotes: merge by id, respect local deletions ──
@@ -8020,9 +8038,12 @@ async function restoreFromPapelera(itemId){ markLocalChange("papelera","brands",
   const idx = appData.papelera.findIndex(i=>i.id===itemId);
   if(idx<0) return;
   const item = appData.papelera[idx];
-  if(item.type==='brand'){
+  if(item.type==='brand' || item.type==='brand-archived'){
     const brandId = item.data.id;
-    appData.brands.push(item.data);
+    // Si es una marca archivada, quitar el flag archivedAt para que vuelva a ser activa
+    const restored = {...item.data};
+    if(item.type==='brand-archived') delete restored.archivedAt;
+    appData.brands.push(restored);
     // Limpiar de TODAS las listas de eliminados
     appData._deletedBrandIds = (appData._deletedBrandIds||[]).filter(id=>id!==brandId && id!==itemId);
     _localDeletedIds.brands.delete(brandId);
@@ -8042,7 +8063,26 @@ async function restoreFromPapelera(itemId){ markLocalChange("papelera","brands",
   appData.papelera.splice(idx,1);
   await upsert();
   renderPapelera();
+  if(typeof renderArchivo === 'function') renderArchivo();
+  if(typeof renderBrands === 'function') renderBrands();
   updatePapeleraBadge();
+}
+
+// Restaurar una marca archivada al dashboard (botón "Restaurar" en card de Archivados)
+async function restoreArchivedBrand(brandId){
+  ensurePapelera();
+  const brand = (appData.papelera||[]).find(i=>i.type==='brand-archived' && i.data?.id===brandId);
+  if(!brand){
+    showStatus('No se encontró la marca archivada', true);
+    return;
+  }
+  const confirmResult = await askModal({
+    label: `¿Restaurar "${brand.data.name}" al dashboard? Volverá como proyecto activo.`,
+    type: 'select',
+    options: ['Cancelar','Sí, restaurar']
+  });
+  if(confirmResult !== 1) return;
+  await restoreFromPapelera(brand.id);
 }
 
 async function permanentDelete(itemId){ markLocalChange("papelera");
@@ -8338,9 +8378,27 @@ function renderArchivo(){
       ? `$${totalCobrado.toLocaleString()}`
       : `<span style="filter:blur(6px);user-select:none;letter-spacing:2px">$••••</span>`;
 
-    return `<div class="card" style="padding:1.4rem;position:relative;overflow:hidden;cursor:pointer" onclick="openBrand('${brand.id}')">
+    // ¿Es una marca archivada formalmente (en papelera) o detectada como auto-completada?
+    const isFormallyArchived = (appData.papelera||[]).some(p=>p.type==='brand-archived' && p.data?.id===brand.id);
+
+    // Las marcas formalmente archivadas no son cliqueables (no existen en appData.brands)
+    // Solo el botón "Restaurar" permite recuperarlas.
+    const cardClick = isFormallyArchived ? '' : `onclick="openBrand('${brand.id}')"`;
+    const cardCursor = isFormallyArchived ? 'default' : 'pointer';
+
+    return `<div class="card" style="padding:1.4rem;position:relative;overflow:hidden;cursor:${cardCursor}" ${cardClick}>
       <!-- Accent bar -->
       <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${col}"></div>
+      ${isFormallyArchived ? `
+      <!-- Restore button -->
+      <button onclick="event.stopPropagation();restoreArchivedBrand('${brand.id}')"
+        title="Restaurar al dashboard"
+        style="position:absolute;top:0.8rem;right:0.8rem;z-index:2;display:flex;align-items:center;gap:0.35rem;padding:0.35rem 0.75rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);font-size:0.7rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:all 0.15s"
+        onmouseover="this.style.borderColor='var(--tierra)';this.style.color='var(--tierra)'"
+        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
+        ↩ Restaurar
+      </button>
+      ` : ''}
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:0.9rem;margin-bottom:1rem">
         <div style="width:48px;height:48px;border-radius:12px;background:var(--bg-card2);border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${logo}</div>
@@ -16331,18 +16389,42 @@ function portalRenderBp(brand){
   const left = total - used;
   const pct = total > 0 ? Math.min(100, used/total*100) : 0;
 
-  const catsHTML = (bp.categories||[]).map((cat,ci)=>`
+  // 🔒 Helper: detectar si un item es un "placeholder" sin nombrar por el equipo
+  // El cliente NO debe ver estos hasta que el equipo les ponga un nombre real.
+  const _isPlaceholder = (item)=>{
+    if(!item?.name) return true;
+    const n = item.name.trim().toLowerCase();
+    return n === 'definir entregable' || n === 'nuevo entregable';
+  };
+
+  // Filtrar items placeholder, pero preservar el índice original (necesario para handlers)
+  const _itemsWithIdx = (cat)=>{
+    return (cat.items||[])
+      .map((item, ii)=>({item, ii}))
+      .filter(({item})=>!_isPlaceholder(item));
+  };
+
+  // Categorías visibles: solo las que tienen al menos 1 item no-placeholder.
+  // EXCEPCIÓN: la categoría "Personalizado" siempre se muestra (el cliente puede agregar items ahí).
+  const _isVisibleCat = (cat)=>{
+    if(cat.name?.toLowerCase().includes('personalizado')) return true;
+    return _itemsWithIdx(cat).length > 0;
+  };
+
+  const visibleCats = (bp.categories||[]).map((cat, ci)=>({cat, ci})).filter(({cat})=>_isVisibleCat(cat));
+
+  const catsHTML = visibleCats.map(({cat, ci})=>`
     <div style="margin-bottom:1rem" id="portal-bp-cat-${ci}">
       <div style="font-size:0.78rem;font-weight:700;color:var(--text2);padding:0.5rem 1rem;background:var(--bg-card2);border-radius:var(--r-sm);margin-bottom:0.3rem;display:flex;justify-content:space-between;cursor:pointer;user-select:none"
         onclick="portalToggleBpCat(${ci})">
         <span>${cat.name}</span>
         <span style="display:flex;align-items:center;gap:0.6rem">
-          <span style="color:var(--text3)">${cat.items.filter(i=>i.selected).length} sel.</span>
+          <span style="color:var(--text3)">${_itemsWithIdx(cat).filter(({item})=>item.selected).length} sel.</span>
           <span id="portal-bp-cat-arrow-${ci}" style="font-size:0.7rem;color:var(--text3)">${cat._uiCollapsed?'▼':'▲'}</span>
         </span>
       </div>
       <div id="portal-bp-cat-body-${ci}" style="display:${cat._uiCollapsed?'none':'block'}">
-      ${cat.items.map((item,ii)=>{
+      ${_itemsWithIdx(cat).map(({item, ii})=>{
         const qty = item.qty||1;
         const ptsLabel = item.pts==null ? '?' : (item.pts * qty) + ' pts';
         const ptsClass = item.pts==null ? 'unknown' : 'valued';
@@ -16674,53 +16756,74 @@ function renderPlayground(){
     <!-- Category cards -->
     <div id="pg-categories" style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start">
       ${pg.categories.map(cat=>{
-        // Solo mostrar marcas activas dentro de cada categoría (pausadas van a su sección)
-        const catBrands = activeBrands.filter(b=>(cat.brandIds||[]).includes(b.id));
+        // Marcas en esta categoría: activas + pausadas (separadas)
+        const catActive = activeBrands.filter(b=>(cat.brandIds||[]).includes(b.id));
+        const catPaused = pausedBrands.filter(b=>(cat.brandIds||[]).includes(b.id));
+        const catTotal = catActive.length + catPaused.length;
         const catColor = cat.color||'#3b9edd';
         return `<div id="pg-cat-${cat.id}" style="background:var(--bg-card);border:1.5px solid var(--border);border-radius:18px;overflow:hidden;min-width:300px;max-width:400px;flex:1;box-shadow:0 2px 12px rgba(0,0,0,0.06);transition:all 0.2s">
           <!-- Cat header -->
           <div style="background:${catColor};padding:0.6rem 0.85rem;display:flex;align-items:center;gap:0.5rem">
             <span style="font-size:1.1rem">${cat.emoji||'📁'}</span>
             <span style="font-size:0.82rem;font-weight:800;color:#fff;flex:1;text-shadow:0 1px 2px rgba(0,0,0,0.2)">${cat.name||'Sin nombre'}</span>
-            <span style="font-size:0.65rem;color:rgba(255,255,255,0.75);font-weight:600">${catBrands.length}</span>
+            <span style="font-size:0.65rem;color:rgba(255,255,255,0.75);font-weight:600">${catTotal}</span>
             <button onclick="pgEditCategory('${cat.id}')" style="background:rgba(255,255,255,0.2);border:none;border-radius:6px;padding:0.15rem 0.4rem;font-size:0.7rem;color:#fff;cursor:pointer;margin-left:0.2rem" title="Editar">✏️</button>
             <button onclick="pgDeleteCategory('${cat.id}')" style="background:rgba(255,50,50,0.3);border:none;border-radius:6px;padding:0.15rem 0.4rem;font-size:0.7rem;color:#fff;cursor:pointer" title="Eliminar">🗑</button>
           </div>
           <!-- Drop zone -->
-          <div style="padding:0.75rem;min-height:90px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:0.5rem;align-items:start;transition:background 0.15s"
+          <div style="padding:0.75rem;min-height:90px;transition:background 0.15s"
             ondragover="event.preventDefault();this.style.background='rgba(59,158,221,0.06)'"
             ondragleave="this.style.background=''"
             ondrop="pgDrop(event,'${cat.id}');this.style.background=''">
-            ${catBrands.length
-              ? catBrands.map(b=>brandPill(b,cat.id,false)).join('')
-              : '<div style="grid-column:1/-1;font-size:0.72rem;color:var(--text3);font-style:italic;padding:1rem;text-align:center">Arrastra marcas aquí</div>'}
+            ${catTotal === 0
+              ? '<div style="font-size:0.72rem;color:var(--text3);font-style:italic;padding:1rem;text-align:center">Arrastra marcas aquí</div>'
+              : `
+                ${catActive.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:0.5rem;align-items:start">${catActive.map(b=>brandPill(b,cat.id,false)).join('')}</div>` : ''}
+                ${catPaused.length ? `
+                  <div style="display:flex;align-items:center;gap:0.45rem;margin:${catActive.length?'0.7rem':'0'} 0 0.4rem;font-size:0.58rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">
+                    <span>⏸ Pausadas</span>
+                    <div style="flex:1;height:1px;background:var(--border)"></div>
+                    <span>${catPaused.length}</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:0.5rem;align-items:start">${catPaused.map(b=>brandPill(b,cat.id,true)).join('')}</div>
+                ` : ''}
+              `}
           </div>
         </div>`;
       }).join('')}
       ${pg.categories.length===0 ? '<div style="font-size:0.8rem;color:var(--text3);padding:1rem;font-style:italic">Crea categorías con el botón de arriba</div>' : ''}
     </div>
 
-    ${pausedBrands.length ? `
-    <!-- Paused section -->
+    ${(()=>{
+      // Pausadas que NO están en ninguna categoría (las que sí están ya se ven dentro de su cat)
+      const unassignedPaused = pausedBrands.filter(b=>!assignedIds.has(b.id));
+      if(!unassignedPaused.length) return '';
+      return `
+    <!-- Paused section: solo pausadas sin categoría -->
     <div style="margin-top:1.4rem;opacity:0.9">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.45rem">
         <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);display:flex;align-items:center;gap:0.4rem">
-          <span>⏸</span> Pausadas (${pausedBrands.length})
+          <span>⏸</span> Pausadas sin categoría (${unassignedPaused.length})
         </span>
         <button onclick="togglePgShowPaused()"
           style="font-size:0.7rem;background:none;border:1px solid var(--border);border-radius:7px;padding:0.28rem 0.7rem;color:var(--text3);cursor:pointer;font-family:var(--font);font-weight:600;transition:all 0.15s"
           onmouseover="this.style.borderColor='var(--text2)';this.style.color='var(--text2)'"
           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
-          ${showPaused ? 'Ocultar pausadas' : 'Mostrar pausadas'}
+          ${showPaused ? 'Ocultar' : 'Mostrar'}
         </button>
       </div>
       ${showPaused ? `
-        <div style="padding:0.7rem;border:1.5px dashed var(--border);border-radius:14px;background:var(--glass);display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.5rem;align-items:start">
-          ${pausedBrands.map(b=>brandPill(b,'unassigned',true)).join('')}
+        <div id="pg-paused-pool"
+          style="padding:0.7rem;border:1.5px dashed var(--border);border-radius:14px;background:var(--glass);display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.5rem;align-items:start;transition:border-color 0.2s,background 0.2s"
+          ondragover="event.preventDefault();this.style.borderColor='var(--aire)';this.style.background='rgba(59,158,221,0.05)'"
+          ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--glass)'"
+          ondrop="pgDrop(event,'unassigned');this.style.borderColor='var(--border)';this.style.background='var(--glass)'">
+          ${unassignedPaused.map(b=>brandPill(b,'unassigned',true)).join('')}
         </div>
       ` : ''}
     </div>
-    ` : ''}
+      `;
+    })()}
   `;
 }
 
