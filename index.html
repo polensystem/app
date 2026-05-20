@@ -16693,9 +16693,11 @@ function renderPlayground(){
   const activeBrands = allBrands.filter(b=>!b.paused);
   const pausedBrands = allBrands.filter(b=>b.paused);
 
-  // Brands not assigned to any category (solo activas, no pausadas)
+  // Brands not assigned to any category — separadas en activas y pausadas
   const assignedIds = new Set(pg.categories.flatMap(c=>c.brandIds||[]));
-  const unassigned = activeBrands.filter(b=>!assignedIds.has(b.id));
+  const unassignedActive = activeBrands.filter(b=>!assignedIds.has(b.id));
+  const unassignedPaused = pausedBrands.filter(b=>!assignedIds.has(b.id));
+  const unassigned = [...unassignedActive, ...unassignedPaused];
 
   const stageLabels = {aire:'Aire',agua:'Agua',tierra:'Tierra',fuego:'Fuego'};
   const stageEmojiPill = {aire:'🌬️',agua:'💧',tierra:'🌱',fuego:'🔥'};
@@ -16739,11 +16741,23 @@ function renderPlayground(){
         <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3)">Sin categoría (${unassigned.length})</span>
       </div>
       <div id="pg-unassigned"
-        style="min-height:80px;padding:0.8rem;border:2px dashed var(--border);border-radius:14px;background:var(--glass);display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.55rem;align-items:start;transition:border-color 0.2s,background 0.2s"
+        style="min-height:80px;padding:0.8rem;border:2px dashed var(--border);border-radius:14px;background:var(--glass);transition:border-color 0.2s,background 0.2s"
         ondragover="event.preventDefault();this.style.borderColor='var(--aire)';this.style.background='rgba(59,158,221,0.05)'"
         ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--glass)'"
         ondrop="pgDrop(event,'unassigned');this.style.borderColor='var(--border)';this.style.background='var(--glass)'">
-        ${unassigned.length ? unassigned.map(b=>brandPill(b,'unassigned',false)).join('') : '<div style="grid-column:1/-1;font-size:0.78rem;color:var(--text3);font-style:italic;text-align:center;padding:1.5rem">Todas las marcas están en una categoría ✓</div>'}
+        ${unassigned.length === 0
+          ? '<div style="font-size:0.78rem;color:var(--text3);font-style:italic;text-align:center;padding:1.5rem">Todas las marcas están en una categoría ✓</div>'
+          : `
+            ${unassignedActive.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.55rem;align-items:start">${unassignedActive.map(b=>brandPill(b,'unassigned',false)).join('')}</div>` : ''}
+            ${unassignedPaused.length ? `
+              <div style="display:flex;align-items:center;gap:0.45rem;margin:${unassignedActive.length?'0.8rem':'0'} 0 0.45rem;font-size:0.58rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">
+                <span>⏸ Pausadas</span>
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+                <span>${unassignedPaused.length}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.55rem;align-items:start">${unassignedPaused.map(b=>brandPill(b,'unassigned',true)).join('')}</div>
+            ` : ''}
+          `}
       </div>
     </div>
 
@@ -16793,37 +16807,6 @@ function renderPlayground(){
       }).join('')}
       ${pg.categories.length===0 ? '<div style="font-size:0.8rem;color:var(--text3);padding:1rem;font-style:italic">Crea categorías con el botón de arriba</div>' : ''}
     </div>
-
-    ${(()=>{
-      // Pausadas que NO están en ninguna categoría (las que sí están ya se ven dentro de su cat)
-      const unassignedPaused = pausedBrands.filter(b=>!assignedIds.has(b.id));
-      if(!unassignedPaused.length) return '';
-      return `
-    <!-- Paused section: solo pausadas sin categoría -->
-    <div style="margin-top:1.4rem;opacity:0.9">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.45rem">
-        <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);display:flex;align-items:center;gap:0.4rem">
-          <span>⏸</span> Pausadas sin categoría (${unassignedPaused.length})
-        </span>
-        <button onclick="togglePgShowPaused()"
-          style="font-size:0.7rem;background:none;border:1px solid var(--border);border-radius:7px;padding:0.28rem 0.7rem;color:var(--text3);cursor:pointer;font-family:var(--font);font-weight:600;transition:all 0.15s"
-          onmouseover="this.style.borderColor='var(--text2)';this.style.color='var(--text2)'"
-          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
-          ${showPaused ? 'Ocultar' : 'Mostrar'}
-        </button>
-      </div>
-      ${showPaused ? `
-        <div id="pg-paused-pool"
-          style="padding:0.7rem;border:1.5px dashed var(--border);border-radius:14px;background:var(--glass);display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.5rem;align-items:start;transition:border-color 0.2s,background 0.2s"
-          ondragover="event.preventDefault();this.style.borderColor='var(--aire)';this.style.background='rgba(59,158,221,0.05)'"
-          ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--glass)'"
-          ondrop="pgDrop(event,'unassigned');this.style.borderColor='var(--border)';this.style.background='var(--glass)'">
-          ${unassignedPaused.map(b=>brandPill(b,'unassigned',true)).join('')}
-        </div>
-      ` : ''}
-    </div>
-      `;
-    })()}
   `;
 }
 
