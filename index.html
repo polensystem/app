@@ -11346,7 +11346,7 @@ function renderBrandBp(brand){
                 placeholder="Definir entregable">
               ${item.fromPortal?'<span style="font-size:0.6rem;background:rgba(59,158,221,0.15);color:var(--aire);border-radius:4px;padding:0.1rem 0.35rem;flex-shrink:0">cliente</span>':''}
               <button onclick="toggleBpItemNotes('${brand.id}',${ci},${ii})"
-                title="Notas"
+                title="Colapsar/expandir notas"
                 style="background:none;border:none;cursor:pointer;font-size:0.82rem;padding:0.2rem 0.4rem;border-radius:6px;opacity:${item.notes?'1':'0.3'};transition:all 0.15s;flex-shrink:0"
                 onmouseover="this.style.opacity=1;this.style.background='var(--bg-card2)'" onmouseout="this.style.opacity='${item.notes?'1':'0.3'}';this.style.background='none'">📝</button>
               <div style="display:flex;align-items:center;gap:0;flex-shrink:0;border:1.5px solid rgba(232,98,42,0.4);border-radius:10px;overflow:hidden">
@@ -11371,13 +11371,13 @@ function renderBrandBp(brand){
                   onblur="this.closest('div').style.borderColor='rgba(45,195,179,0.4)';this.closest('div').style.boxShadow='none'">
               </div>
             </div>
-            ${item.notesOpen?`
+            ${(item.selected || item.notes) && !item._notesCollapsed ?`
             <div style="padding:0.3rem 1rem 0.7rem 3.1rem">
               <textarea
                 placeholder="Medidas, materiales, especificaciones…"
                 onchange="saveBpItemNotes('${brand.id}',${ci},${ii},this.value)"
-                style="width:100%;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem;color:var(--text2);font-family:var(--font);font-size:0.76rem;resize:none;outline:none;transition:border-color 0.15s;line-height:1.5;min-height:60px"
-                onfocus="this.style.borderColor='var(--agua)'" onblur="this.style.borderColor='var(--border)'"
+                style="width:100%;background:var(--bg-card2);border:1px solid ${item.notes?'rgba(45,195,179,0.35)':'var(--border)'};border-radius:8px;padding:0.5rem 0.7rem;color:var(--text2);font-family:var(--font);font-size:0.76rem;resize:none;outline:none;transition:border-color 0.15s;line-height:1.5;min-height:${item.notes?'60px':'40px'}"
+                onfocus="this.style.borderColor='var(--agua)'" onblur="this.style.borderColor='${item.notes?'rgba(45,195,179,0.35)':'var(--border)'}'"
               >${item.notes||''}</textarea>
             </div>`:''
             }
@@ -11391,7 +11391,8 @@ function toggleBpItemNotes(brandId,ci,ii){
   const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand?.brandingPoints)return;
   const item=brand.brandingPoints.categories[ci].items[ii];
-  item.notesOpen=!item.notesOpen;
+  // _notesCollapsed es solo en memoria (no se persiste) — colapsa/expande el textarea visible
+  item._notesCollapsed = !item._notesCollapsed;
   renderBrandBp(brand);
 }
 
