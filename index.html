@@ -10643,6 +10643,9 @@ function tplActDrop(event, stage, targetId){
   const [moved] = acts.splice(fromIdx, 1);
   acts.splice(toIdx, 0, moved);
   renderTplStage(stage);
+  // 🔒 BUG FIX: antes solo se reordenaba en memoria — al recargar volvía al orden viejo.
+  markLocalChange('template');
+  scheduleTplSave();
 }
 
 
@@ -10685,6 +10688,9 @@ function tplSaveActName(stage, actId, newName){
   const act = appData.template?.cronograma?.[stage]?.find(a=>a.id===actId);
   if(!act || act.name === newName) return;
   act.name = newName;
+  // 🔒 BUG FIX: antes solo se cambiaba en memoria — el nombre se perdía al recargar.
+  markLocalChange('template');
+  scheduleTplSave();
 }
 
 
@@ -10705,8 +10711,7 @@ function tplToggleInterno(stage, id){
   if(a) a.isInterno = !a.isInterno;
   renderTplStage(stage);
   markLocalChange('template');
-  clearTimeout(_tplSaveTimer);
-  _tplSaveTimer = setTimeout(()=>upsert(), 800);
+  scheduleTplSave(); // ← antes tenía timer propio sin validación, ahora unificado con validación
 }
 
 
@@ -12458,34 +12463,71 @@ function tplUpdateDays(stage,id,val){
   // Debounce — guardar 800ms después del último cambio
   scheduleTplSave();
 }
-async function tplDeleteAct(stage,id){appData.template.cronograma[stage]=appData.template.cronograma[stage].filter(a=>a.id!==id);renderTplStage(stage);renderTplSummary();markLocalChange('template');await upsert();showStatus('Template actualizado ✓');}
-async function tplAddAct(stage){const name=await askModal({label:'Nueva actividad en la plantilla',placeholder:'Ej: Reunión de revisión'});if(!name||!name.trim())return;appData.template.cronograma[stage].push({id:uid(),name:name.trim(),days:1,isHito:false,isNaming:false});renderTplStage(stage);renderTplSummary();}
+async function tplDeleteAct(stage,id){
+  appData.template.cronograma[stage]=appData.template.cronograma[stage].filter(a=>a.id!==id);
+  renderTplStage(stage);
+  renderTplSummary();
+  markLocalChange('template');
+  scheduleTplSave(); // ← antes era upsert() directo, ahora usa la validación post-save
+}
+async function tplAddAct(stage){
+  const name=await askModal({label:'Nueva actividad en la plantilla',placeholder:'Ej: Reunión de revisión'});
+  if(!name||!name.trim())return;
+  appData.template.cronograma[stage].push({id:uid(),name:name.trim(),days:1,isHito:false,isNaming:false});
+  renderTplStage(stage);
+  renderTplSummary();
+  // 🔒 BUG FIX: antes no se marcaba dirty ni se guardaba — la actividad se perdía al recargar.
+  markLocalChange('template');
+  scheduleTplSave();
+}
   function onNamingToggle(){appData.template.includeNaming=document.getElementById('tpl-naming').checked;['aire','agua','tierra','fuego'].forEach(s=>renderTplStage(s));renderTplSummary();markLocalChange('template');scheduleTplSave();}
 
 
-function tplRenameCat(ci, val){
+async function tplRenameCat(ci, val){
   if(!val.trim()) return;
   const cat = appData.template.brandingPoints.categories[ci];
   if(!cat) return;
+  const prevName = cat.name;
   cat.name = val.trim();
   // 🔒 Resync todos los items de esta categoría (el nombre de categoría vive replicado en cada fila)
   if(Array.isArray(cat.items) && cat.items.length){
-    cat.items.forEach((item, ii)=>{ TemplateBpDB.saveItem(cat, item, ci, ii); });
+    let allOk = true;
+    for(let ii=0; ii<cat.items.length; ii++){
+      const ok = await TemplateBpDB.saveItem(cat, cat.items[ii], ci, ii);
+      if(!ok){ allOk = false; break; }
+    }
+    if(!allOk){
+      cat.name = prevName;
+      renderTplBpCats();
+      showStatus('⚠️ No se pudo renombrar la categoría — reintenta', true);
+    }
   }
 }
-function tplRenameItem(ci, ii, val){
+async function tplRenameItem(ci, ii, val){
   const cat = appData.template.brandingPoints.categories[ci];
   const item = cat?.items?.[ii];
   if(!item) return;
+  const prevName = item.name;
   item.name = val.trim()||'Sin nombre';
-  TemplateBpDB.saveItem(cat, item, ci, ii);
+  const ok = await TemplateBpDB.saveItem(cat, item, ci, ii);
+  if(!ok){
+    item.name = prevName;
+    renderTplBpCats();
+    showStatus('⚠️ No se pudo renombrar el entregable — reintenta', true);
+  }
 }
-function tplUpdateItemNotes(ci, ii, val){
+async function tplUpdateItemNotes(ci, ii, val){
   const cat = appData.template.brandingPoints.categories[ci];
   const item = cat?.items?.[ii];
   if(!item) return;
+  const prevNotes = item.notes;
   item.notes = val;
-  TemplateBpDB.saveItem(cat, item, ci, ii);
+  const ok = await TemplateBpDB.saveItem(cat, item, ci, ii);
+  if(!ok){
+    item.notes = prevNotes;
+    renderTplBpCats();
+    showStatus('⚠️ No se pudo guardar las notas del template — reintenta', true);
+  }
 }
 function tplToggleItemNotes(ci, ii){
   const item = appData.template.brandingPoints.categories[ci].items[ii];
@@ -12494,13 +12536,67 @@ function tplToggleItemNotes(ci, ii){
 }
 
 let _tplSaveTimer = null;
-// scheduleTplSave queda solo para el scalar `total` y otros campos del template que aún viven en el JSON.
+// scheduleTplSave guarda los campos del template que aún viven en el JSON (approvals, cronograma, total).
 // Los items/categorías de BP ya NO usan esto — se guardan directamente en polen_template_bp.
+//
+// 🔒 VALIDACIÓN POST-SAVE: después del upsert, lee el server y verifica que approvals
+// y cronograma quedaron exactamente como en memoria. Si no quedaron (porque otro
+// usuario los pisó o porque hubo un conflicto), avisa al equipo con un toast.
+// Esto evita el bug histórico de "cambios en el template que se borran".
 function scheduleTplSave(){
   clearTimeout(_tplSaveTimer);
   _tplSaveTimer = setTimeout(async ()=>{
-    await upsert();
-    showStatus('Template guardado ✓');
+    // Snapshot ANTES de upsert para comparar después
+    const snapApprovals = JSON.stringify(appData.template?.approvals || null);
+    const snapCrono     = JSON.stringify(appData.template?.cronograma || null);
+    const snapTotal     = appData.template?.brandingPoints?.total || 0;
+
+    let upsertOk = false;
+    try { upsertOk = await upsert(); }
+    catch(e){ console.error('[Polen] upsert template error:', e); upsertOk = false; }
+
+    if(!upsertOk){
+      showStatus('⚠️ No se pudo guardar el template — revisa tu conexión', true);
+      return;
+    }
+
+    // 🔒 READ-BACK: leer el server para confirmar que los cambios quedaron
+    try {
+      const { data, error } = await sb.from('polen_shared').select('data').eq('id', REC_ID).single();
+      if(error || !data?.data?.template){
+        console.warn('[Polen] No se pudo verificar template en server:', error);
+        showStatus('Template guardado ✓ (sin verificación)');
+        return;
+      }
+      const serverTpl = data.data.template;
+      const serverApprovals = JSON.stringify(serverTpl.approvals || null);
+      const serverCrono     = JSON.stringify(serverTpl.cronograma || null);
+      const serverTotal     = serverTpl.brandingPoints?.total || 0;
+
+      const issues = [];
+      if(serverApprovals !== snapApprovals) issues.push('preguntas de aprobación');
+      if(serverCrono !== snapCrono)         issues.push('cronograma');
+      if(serverTotal !== snapTotal)         issues.push('total de puntos');
+
+      if(issues.length){
+        // Algo se pisó — avisar de forma muy visible al equipo
+        console.error('[Polen] ⚠️ Template no se guardó completo. Mismatch en:', issues);
+        showStatus(`⚠️ No se guardó: ${issues.join(', ')} — otra pestaña pisó el cambio. Reintenta.`, true);
+        // Mostrar un modal contundente para que no pase desapercibido
+        try {
+          await askModal({
+            label: `⚠️ ATENCIÓN — Cambios del template no guardados\n\nDetectamos que estos campos NO quedaron en el server:\n\n• ${issues.join('\n• ')}\n\nPosible causa: otra pestaña sobreescribió tus cambios.\n\nPor favor recarga la página y vuelve a hacer el cambio.`,
+            type:'select',
+            options:['Entendido, voy a recargar']
+          });
+        } catch(e){}
+      } else {
+        showStatus('Template guardado ✓');
+      }
+    } catch(e){
+      console.error('[Polen] verify template error:', e);
+      showStatus('Template guardado ✓ (sin verificación)');
+    }
   }, 800);
 }
 
@@ -12574,39 +12670,63 @@ function tplToggleBpCat(ci){
   cat._uiCollapsed = !cat._uiCollapsed;
   renderTplBpCats();
 }
-function tplToggleBpItem(ci,ii,val){
+async function tplToggleBpItem(ci,ii,val){
   const cat=appData.template.brandingPoints.categories[ci];
   const item=cat?.items?.[ii];
   if(!item) return;
+  const prev = item.selected;
   item.selected=val;
   renderTplBpCats();
-  TemplateBpDB.saveItem(cat, item, ci, ii);
+  const ok = await TemplateBpDB.saveItem(cat, item, ci, ii);
+  if(!ok){
+    item.selected = prev;
+    renderTplBpCats();
+    showStatus('⚠️ No se pudo guardar — reintenta', true);
+  }
 }
-function tplUpdateBpPts(ci,ii,val){
+async function tplUpdateBpPts(ci,ii,val){
   const cat=appData.template.brandingPoints.categories[ci];
   const item=cat?.items?.[ii];
   if(!item) return;
+  const prev = item.pts;
   item.pts=parseInt(val)||0;
   renderTplBpCats();
-  TemplateBpDB.saveItem(cat, item, ci, ii);
+  const ok = await TemplateBpDB.saveItem(cat, item, ci, ii);
+  if(!ok){
+    item.pts = prev;
+    renderTplBpCats();
+    showStatus('⚠️ No se pudo guardar los puntos — reintenta', true);
+  }
 }
-function tplUpdateBpQty(ci,ii,val){
+async function tplUpdateBpQty(ci,ii,val){
   const cat=appData.template.brandingPoints.categories[ci];
   const item=cat?.items?.[ii];
   if(!item) return;
+  const prev = item.qty;
   item.qty=parseInt(val)||1;
   renderTplBpCats();
-  TemplateBpDB.saveItem(cat, item, ci, ii);
+  const ok = await TemplateBpDB.saveItem(cat, item, ci, ii);
+  if(!ok){
+    item.qty = prev;
+    renderTplBpCats();
+    showStatus('⚠️ No se pudo guardar la cantidad — reintenta', true);
+  }
 }
-function tplDeleteBpItem(ci,ii){
+async function tplDeleteBpItem(ci,ii){
   const cat=appData.template.brandingPoints.categories[ci];
   const item=cat?.items?.[ii];
   if(!item) return;
   const itemId=item.id;
   const catId=cat.id;
-  cat.items.splice(ii,1);
+  const removed = cat.items.splice(ii,1)[0];
   renderTplBpCats();
-  TemplateBpDB.deleteItem(catId, itemId);
+  const ok = await TemplateBpDB.deleteItem(catId, itemId);
+  if(!ok){
+    // Restaurar el item en su posición
+    cat.items.splice(ii, 0, removed);
+    renderTplBpCats();
+    showStatus('⚠️ No se pudo borrar el entregable — reintenta', true);
+  }
 }
 
 // ── BP Expand/Collapse All ──
@@ -12735,7 +12855,13 @@ async function tplAddBpItem(ci){
   const newItem = {id:uid(),name:name.trim(),pts,qty:1,selected:false};
   cat.items.push(newItem);
   renderTplBpCats();
-  await TemplateBpDB.saveItem(cat, newItem, ci, cat.items.length - 1);
+  const ok = await TemplateBpDB.saveItem(cat, newItem, ci, cat.items.length - 1);
+  if(!ok){
+    // Quitar el item agregado
+    cat.items = cat.items.filter(i=>i.id!==newItem.id);
+    renderTplBpCats();
+    showStatus('⚠️ No se pudo agregar el entregable — reintenta', true);
+  }
 }
 
 async function tplAddBpCat(){
@@ -12754,7 +12880,14 @@ async function tplAddBpCat(){
   renderTplBpCats();
   // 🔒 Guardar en tabla
   const ci = appData.template.brandingPoints.categories.length - 1;
-  await TemplateBpDB.saveItem(newCat, placeholderItem, ci, 0);
+  const ok = await TemplateBpDB.saveItem(newCat, placeholderItem, ci, 0);
+  if(!ok){
+    // Quitar la categoría
+    appData.template.brandingPoints.categories = appData.template.brandingPoints.categories.filter(c=>c.id!==newCat.id);
+    renderTplBpCats();
+    showStatus('⚠️ No se pudo crear la categoría — reintenta', true);
+    return;
+  }
   showStatus('Categoría creada ✓ — click en "Definir entregable" para nombrarlo');
 }
 
@@ -12762,10 +12895,19 @@ async function tplDeleteBpCat(ci){
   const cat = appData.template.brandingPoints.categories[ci];
   if(!cat) return;
   const doDelete = async ()=>{
-    // 🔒 Borrar todos los items de esta categoría en la tabla
-    await TemplateBpDB.deleteCategory(cat.id);
+    // Snapshot por si falla
+    const removedCat = cat;
+    const removedCi = ci;
     appData.template.brandingPoints.categories.splice(ci,1);
     renderTplBpCats();
+    // 🔒 Borrar todos los items de esta categoría en la tabla
+    const ok = await TemplateBpDB.deleteCategory(removedCat.id);
+    if(!ok){
+      // Restaurar
+      appData.template.brandingPoints.categories.splice(removedCi, 0, removedCat);
+      renderTplBpCats();
+      showStatus('⚠️ No se pudo borrar la categoría — reintenta', true);
+    }
   };
   if(cat.items.length > 0){
     const ok = await confirmModal(`¿Eliminar la categoría "${cat.name}" y todos sus entregables?`, 'Eliminar', 'background:#ef4444;color:#fff;border:none');
