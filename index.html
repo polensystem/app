@@ -1384,13 +1384,14 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
     font-size:0.92rem;
   }
 
-  /* Modales: full screen en móvil */
+  /* Modales: ancho del viewport pero con márgenes razonables (no full-screen agresivo) */
+  .modal-overlay, .ask-modal-overlay{padding:1.25rem 0.85rem !important;}
   .modal, .ask-modal{
     max-width:none !important;
-    width:calc(100vw - 1.5rem) !important;
-    margin:0.75rem;
-    max-height:calc(100vh - 1.5rem);
-    padding:1.3rem 1.1rem !important;
+    width:100% !important;
+    max-height:calc(100vh - 2.5rem) !important; /* deja ~1.25rem arriba y abajo */
+    padding:1.4rem 1.2rem !important;
+    border-radius:16px !important;
   }
 
   /* Body padding en móvil para contenido */
