@@ -4819,6 +4819,308 @@ window.BannersDB = (function(){
   return { loadAll, saveBanner, saveBannersBatch, deleteBanner, migrateFromJson, subscribeRealtime, bannerToRow, rowToBanner };
 })();
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   🔒 MÓDULO PAPELERA-DB — Items soft-deleted (brand, brand-archived, member)
+   ══════════════════════════════════════════════════════════════════════════════
+   Una fila por item. PK: id.
+   El payload completo se guarda en 'data' (jsonb).
+
+   API:
+     await PapeleraDB.loadAll()                  — carga todos los items
+     await PapeleraDB.saveItem(item)             — agrega o actualiza un item
+     await PapeleraDB.deleteItem(itemId)         — borra permanentemente
+     await PapeleraDB.migrateFromJson()
+     PapeleraDB.subscribeRealtime(onChange)
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.PapeleraDB = (function(){
+  const TABLE = 'polen_papelera';
+
+  const _ownOps = new Map();
+  const OWN_OP_TTL = 2500;
+  function markOwnOp(itemId){
+    _ownOps.set(itemId, Date.now() + OWN_OP_TTL);
+    if(_ownOps.size > 100){
+      const now = Date.now();
+      for(const [k,t] of _ownOps) if(t < now) _ownOps.delete(k);
+    }
+  }
+  function isOwnEcho(itemId){
+    const t = _ownOps.get(itemId);
+    if(!t) return false;
+    if(t < Date.now()){ _ownOps.delete(itemId); return false; }
+    return true;
+  }
+
+  function itemToRow(item){
+    return {
+      id: item.id,
+      type: item.type || 'brand',
+      data: item.data || {},
+      deleted_at: item.deletedAt || Date.now(),
+    };
+  }
+
+  function rowToItem(row){
+    return {
+      id: row.id,
+      type: row.type || 'brand',
+      data: row.data || {},
+      deletedAt: row.deleted_at || Date.now(),
+    };
+  }
+
+  async function loadAll(){
+    try {
+      const { data, error } = await sb.from(TABLE).select('*').order('deleted_at', { ascending:false });
+      if(error){ console.error('[PapeleraDB] loadAll error:', error); return null; }
+      const items = (data||[]).map(rowToItem);
+      console.log('[PapeleraDB] Cargados', items.length, 'items');
+      return items;
+    } catch(e){ console.error('[PapeleraDB] loadAll crashed:', e); return null; }
+  }
+
+  async function saveItem(item){
+    if(!item?.id) return false;
+    try {
+      markOwnOp(item.id);
+      const row = itemToRow(item);
+      const { error } = await sb.from(TABLE).upsert(row);
+      if(error){ console.error('[PapeleraDB] saveItem error:', error, row); return false; }
+      return true;
+    } catch(e){ console.error('[PapeleraDB] saveItem crashed:', e); return false; }
+  }
+
+  async function saveItemsBatch(items){
+    if(!items?.length) return true;
+    try {
+      const rows = items.map(itemToRow);
+      rows.forEach(r=>markOwnOp(r.id));
+      // Chunks pequeños porque cada item puede tener logo en base64 (data URL grande)
+      for(let i=0; i<rows.length; i+=20){
+        const chunk = rows.slice(i, i+20);
+        const { error } = await sb.from(TABLE).upsert(chunk);
+        if(error){ console.error('[PapeleraDB] saveItemsBatch error:', error); return false; }
+      }
+      return true;
+    } catch(e){ console.error('[PapeleraDB] saveItemsBatch crashed:', e); return false; }
+  }
+
+  async function deleteItem(itemId){
+    if(!itemId) return false;
+    try {
+      markOwnOp(itemId);
+      const { error } = await sb.from(TABLE).delete().eq('id', itemId);
+      if(error){ console.error('[PapeleraDB] deleteItem error:', error); return false; }
+      return true;
+    } catch(e){ console.error('[PapeleraDB] deleteItem crashed:', e); return false; }
+  }
+
+  async function migrateFromJson(){
+    try {
+      const { count, error: countErr } = await sb.from(TABLE).select('*', { count:'exact', head:true });
+      if(countErr){ console.error('[PapeleraDB] migration count error:', countErr); return false; }
+      if((count||0) > 0){
+        console.log('[PapeleraDB] Tabla ya tiene', count, 'filas — no migramos');
+        return true;
+      }
+      const items = appData?.papelera || [];
+      if(!items.length){
+        console.log('[PapeleraDB] No hay items para migrar');
+        return true;
+      }
+      console.log('[PapeleraDB] Migrando', items.length, 'items');
+      const ok = await saveItemsBatch(items);
+      if(ok) console.log('[PapeleraDB] ✅ Migración completa');
+      return ok;
+    } catch(e){ console.error('[PapeleraDB] migrateFromJson crashed:', e); return false; }
+  }
+
+  function subscribeRealtime(onChange){
+    sb.channel('polen_papelera_rt')
+      .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
+        try {
+          const { eventType, new:newRow, old:oldRow } = payload;
+          const itemId = newRow?.id || oldRow?.id;
+          if(itemId && isOwnEcho(itemId)) return;
+
+          if(!appData.papelera) appData.papelera = [];
+
+          if(eventType === 'DELETE'){
+            appData.papelera = appData.papelera.filter(i=>i.id !== itemId);
+          } else if(newRow){
+            const newItem = rowToItem(newRow);
+            const idx = appData.papelera.findIndex(i=>i.id === newItem.id);
+            if(idx >= 0) appData.papelera[idx] = newItem;
+            else appData.papelera.unshift(newItem);
+          }
+          if(onChange) onChange(payload);
+        } catch(e){ console.error('[PapeleraDB] realtime error:', e); }
+      })
+      .subscribe();
+    console.log('[PapeleraDB] ✓ Realtime suscrito a', TABLE);
+  }
+
+  return { loadAll, saveItem, saveItemsBatch, deleteItem, migrateFromJson, subscribeRealtime, itemToRow, rowToItem };
+})();
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   🔒 MÓDULO MEMBERS-DB — Miembros del equipo
+   ══════════════════════════════════════════════════════════════════════════════
+   Una fila por member. PK: id.
+
+   API:
+     await MembersDB.loadAll()
+     await MembersDB.saveMember(member, orden)
+     await MembersDB.saveMembersBatch(members)
+     await MembersDB.deleteMember(memberId)
+     await MembersDB.migrateFromJson()
+     MembersDB.subscribeRealtime(onChange)
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.MembersDB = (function(){
+  const TABLE = 'polen_members';
+
+  const _ownOps = new Map();
+  const OWN_OP_TTL = 2500;
+  function markOwnOp(memberId){
+    _ownOps.set(memberId, Date.now() + OWN_OP_TTL);
+    if(_ownOps.size > 100){
+      const now = Date.now();
+      for(const [k,t] of _ownOps) if(t < now) _ownOps.delete(k);
+    }
+  }
+  function isOwnEcho(memberId){
+    const t = _ownOps.get(memberId);
+    if(!t) return false;
+    if(t < Date.now()){ _ownOps.delete(memberId); return false; }
+    return true;
+  }
+
+  function memberToRow(m, orden=0){
+    const known = new Set(['id','nombre','apodo','rol','emoji','color','photo','active']);
+    const extra = {};
+    Object.keys(m||{}).forEach(k=>{ if(!known.has(k)) extra[k] = m[k]; });
+    return {
+      id: m.id,
+      nombre: m.nombre || '',
+      apodo: m.apodo || null,
+      rol: m.rol || null,
+      emoji: m.emoji || null,
+      color: m.color || null,
+      photo: m.photo || null,
+      active: m.active !== false,
+      orden,
+      extra,
+    };
+  }
+
+  function rowToMember(row){
+    const base = {
+      id: row.id,
+      nombre: row.nombre || '',
+      apodo: row.apodo || undefined,
+      rol: row.rol || undefined,
+      emoji: row.emoji || undefined,
+      color: row.color || undefined,
+      photo: row.photo || undefined,
+      active: row.active !== false,
+    };
+    if(row.extra && typeof row.extra === 'object'){
+      Object.keys(row.extra).forEach(k=>{ if(base[k] === undefined) base[k] = row.extra[k]; });
+    }
+    Object.keys(base).forEach(k=>{ if(base[k] === undefined) delete base[k]; });
+    return base;
+  }
+
+  async function loadAll(){
+    try {
+      const { data, error } = await sb.from(TABLE).select('*').order('orden', { ascending:true });
+      if(error){ console.error('[MembersDB] loadAll error:', error); return null; }
+      const members = (data||[]).map(rowToMember);
+      console.log('[MembersDB] Cargados', members.length, 'members');
+      return members;
+    } catch(e){ console.error('[MembersDB] loadAll crashed:', e); return null; }
+  }
+
+  async function saveMember(member, orden=0){
+    if(!member?.id) return false;
+    try {
+      markOwnOp(member.id);
+      const row = memberToRow(member, orden);
+      const { error } = await sb.from(TABLE).upsert(row);
+      if(error){ console.error('[MembersDB] saveMember error:', error, row); return false; }
+      return true;
+    } catch(e){ console.error('[MembersDB] saveMember crashed:', e); return false; }
+  }
+
+  async function saveMembersBatch(members){
+    if(!members?.length) return true;
+    try {
+      const rows = members.map((m,i)=>memberToRow(m, i));
+      rows.forEach(r=>markOwnOp(r.id));
+      const { error } = await sb.from(TABLE).upsert(rows);
+      if(error){ console.error('[MembersDB] saveMembersBatch error:', error); return false; }
+      return true;
+    } catch(e){ console.error('[MembersDB] saveMembersBatch crashed:', e); return false; }
+  }
+
+  async function deleteMember(memberId){
+    if(!memberId) return false;
+    try {
+      markOwnOp(memberId);
+      const { error } = await sb.from(TABLE).delete().eq('id', memberId);
+      if(error){ console.error('[MembersDB] deleteMember error:', error); return false; }
+      return true;
+    } catch(e){ console.error('[MembersDB] deleteMember crashed:', e); return false; }
+  }
+
+  async function migrateFromJson(){
+    try {
+      const { count, error: countErr } = await sb.from(TABLE).select('*', { count:'exact', head:true });
+      if(countErr){ console.error('[MembersDB] migration count error:', countErr); return false; }
+      if((count||0) > 0){
+        console.log('[MembersDB] Tabla ya tiene', count, 'filas — no migramos');
+        return true;
+      }
+      const members = appData?.members || [];
+      if(!members.length){
+        console.log('[MembersDB] No hay members para migrar');
+        return true;
+      }
+      console.log('[MembersDB] Migrando', members.length, 'members');
+      const ok = await saveMembersBatch(members);
+      if(ok) console.log('[MembersDB] ✅ Migración completa');
+      return ok;
+    } catch(e){ console.error('[MembersDB] migrateFromJson crashed:', e); return false; }
+  }
+
+  function subscribeRealtime(onChange){
+    sb.channel('polen_members_rt')
+      .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
+        try {
+          const { eventType, new:newRow, old:oldRow } = payload;
+          const memberId = newRow?.id || oldRow?.id;
+          if(memberId && isOwnEcho(memberId)) return;
+
+          if(!appData.members) appData.members = [];
+
+          if(eventType === 'DELETE'){
+            appData.members = appData.members.filter(m=>m.id !== memberId);
+          } else if(newRow){
+            const newMember = rowToMember(newRow);
+            const idx = appData.members.findIndex(m=>m.id === newMember.id);
+            if(idx >= 0) appData.members[idx] = newMember;
+            else appData.members.push(newMember);
+          }
+          if(onChange) onChange(payload);
+        } catch(e){ console.error('[MembersDB] realtime error:', e); }
+      })
+      .subscribe();
+    console.log('[MembersDB] ✓ Realtime suscrito a', TABLE);
+  }
+
+  return { loadAll, saveMember, saveMembersBatch, deleteMember, migrateFromJson, subscribeRealtime, memberToRow, rowToMember };
+})();
+
 async function loadData(){
   // Show loading message on screen
   const lsub = document.querySelector('.loading-sub');
@@ -5092,6 +5394,44 @@ async function loadData(){
         }
       } catch(bannersErr) {
         console.error('[Polen] Error cargando banners:', bannersErr);
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // 🔒 CARGAR PAPELERA DESDE TABLA NUEVA (polen_papelera)
+      // ══════════════════════════════════════════════════════════════════════
+      try {
+        if(lsub) lsub.textContent = 'Cargando papelera…';
+        if(!appData._papeleraMigratedToTable){
+          console.log('[Polen] Primera vez — migrando papelera a tabla nueva');
+          await PapeleraDB.migrateFromJson();
+          appData._papeleraMigratedToTable = true;
+        }
+        const papFromTable = await PapeleraDB.loadAll();
+        if(papFromTable){
+          appData.papelera = papFromTable;
+          console.log('[Polen] ✓ Papelera cargada de tabla nueva');
+        }
+      } catch(papErr) {
+        console.error('[Polen] Error cargando papelera:', papErr);
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // 🔒 CARGAR MEMBERS DESDE TABLA NUEVA (polen_members)
+      // ══════════════════════════════════════════════════════════════════════
+      try {
+        if(lsub) lsub.textContent = 'Cargando equipo…';
+        if(!appData._membersMigratedToTable){
+          console.log('[Polen] Primera vez — migrando members a tabla nueva');
+          await MembersDB.migrateFromJson();
+          appData._membersMigratedToTable = true;
+        }
+        const membersFromTable = await MembersDB.loadAll();
+        if(membersFromTable && membersFromTable.length){
+          appData.members = membersFromTable;
+          console.log('[Polen] ✓ Members cargados de tabla nueva');
+        }
+      } catch(membersErr) {
+        console.error('[Polen] Error cargando members:', membersErr);
       }
 
       // 🛡️ RECUPERACIÓN DE CAMBIOS LOCALES RECIENTES
@@ -5368,48 +5708,8 @@ function deepMergeAppData(server, local){
   merged.brands = Object.values(brandMap);
   merged._deletedBrandIds = [...persistedDeletedBrandIds];
 
-  // ── members: local always wins (same pattern as cobros) ──
-  const serverMembers = Array.isArray(server.members) ? server.members : [];
-  const localMembers  = Array.isArray(local.members)  ? local.members  : [];
-  const deletedMemberIds = _localDeletedIds.members;
-  // Also respect persisted deleted IDs
-  const persistedDeletedMemberIds = new Set([...(local._deletedMemberIds||[]), ...(server._deletedMemberIds||[])]);
-  const allDeletedMemberIds = new Set([...deletedMemberIds, ...persistedDeletedMemberIds]);
-  // ── members: merge INCLUSIVO (igual que brands) ──
-  // Members del server que no están en local NUNCA se pierden, salvo si están en
-  // _deletedMemberIds explícitamente.
-  const memberMap = {};
-  serverMembers.forEach(m=>{
-    if(m?.id && !allDeletedMemberIds.has(m.id)) memberMap[m.id] = {...m};
-  });
-  const localChangedMembers = _localChangedKeys.has('members');
-  localMembers.forEach(m=>{
-    if(!m?.id || allDeletedMemberIds.has(m.id)) return;
-    if(memberMap[m.id]){
-      // Existe en ambos
-      const sv = memberMap[m.id];
-      const serverPhoto = sv.photo;
-      const localPhoto  = m.photo;
-      const bestPhoto   = (localPhoto && localPhoto.startsWith('data:')) ? localPhoto
-                        : (serverPhoto && serverPhoto.startsWith('data:')) ? serverPhoto
-                        : localPhoto || serverPhoto || null;
-      const bestColor = (m.color && m.color !== '') ? m.color
-                      : (sv.color && sv.color !== '') ? sv.color
-                      : null;
-      if(localChangedMembers){
-        // Local cambió: local gana
-        memberMap[m.id] = {...sv, ...m, photo: bestPhoto, color: bestColor};
-      } else {
-        // Local no cambió: server gana, pero preservamos photo/color válidos
-        memberMap[m.id] = {...sv, photo: bestPhoto, color: bestColor};
-      }
-    } else {
-      // Solo en local — preservar (es nuevo)
-      memberMap[m.id] = {...m};
-    }
-  });
-  merged.members = Object.values(memberMap);
-  merged._deletedMemberIds = [...persistedDeletedMemberIds];
+  // ── members: viven en polen_members. Local siempre gana (sincronizado con tabla). ──
+  merged.members = Array.isArray(local.members) ? local.members : [];
 
   // ── clientNotes: vive en polen_client_notes (tabla). El JSON ya NO los trae
   // (están stripped al upsert). Local siempre gana porque está sincronizado con la tabla.
@@ -5431,11 +5731,8 @@ function deepMergeAppData(server, local){
   localTareas.forEach(t=>{ tareaMap[t.id]={...t}; }); // local wins (edits/deletes handled separately)
   merged.tareas = Object.values(tareaMap);
 
-  // ── papelera: union (never lose deletions) ──
-  const serverPap = Array.isArray(server.papelera) ? server.papelera : [];
-  const localPap  = Array.isArray(local.papelera)  ? local.papelera  : [];
-  const papIds = new Set(localPap.map(x=>x.id));
-  merged.papelera = [...localPap, ...serverPap.filter(x=>!papIds.has(x.id))];
+  // ── papelera: vive en polen_papelera. Local siempre gana. ──
+  merged.papelera = Array.isArray(local.papelera) ? local.papelera : [];
 
   // ── banners: viven en polen_banners. Local siempre gana (sincronizado con tabla).
   merged.banners = Array.isArray(local.banners) ? local.banners : [];
@@ -5828,6 +6125,16 @@ async function _doUpsert(){
       // 🔒 REFACTOR FASE A: banners viven en polen_banners.
       if(toWriteSafe.banners !== undefined){
         delete toWriteSafe.banners;
+      }
+
+      // 🔒 REFACTOR FASE B: papelera vive en polen_papelera.
+      if(toWriteSafe.papelera !== undefined){
+        delete toWriteSafe.papelera;
+      }
+
+      // 🔒 REFACTOR FASE B: members viven en polen_members.
+      if(toWriteSafe.members !== undefined){
+        delete toWriteSafe.members;
       }
 
       console.log('[Polen] Payload después de strip:', Math.round(JSON.stringify(toWriteSafe).length/1024) + 'KB');
@@ -8398,10 +8705,19 @@ function ensurePapelera(){
   // Auto-purge items older than 30 days
   const now = Date.now();
   const before = appData.papelera.length;
+  const toPurge = [];
   appData.papelera = appData.papelera.filter(item=>{
     const age = (now - (item.deletedAt||0)) / (1000*60*60*24);
-    return age < PAPELERA_DIAS;
+    if(age >= PAPELERA_DIAS){
+      toPurge.push(item);
+      return false;
+    }
+    return true;
   });
+  // 🔒 Borrar de tabla los items purgados
+  if(toPurge.length && window.PapeleraDB){
+    toPurge.forEach(item=>{ PapeleraDB.deleteItem(item.id); });
+  }
 }
 
 function softDeleteBrand(brand){
@@ -8410,8 +8726,14 @@ function softDeleteBrand(brand){
   // Persist deleted ID in appData so it survives reloads
   if(!appData._deletedBrandIds) appData._deletedBrandIds = [];
   if(!appData._deletedBrandIds.includes(brand.id)) appData._deletedBrandIds.push(brand.id);
-  appData.papelera.push({ type:'brand', id:brand.id, data:JSON.parse(JSON.stringify(brand)), deletedAt:Date.now() });
+  const papItem = { type:'brand', id:brand.id, data:JSON.parse(JSON.stringify(brand)), deletedAt:Date.now() };
+  appData.papelera.push(papItem);
   appData.brands = appData.brands.filter(b=>b.id!==brand.id);
+  // 🔒 Persistir en tabla papelera
+  if(window.PapeleraDB){ PapeleraDB.saveItem(papItem); }
+  // 🔒 Borrar de tabla brand_bp (BP no se restauran automáticamente porque la marca ya no existe)
+  // Las filas siguen en polen_brand_bp con brand_id huérfano — si se restaura, se reconstruirá.
+  // Para borrado permanente lo limpiamos en permanentDelete.
 }
 
 function softDeleteMember(member){
@@ -8420,8 +8742,12 @@ function softDeleteMember(member){
   // Persist deleted ID in appData so it survives reloads
   if(!appData._deletedMemberIds) appData._deletedMemberIds = [];
   if(!appData._deletedMemberIds.includes(member.id)) appData._deletedMemberIds.push(member.id);
-  appData.papelera.push({ type:'member', id:member.id, data:JSON.parse(JSON.stringify(member)), deletedAt:Date.now() });
+  const papItem = { type:'member', id:member.id, data:JSON.parse(JSON.stringify(member)), deletedAt:Date.now() };
+  appData.papelera.push(papItem);
   appData.members = appData.members.filter(m=>m.id!==member.id);
+  // 🔒 Persistir en tabla papelera + borrar member de su tabla
+  if(window.PapeleraDB){ PapeleraDB.saveItem(papItem); }
+  if(window.MembersDB){ MembersDB.deleteMember(member.id); }
 }
 
 async function restoreFromPapelera(itemId){ markLocalChange("papelera","brands","members");
@@ -8486,10 +8812,17 @@ async function restoreFromPapelera(itemId){ markLocalChange("papelera","brands",
     appData._deletedMemberIds = (appData._deletedMemberIds||[]).filter(id=>id!==memberId && id!==itemId);
     _localDeletedIds.members.delete(memberId);
     _localDeletedIds.members.delete(itemId);
+    // 🔒 Restaurar a tabla members
+    if(window.MembersDB){
+      const orden = appData.members.length - 1;
+      await MembersDB.saveMember(item.data, orden);
+    }
     markLocalChange('members');
     showStatus(`"${item.data.apodo||item.data.nombre}" restaurado ✓`);
   }
   appData.papelera.splice(idx,1);
+  // 🔒 Borrar de tabla papelera
+  if(window.PapeleraDB){ await PapeleraDB.deleteItem(itemId); }
   await upsert();
   renderPapelera();
   if(typeof renderArchivo === 'function') renderArchivo();
@@ -8518,27 +8851,54 @@ async function permanentDelete(itemId){ markLocalChange("papelera");
   ensurePapelera();
   const item = appData.papelera.find(i=>i.id===itemId);
   if(!item) return;
-  const nombre = item.type==='brand' ? item.data.name : (item.data.apodo||item.data.nombre);
+  const nombre = item.type==='member'
+    ? (item.data?.apodo||item.data?.nombre||'Miembro')
+    : (item.data?.name||'Item');
   const confirmResult = await askModal({ label:`¿Eliminar "${nombre}" permanentemente? Esta acción no se puede deshacer.`, type:'select', options:['Cancelar','Sí, eliminar definitivamente'] });
   if(confirmResult!==1) return;
 
-  // 🔒 Si es una marca, borrar sus actividades del cronograma y sus cobros de las tablas
-  if(item.type==='brand' && item.data?.id){
+  // 🔒 Si es una marca (brand o brand-archived), limpiar TODAS sus filas huérfanas de las tablas
+  if((item.type==='brand' || item.type==='brand-archived') && item.data?.id){
     try {
       const brandId = item.data.id;
-      for(const st of ['aire','agua','tierra','fuego','_sinUbicar']){
-        await CronoDB.deleteBrandStage(brandId, st);
-      }
-      // Borrar cobros de la marca (si CobrosDB tiene método; si no, pasa por realtime después)
-      if(window.CobrosDB && item.data.cobros?.pagos){
-        for(const pago of (item.data.cobros.pagos||[])){
-          if(pago?.id) await CobrosDB.deletePago(brandId, pago.id);
+      // Cronograma
+      if(window.CronoDB){
+        for(const st of ['aire','agua','tierra','fuego','_sinUbicar']){
+          try { await CronoDB.deleteBrandStage(brandId, st); } catch(e){}
         }
       }
+      // Cobros
+      if(window.CobrosDB){
+        const pagos = appData.cobros?.[brandId]?.pagos || item.data.cobros?.pagos || [];
+        for(const pago of pagos){
+          if(pago?.id) await CobrosDB.deletePago(brandId, pago.id);
+        }
+        // Borrar entrada de cobros en memoria
+        if(appData.cobros && appData.cobros[brandId]) delete appData.cobros[brandId];
+      }
+      // Branding Points: borrar todas las filas del brand
+      try {
+        await sb.from('polen_brand_bp').delete().eq('brand_id', brandId);
+        console.log('[Polen] Borradas filas polen_brand_bp para brand', brandId);
+      } catch(e){ console.warn('[Polen] Error borrando polen_brand_bp:', e); }
+      // Portal Approvals: borrar todas las filas del brand
+      try {
+        await sb.from('polen_portal_approvals').delete().eq('brand_id', brandId);
+        console.log('[Polen] Borradas filas polen_portal_approvals para brand', brandId);
+      } catch(e){ console.warn('[Polen] Error borrando polen_portal_approvals:', e); }
     } catch(e) { console.warn('[Polen] Error borrando datos de tabla de marca:', e); }
   }
 
+  // 🔒 Si es un member, asegurar que esté borrado de su tabla
+  if(item.type==='member' && item.data?.id){
+    if(window.MembersDB){
+      try { await MembersDB.deleteMember(item.data.id); } catch(e){}
+    }
+  }
+
   appData.papelera = appData.papelera.filter(i=>i.id!==itemId);
+  // 🔒 Borrar de tabla papelera
+  if(window.PapeleraDB){ await PapeleraDB.deleteItem(itemId); }
   await upsert();
   renderPapelera();
   updatePapeleraBadge();
@@ -12994,14 +13354,27 @@ async function saveMember(){
     color: memberColor,
   };
   let newMemberId = null;
+  let savedMemberObj = null;
+  let savedOrden = 0;
   if(editingMemberId){
     const idx = appData.members.findIndex(x=>x.id===editingMemberId);
-    if(idx>=0) appData.members[idx] = {...appData.members[idx], ...memberData};
+    if(idx>=0){
+      appData.members[idx] = {...appData.members[idx], ...memberData};
+      savedMemberObj = appData.members[idx];
+      savedOrden = idx;
+    }
   } else {
     newMemberId = uid();
-    appData.members.push({id:newMemberId, status:'', ...memberData});
+    savedMemberObj = {id:newMemberId, status:'', ...memberData};
+    appData.members.push(savedMemberObj);
+    savedOrden = appData.members.length - 1;
   }
   markLocalChange('members');
+
+  // 🔒 Guardar en tabla polen_members
+  if(window.MembersDB && savedMemberObj){
+    await MembersDB.saveMember(savedMemberObj, savedOrden);
+  }
 
   // Save photo AND color to separate Supabase table (never lost with other saves)
   const targetId = editingMemberId || newMemberId;
@@ -15146,8 +15519,16 @@ async function saveMemberStatus(){
   const el=document.getElementById('mprofile-status');
   if(!el) return;
   const m=(appData.members||[]).find(x=>x.id===currentMemberId);
-  if(m){ m.status=el.value;   markLocalChange('members');
-await upsert(); }
+  if(m){
+    m.status=el.value;
+    markLocalChange('members');
+    // 🔒 Guardar también en tabla members
+    if(window.MembersDB){
+      const orden = appData.members.findIndex(x=>x.id===m.id);
+      await MembersDB.saveMember(m, orden);
+    }
+    await upsert();
+  }
 }
 
 async function quickSaveMemberStatus(id,val){
@@ -15158,6 +15539,11 @@ async function quickSaveMemberStatus(id,val){
   m.status=val;
   renderEquipoMiniCard(id);
   markLocalChange('members');
+  // 🔒 Guardar también en tabla members
+  if(window.MembersDB){
+    const orden = appData.members.findIndex(x=>x.id===id);
+    MembersDB.saveMember(m, orden);
+  }
   // Save status to separate table so it never gets lost in merges
   if(window._photoCache){
     if(!window._photoCache[id]) window._photoCache[id] = {};
@@ -15652,6 +16038,40 @@ async function boot(){
     try {
       if(typeof renderBanners === 'function'){
         try { renderBanners(); } catch(e){}
+      }
+    } catch(e){}
+  });
+
+  // 🔒 Suscripción realtime a papelera
+  PapeleraDB.subscribeRealtime((payload)=>{
+    try {
+      if(typeof renderPapelera === 'function'){
+        try { renderPapelera(); } catch(e){}
+      }
+      if(typeof updatePapeleraBadge === 'function'){
+        try { updatePapeleraBadge(); } catch(e){}
+      }
+      if(typeof renderArchivo === 'function' && currentPage === 'archivo'){
+        try { renderArchivo(); } catch(e){}
+      }
+      if(typeof renderDashboard === 'function' && currentPage === 'dashboard'){
+        try { renderDashboard(); } catch(e){}
+      }
+    } catch(e){}
+  });
+
+  // 🔒 Suscripción realtime a members
+  MembersDB.subscribeRealtime((payload)=>{
+    try {
+      if(typeof renderEquipoMembers === 'function'){
+        try { renderEquipoMembers(); } catch(e){}
+      }
+      // Refresh dashboard si está abierto (puede haber asignaciones visibles)
+      if(currentPage === 'dashboard' && typeof renderDashboard === 'function'){
+        try { renderDashboard(); } catch(e){}
+      }
+      if(currentPage === 'brand' && currentBrandId && typeof renderBrandPage === 'function'){
+        try { renderBrandPage(); } catch(e){}
       }
     } catch(e){}
   });
@@ -20205,7 +20625,10 @@ async function executeBrandArchive(brandId){
   markLocalDelete('brands', brandId);
   appData.brands = appData.brands.filter(b=>b.id!==brandId);
   appData.papelera = appData.papelera||[];
-  appData.papelera.push({ type:'brand-archived', id:brandId, data:JSON.parse(JSON.stringify({...brand, archivedAt:brand.archivedAt})), deletedAt:Date.now() });
+  const papItem = { type:'brand-archived', id:brandId, data:JSON.parse(JSON.stringify({...brand, archivedAt:brand.archivedAt})), deletedAt:Date.now() };
+  appData.papelera.push(papItem);
+  // 🔒 Persistir en tabla papelera
+  if(window.PapeleraDB){ await PapeleraDB.saveItem(papItem); }
   markLocalChange('brands','clientNotes','papelera');
   await upsert();
   showStatus('📦 Proyecto archivado correctamente');
