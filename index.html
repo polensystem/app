@@ -1437,6 +1437,171 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
   }
+
+  /* ═══ FASE R2: DASHBOARD ═══ */
+
+  /* --- Banner carrusel: más compacto, controles en una esquina --- */
+  #dash-banner-wrap{border-radius:14px;}
+  #dash-banner-slides{min-height:110px !important;}
+  .dash-banner-title{font-size:1.05rem !important;line-height:1.25;}
+  .dash-banner-sub{font-size:0.74rem !important;}
+  .dash-banner-content{max-width:80%;padding:1rem;}
+  /* Botones del banner — más chicos y mejor distribuidos */
+  #banner-arrow-prev, #banner-arrow-next{
+    width:28px !important;height:28px !important;font-size:0.78rem !important;
+  }
+  /* Controles top-right del banner: más compactos y solo iconos */
+  #dash-banner-wrap > div[style*="top:10px"][style*="right:12px"] > button{
+    padding:0.25rem 0.45rem !important;font-size:0.66rem !important;
+  }
+
+  /* --- Stats grid: de 4 columnas a 2x2 en móvil --- */
+  #dash-stats-grid{
+    grid-template-columns:repeat(2,1fr) !important;
+    gap:0.6rem !important;
+  }
+  #dash-stats-grid > div{
+    padding:0.9rem 1rem !important;
+  }
+  /* Números gigantes (3.5rem) son demasiado grandes para móvil 2x2 */
+  #dash-stats-grid > div [style*="font-size:3.5rem"]{
+    font-size:2.2rem !important;
+    letter-spacing:-1.5px !important;
+  }
+
+  /* --- Header del portafolio: el bloque con filtros, búsqueda, view toggle, export --- */
+  /* Section header: la "barra superior" del portafolio, apilar título y filtros */
+  #brands-section-title{font-size:0.88rem !important;}
+  #brands-section-sub{font-size:0.66rem !important;}
+  /* La búsqueda crece para ocupar todo el ancho disponible en móvil */
+  #brands-search-cards, #table-search{
+    width:100% !important;
+    flex:1 1 100%;
+    box-sizing:border-box;
+  }
+  #brands-member-filter{width:100%;flex:1 1 100%;}
+  /* Los view toggles y export en una fila, scrolleable horizontalmente si no caben */
+  /* Cards sort row también scrollable */
+  /* Botones de filtro de etapa: más espacio, mantener visibles */
+
+  /* --- Vistas por etapa y miembro: padding más chico --- */
+  #brands-view-etapa, #brands-view-miembro, #brands-view-playground{
+    padding:0.85rem !important;
+  }
+  #brands-view-cards > div[style*="padding:1rem 1.2rem"]{
+    padding:0.7rem 0.85rem !important;
+  }
+
+  /* --- Brand cards más anchas y con menos padding interno --- */
+  .brands-grid{
+    grid-template-columns:1fr !important;
+    gap:0.65rem !important;
+  }
+
+  /* --- Section header del portafolio: el div padre con flex --- */
+  /* Targeting por contenido específico: el div justo después de #brands-section-title */
+  #brands-section-title{flex:1 1 100%;margin-bottom:0.4rem;}
+  /* El bloque que envuelve título + filtros: hacer wrap más agresivo */
+  /* Los filtros (búsqueda, miembro, etapa, view, export) se apilan verticalmente */
+  /* El truco: el contenedor padre tiene flex-wrap:wrap; ya solo necesitamos
+     que cada hijo de "filtros" tome ancho completo y se ordene */
+
+  /* Los 5 botones de etapa: en una fila scrollable, no se ven todos juntos */
+  /* El div de filter by stage (botones aire/agua/tierra/fuego) */
+  /* y el view toggle (cards/table/etapa/miembro/playground) y export */
+  /* Forzar cada grupo a su propia fila */
+
+  /* View toggle (tarjetas/tabla/etapa/miembro/playground) — scroll horizontal si no cabe */
+  [id="view-btn-cards"]:first-of-type,
+  div[style*="background:var(--bg-card2)"][style*="border-radius:8px"][style*="padding:0.2rem"]:has(#view-btn-cards){
+    max-width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  /* Cards sort row dentro de brands-view-cards: scrollable */
+  #brands-view-cards > div[style*="display:flex"]:first-child{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    padding:0.5rem 0.85rem !important;
+    gap:0.4rem;
+  }
+  #brands-view-cards > div[style*="display:flex"]:first-child > *{
+    flex-shrink:0;
+  }
+
+  /* Botones de filtro de etapa: mostrar nombre, no solo emoji */
+  /* Los hago un poco más grandes para que el dedo los acierte */
+  #bsf-all, #bsf-aire, #bsf-agua, #bsf-tierra, #bsf-fuego,
+  #tfilter-stage-all, #tfilter-stage-aire, #tfilter-stage-agua, #tfilter-stage-tierra, #tfilter-stage-fuego{
+    padding:0.4rem 0.65rem !important;
+    font-size:0.78rem !important;
+  }
+
+  /* Botones de view (tarjetas/tabla/etapa/miembro/playground) más táctiles */
+  #view-btn-cards, #view-btn-table, #view-btn-etapa, #view-btn-miembro, #view-btn-playground{
+    padding:0.42rem 0.7rem !important;
+    font-size:0.74rem !important;
+    white-space:nowrap;
+  }
+
+  /* Export dropdown: más táctil */
+  .btn-export-inline{
+    padding:0.42rem 0.85rem !important;
+    font-size:0.74rem !important;
+  }
+
+  /* Tabla de marcas (vista tabla): mantener scroll horizontal */
+  #brands-view-table{max-height:none !important;}
+  #brands-table{min-width:700px;}
+
+  /* === Header del portafolio: layout vertical en móvil === */
+  #portafolio-header{
+    padding:0.85rem 0.85rem !important;
+    flex-direction:column;
+    align-items:stretch !important;
+    gap:0.7rem !important;
+  }
+  #portafolio-header-title{width:100%;}
+  #portafolio-filters{
+    width:100%;
+    flex-direction:column;
+    align-items:stretch !important;
+    gap:0.55rem !important;
+  }
+  /* Búsqueda y filtro de miembro: full width */
+  #brands-search-cards, #brands-member-filter{
+    width:100% !important;
+    box-sizing:border-box;
+    padding:0.55rem 0.85rem !important;
+    font-size:16px !important; /* anti-zoom iOS */
+  }
+  /* Botones de etapa: en fila scrollable */
+  #portafolio-filters > div[style*="display:flex"][style*="gap:0.2rem"]{
+    width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    gap:0.3rem !important;
+    padding-bottom:0.25rem;
+  }
+  #portafolio-filters > div[style*="display:flex"][style*="gap:0.2rem"] > button{
+    flex-shrink:0;
+  }
+  /* View toggle: scrolleable horizontalmente */
+  #portafolio-filters > div[style*="border-radius:8px"][style*="padding:0.2rem"]{
+    width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    box-sizing:border-box;
+  }
+  /* Export wrap: ocupa ancho completo */
+  #portafolio-filters > .export-wrap{
+    width:100%;
+  }
+  #portafolio-filters > .export-wrap > .btn-export-inline{
+    width:100%;
+    justify-content:center;
+  }
 }
 
 /* ── MOBILE PEQUEÑO (≤480px) ── */
@@ -1625,13 +1790,13 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
       <!-- ── PORTAFOLIO SECTION ── -->
       <div style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border)">
         <!-- Section header -->
-        <div style="padding:1rem 1.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);flex-wrap:wrap">
-          <div>
+        <div id="portafolio-header" style="padding:1rem 1.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);flex-wrap:wrap">
+          <div id="portafolio-header-title">
             <div style="font-size:0.95rem;font-weight:800;color:var(--text);letter-spacing:-0.3px" id="brands-section-title">Todas las marcas</div>
             <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem" id="brands-section-sub">Portafolio completo</div>
           </div>
           <!-- Filters + view toggle + export -->
-          <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+          <div id="portafolio-filters" style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
             <!-- Búsqueda rápida -->
             <input id="brands-search-cards" oninput="renderDashboard()" placeholder="🔍 Buscar…"
               style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.28rem 0.75rem;font-size:0.75rem;color:var(--text);font-family:var(--font);outline:none;width:130px;transition:border-color 0.18s"
