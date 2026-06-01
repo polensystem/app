@@ -1728,6 +1728,22 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
   }
   /* Notas internas: reducir la sangría izquierda en móvil */
   #tab-bp [style*="0.7rem 3.1rem"]{padding-left:1rem !important;}
+
+  /* ═══ FIX MÓVIL: scroll horizontal y grillas fijas de 4 columnas ═══ */
+
+  /* Guard: ninguna página debe scrollear horizontalmente. Los contenedores que
+     SÍ necesitan scroll horizontal (tabla de marcas, tabs, acciones del hero,
+     filtros) lo manejan internamente con su propio overflow-x:auto. */
+  .page{overflow-x:hidden;}
+
+  /* Tarjetas de distribución por etapa del dashboard (Aire/Agua/Tierra/Fuego):
+     de 4 columnas a 2x2. El repeat(4,1fr) inline forzaba ~520px de ancho. */
+  #stage-grid-v2{grid-template-columns:repeat(2,1fr) !important;}
+
+  /* Client Hub: el grid de notas se asigna por JS a repeat(4,1fr); en móvil
+     una sola nota quedaba en una columna angostísima (~25% del ancho).
+     Forzar 1 columna (el !important gana sobre el style inline del JS). */
+  #client-hub-list{grid-template-columns:1fr !important;}
 }
 
 /* ── MOBILE PEQUEÑO (≤480px) ── */
