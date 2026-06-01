@@ -16017,14 +16017,15 @@ async function boot(){
   });
 
   // 🔒 Suscripción realtime a clientNotes
-  // Cambios de otros usuarios actualizan appData.clientNotes y re-renderizan UI relevante
+  // El módulo ya actualizó appData.clientNotes — solo re-renderizamos UI.
   ClientNotesDB.subscribeRealtime((payload)=>{
     try {
-      // Re-render Client Hub si estamos en dashboard
+      try { renderCurrentPage(); } catch(e){}
+      // Re-render Client Hub (puede no estar en currentPage si es overlay)
       if(typeof renderClientHub === 'function'){
         try { renderClientHub(); } catch(e){}
       }
-      // Si estamos en una marca, refresh sus notas
+      // Si estamos en una marca, refresh sus notas específicamente
       if(currentPage === 'brand' && currentBrandId){
         if(typeof renderBrandNotas === 'function'){
           try { renderBrandNotas(); } catch(e){}
@@ -16043,37 +16044,52 @@ async function boot(){
   });
 
   // 🔒 Suscripción realtime a papelera
+  // Cuando otra pestaña archiva/restaura una marca, debemos:
+  //   1. Si es INSERT con type='brand-archived' o 'brand': quitar la marca de appData.brands
+  //      (porque acaba de ser archivada/borrada por otro usuario)
+  //   2. Si es DELETE: la marca podría estar siendo restaurada — la sincronización
+  //      del brand viene por realtime del JSON shared, pero por seguridad re-render.
+  //   3. Si es INSERT con type='member': el member ya fue borrado de polen_members
+  //      por el otro usuario, removerlo de appData.members local.
   PapeleraDB.subscribeRealtime((payload)=>{
     try {
-      if(typeof renderPapelera === 'function'){
-        try { renderPapelera(); } catch(e){}
+      const { eventType, new:newRow, old:oldRow } = payload;
+      const row = newRow || oldRow;
+
+      // Si llega un nuevo item de papelera, sincronizar el estado local
+      if(eventType === 'INSERT' && newRow){
+        const itemType = newRow.type;
+        const itemData = newRow.data || {};
+        if((itemType === 'brand' || itemType === 'brand-archived') && itemData.id){
+          // Quitar la marca de appData.brands (otro usuario la archivó/borró)
+          appData.brands = (appData.brands||[]).filter(b=>b.id !== itemData.id);
+          // Si estaba viendo esa marca, regresar al dashboard
+          if(currentPage === 'brand' && currentBrandId === itemData.id){
+            currentBrandId = null;
+            currentPage = 'dashboard';
+          }
+        }
+        if(itemType === 'member' && itemData.id){
+          appData.members = (appData.members||[]).filter(m=>m.id !== itemData.id);
+        }
       }
+
+      // Re-render todo lo visible
+      try { renderCurrentPage(); } catch(e){}
       if(typeof updatePapeleraBadge === 'function'){
         try { updatePapeleraBadge(); } catch(e){}
       }
-      if(typeof renderArchivo === 'function' && currentPage === 'archivo'){
-        try { renderArchivo(); } catch(e){}
-      }
-      if(typeof renderDashboard === 'function' && currentPage === 'dashboard'){
-        try { renderDashboard(); } catch(e){}
-      }
-    } catch(e){}
+      showStatus('🔄 Actualizado en tiempo real');
+    } catch(e){ console.error('[Polen] papelera realtime handler:', e); }
   });
 
   // 🔒 Suscripción realtime a members
   MembersDB.subscribeRealtime((payload)=>{
     try {
-      if(typeof renderEquipoMembers === 'function'){
-        try { renderEquipoMembers(); } catch(e){}
-      }
-      // Refresh dashboard si está abierto (puede haber asignaciones visibles)
-      if(currentPage === 'dashboard' && typeof renderDashboard === 'function'){
-        try { renderDashboard(); } catch(e){}
-      }
-      if(currentPage === 'brand' && currentBrandId && typeof renderBrandPage === 'function'){
-        try { renderBrandPage(); } catch(e){}
-      }
-    } catch(e){}
+      // El módulo ya actualizó appData.members. Solo re-renderizamos.
+      try { renderCurrentPage(); } catch(e){}
+      showStatus('🔄 Actualizado en tiempo real');
+    } catch(e){ console.error('[Polen] members realtime handler:', e); }
   });
 
   // ═══════════════════════════════════════════════════════════════════════════════
