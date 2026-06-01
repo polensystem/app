@@ -5717,6 +5717,13 @@ function deepMergeAppData(server, local){
     if(b?.id && !allDeletedBrandIds.has(b.id)) brandMap[b.id] = {...b};
   });
 
+  // 🔬 LOG DIAGNÓSTICO TEMPORAL — qué brands hay en server vs local
+  console.log('[Polen DBG merge brands] server:', serverBrands.length, 'local:', localBrands.length,
+    'deleted:', [...allDeletedBrandIds],
+    'serverIds:', serverBrands.map(b=>b?.name+':'+(b?.id||'?')),
+    'localIds:', localBrands.map(b=>b?.name+':'+(b?.id||'?')),
+    'localChangedBrands:', _localChangedKeys.has('brands'));
+
   // Aplicar local encima — si local tiene una versión más nueva o tiene cambios locales,
   // gana para sus campos. Pero NO eliminamos brands que solo están en server.
   const localChangedBrands = _localChangedKeys.has('brands');
@@ -5754,6 +5761,7 @@ function deepMergeAppData(server, local){
 
   merged.brands = Object.values(brandMap);
   merged._deletedBrandIds = [...persistedDeletedBrandIds];
+  console.log('[Polen DBG merge brands] resultado:', merged.brands.length, merged.brands.map(b=>b?.name+':'+(b?.id||'?')));
 
   // ── members: viven en polen_members. Local siempre gana (sincronizado con tabla). ──
   merged.members = Array.isArray(local.members) ? local.members : [];
@@ -13021,6 +13029,7 @@ function subscribeRealtime(onUpdate){
   sb.channel('polen_pm_v3')
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'polen_shared',filter:`id=eq.${REC_ID}`},
     payload=>{
+      console.log('[Polen DBG] 📡 Realtime UPDATE de polen_shared recibido. updated_at:', payload?.new?.updated_at);
       if(payload.new?.data){
         const raw = payload.new.data;
 
