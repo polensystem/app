@@ -3680,7 +3680,9 @@ window.BrandBpDB = (function(){
       selected: !!row.selected,
       notes: row.notes || '',
       notesOpen: !!extra.notesOpen,
+      teamNotes: extra.teamNotes || '',
       _selectedUpdatedAt: extra._selectedUpdatedAt || null,
+      _teamNotesUpdatedAt: extra._teamNotesUpdatedAt || null,
       ...(extra.custom || {}),
     };
   }
@@ -3689,7 +3691,9 @@ window.BrandBpDB = (function(){
   function itemToRow(brandId, category, item, catOrden, itemOrden){
     const extra = {
       notesOpen: !!item.notesOpen,
+      teamNotes: item.teamNotes || '',
       _selectedUpdatedAt: item._selectedUpdatedAt || null,
+      _teamNotesUpdatedAt: item._teamNotesUpdatedAt || null,
     };
     return {
       brand_id: brandId,
@@ -11347,8 +11351,8 @@ function renderBrandBp(brand){
               ${item.fromPortal?'<span style="font-size:0.6rem;background:rgba(59,158,221,0.15);color:var(--aire);border-radius:4px;padding:0.1rem 0.35rem;flex-shrink:0">cliente</span>':''}
               <button onclick="toggleBpItemNotes('${brand.id}',${ci},${ii})"
                 title="Colapsar/expandir notas"
-                style="background:none;border:none;cursor:pointer;font-size:0.82rem;padding:0.2rem 0.4rem;border-radius:6px;opacity:${item.notes?'1':'0.3'};transition:all 0.15s;flex-shrink:0"
-                onmouseover="this.style.opacity=1;this.style.background='var(--bg-card2)'" onmouseout="this.style.opacity='${item.notes?'1':'0.3'}';this.style.background='none'">📝</button>
+                style="background:none;border:none;cursor:pointer;font-size:0.82rem;padding:0.2rem 0.4rem;border-radius:6px;opacity:${(item.notes||item.teamNotes)?'1':'0.3'};transition:all 0.15s;flex-shrink:0"
+                onmouseover="this.style.opacity=1;this.style.background='var(--bg-card2)'" onmouseout="this.style.opacity='${(item.notes||item.teamNotes)?'1':'0.3'}';this.style.background='none'">📝</button>
               <div style="display:flex;align-items:center;gap:0;flex-shrink:0;border:1.5px solid rgba(232,98,42,0.4);border-radius:10px;overflow:hidden">
                 <div style="background:rgba(232,98,42,0.1);padding:0.3rem 0.45rem;border-right:1.5px solid rgba(232,98,42,0.3)">
                   <span style="font-size:0.6rem;font-weight:800;color:var(--fuego);text-transform:uppercase;letter-spacing:0.6px;white-space:nowrap">pts</span>
@@ -11371,14 +11375,30 @@ function renderBrandBp(brand){
                   onblur="this.closest('div').style.borderColor='rgba(45,195,179,0.4)';this.closest('div').style.boxShadow='none'">
               </div>
             </div>
-            ${(item.selected || item.notes) && !item._notesCollapsed ?`
-            <div style="padding:0.3rem 1rem 0.7rem 3.1rem">
-              <textarea
-                placeholder="Medidas, materiales, especificaciones…"
-                onchange="saveBpItemNotes('${brand.id}',${ci},${ii},this.value)"
-                style="width:100%;background:var(--bg-card2);border:1px solid ${item.notes?'rgba(45,195,179,0.35)':'var(--border)'};border-radius:8px;padding:0.5rem 0.7rem;color:var(--text2);font-family:var(--font);font-size:0.76rem;resize:none;outline:none;transition:border-color 0.15s;line-height:1.5;min-height:${item.notes?'60px':'40px'}"
-                onfocus="this.style.borderColor='var(--agua)'" onblur="this.style.borderColor='${item.notes?'rgba(45,195,179,0.35)':'var(--border)'}'"
-              >${item.notes||''}</textarea>
+            ${(item.selected || item.notes || item.teamNotes) && !item._notesCollapsed ?`
+            <div style="padding:0.3rem 1rem 0.7rem 3.1rem;display:flex;flex-direction:column;gap:0.5rem">
+              ${item.notes ? `
+                <!-- Nota del cliente: read-only, estilo cita -->
+                <div style="background:rgba(59,158,221,0.06);border-left:3px solid var(--aire);border-radius:0 8px 8px 0;padding:0.55rem 0.7rem 0.55rem 0.85rem">
+                  <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:var(--aire);margin-bottom:0.2rem;display:flex;align-items:center;gap:0.3rem">
+                    <span>💬</span><span>Nota del cliente</span>
+                  </div>
+                  <div style="font-size:0.78rem;color:var(--text2);line-height:1.5;white-space:pre-wrap;user-select:text">${item.notes.replace(/</g,'&lt;')}</div>
+                </div>
+              ` : ''}
+              <!-- Nota interna del equipo Polen: editable, no visible para el cliente -->
+              <div>
+                <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:var(--text3);margin-bottom:0.25rem;display:flex;align-items:center;gap:0.3rem">
+                  <span>📝</span><span>Nota interna del equipo</span>
+                  <span style="font-size:0.58rem;font-weight:600;color:var(--text3);opacity:0.7;letter-spacing:0.4px">· no visible para el cliente</span>
+                </div>
+                <textarea
+                  placeholder="Comentarios, decisiones, especificaciones internas…"
+                  onchange="saveBpItemTeamNotes('${brand.id}',${ci},${ii},this.value)"
+                  style="width:100%;background:var(--bg-card2);border:1px solid ${item.teamNotes?'rgba(232,98,42,0.35)':'var(--border)'};border-radius:8px;padding:0.5rem 0.7rem;color:var(--text2);font-family:var(--font);font-size:0.76rem;resize:none;outline:none;transition:border-color 0.15s;line-height:1.5;min-height:${item.teamNotes?'52px':'34px'}"
+                  onfocus="this.style.borderColor='var(--fuego)'" onblur="this.style.borderColor='${item.teamNotes?'rgba(232,98,42,0.35)':'var(--border)'}'"
+                >${item.teamNotes||''}</textarea>
+              </div>
             </div>`:''
             }
           </div>`).join('')}
@@ -11405,6 +11425,20 @@ async function saveBpItemNotes(brandId,ci,ii,val){
   item.notes=val;
   // 🔒 Guardar directo en tabla
   await BrandBpDB.saveItem(brandId, cat, item, ci, ii);
+}
+
+// Notas internas del equipo: editables solo desde la página interna de marca.
+// No se muestran en el portal cliente. Persisten en el campo `extra.teamNotes` de polen_brand_bp.
+async function saveBpItemTeamNotes(brandId,ci,ii,val){
+  const brand=appData.brands.find(b=>b.id===brandId);
+  if(!brand?.brandingPoints)return;
+  const cat = brand.brandingPoints.categories[ci];
+  const item = cat?.items?.[ii];
+  if(!item) return;
+  item.teamNotes = val;
+  item._teamNotesUpdatedAt = new Date().toISOString();
+  await BrandBpDB.saveItem(brandId, cat, item, ci, ii);
+  showStatus('Nota interna guardada ✓');
 }
 
 async function saveBrandBpTotal(val){
