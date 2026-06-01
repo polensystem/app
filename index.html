@@ -4483,6 +4483,342 @@ window.CronoDB = (function(){
   return { loadAll, saveAct, saveActsBatch, deleteAct, deleteBrandStage, migrateFromJson, subscribeRealtime, actToRow, rowToAct };
 })();
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   🔒 MÓDULO CLIENT-NOTES-DB — Notas del Client Hub
+   ══════════════════════════════════════════════════════════════════════════════
+   Una fila por nota. PK: id.
+
+   Estructura en memoria (sin cambios): appData.clientNotes[]
+
+   API:
+     await ClientNotesDB.loadAll()                — carga todas las notas
+     await ClientNotesDB.saveNote(note)
+     await ClientNotesDB.saveNotesBatch(notes)
+     await ClientNotesDB.deleteNote(noteId)
+     await ClientNotesDB.migrateFromJson()
+     ClientNotesDB.subscribeRealtime(onChange)
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.ClientNotesDB = (function(){
+  const TABLE = 'polen_client_notes';
+
+  // Anti-eco: ignorar eventos realtime de cambios que YO mismo hice
+  const _ownOps = new Map();
+  const OWN_OP_TTL = 2500;
+  function markOwnOp(noteId){
+    _ownOps.set(noteId, Date.now() + OWN_OP_TTL);
+    if(_ownOps.size > 200){
+      const now = Date.now();
+      for(const [k,t] of _ownOps) if(t < now) _ownOps.delete(k);
+    }
+  }
+  function isOwnEcho(noteId){
+    const t = _ownOps.get(noteId);
+    if(!t) return false;
+    if(t < Date.now()){ _ownOps.delete(noteId); return false; }
+    return true;
+  }
+
+  function noteToRow(note){
+    const known = new Set(['id','brandId','type','urgency','text','assignees','comments','done','doneAt','archiveConfirmed','pinned','dueDate','author','createdAt']);
+    const extra = {};
+    Object.keys(note||{}).forEach(k=>{ if(!known.has(k)) extra[k] = note[k]; });
+    return {
+      id: note.id,
+      brand_id: note.brandId || null,
+      type: note.type || 'note',
+      urgency: note.urgency || null,
+      text: note.text || '',
+      assignees: note.assignees || [],
+      comments: note.comments || [],
+      done: !!note.done,
+      done_at: note.doneAt || null,
+      archive_confirmed: !!note.archiveConfirmed,
+      pinned: !!note.pinned,
+      due_date: note.dueDate || null,
+      author: note.author || null,
+      created_at: note.createdAt || new Date().toISOString(),
+      extra,
+    };
+  }
+
+  function rowToNote(row){
+    const base = {
+      id: row.id,
+      brandId: row.brand_id || undefined,
+      type: row.type || 'note',
+      urgency: row.urgency || undefined,
+      text: row.text || '',
+      assignees: row.assignees || [],
+      comments: row.comments || [],
+      done: !!row.done,
+      doneAt: row.done_at || undefined,
+      archiveConfirmed: !!row.archive_confirmed,
+      pinned: !!row.pinned,
+      dueDate: row.due_date || undefined,
+      author: row.author || undefined,
+      createdAt: row.created_at,
+    };
+    if(row.extra && typeof row.extra === 'object'){
+      Object.keys(row.extra).forEach(k=>{ if(base[k] === undefined) base[k] = row.extra[k]; });
+    }
+    // Limpiar undefined
+    Object.keys(base).forEach(k=>{ if(base[k] === undefined) delete base[k]; });
+    return base;
+  }
+
+  async function loadAll(){
+    try {
+      const { data, error } = await sb.from(TABLE).select('*').order('created_at', { ascending:false });
+      if(error){ console.error('[ClientNotesDB] loadAll error:', error); return null; }
+      const notes = (data||[]).map(rowToNote);
+      console.log('[ClientNotesDB] Cargadas', notes.length, 'notas');
+      return notes;
+    } catch(e){ console.error('[ClientNotesDB] loadAll crashed:', e); return null; }
+  }
+
+  async function saveNote(note){
+    if(!note?.id) return false;
+    try {
+      markOwnOp(note.id);
+      const row = noteToRow(note);
+      const { error } = await sb.from(TABLE).upsert(row);
+      if(error){ console.error('[ClientNotesDB] saveNote error:', error, row); return false; }
+      return true;
+    } catch(e){ console.error('[ClientNotesDB] saveNote crashed:', e); return false; }
+  }
+
+  async function saveNotesBatch(notes){
+    if(!notes?.length) return true;
+    try {
+      const rows = notes.map(noteToRow);
+      rows.forEach(r=>markOwnOp(r.id));
+      // Chunks de 100 para evitar payloads muy grandes
+      for(let i=0; i<rows.length; i+=100){
+        const chunk = rows.slice(i, i+100);
+        const { error } = await sb.from(TABLE).upsert(chunk);
+        if(error){ console.error('[ClientNotesDB] saveNotesBatch error:', error); return false; }
+      }
+      return true;
+    } catch(e){ console.error('[ClientNotesDB] saveNotesBatch crashed:', e); return false; }
+  }
+
+  async function deleteNote(noteId){
+    if(!noteId) return false;
+    try {
+      markOwnOp(noteId);
+      const { error } = await sb.from(TABLE).delete().eq('id', noteId);
+      if(error){ console.error('[ClientNotesDB] deleteNote error:', error); return false; }
+      return true;
+    } catch(e){ console.error('[ClientNotesDB] deleteNote crashed:', e); return false; }
+  }
+
+  async function migrateFromJson(){
+    try {
+      const { count, error: countErr } = await sb.from(TABLE).select('*', { count:'exact', head:true });
+      if(countErr){ console.error('[ClientNotesDB] migration count error:', countErr); return false; }
+      if((count||0) > 0){
+        console.log('[ClientNotesDB] Tabla ya tiene', count, 'filas — no migramos');
+        return true;
+      }
+      const notes = appData?.clientNotes || [];
+      if(!notes.length){
+        console.log('[ClientNotesDB] No hay notas para migrar');
+        return true;
+      }
+      console.log('[ClientNotesDB] Migrando', notes.length, 'notas');
+      const ok = await saveNotesBatch(notes);
+      if(ok) console.log('[ClientNotesDB] ✅ Migración completa');
+      return ok;
+    } catch(e){ console.error('[ClientNotesDB] migrateFromJson crashed:', e); return false; }
+  }
+
+  function subscribeRealtime(onChange){
+    sb.channel('polen_client_notes_rt')
+      .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
+        try {
+          const { eventType, new:newRow, old:oldRow } = payload;
+          const noteId = newRow?.id || oldRow?.id;
+          if(noteId && isOwnEcho(noteId)) return;
+
+          if(!appData.clientNotes) appData.clientNotes = [];
+
+          if(eventType === 'DELETE'){
+            appData.clientNotes = appData.clientNotes.filter(n=>n.id !== noteId);
+          } else if(newRow){
+            const newNote = rowToNote(newRow);
+            const idx = appData.clientNotes.findIndex(n=>n.id === newNote.id);
+            if(idx >= 0) appData.clientNotes[idx] = newNote;
+            else appData.clientNotes.unshift(newNote);
+          }
+          if(onChange) onChange(payload);
+        } catch(e){ console.error('[ClientNotesDB] realtime error:', e); }
+      })
+      .subscribe();
+    console.log('[ClientNotesDB] ✓ Realtime suscrito a', TABLE);
+  }
+
+  return { loadAll, saveNote, saveNotesBatch, deleteNote, migrateFromJson, subscribeRealtime, noteToRow, rowToNote };
+})();
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   🔒 MÓDULO BANNERS-DB — Banners del dashboard
+   ══════════════════════════════════════════════════════════════════════════════
+   Una fila por banner. PK: id.
+
+   Estructura en memoria (sin cambios): appData.banners[]
+
+   API:
+     await BannersDB.loadAll()                 — carga todos los banners ordenados
+     await BannersDB.saveBanner(banner, orden)
+     await BannersDB.saveBannersBatch(banners)
+     await BannersDB.deleteBanner(bannerId)
+     await BannersDB.migrateFromJson()
+     BannersDB.subscribeRealtime(onChange)
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.BannersDB = (function(){
+  const TABLE = 'polen_banners';
+
+  const _ownOps = new Map();
+  const OWN_OP_TTL = 2500;
+  function markOwnOp(bannerId){
+    _ownOps.set(bannerId, Date.now() + OWN_OP_TTL);
+    if(_ownOps.size > 100){
+      const now = Date.now();
+      for(const [k,t] of _ownOps) if(t < now) _ownOps.delete(k);
+    }
+  }
+  function isOwnEcho(bannerId){
+    const t = _ownOps.get(bannerId);
+    if(!t) return false;
+    if(t < Date.now()){ _ownOps.delete(bannerId); return false; }
+    return true;
+  }
+
+  function bannerToRow(banner, orden=0){
+    const known = new Set(['id','text','subtext','bg','image','textColor']);
+    const extra = {};
+    Object.keys(banner||{}).forEach(k=>{ if(!known.has(k)) extra[k] = banner[k]; });
+    return {
+      id: banner.id,
+      text: banner.text || '',
+      subtext: banner.subtext || '',
+      bg: banner.bg || null,
+      image: banner.image || null,
+      text_color: banner.textColor || null,
+      orden,
+      extra,
+    };
+  }
+
+  function rowToBanner(row){
+    const base = {
+      id: row.id,
+      text: row.text || '',
+      subtext: row.subtext || '',
+      bg: row.bg || null,
+      image: row.image || null,
+      textColor: row.text_color || null,
+    };
+    if(row.extra && typeof row.extra === 'object'){
+      Object.keys(row.extra).forEach(k=>{ if(base[k] === undefined) base[k] = row.extra[k]; });
+    }
+    Object.keys(base).forEach(k=>{ if(base[k] === undefined || base[k] === null) {
+      // mantener nulls solo para image (puede ser null válido)
+      if(k !== 'image' && k !== 'bg' && k !== 'textColor') delete base[k];
+    }});
+    return base;
+  }
+
+  async function loadAll(){
+    try {
+      const { data, error } = await sb.from(TABLE).select('*').order('orden', { ascending:true });
+      if(error){ console.error('[BannersDB] loadAll error:', error); return null; }
+      const banners = (data||[]).map(rowToBanner);
+      console.log('[BannersDB] Cargados', banners.length, 'banners');
+      return banners;
+    } catch(e){ console.error('[BannersDB] loadAll crashed:', e); return null; }
+  }
+
+  async function saveBanner(banner, orden=0){
+    if(!banner?.id) return false;
+    try {
+      markOwnOp(banner.id);
+      const row = bannerToRow(banner, orden);
+      const { error } = await sb.from(TABLE).upsert(row);
+      if(error){ console.error('[BannersDB] saveBanner error:', error, row); return false; }
+      return true;
+    } catch(e){ console.error('[BannersDB] saveBanner crashed:', e); return false; }
+  }
+
+  async function saveBannersBatch(banners){
+    if(!banners?.length) return true;
+    try {
+      const rows = banners.map((b,i)=>bannerToRow(b, i));
+      rows.forEach(r=>markOwnOp(r.id));
+      const { error } = await sb.from(TABLE).upsert(rows);
+      if(error){ console.error('[BannersDB] saveBannersBatch error:', error); return false; }
+      return true;
+    } catch(e){ console.error('[BannersDB] saveBannersBatch crashed:', e); return false; }
+  }
+
+  async function deleteBanner(bannerId){
+    if(!bannerId) return false;
+    try {
+      markOwnOp(bannerId);
+      const { error } = await sb.from(TABLE).delete().eq('id', bannerId);
+      if(error){ console.error('[BannersDB] deleteBanner error:', error); return false; }
+      return true;
+    } catch(e){ console.error('[BannersDB] deleteBanner crashed:', e); return false; }
+  }
+
+  async function migrateFromJson(){
+    try {
+      const { count, error: countErr } = await sb.from(TABLE).select('*', { count:'exact', head:true });
+      if(countErr){ console.error('[BannersDB] migration count error:', countErr); return false; }
+      if((count||0) > 0){
+        console.log('[BannersDB] Tabla ya tiene', count, 'filas — no migramos');
+        return true;
+      }
+      const banners = appData?.banners || [];
+      if(!banners.length){
+        console.log('[BannersDB] No hay banners para migrar');
+        return true;
+      }
+      console.log('[BannersDB] Migrando', banners.length, 'banners');
+      const ok = await saveBannersBatch(banners);
+      if(ok) console.log('[BannersDB] ✅ Migración completa');
+      return ok;
+    } catch(e){ console.error('[BannersDB] migrateFromJson crashed:', e); return false; }
+  }
+
+  function subscribeRealtime(onChange){
+    sb.channel('polen_banners_rt')
+      .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
+        try {
+          const { eventType, new:newRow, old:oldRow } = payload;
+          const bannerId = newRow?.id || oldRow?.id;
+          if(bannerId && isOwnEcho(bannerId)) return;
+
+          if(!appData.banners) appData.banners = [];
+
+          if(eventType === 'DELETE'){
+            appData.banners = appData.banners.filter(b=>b.id !== bannerId);
+          } else if(newRow){
+            const newBanner = rowToBanner(newRow);
+            const idx = appData.banners.findIndex(b=>b.id === newBanner.id);
+            if(idx >= 0) appData.banners[idx] = newBanner;
+            else appData.banners.push(newBanner);
+          }
+          if(onChange) onChange(payload);
+        } catch(e){ console.error('[BannersDB] realtime error:', e); }
+      })
+      .subscribe();
+    console.log('[BannersDB] ✓ Realtime suscrito a', TABLE);
+  }
+
+  return { loadAll, saveBanner, saveBannersBatch, deleteBanner, migrateFromJson, subscribeRealtime, bannerToRow, rowToBanner };
+})();
+
 async function loadData(){
   // Show loading message on screen
   const lsub = document.querySelector('.loading-sub');
@@ -4718,6 +5054,44 @@ async function loadData(){
         }
       } catch(cronoErr) {
         console.error('[Polen] Error cargando cronograma:', cronoErr);
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // 🔒 CARGAR CLIENT NOTES DESDE TABLA NUEVA (polen_client_notes)
+      // ══════════════════════════════════════════════════════════════════════
+      try {
+        if(lsub) lsub.textContent = 'Cargando notas…';
+        if(!appData._clientNotesMigratedToTable){
+          console.log('[Polen] Primera vez — migrando notas a tabla nueva');
+          await ClientNotesDB.migrateFromJson();
+          appData._clientNotesMigratedToTable = true;
+        }
+        const notasFromTable = await ClientNotesDB.loadAll();
+        if(notasFromTable){
+          appData.clientNotes = notasFromTable;
+          console.log('[Polen] ✓ Notas cargadas de tabla nueva');
+        }
+      } catch(notesErr) {
+        console.error('[Polen] Error cargando notas:', notesErr);
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // 🔒 CARGAR BANNERS DESDE TABLA NUEVA (polen_banners)
+      // ══════════════════════════════════════════════════════════════════════
+      try {
+        if(lsub) lsub.textContent = 'Cargando banners…';
+        if(!appData._bannersMigratedToTable){
+          console.log('[Polen] Primera vez — migrando banners a tabla nueva');
+          await BannersDB.migrateFromJson();
+          appData._bannersMigratedToTable = true;
+        }
+        const bannersFromTable = await BannersDB.loadAll();
+        if(bannersFromTable && bannersFromTable.length){
+          appData.banners = bannersFromTable;
+          console.log('[Polen] ✓ Banners cargados de tabla nueva');
+        }
+      } catch(bannersErr) {
+        console.error('[Polen] Error cargando banners:', bannersErr);
       }
 
       // 🛡️ RECUPERACIÓN DE CAMBIOS LOCALES RECIENTES
@@ -5037,14 +5411,9 @@ function deepMergeAppData(server, local){
   merged.members = Object.values(memberMap);
   merged._deletedMemberIds = [...persistedDeletedMemberIds];
 
-  // ── clientNotes: merge by id, respect local deletions ──
-  const serverNotes = Array.isArray(server.clientNotes) ? server.clientNotes : [];
-  const localNotes  = Array.isArray(local.clientNotes)  ? local.clientNotes  : [];
-  const deletedNoteIds = _localDeletedIds.clientNotes;
-  const noteMap = {};
-  serverNotes.forEach(n=>{ if(!deletedNoteIds.has(n.id)) noteMap[n.id] = {...n}; });
-  localNotes.forEach(n=>{ if(!deletedNoteIds.has(n.id)) noteMap[n.id] = {...(noteMap[n.id]||{}), ...n}; });
-  merged.clientNotes = Object.values(noteMap).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  // ── clientNotes: vive en polen_client_notes (tabla). El JSON ya NO los trae
+  // (están stripped al upsert). Local siempre gana porque está sincronizado con la tabla.
+  merged.clientNotes = Array.isArray(local.clientNotes) ? local.clientNotes : [];
 
   // ── domos: union by key (never lose created domos) ──
   const serverDomos = Array.isArray(server.domos) ? server.domos : [];
@@ -5068,8 +5437,11 @@ function deepMergeAppData(server, local){
   const papIds = new Set(localPap.map(x=>x.id));
   merged.papelera = [...localPap, ...serverPap.filter(x=>!papIds.has(x.id))];
 
+  // ── banners: viven en polen_banners. Local siempre gana (sincronizado con tabla).
+  merged.banners = Array.isArray(local.banners) ? local.banners : [];
+
   // ── scalar fields: local wins if user changed them, else server ──
-  const scalarKeys = ['finanzas','digitalTools','banners','calendarUrl','domoNames'];
+  const scalarKeys = ['finanzas','digitalTools','calendarUrl','domoNames'];
   scalarKeys.forEach(k=>{
     merged[k] = _localChangedKeys.has(k) ? local[k] : (server[k] ?? local[k]);
   });
@@ -5445,6 +5817,17 @@ async function _doUpsert(){
           }
           return b;
         });
+      }
+
+      // 🔒 REFACTOR FASE A: clientNotes vive en polen_client_notes.
+      // Stripped del JSON para evitar race conditions multi-usuario.
+      if(toWriteSafe.clientNotes !== undefined){
+        delete toWriteSafe.clientNotes;
+      }
+
+      // 🔒 REFACTOR FASE A: banners viven en polen_banners.
+      if(toWriteSafe.banners !== undefined){
+        delete toWriteSafe.banners;
       }
 
       console.log('[Polen] Payload después de strip:', Math.round(JSON.stringify(toWriteSafe).length/1024) + 'KB');
@@ -6011,14 +6394,19 @@ async function saveBanner(){
   };
 
   if(!Array.isArray(appData.banners)) appData.banners = [];
+  let bannerOrden = 0;
   if(_editingBannerId){
     const idx = appData.banners.findIndex(b=>b.id===_editingBannerId);
-    if(idx>=0) appData.banners[idx] = bannerData;
-    else appData.banners.push(bannerData);
+    if(idx>=0){ appData.banners[idx] = bannerData; bannerOrden = idx; }
+    else { appData.banners.push(bannerData); bannerOrden = appData.banners.length - 1; }
   } else {
     appData.banners.push(bannerData);
     _bannerIdx = appData.banners.length - 1;
+    bannerOrden = _bannerIdx;
   }
+
+  // 🔒 Guardar en tabla
+  if(window.BannersDB){ await BannersDB.saveBanner(bannerData, bannerOrden); }
 
   closeBannerModal();
   try {
@@ -6039,10 +6427,13 @@ async function deleteBannerCurrent(){
   }
   const ok1 = await askModal({label:'¿Eliminar este banner?', type:'select', options:['Cancelar','Sí, eliminar']});
   if(ok1!==1) return;
+  const removed = appData.banners[_bannerIdx];
   appData.banners.splice(_bannerIdx, 1);
   _bannerIdx = Math.max(0, _bannerIdx - 1);
-    markLocalChange('banners');
-await upsert();
+  // 🔒 Borrar de la tabla
+  if(window.BannersDB && removed?.id){ await BannersDB.deleteBanner(removed.id); }
+  markLocalChange('banners');
+  await upsert();
   showStatus('Banner eliminado');
   renderBanners();
 }
@@ -8043,13 +8434,51 @@ async function restoreFromPapelera(itemId){ markLocalChange("papelera","brands",
     // Si es una marca archivada, quitar el flag archivedAt para que vuelva a ser activa
     const restored = {...item.data};
     if(item.type==='brand-archived') delete restored.archivedAt;
+
+    // 🔒 CRÍTICO: leer datos frescos de las tablas refactorizadas para este brand.
+    // Cuando una marca se archiva, sus datos (BPs, aprobaciones, cronograma, cobros)
+    // SIGUEN existiendo en sus tablas porque están vinculados por brand_id, no por
+    // estado de la marca. Al restaurar, debemos popular el brand con los datos reales
+    // de las tablas, no con la versión "congelada" que quedó en papelera.
+    try {
+      const [bpAll, paAll, cronoAll, cobrosAll] = await Promise.all([
+        window.BrandBpDB?.loadAll?.() || Promise.resolve(null),
+        window.PortalApprovalsDB?.loadAll?.() || Promise.resolve(null),
+        window.CronoDB?.loadAll?.() || Promise.resolve(null),
+        window.CobrosDB?.loadAll?.() || Promise.resolve(null),
+      ]);
+      // Branding Points
+      if(bpAll && bpAll[brandId]){
+        restored.brandingPoints = {
+          total: restored.brandingPoints?.total || 15,
+          categories: bpAll[brandId].categories || [],
+        };
+      }
+      // Portal Approvals
+      if(paAll && paAll[brandId]){
+        restored.portalApprovals = paAll[brandId];
+      }
+      // Cronograma
+      if(cronoAll && cronoAll[brandId]){
+        restored.cronograma = cronoAll[brandId];
+      }
+      // Cobros (vive en appData.cobros, no en el brand)
+      if(cobrosAll && cobrosAll[brandId]){
+        if(!appData.cobros) appData.cobros = {};
+        appData.cobros[brandId] = cobrosAll[brandId];
+      }
+    } catch(e){
+      console.error('[restore] Error cargando datos de tablas:', e);
+      // Continuamos aunque haya error — al menos se restaura la marca con sus datos del JSON.
+    }
+
     appData.brands.push(restored);
     // Limpiar de TODAS las listas de eliminados
     appData._deletedBrandIds = (appData._deletedBrandIds||[]).filter(id=>id!==brandId && id!==itemId);
     _localDeletedIds.brands.delete(brandId);
     _localDeletedIds.brands.delete(itemId);
     markLocalChange('brands');
-    showStatus(`"${item.data.name}" restaurada ✓`);
+    showStatus(`"${item.data.name}" restaurada con todos sus datos ✓`);
   } else if(item.type==='member'){
     const memberId = item.data.id;
     if(!appData.members) appData.members=[];
@@ -14768,9 +15197,17 @@ async function deleteMemberCurrent(){
   });
 
   // 3. Clean clientNotes assignees
+  const notesWithRemovedAssignee = [];
   (appData.clientNotes||[]).forEach(n=>{
-    if(Array.isArray(n.assignees)) n.assignees = n.assignees.filter(id=>id!==deletedId);
+    if(Array.isArray(n.assignees) && n.assignees.includes(deletedId)){
+      n.assignees = n.assignees.filter(id=>id!==deletedId);
+      notesWithRemovedAssignee.push(n);
+    }
   });
+  // 🔒 Guardar notas modificadas en tabla
+  if(window.ClientNotesDB && notesWithRemovedAssignee.length){
+    ClientNotesDB.saveNotesBatch(notesWithRemovedAssignee);
+  }
 
   // 4. Reset navigation state before rendering
   const memberBackup = JSON.parse(JSON.stringify(m));
@@ -15189,6 +15626,32 @@ async function boot(){
           if(activeTab === 'week') renderEqWeek();
           else if(activeTab === 'month') renderEqMonth();
         } catch(e){}
+      }
+    } catch(e){}
+  });
+
+  // 🔒 Suscripción realtime a clientNotes
+  // Cambios de otros usuarios actualizan appData.clientNotes y re-renderizan UI relevante
+  ClientNotesDB.subscribeRealtime((payload)=>{
+    try {
+      // Re-render Client Hub si estamos en dashboard
+      if(typeof renderClientHub === 'function'){
+        try { renderClientHub(); } catch(e){}
+      }
+      // Si estamos en una marca, refresh sus notas
+      if(currentPage === 'brand' && currentBrandId){
+        if(typeof renderBrandNotas === 'function'){
+          try { renderBrandNotas(); } catch(e){}
+        }
+      }
+    } catch(e){}
+  });
+
+  // 🔒 Suscripción realtime a banners
+  BannersDB.subscribeRealtime((payload)=>{
+    try {
+      if(typeof renderBanners === 'function'){
+        try { renderBanners(); } catch(e){}
       }
     } catch(e){}
   });
@@ -18741,6 +19204,8 @@ async function confirmArchiveNote(noteId, brandId){
   const note = (appData.clientNotes||[]).find(n=>n.id===noteId);
   if(!note) return;
   note.archiveConfirmed = true;
+  // 🔒 Guardar en tabla
+  if(window.ClientNotesDB){ await ClientNotesDB.saveNote(note); }
   renderClientHub();
   // Small delay for visual feedback, then archive
   setTimeout(async()=>{
@@ -18851,6 +19316,8 @@ async function deleteHubComment(noteId, commentId){
   const note = appData.clientNotes.find(n=>n.id===noteId);
   if(!note || !Array.isArray(note.comments)) return;
   note.comments = note.comments.filter(c=>c.id!==commentId);
+  // 🔒 Guardar en tabla
+  if(window.ClientNotesDB){ await ClientNotesDB.saveNote(note); }
   markLocalChange('clientNotes');
   // Refresh wherever comments are visible
   renderHubCommentsList(note);
@@ -18867,6 +19334,8 @@ async function deleteHubNote(noteId){
   if(!ok) return;
   markLocalDelete('clientNotes', noteId);
   appData.clientNotes = appData.clientNotes.filter(n=>n.id!==noteId);
+  // 🔒 Borrar también de la tabla
+  if(window.ClientNotesDB){ await ClientNotesDB.deleteNote(noteId); }
   markLocalChange('clientNotes');
   renderClientHub();
   await upsert();
@@ -19296,6 +19765,8 @@ async function saveHubComment(){
   if(!note) return;
   if(!Array.isArray(note.comments)) note.comments = [];
   note.comments.push({ id:uid(), author, text, createdAt:new Date().toISOString() });
+  // 🔒 Guardar en tabla
+  if(window.ClientNotesDB){ await ClientNotesDB.saveNote(note); }
 
   // Remember author for this browser/device
   window._lastHubAuthor = author;
@@ -19333,9 +19804,16 @@ async function saveHubNote(){
 
   if(editingId){
     const note = appData.clientNotes.find(n=>n.id===editingId);
-    if(note){ note.brandId=brandId; note.urgency=urgency; note.text=text; note.assignees=assignees; note.editedAt=new Date().toISOString(); }
+    if(note){
+      note.brandId=brandId; note.urgency=urgency; note.text=text; note.assignees=assignees; note.editedAt=new Date().toISOString();
+      // 🔒 Guardar en tabla
+      if(window.ClientNotesDB){ await ClientNotesDB.saveNote(note); }
+    }
   } else {
-    appData.clientNotes.unshift({ id:uid(), brandId, urgency, text, assignees, done:false, createdAt:new Date().toISOString() });
+    const newNote = { id:uid(), brandId, urgency, text, assignees, done:false, createdAt:new Date().toISOString() };
+    appData.clientNotes.unshift(newNote);
+    // 🔒 Guardar en tabla
+    if(window.ClientNotesDB){ await ClientNotesDB.saveNote(newNote); }
   }
 
   markLocalChange('clientNotes');
@@ -19465,6 +19943,8 @@ async function toggleHubNote(noteId){
   if(!note) return;
   note.done = !note.done;
   if(note.done) note.doneAt = new Date().toISOString();
+  // 🔒 Guardar en tabla
+  if(window.ClientNotesDB){ await ClientNotesDB.saveNote(note); }
   markLocalChange('clientNotes');
   renderClientHub();
   if(_archivoActiveTab==='notas') renderArchivoNotas();
@@ -19709,9 +20189,17 @@ async function executeBrandArchive(brandId){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand) return;
   // Mark archive-request note as done
+  const modifiedNotes = [];
   (appData.clientNotes||[]).forEach(n=>{
-    if(n.brandId===brandId && n.type==='archive-request') n.done = true;
+    if(n.brandId===brandId && n.type==='archive-request'){
+      n.done = true;
+      modifiedNotes.push(n);
+    }
   });
+  // 🔒 Guardar notas modificadas en tabla
+  if(window.ClientNotesDB && modifiedNotes.length){
+    await ClientNotesDB.saveNotesBatch(modifiedNotes);
+  }
   // Archive: flag brand + remove from active
   brand.archivedAt = new Date().toISOString();
   markLocalDelete('brands', brandId);
@@ -19829,6 +20317,8 @@ function checkAutoArchive(brandId){
     archiveConfirmed: false,
   };
   appData.clientNotes.push(note);
+  // 🔒 Guardar en tabla
+  if(window.ClientNotesDB){ ClientNotesDB.saveNote(note); }
   markLocalChange('clientNotes');
   // No await here — will be saved with next upsert call by caller
   showStatus(`📦 ${brand.name} está listo para archivar — revisa el Client Hub`);
