@@ -16047,16 +16047,18 @@ async function boot(){
   // Cuando otra pestaña archiva/restaura una marca, debemos:
   //   1. Si es INSERT con type='brand-archived' o 'brand': quitar la marca de appData.brands
   //      (porque acaba de ser archivada/borrada por otro usuario)
-  //   2. Si es DELETE: la marca podría estar siendo restaurada — la sincronización
-  //      del brand viene por realtime del JSON shared, pero por seguridad re-render.
+  //   2. Si es DELETE de type='brand' o 'brand-archived': la marca fue RESTAURADA por
+  //      otro usuario. La marca volvió a appData.brands del server. Fetcheamos el JSON
+  //      fresco y agregamos esa marca a appData.brands local (si no la tenemos ya).
   //   3. Si es INSERT con type='member': el member ya fue borrado de polen_members
   //      por el otro usuario, removerlo de appData.members local.
-  PapeleraDB.subscribeRealtime((payload)=>{
+  //   4. Si es DELETE de type='member': similar al brand, la marca fue restaurada.
+  //      MembersDB.subscribeRealtime ya maneja la re-inserción cuando llega.
+  PapeleraDB.subscribeRealtime(async (payload)=>{
     try {
       const { eventType, new:newRow, old:oldRow } = payload;
-      const row = newRow || oldRow;
 
-      // Si llega un nuevo item de papelera, sincronizar el estado local
+      // INSERT: alguien archivó/borró algo
       if(eventType === 'INSERT' && newRow){
         const itemType = newRow.type;
         const itemData = newRow.data || {};
@@ -16072,6 +16074,56 @@ async function boot(){
         if(itemType === 'member' && itemData.id){
           appData.members = (appData.members||[]).filter(m=>m.id !== itemData.id);
         }
+      }
+
+      // DELETE: alguien restauró un item de papelera (o lo borró permanentemente).
+      // Si era una marca, hay que recuperarla del JSON server porque vuelve a appData.brands.
+      if(eventType === 'DELETE' && oldRow){
+        const itemType = oldRow.type;
+        const itemData = oldRow.data || {};
+        if((itemType === 'brand' || itemType === 'brand-archived') && itemData.id){
+          // ¿Ya tenemos la marca localmente? Si no, intentar recuperar del JSON server.
+          const yaExiste = (appData.brands||[]).some(b=>b.id === itemData.id);
+          if(!yaExiste){
+            try {
+              const { data: row } = await sb.from('polen_shared').select('data').eq('id', REC_ID).single();
+              const serverBrands = row?.data?.brands || [];
+              const fresh = serverBrands.find(b=>b.id === itemData.id);
+              if(fresh){
+                // Cargar también datos asociados de las tablas refactorizadas
+                try {
+                  const [bpAll, paAll, cronoAll, cobrosAll] = await Promise.all([
+                    window.BrandBpDB?.loadAll?.() || Promise.resolve(null),
+                    window.PortalApprovalsDB?.loadAll?.() || Promise.resolve(null),
+                    window.CronoDB?.loadAll?.() || Promise.resolve(null),
+                    window.CobrosDB?.loadAll?.() || Promise.resolve(null),
+                  ]);
+                  if(bpAll && bpAll[itemData.id]){
+                    fresh.brandingPoints = {
+                      total: fresh.brandingPoints?.total || 15,
+                      categories: bpAll[itemData.id].categories || [],
+                    };
+                  }
+                  if(paAll && paAll[itemData.id]) fresh.portalApprovals = paAll[itemData.id];
+                  if(cronoAll && cronoAll[itemData.id]) fresh.cronograma = cronoAll[itemData.id];
+                  if(cobrosAll && cobrosAll[itemData.id]){
+                    if(!appData.cobros) appData.cobros = {};
+                    appData.cobros[itemData.id] = cobrosAll[itemData.id];
+                  }
+                } catch(loadErr){ console.warn('[Polen] No se pudieron cargar datos asociados:', loadErr); }
+                // Asegurar que NO está en _deletedBrandIds (el usuario que restauró lo quitó del server pero nosotros podemos tenerlo aún)
+                appData._deletedBrandIds = (appData._deletedBrandIds||[]).filter(id=>id !== itemData.id);
+                _localDeletedIds.brands.delete(itemData.id);
+                // Quitar archivedAt si era brand-archived
+                if(itemType === 'brand-archived') delete fresh.archivedAt;
+                appData.brands.push(fresh);
+                console.log('[Polen] Marca restaurada desde otra pestaña:', fresh.name);
+              }
+            } catch(fetchErr){ console.warn('[Polen] Error recuperando marca restaurada:', fetchErr); }
+          }
+        }
+        // Para members, MembersDB.subscribeRealtime se encargará de meter el member
+        // de vuelta a appData.members cuando llegue su evento INSERT.
       }
 
       // Re-render todo lo visible
