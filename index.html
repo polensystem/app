@@ -4939,9 +4939,17 @@ window.PapeleraDB = (function(){
     sb.channel('polen_papelera_rt')
       .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
         try {
+          console.log('[PapeleraDB DBG] raw payload:', JSON.stringify({
+            eventType: payload?.eventType,
+            new: payload?.new ? {id: payload.new.id, type: payload.new.type, hasData: !!payload.new.data} : null,
+            old: payload?.old ? {id: payload.old.id, type: payload.old.type, hasData: !!payload.old.data} : null,
+          }));
           const { eventType, new:newRow, old:oldRow } = payload;
           const itemId = newRow?.id || oldRow?.id;
-          if(itemId && isOwnEcho(itemId)) return;
+          if(itemId && isOwnEcho(itemId)){
+            console.log('[PapeleraDB DBG] own echo ignored:', itemId);
+            return;
+          }
 
           if(!appData.papelera) appData.papelera = [];
 
@@ -16057,6 +16065,7 @@ async function boot(){
   PapeleraDB.subscribeRealtime(async (payload)=>{
     try {
       const { eventType, new:newRow, old:oldRow } = payload;
+      console.log('[Polen DBG] Papelera realtime event:', eventType, 'oldRow:', oldRow, 'newRow:', newRow);
 
       // INSERT: alguien archivó/borró algo
       if(eventType === 'INSERT' && newRow){
