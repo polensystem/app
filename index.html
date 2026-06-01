@@ -5,7 +5,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Polen System</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1384,14 +1384,25 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
     font-size:0.92rem;
   }
 
-  /* Modales: ancho del viewport pero con márgenes razonables (no full-screen agresivo) */
-  .modal-overlay, .ask-modal-overlay{padding:1.25rem 0.85rem !important;}
+  /* Modales: respetar safe areas (notch, isla dinámica, barra inferior de Safari)
+     y usar dvh (dynamic viewport height) que excluye las barras del navegador.
+     Antes el overlay cubría toda la pantalla incluyendo las barras y el modal
+     se pegaba a ellas. */
+  .modal-overlay, .ask-modal-overlay{
+    padding-top:    calc(env(safe-area-inset-top, 0px) + 1rem) !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem) !important;
+    padding-left:   calc(env(safe-area-inset-left, 0px) + 0.85rem) !important;
+    padding-right:  calc(env(safe-area-inset-right, 0px) + 0.85rem) !important;
+    /* dvh = dynamic viewport height, no incluye las barras de Safari */
+    height: 100dvh !important;
+  }
   .modal, .ask-modal{
     max-width:none !important;
     width:100% !important;
-    max-height:calc(100vh - 2.5rem) !important; /* deja ~1.25rem arriba y abajo */
+    max-height:100% !important;
     padding:1.4rem 1.2rem !important;
-    border-radius:16px !important;
+    border-radius:18px !important;
+    box-sizing:border-box;
   }
 
   /* Body padding en móvil para contenido */
