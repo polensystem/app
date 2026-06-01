@@ -1291,6 +1291,155 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
 .cob-tabla-note:focus{border-bottom-color:var(--border);color:var(--text2);}
 .cob-total strong{font-size:0.95rem;color:var(--text);display:block;}
 .cob-brands-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0.4rem;}
+
+/* ════════════════════════════════════════════════════════════════════════
+   FASE R1 — RESPONSIVE (Mobile + Tablet)
+   Breakpoints:
+   - mobile:  ≤768px
+   - tablet:  769px - 1024px
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Backdrop oscuro detrás del sidebar móvil */
+.mobile-backdrop{
+  display:none;
+  position:fixed;inset:0;z-index:99;
+  background:rgba(0,0,0,0.5);
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+  animation:fadeIn 0.2s ease;
+}
+.mobile-backdrop.show{display:block;}
+
+/* Botón hamburguesa — solo visible en móvil */
+.hamburger-btn{
+  display:none;
+  background:none;border:none;cursor:pointer;
+  padding:0.4rem 0.6rem;border-radius:8px;
+  color:var(--text);font-size:1.4rem;line-height:1;
+  margin-right:0.4rem;
+  -webkit-tap-highlight-color:transparent;
+}
+.hamburger-btn:active{background:var(--bg-card2);}
+
+/* ── TABLET (≤1024px) ── */
+@media (max-width: 1024px){
+  .header{padding:0.85rem 1.2rem;}
+  .sidebar{width:200px;}
+  .cob-brands-grid{grid-template-columns:1fr;}
+}
+
+/* ── MOBILE (≤768px) ── */
+@media (max-width: 768px){
+  /* Mostrar hamburguesa, ocultar sidebar por default */
+  .hamburger-btn{display:inline-flex;align-items:center;}
+
+  /* Sidebar como drawer lateral */
+  .sidebar{
+    position:fixed;
+    top:0;left:0;
+    height:100vh;
+    width:80vw;
+    max-width:280px;
+    transform:translateX(-100%);
+    transition:transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow:8px 0 32px rgba(0,0,0,0.25);
+    z-index:100;
+  }
+  .sidebar.mobile-open{transform:translateX(0);}
+  /* Quitar toggle de colapso en móvil */
+  .sidebar-toggle{display:none;}
+  /* Forzar el sidebar expandido en móvil (no debe estar colapsado) */
+  .sidebar.collapsed{width:80vw;max-width:280px;padding:1.5rem 1rem;}
+  .sidebar.collapsed .nav-label,
+  .sidebar.collapsed .nav-text,
+  .sidebar.collapsed .logo-text{opacity:1;width:auto;}
+
+  /* Header más compacto */
+  .header{padding:0.7rem 1rem;}
+  .header-title{font-size:0.92rem;}
+  .header-actions{gap:0.4rem;}
+
+  /* Botones del header más compactos */
+  .btn-reload, .btn-back{padding:0.4rem 0.7rem;font-size:0.75rem;}
+  .btn-reload span:not(:first-child){display:none;} /* solo ícono */
+  .btn-add{padding:0.45rem 0.85rem;font-size:0.75rem;}
+
+  /* Theme toggle más compacto */
+  .theme-toggle{padding:0.2rem;}
+  .theme-btn{padding:0.25rem 0.55rem;font-size:0.7rem;}
+
+  /* Inputs y botones con tamaño táctil mínimo (44px de altura efectiva) */
+  input[type="text"], input[type="number"], input[type="email"], input[type="password"],
+  input[type="date"], textarea, select, .form-input, .form-select{
+    font-size:16px; /* evita zoom de iOS al hacer focus */
+    min-height:42px;
+    box-sizing:border-box;
+  }
+  textarea{min-height:60px;}
+  /* Excepción: inputs inline pequeños (pts, qty) mantienen su tamaño */
+  input[type="number"][style*="width:46px"],
+  input[type="number"][style*="width:3ch"],
+  input[type="number"][style*="width:4ch"]{
+    min-height:auto;
+    font-size:0.92rem;
+  }
+
+  /* Modales: full screen en móvil */
+  .modal, .ask-modal{
+    max-width:none !important;
+    width:calc(100vw - 1.5rem) !important;
+    margin:0.75rem;
+    max-height:calc(100vh - 1.5rem);
+    padding:1.3rem 1.1rem !important;
+  }
+
+  /* Body padding en móvil para contenido */
+  .main > div{box-sizing:border-box;}
+
+  /* Banner más compacto */
+  .dash-banner-content{max-width:85%;}
+
+  /* Portal */
+  .portal-body{padding:1rem;gap:1rem;}
+  .portal-wrap{padding:1rem 0.85rem;gap:1rem;}
+
+  /* Content área principal de cada página */
+  .content{padding:1rem 0.85rem;gap:1rem;}
+
+  /* Grilla del dashboard de marcas: 1 columna en móvil */
+  [style*="grid-template-columns:repeat(auto-fill,minmax(300px"],
+  [style*="grid-template-columns:repeat(auto-fill,minmax(280px"]{
+    grid-template-columns:1fr !important;
+  }
+
+  /* Cards en grid: forzar 1 columna en móviles */
+  [style*="grid-template-columns:repeat(auto-fill,minmax(180px"],
+  [style*="grid-template-columns:repeat(auto-fill,minmax(170px"]{
+    grid-template-columns:repeat(auto-fill,minmax(140px,1fr)) !important;
+  }
+
+  /* Tablas grandes: scroll horizontal en lugar de romperse */
+  .cob-tabla-row, .cob-tabla-header{min-width:600px;}
+  /* Y un wrapper para tablas con scroll */
+  [data-mobile-scroll], .table-mobile-scroll{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+}
+
+/* ── MOBILE PEQUEÑO (≤480px) ── */
+@media (max-width: 480px){
+  .header{padding:0.6rem 0.85rem;}
+  .btn-add{padding:0.4rem 0.7rem;font-size:0.72rem;}
+  .btn-add span:not(:first-child){display:none;} /* solo "+" */
+}
+
+/* Tap highlights menos invasivos en móvil */
+@media (hover: none) and (pointer: coarse){
+  button, .nav-item, [onclick]{
+    -webkit-tap-highlight-color:rgba(0,0,0,0.05);
+  }
+}
 </style>
 </head>
 <body>
@@ -1380,10 +1529,14 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
 
 <!-- MAIN -->
 <div class="main">
+  <!-- Backdrop oscuro detrás del sidebar móvil — clicar afuera lo cierra -->
+  <div class="mobile-backdrop" id="mobile-backdrop" onclick="closeMobileSidebar()"></div>
+
   <header class="header">
     <div style="display:flex;flex-direction:column;gap:0.15rem;min-width:0">
       <div class="global-breadcrumb" id="global-breadcrumb" style="display:none"></div>
       <div style="display:flex;align-items:center;gap:0.6rem">
+        <button class="hamburger-btn" id="hamburger-btn" onclick="openMobileSidebar()" aria-label="Menú">☰</button>
         <button class="btn-back" id="btn-back-nav" onclick="goBack()" title="Volver" style="display:none;padding:0.3rem 0.7rem;font-size:0.8rem">←</button>
         <div class="header-title" id="header-title">Dashboard</div>
       </div>
@@ -5717,13 +5870,6 @@ function deepMergeAppData(server, local){
     if(b?.id && !allDeletedBrandIds.has(b.id)) brandMap[b.id] = {...b};
   });
 
-  // 🔬 LOG DIAGNÓSTICO TEMPORAL — qué brands hay en server vs local
-  console.log('[Polen DBG merge brands] server:', serverBrands.length, 'local:', localBrands.length,
-    'deleted:', [...allDeletedBrandIds],
-    'serverIds:', serverBrands.map(b=>b?.name+':'+(b?.id||'?')),
-    'localIds:', localBrands.map(b=>b?.name+':'+(b?.id||'?')),
-    'localChangedBrands:', _localChangedKeys.has('brands'));
-
   // Aplicar local encima — si local tiene una versión más nueva o tiene cambios locales,
   // gana para sus campos. Pero NO eliminamos brands que solo están en server.
   const localChangedBrands = _localChangedKeys.has('brands');
@@ -5761,7 +5907,6 @@ function deepMergeAppData(server, local){
 
   merged.brands = Object.values(brandMap);
   merged._deletedBrandIds = [...persistedDeletedBrandIds];
-  console.log('[Polen DBG merge brands] resultado:', merged.brands.length, merged.brands.map(b=>b?.name+':'+(b?.id||'?')));
 
   // ── members: viven en polen_members. Local siempre gana (sincronizado con tabla). ──
   merged.members = Array.isArray(local.members) ? local.members : [];
@@ -13021,6 +13166,35 @@ const sideBtn=document.getElementById('sidebar-toggle');
 let collapsed=false;
 sideBtn.addEventListener('click',()=>{collapsed=!collapsed;sidebar.classList.toggle('collapsed',collapsed);sideBtn.textContent=collapsed?'›':'‹';});
 
+// ═══ MOBILE SIDEBAR (hamburguesa) ═══
+function openMobileSidebar(){
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('mobile-backdrop');
+  if(sb) sb.classList.add('mobile-open');
+  if(bd) bd.classList.add('show');
+  // Bloquear scroll del body mientras está abierto
+  document.body.style.overflow = 'hidden';
+}
+function closeMobileSidebar(){
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('mobile-backdrop');
+  if(sb) sb.classList.remove('mobile-open');
+  if(bd) bd.classList.remove('show');
+  document.body.style.overflow = '';
+}
+// Cerrar sidebar al clickear un item de navegación en móvil
+document.querySelectorAll('#sidebar .nav-item').forEach(item=>{
+  item.addEventListener('click', ()=>{
+    if(window.innerWidth <= 768) closeMobileSidebar();
+  });
+});
+// Cerrar con tecla Escape
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape' && document.getElementById('sidebar')?.classList.contains('mobile-open')){
+    closeMobileSidebar();
+  }
+});
+
 /* ═══ REALTIME ═══ */
 // Timestamp del último upsert local exitoso
 let _lastLocalUpsertAt = 0;
@@ -13029,7 +13203,6 @@ function subscribeRealtime(onUpdate){
   sb.channel('polen_pm_v3')
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'polen_shared',filter:`id=eq.${REC_ID}`},
     payload=>{
-      console.log('[Polen DBG] 📡 Realtime UPDATE de polen_shared recibido. updated_at:', payload?.new?.updated_at);
       if(payload.new?.data){
         const raw = payload.new.data;
 
