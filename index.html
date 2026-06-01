@@ -3201,6 +3201,27 @@ function setConnDot(online){
 // un guardado pendiente, el navegador le muestra una advertencia. Esto evita que pierdan cambios
 // recién hechos por impaciencia al recargar.
 window.addEventListener('beforeunload', (e) => {
+  // 🔒 Si hay notas del portal cliente con debounce pendiente, hacer flush sincrónico
+  // ANTES de que el navegador cierre la pestaña (no podemos await aquí, pero al menos disparamos los saves)
+  try {
+    if(typeof _portalNotesDebounce !== 'undefined' && _portalNotesDebounce.size > 0){
+      _portalNotesDebounce.forEach((timeoutId, key)=>{
+        clearTimeout(timeoutId);
+        const [brandId, ciStr, iiStr] = key.split(':');
+        const ci = parseInt(ciStr), ii = parseInt(iiStr);
+        const brand = (appData.brands||[]).find(b=>b.id===brandId);
+        if(!brand?.brandingPoints) return;
+        const cat = brand.brandingPoints.categories[ci];
+        const item = cat?.items?.[ii];
+        if(item && window.BrandBpDB){
+          // Fire-and-forget — el navegador puede cancelar pero al menos lo intentamos
+          BrandBpDB.saveItem(brandId, cat, item, ci, ii).catch(()=>{});
+        }
+      });
+      _portalNotesDebounce.clear();
+    }
+  } catch(err){}
+
   const hayPendiente = _isSaving || (window._upsertDebounceTimer != null) || (_localChangedKeys && _localChangedKeys.size > 0);
   if(hayPendiente){
     e.preventDefault();
@@ -4939,17 +4960,9 @@ window.PapeleraDB = (function(){
     sb.channel('polen_papelera_rt')
       .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
         try {
-          console.log('[PapeleraDB DBG] raw payload:', JSON.stringify({
-            eventType: payload?.eventType,
-            new: payload?.new ? {id: payload.new.id, type: payload.new.type, hasData: !!payload.new.data} : null,
-            old: payload?.old ? {id: payload.old.id, type: payload.old.type, hasData: !!payload.old.data} : null,
-          }));
           const { eventType, new:newRow, old:oldRow } = payload;
           const itemId = newRow?.id || oldRow?.id;
-          if(itemId && isOwnEcho(itemId)){
-            console.log('[PapeleraDB DBG] own echo ignored:', itemId);
-            return;
-          }
+          if(itemId && isOwnEcho(itemId)) return;
 
           if(!appData.papelera) appData.papelera = [];
 
@@ -16065,7 +16078,6 @@ async function boot(){
   PapeleraDB.subscribeRealtime(async (payload)=>{
     try {
       const { eventType, new:newRow, old:oldRow } = payload;
-      console.log('[Polen DBG] Papelera realtime event:', eventType, 'oldRow:', oldRow, 'newRow:', newRow);
 
       // INSERT: alguien archivó/borró algo
       if(eventType === 'INSERT' && newRow){
@@ -17510,10 +17522,56 @@ function portalToggleNotes(brandId, ci, ii){
   _portalRefreshBp(brand);
 }
 
+// 🔒 CRÍTICO: las notas/descripciones del cliente en el portal son DATO VALIOSO.
+// Antes solo se guardaban en memoria y se perdían si el cliente cerraba la pestaña.
+// Ahora se guardan en polen_brand_bp con debounce de 600ms (para no spam-mear la DB
+// en cada keystroke). En el onblur (onchange) se hace flush inmediato.
+const _portalNotesDebounce = new Map(); // key: brandId+ci+ii → timeout
 async function portalSaveNotes(brandId, ci, ii, val){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand?.brandingPoints) return;
-  brand.brandingPoints.categories[ci].items[ii].notes = val;
+  const cat = brand.brandingPoints.categories[ci];
+  const item = cat?.items?.[ii];
+  if(!item) return;
+  item.notes = val;
+  item._notesUpdatedAt = new Date().toISOString();
+  _portalMarkDirty();
+  // Debounce: guardar 600ms después del último cambio
+  const key = brandId + ':' + ci + ':' + ii;
+  const prev = _portalNotesDebounce.get(key);
+  if(prev) clearTimeout(prev);
+  _portalNotesDebounce.set(key, setTimeout(async()=>{
+    _portalNotesDebounce.delete(key);
+    try {
+      if(window.BrandBpDB){
+        await BrandBpDB.saveItem(brandId, cat, item, ci, ii);
+        // Feedback sutil al cliente
+        const st = document.getElementById('portal-save-status');
+        if(st){ st.style.display='block'; st.textContent='✓ Cambios guardados'; setTimeout(()=>{ st.style.display='none'; }, 1500); }
+      }
+    } catch(e){ console.error('[Polen] Error guardando notas portal:', e); }
+  }, 600));
+}
+
+async function portalAddBpItem(brandId, ci){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand?.brandingPoints) return;
+  const name = await askModal({label:'Nombre del entregable', placeholder:'Ej: Fotobooth para evento'});
+  if(!name||!name.trim()) return;
+  const cat = brand.brandingPoints.categories[ci];
+  // pts: null → equipo define después
+  const newItem = {id:uid(), name:name.trim(), pts:null, qty:1, selected:true, fromPortal:true};
+  cat.items.push(newItem);
+  const newIi = cat.items.length - 1;
+  // 🔒 Persistir el nuevo item en polen_brand_bp
+  try {
+    if(window.BrandBpDB){
+      await BrandBpDB.saveItem(brandId, cat, newItem, ci, newIi);
+    }
+  } catch(e){ console.error('[Polen] Error guardando nuevo item portal:', e); }
+  const wrap = document.getElementById('portal-bp-wrap');
+  if(!wrap) return;
+  if(wrap) wrap.innerHTML = portalRenderBp(brand);
   _portalMarkDirty();
 }
 
@@ -17533,18 +17591,6 @@ function _portalRefreshBp(brand){
   }
 }
 
-async function portalAddBpItem(brandId, ci){
-  const brand = (appData.brands||[]).find(b=>b.id===brandId);
-  if(!brand?.brandingPoints) return;
-  const name = await askModal({label:'Nombre del entregable', placeholder:'Ej: Fotobooth para evento'});
-  if(!name||!name.trim()) return;
-  // pts: null → equipo define después
-  brand.brandingPoints.categories[ci].items.push({id:uid(), name:name.trim(), pts:null, qty:1, selected:true, fromPortal:true});
-  const wrap = document.getElementById('portal-bp-wrap');
-  if(!wrap) return;
-  if(wrap) wrap.innerHTML = portalRenderBp(brand);
-  _portalMarkDirty();
-}
 /* ═══ BRANDS VIEW TOGGLE + FILTERS ═══ */
 let _brandsView        = 'cards';
 let _brandsCardSort    = 'default';
