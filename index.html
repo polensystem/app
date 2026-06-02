@@ -1790,6 +1790,32 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
   #portal-intro-grid{grid-template-columns:1fr !important;}
   /* El recuadro de bienvenida con menos padding para que las tarjetas respiren */
   #portal-intro-grid > div{padding:1rem 1.1rem !important;}
+
+  /* ═══ FASE R5: CLIENT HUB + COMENTARIOS ═══ */
+
+  /* Anti-zoom iOS reforzado: la regla base (16px sin !important) la pisaba
+     cualquier estilo inline con font-size menor (p.ej. el filtro de miembro del
+     hub a 0.72rem, o el select de firma de comentarios). Los campos de texto y
+     selects nunca necesitan ser diminutos, así que forzamos 16px con !important.
+     Los inputs numéricos chicos (pts/qty) quedan exceptuados abajo. */
+  select, textarea,
+  input[type="text"], input[type="email"], input[type="password"], input[type="search"]{
+    font-size:16px !important;
+  }
+  /* Reexcepción: inputs numéricos inline pequeños mantienen su tamaño compacto */
+  input[type="number"][style*="width:46px"],
+  input[type="number"][style*="width:3ch"],
+  input[type="number"][style*="width:4ch"],
+  input[type="number"][style*="width:2ch"]{
+    font-size:0.92rem !important;
+  }
+
+  /* Cabecera del Client Hub: el título arriba, los controles abajo a ancho
+     completo y con scroll horizontal si hace falta (no se amontonan los filtros). */
+  #client-hub-sub{font-size:0.68rem;}
+  /* La fila de controles (filtro miembro + pills urgencia + colapsar + Nota)
+     puede envolver con holgura en móvil. */
+}
 }
 
 /* ── MOBILE PEQUEÑO (≤480px) ── */
