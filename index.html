@@ -6218,7 +6218,7 @@ let _localChangedBrandIds = new Set();
 window._localChangedBrandIds = _localChangedBrandIds;
 // true si hubo algún cambio de marca SIN ID atribuido en este ciclo → merge clásico por seguridad
 let _unattributedBrandChange = false;
-let _localDeletedIds = { brands: new Set(), members: new Set(), clientNotes: new Set(), playgroundCats: new Set() };
+let _localDeletedIds = { brands: new Set(), members: new Set(), clientNotes: new Set(), playgroundCats: new Set(), tareas: new Set(), tools: new Set() };
 const _localDeletedPagoIds = {}; // { brandId: Set of deleted pagoIds }
 
 // Call this when user mutates a top-level key so merge prefers local for that key.
@@ -6389,13 +6389,18 @@ function deepMergeAppData(server, local){
   localDomos.forEach(d=>{ domoKeyMap[d.key] = {...d}; }); // local wins for same key
   merged.domos = Object.values(domoKeyMap);
 
-  // ── tareas: union by id ──
+  // ── tareas: union by id, EXCLUYENDO las borradas (persistidas en _deletedTareaIds) ──
+  // Antes era union simple → una tarea borrada por un usuario resucitaba si la copia
+  // local de otro usuario aún la tenía. Ahora rastreamos los ids borrados y los excluimos.
   const serverTareas = Array.isArray(server.tareas) ? server.tareas : [];
   const localTareas  = Array.isArray(local.tareas)  ? local.tareas  : [];
+  const persistedDeletedTareaIds = new Set([...(local._deletedTareaIds||[]), ...(server._deletedTareaIds||[])]);
+  const allDeletedTareaIds = new Set([..._localDeletedIds.tareas, ...persistedDeletedTareaIds]);
   const tareaMap = {};
-  serverTareas.forEach(t=>{ tareaMap[t.id]={...t}; });
-  localTareas.forEach(t=>{ tareaMap[t.id]={...t}; }); // local wins (edits/deletes handled separately)
+  serverTareas.forEach(t=>{ if(t?.id && !allDeletedTareaIds.has(t.id)) tareaMap[t.id]={...t}; });
+  localTareas.forEach(t=>{ if(t?.id && !allDeletedTareaIds.has(t.id)) tareaMap[t.id]={...t}; }); // local wins para ediciones
   merged.tareas = Object.values(tareaMap);
+  merged._deletedTareaIds = [...persistedDeletedTareaIds];
 
   // ── papelera: vive en polen_papelera. Local siempre gana. ──
   merged.papelera = Array.isArray(local.papelera) ? local.papelera : [];
@@ -6404,16 +6409,41 @@ function deepMergeAppData(server, local){
   merged.banners = Array.isArray(local.banners) ? local.banners : [];
 
   // ── scalar fields: local wins if user changed them, else server ──
-  const scalarKeys = ['finanzas','digitalTools','calendarUrl','domoNames'];
+  const scalarKeys = ['finanzas','calendarUrl','domoNames'];
   scalarKeys.forEach(k=>{
     merged[k] = _localChangedKeys.has(k) ? local[k] : (server[k] ?? local[k]);
   });
 
-  // template: local ALWAYS wins para la estructura general
-  // Además: como brandingPoints.categories vive ahora en polen_template_bp,
-  // si local tiene categories debemos preservarlas aunque el server traiga un template
-  // con brandingPoints.categories vacío/inexistente (que es lo esperado después del strip).
-  merged.template = local.template ?? server.template;
+  // ── digitalTools: merge por-item (id), EXCLUYENDO los borrados ──
+  // Antes era escalar last-write-wins sobre el array completo → si dos usuarios
+  // editaban herramientas a la vez, una edición/adición podía perderse, o una
+  // herramienta borrada (incluso del set por defecto) podía resucitar.
+  {
+    const serverTools = Array.isArray(server.digitalTools) ? server.digitalTools : [];
+    const localTools  = Array.isArray(local.digitalTools)  ? local.digitalTools  : [];
+    const persistedDeletedToolIds = new Set([...(local._deletedToolIds||[]), ...(server._deletedToolIds||[])]);
+    const allDeletedToolIds = new Set([..._localDeletedIds.tools, ...persistedDeletedToolIds]);
+    const toolChangedLocally = _localChangedKeys.has('digitalTools');
+    const toolMap = {};
+    // Server primero (nunca perdemos herramientas creadas por otro)
+    serverTools.forEach(t=>{ if(t?.id && !allDeletedToolIds.has(t.id)) toolMap[t.id] = {...t}; });
+    // Local encima: si YO cambié digitalTools, mi versión de cada item gana;
+    // si no, solo agrego los que el server no tiene (no piso ediciones ajenas).
+    localTools.forEach(t=>{
+      if(!t?.id || allDeletedToolIds.has(t.id)) return;
+      if(toolChangedLocally || !toolMap[t.id]) toolMap[t.id] = {...t};
+    });
+    merged.digitalTools = Object.values(toolMap);
+    merged._deletedToolIds = [...persistedDeletedToolIds];
+  }
+
+  // template: GANA local SOLO si este usuario lo cambió; si no, gana server.
+  // Antes local ganaba SIEMPRE → si otro usuario editaba el template, su cambio se
+  // revertía al recibir nuestro merge (y se propagaba la versión vieja al guardar).
+  // En ambos casos preservamos brandingPoints.categories (que vive en polen_template_bp).
+  const _tplChangedLocally = _localChangedKeys.has('template');
+  merged.template = _tplChangedLocally ? (local.template ?? server.template)
+                                       : (server.template ?? local.template);
   if(merged.template && local.template?.brandingPoints?.categories?.length){
     merged.template = {
       ...merged.template,
@@ -9316,6 +9346,10 @@ async function deleteDigitalTool(toolId){
   markLocalChange('digitalTools');
   ensureDigitalTools();
   appData.digitalTools = appData.digitalTools.filter(t=>t.id!==toolId);
+  // Registrar el borrado para que no resucite vía merge realtime ni por el set por defecto.
+  _localDeletedIds.tools.add(toolId);
+  if(!appData._deletedToolIds) appData._deletedToolIds = [];
+  if(!appData._deletedToolIds.includes(toolId)) appData._deletedToolIds.push(toolId);
   renderDigitalTools();
   const saved = await upsert();
   if(!saved) showStatus('❌ Error al eliminar herramienta — recarga e intenta de nuevo.', true);
@@ -21860,6 +21894,10 @@ async function deleteTarea(tareaId){
   if(!ok) return;
   ensureTareas();
   appData.tareas = appData.tareas.filter(t=>t.id!==tareaId);
+  // Registrar el borrado para que no resucite vía merge realtime de otro usuario.
+  _localDeletedIds.tareas.add(tareaId);
+  if(!appData._deletedTareaIds) appData._deletedTareaIds = [];
+  if(!appData._deletedTareaIds.includes(tareaId)) appData._deletedTareaIds.push(tareaId);
   markLocalChange('tareas');
   renderEquipoTabContent(currentEquipoTab||'grid');
   await upsert();
