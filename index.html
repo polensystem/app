@@ -1783,6 +1783,13 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
   /* Notas de BP / textareas del portal: reducir la sangría izquierda heredada
      del desktop (2.8rem) para aprovechar el ancho del teléfono. */
   #portal-root [style*="2.8rem"]{padding-left:0.9rem !important;padding-right:0.7rem !important;}
+
+  /* Tarjetas de bienvenida del portal: en desktop van en 2-3 columnas, pero en
+     el teléfono quedaban angostísimas y el texto se desbordaba en vertical
+     (una palabra por línea). Apilarlas en 1 sola columna. */
+  #portal-intro-grid{grid-template-columns:1fr !important;}
+  /* El recuadro de bienvenida con menos padding para que las tarjetas respiren */
+  #portal-intro-grid > div{padding:1rem 1.1rem !important;}
 }
 
 /* ── MOBILE PEQUEÑO (≤480px) ── */
@@ -17218,7 +17225,7 @@ function portalSwitchTab(tab){
       <div style="background:linear-gradient(135deg,${color}18,${color}08);border:1px solid ${color}30;border-radius:18px;padding:1.8rem 2rem;margin-bottom:1rem">
         <div style="font-size:1.2rem;font-weight:800;color:var(--text);margin-bottom:0.5rem">Bienvenido a este camino.</div>
         <div style="font-size:0.88rem;color:var(--text2);line-height:1.6;margin-bottom:1.2rem">Juntos le daremos vida a la identidad que tu marca merece.${visibleCount>1?' En este portal encontrarás '+(visibleCount===3?'tres':'dos')+' secciones para acompañar tu proceso.':''}</div>
-        <div style="display:grid;grid-template-columns:${introGridCols};gap:0.6rem">
+        <div id="portal-intro-grid" style="display:grid;grid-template-columns:${introGridCols};gap:0.6rem">
           ${introCards}
         </div>
       </div>
