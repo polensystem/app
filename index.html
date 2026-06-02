@@ -1744,6 +1744,45 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
      una sola nota quedaba en una columna angostísima (~25% del ancho).
      Forzar 1 columna (el !important gana sobre el style inline del JS). */
   #client-hub-list{grid-template-columns:1fr !important;}
+
+  /* ═══ FASE R4: PORTAL CLIENTE ═══ */
+
+  /* Anti-zoom iOS: el portal usa estilos inline con font-size < 16px en sus
+     inputs/textarea (firma, notas de aprobación, notas de BP). En Safari móvil
+     eso provoca auto-zoom molesto al enfocar. Forzar 16px dentro del portal. */
+  #portal-root input[type="text"],
+  #portal-root textarea{
+    font-size:16px !important;
+  }
+
+  /* Header del portal más compacto */
+  .portal-brand-header{padding:1rem 1.1rem !important;gap:0.75rem !important;}
+  .portal-brand-logo{width:44px !important;height:44px !important;font-size:1.4rem !important;}
+  .portal-brand-name{font-size:1.2rem !important;}
+  .portal-brand-sub{font-size:0.72rem !important;}
+
+  /* Barra de tabs del portal: que nunca desborde y los botones respiren */
+  #portal-tabs-bar{flex-wrap:nowrap;}
+  #portal-tabs-bar > button{font-size:0.72rem !important;padding:0.5rem 0.35rem !important;}
+
+  /* Tarjetas del portal con menos padding interno */
+  #portal-root .card{padding:1.1rem !important;}
+
+  /* Fila de Branding Points del portal: el nombre puede ser largo y compite
+     con el stepper de cantidad + el badge de pts. Permitir 2 líneas limpias. */
+  #portal-root .portal-bp-item{
+    flex-wrap:wrap;
+    row-gap:0.5rem;
+    padding:0.6rem 0.7rem !important;
+  }
+  #portal-root .portal-bp-item > span[style*="flex:1"]{
+    flex:1 1 60%;
+    min-width:120px;
+  }
+
+  /* Notas de BP / textareas del portal: reducir la sangría izquierda heredada
+     del desktop (2.8rem) para aprovechar el ancho del teléfono. */
+  #portal-root [style*="2.8rem"]{padding-left:0.9rem !important;padding-right:0.7rem !important;}
 }
 
 /* ── MOBILE PEQUEÑO (≤480px) ── */
