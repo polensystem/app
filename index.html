@@ -14421,11 +14421,17 @@ async function saveMember(){
   const targetId = editingMemberId || newMemberId;
   const photoToSave = (memberPhotoB64 && memberPhotoB64.startsWith('data:')) ? memberPhotoB64 : existingPhoto;
   if(targetId){
-    savePhotoToSupabase(targetId, photoToSave, memberColor);
-    if(window._photoCache) window._photoCache[targetId] = {
-      photo: photoToSave || window._photoCache?.[targetId]?.photo || null,
-      color: memberColor,
-    };
+    await savePhotoToSupabase(targetId, photoToSave, memberColor);
+    if(window._photoCache){
+      // Preservar el status existente en cache — antes se sobreescribía con
+      // {photo,color} y se perdía el status hasta la próxima recarga.
+      const prev = window._photoCache[targetId] || {};
+      window._photoCache[targetId] = {
+        photo: photoToSave || prev.photo || null,
+        color: memberColor || prev.color || null,
+        status: (prev.status !== undefined) ? prev.status : (savedMemberObj?.status ?? null),
+      };
+    }
   }
   closeMemberModal();
   await upsert();
@@ -16561,13 +16567,27 @@ async function saveMemberStatus(){
   if(!el) return;
   const m=(appData.members||[]).find(x=>x.id===currentMemberId);
   if(m){
-    m.status=el.value;
+    const val = (el.value||'').replace(/<[^>]+>/g,'').trim();
+    m.status=val;
     markLocalChange('members');
     // 🔒 Guardar también en tabla members
     if(window.MembersDB){
       const orden = appData.members.findIndex(x=>x.id===m.id);
       await MembersDB.saveMember(m, orden);
     }
+    // 🔒 CRÍTICO: el status también vive en polen_photos.status, y esa tabla GANA
+    // en applyPhotosToMembers. Si no lo escribimos aquí, el próximo
+    // loadPhotosFromSupabase revierte el status a la versión vieja de polen_photos.
+    if(window._photoCache){
+      if(!window._photoCache[m.id]) window._photoCache[m.id] = {};
+      window._photoCache[m.id].status = val;
+    }
+    try{
+      await sb.from('polen_photos').upsert(
+        {id: m.id, status: val, updated_at: new Date().toISOString()},
+        {onConflict: 'id'}
+      );
+    }catch(e){ console.warn('Error guardando status (modal):', e); }
     await upsert();
   }
 }
@@ -17184,6 +17204,35 @@ async function boot(){
       showStatus('🔄 Actualizado en tiempo real');
     } catch(e){ console.error('[Polen] members realtime handler:', e); }
   });
+
+  // 🔔 Realtime de polen_photos (fotos + colores + estados de miembros).
+  // Antes solo se refrescaban tras un evento de polen_shared; si un compañero
+  // cambiaba SOLO su foto o estado, los demás no lo veían hasta recargar.
+  try {
+    sb.channel('polen_photos_rt')
+      .on('postgres_changes', {event:'*', schema:'public', table:'polen_photos'}, (payload)=>{
+        try {
+          const row = payload.new || payload.old;
+          if(!row || !row.id) return;
+          if(!window._photoCache) window._photoCache = {};
+          if(payload.eventType === 'DELETE'){
+            delete window._photoCache[row.id];
+          } else {
+            window._photoCache[row.id] = {
+              photo:  (row.photo && row.photo.startsWith('data:')) ? row.photo : (window._photoCache[row.id]?.photo || null),
+              color:  row.color ?? (window._photoCache[row.id]?.color || null),
+              status: (row.status !== undefined && row.status !== null) ? row.status : (window._photoCache[row.id]?.status ?? null),
+            };
+          }
+          // Re-aplicar a los miembros en memoria y re-render
+          if(appData.members && window._photoCache){
+            applyPhotosToMembers(window._photoCache);
+          }
+          try { renderCurrentPage(); } catch(e){}
+        } catch(e){ console.error('[Polen] photos realtime handler:', e); }
+      })
+      .subscribe();
+  } catch(e){ console.warn('[Polen] No se pudo suscribir a polen_photos:', e); }
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // MIGRACIONES DE BOOT DESACTIVADAS
