@@ -6211,11 +6211,32 @@ let _pendingUndoEntry = null;
 // Keys that the LOCAL user changed since last server sync — used to prefer local over server
 let _localChangedKeys = new Set();
 window._localChangedKeys = _localChangedKeys;
+// IDs of specific brands the local user edited (scalar fields) since last sync.
+// Permite que el merge prefiera local SOLO para las marcas que YO toqué, y deje
+// ganar al server para las marcas que otro usuario cambió al mismo tiempo.
+let _localChangedBrandIds = new Set();
+window._localChangedBrandIds = _localChangedBrandIds;
+// true si hubo algún cambio de marca SIN ID atribuido en este ciclo → merge clásico por seguridad
+let _unattributedBrandChange = false;
 let _localDeletedIds = { brands: new Set(), members: new Set(), clientNotes: new Set(), playgroundCats: new Set() };
 const _localDeletedPagoIds = {}; // { brandId: Set of deleted pagoIds }
 
-// Call this when user mutates a top-level key so merge prefers local for that key
-function markLocalChange(...keys){ keys.forEach(k=>_localChangedKeys.add(k)); }
+// Call this when user mutates a top-level key so merge prefers local for that key.
+// Si el cambio es de 'brands' sin ID específico, marcamos que hubo un cambio de marca
+// "no atribuido" → el merge usará el modo clásico (local gana para todas) por seguridad.
+function markLocalChange(...keys){
+  keys.forEach(k=>{
+    _localChangedKeys.add(k);
+    if(k === 'brands') _unattributedBrandChange = true;
+  });
+}
+// Call this when user mutates a SPECIFIC brand's scalar fields (name/stage/etc).
+// Marca también la key 'brands' pero SIN activar el flag de "no atribuido".
+function markBrandChange(brandId){
+  if(brandId){ _localChangedBrandIds.add(brandId); }
+  _localChangedKeys.add('brands');
+}
+window.markBrandChange = markBrandChange;
 function markLocalDelete(type, id){ if(_localDeletedIds[type]) _localDeletedIds[type].add(id); _localChangedKeys.add(type); }
 
 // Merge inteligente de portalApprovals por stage.
@@ -6307,17 +6328,26 @@ function deepMergeAppData(server, local){
 
   // Aplicar local encima — si local tiene una versión más nueva o tiene cambios locales,
   // gana para sus campos. Pero NO eliminamos brands que solo están en server.
-  const localChangedBrands = _localChangedKeys.has('brands');
+  // GRANULAR: local gana SOLO para las marcas que este usuario realmente editó
+  // (_localChangedBrandIds). Para las demás, gana el server — así el cambio de otro
+  // usuario en una marca distinta no se revierte por nuestra copia local stale.
+  const localChangedBrandsAny = _localChangedKeys.has('brands');
+  // Granular SOLO si hubo IDs marcados Y ningún cambio de marca quedó sin atribuir.
+  // Si algo quedó sin atribuir, modo clásico (local gana para todas) para no perder ediciones propias.
+  const useGranularBrands = _localChangedBrandIds.size > 0 && !_unattributedBrandChange;
   localBrands.forEach(b=>{
     if(!b?.id || allDeletedBrandIds.has(b.id)) return;
     const sv = brandMap[b.id];
+    const thisBrandChangedLocally = useGranularBrands
+      ? _localChangedBrandIds.has(b.id)
+      : localChangedBrandsAny;
     if(sv){
       // Existe en ambos → merge por campo
       const bp = _mergeBrandingPointsSafe(sv.brandingPoints, b.brandingPoints);
-      if(localChangedBrands){
-        // Local cambió: local gana para la mayoría de campos
-        // Portal-owned fields (brandingPoints) usan merge por timestamp
-        // 🔒 portalApprovals + cronograma viven en tablas — local siempre gana
+      if(thisBrandChangedLocally){
+        // YO edité ESTA marca: mi versión gana para sus campos escalares.
+        // Portal-owned fields (brandingPoints) usan merge por timestamp.
+        // 🔒 portalApprovals + cronograma viven en tablas — local siempre gana.
         brandMap[b.id] = {
           ...sv,
           ...b,
@@ -6326,7 +6356,8 @@ function deepMergeAppData(server, local){
           cronograma: b.cronograma || { aire:[], agua:[], tierra:[], fuego:[] },
         };
       } else {
-        // Local NO cambió: server gana, pero preservamos cosas locales que viven en tablas
+        // NO edité esta marca (aunque haya editado otras): server gana para los
+        // campos escalares, pero preservamos lo que vive en tablas (BP/portal/crono).
         brandMap[b.id] = {
           ...sv,
           brandingPoints: bp,
@@ -6792,6 +6823,9 @@ async function _doUpsert(){
       // 5. Clear local change tracking after successful save
       _localChangedKeys.clear();
       window._localChangedKeys = _localChangedKeys; // Sync con window
+      _localChangedBrandIds.clear();
+      window._localChangedBrandIds = _localChangedBrandIds;
+      _unattributedBrandChange = false;
       // Limpiar timer del debounce después de éxito
       clearTimeout(_upsertDebounceTimer);
       _upsertDebounceTimer = null;
@@ -7004,6 +7038,19 @@ function fmtDateDisplay(str){
   if(!y||!m||!d)return'—';
   const months=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   return d+' '+months[parseInt(m)-1]+' '+y;
+}
+
+// Formato de duración consistente (usado en vista interna y en el portal del cliente).
+// Recibe días hábiles totales y devuelve "X semanas y Y días (Z días hábiles en total)".
+// Maneja singular/plural y el caso 0.
+function fmtDuracion(totalDays){
+  const n = Math.max(0, Math.floor(Number(totalDays)||0));
+  const w = Math.floor(n/7), d = n%7;
+  const parts = [];
+  if(w>0) parts.push(w + (w===1 ? ' semana' : ' semanas'));
+  if(d>0) parts.push(d + (d===1 ? ' día' : ' días'));
+  const human = parts.length ? parts.join(' y ') : '0 días';
+  return `${human} <span style="color:var(--text3)">(${n} ${n===1?'día hábil':'días hábiles'} en total)</span>`;
 }
 
 function nextWorkday(dateStr){
@@ -11056,19 +11103,23 @@ function renderBrandCrono(brand){
   }).join('');
 
   // Summary with real date range
+  // Coerción defensiva: en marcas antiguas 'days' puede venir como string, NaN,
+  // negativo o faltante. Normalizamos a entero >= 0 para que la suma sea correcta.
+  const safeDays = a => { const n = Math.floor(Number(a && a.days)); return (isNaN(n) || n < 0) ? 0 : n; };
   let totalDays=0;
   const allActs=stages.flatMap(s=>brand.cronograma[s]||[]);
   const firstDate=allActs.map(a=>a.startDate).filter(Boolean).sort()[0];
   const lastDate=allActs.map(a=>a.endDate).filter(Boolean).sort().pop();
   const chips=stages.map(s=>{
     const acts=(brand.cronograma[s]||[]);
-    const d=acts.reduce((sum,a)=>sum+Number(a.days||0),0);
+    const d=acts.reduce((sum,a)=>sum+safeDays(a),0);
     totalDays+=d;
     return`<span class="crono-chip" style="color:${SC[s].color}">${SC[s].emoji} ${d}d</span>`;
   }).join('<span style="color:var(--text3)">·</span>');
-  const w=Math.floor(totalDays/7),d=totalDays%7;
+  // Texto de duración claro: "X semanas y Y días (Z días hábiles en total)"
+  const durTxt = fmtDuracion(totalDays);
   const rangeLabel=(firstDate&&lastDate)?` · <span style="color:var(--text2)">${fmtDateDisplay(firstDate)} → ${fmtDateDisplay(lastDate)}</span>`:'';
-  (document.getElementById('brand-crono-summary')||{innerHTML:''}).innerHTML=`${chips}<span class="crono-total-label">⏱ ${w>0?w+' sem. ':''}${d>0?d+'d ':''}<span style="color:var(--text3)">${totalDays}d en total</span>${rangeLabel}</span>`;
+  (document.getElementById('brand-crono-summary')||{innerHTML:''}).innerHTML=`${chips}<span class="crono-total-label">⏱ ${durTxt}${rangeLabel}</span>`;
 }
 
 
@@ -12334,7 +12385,7 @@ function compressImage(file, maxW, maxH, quality){
   });
 }
 
-async function saveBrand(){ markLocalChange("brands");
+async function saveBrand(){
     const name=document.getElementById('input-name').value.trim();
   if(!name){showStatus('El nombre es obligatorio',true);return;}
   const btn=document.getElementById('btn-save');btn.disabled=true;btn.textContent='Guardando…';
@@ -12361,6 +12412,7 @@ async function saveBrand(){ markLocalChange("brands");
       brand.domo.m1=document.getElementById('input-domo-m1').value;
       brand.domo.m2=document.getElementById('input-domo-m2').value;
       if(image)brand.image=image;
+      markBrandChange(brand.id); // merge granular: local gana solo para ESTA marca
     }
   }else{
     // New brand
@@ -12437,6 +12489,7 @@ async function saveBrand(){ markLocalChange("brands");
     };
     if(!Array.isArray(appData.brands))appData.brands=[];
     appData.brands.push(newBrand);
+    markBrandChange(newBrand.id); // merge granular: preserva esta marca nueva por su id
 
     // 🔒 Guardar cronograma inicial de la nueva marca en tabla
     const cronoRows = [];
@@ -17360,7 +17413,26 @@ function _portalCronoHTML(brand){
       }).join('')}
     </div>`;
   }).join('');
-  return `<div class="card" style="padding:1.5rem">${html||'<div style="color:var(--text3);font-size:0.84rem">Sin cronograma aún.</div>'}</div>`;
+
+  // Resumen de duración total al final (mismo cálculo que la vista interna).
+  const safeDays = a => { const n = Math.floor(Number(a && a.days)); return (isNaN(n) || n < 0) ? 0 : n; };
+  const allActs = stages.flatMap(s => brand.cronograma?.[s] || []);
+  let summaryHTML = '';
+  if(allActs.length){
+    const totalDays = allActs.reduce((s,a)=>s+safeDays(a),0);
+    const firstDate = allActs.map(a=>a.startDate).filter(Boolean).sort()[0];
+    const lastDate  = allActs.map(a=>a.endDate).filter(Boolean).sort().pop();
+    const rangeLabel = (firstDate&&lastDate)
+      ? `<div style="font-size:0.74rem;color:var(--text3);margin-top:0.25rem">${fmtDateDisplay(firstDate)} → ${fmtDateDisplay(lastDate)}</div>`
+      : '';
+    summaryHTML = `<div style="margin-top:1rem;padding:0.9rem 1.1rem;background:var(--bg-card2);border-radius:var(--r-sm);text-align:center">
+      <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.35rem">⏱ Duración estimada del proyecto</div>
+      <div style="font-size:0.92rem;font-weight:700;color:var(--text)">${fmtDuracion(totalDays)}</div>
+      ${rangeLabel}
+    </div>`;
+  }
+
+  return `<div class="card" style="padding:1.5rem">${html||'<div style="color:var(--text3);font-size:0.84rem">Sin cronograma aún.</div>'}${summaryHTML}</div>`;
 }
 
 // ── Clasificación de respuestas de aprobación ──────────────────────
