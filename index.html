@@ -2289,8 +2289,11 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
               <span class="pts-total-val" id="brand-bp-total-label">—</span>
             </div>
             <div id="brand-bp-cats"></div>
-            <div style="padding:0.5rem 1rem 0.8rem">
-              <button class="btn-add-item" onclick="addBrandBpCat(currentBrandId)" style="width:100%">+ Agregar categoría</button>
+            <div style="padding:0.5rem 1rem 0.8rem;display:flex;gap:0.6rem;flex-wrap:wrap">
+              <button class="btn-add-item" onclick="addBrandBpCat(currentBrandId)" style="flex:1;min-width:160px">+ Agregar categoría</button>
+              <button onclick="syncBrandBpWithTemplate(currentBrandId)" title="Agrega los entregables del template que falten en esta marca, sin tocar lo existente"
+                style="flex:1;min-width:160px;background:none;border:1.5px dashed var(--agua);color:var(--agua);border-radius:10px;padding:0.6rem 1rem;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:var(--font);transition:all 0.15s"
+                onmouseover="this.style.background='rgba(45,195,179,0.08)'" onmouseout="this.style.background='none'">🔄 Sincronizar con template</button>
             </div>
           </div>
         </div>
@@ -10510,6 +10513,17 @@ async function renderBrandPage(){
     cronoInjected = true;
   }
   if(!brand.brandingPoints || !brand.brandingPoints.categories || brand.brandingPoints.categories.length===0){
+    // 🔒 Releer template BP fresco desde la tabla antes de inyectar (evita restaurar lista stale)
+    try{
+      if(window.TemplateBpDB){
+        const tplFresh = await TemplateBpDB.loadAll();
+        if(tplFresh && Array.isArray(tplFresh.categories) && tplFresh.categories.length){
+          if(!appData.template) appData.template = defaultTemplate();
+          if(!appData.template.brandingPoints) appData.template.brandingPoints = { total:0, categories:[] };
+          appData.template.brandingPoints.categories = tplFresh.categories;
+        }
+      }
+    }catch(e){ console.warn('[Polen] No se pudo refrescar template BP en auto-fix:', e); }
     const tpl = appData.template || defaultTemplate();
     const bpTotal = brand.brandingPoints?.total || tpl.brandingPoints.total;
     brand.brandingPoints = buildBpFromTemplate({...tpl, brandingPoints:{...tpl.brandingPoints, total: bpTotal}});
@@ -12240,6 +12254,23 @@ async function saveBrand(){ markLocalChange("brands");
     }
   }else{
     // New brand
+    if(!appData.template) appData.template = defaultTemplate();
+
+    // 🔒 FIX: releer el template BP FRESCO desde la tabla justo antes de crear.
+    // El template (categories) vive en polen_template_bp y appData.template puede estar
+    // desactualizado en memoria por la carrera de carga/merge → una marca nueva podría
+    // heredar una lista de entregables incompleta. Releer garantiza replicar el template VIGENTE.
+    try{
+      if(window.TemplateBpDB){
+        const tplFresh = await TemplateBpDB.loadAll();
+        if(tplFresh && Array.isArray(tplFresh.categories) && tplFresh.categories.length){
+          if(!appData.template.brandingPoints) appData.template.brandingPoints = { total:0, categories:[] };
+          appData.template.brandingPoints.categories = tplFresh.categories;
+          console.log('[Polen] Template BP refrescado desde tabla antes de crear marca:', tplFresh.categories.reduce((s,c)=>s+(c.items||[]).length,0), 'entregables');
+        }
+      }
+    }catch(e){ console.warn('[Polen] No se pudo refrescar template BP antes de crear marca (se usa memoria):', e); }
+
     const tpl=appData.template||defaultTemplate();
     const includeNaming=document.getElementById('input-naming').checked;
     const bpTotal=parseInt(document.getElementById('input-bp-total').value)||15;
@@ -12317,7 +12348,18 @@ async function saveBrand(){ markLocalChange("brands");
           bpRows.push(BrandBpDB.itemToRow(newBrand.id, cat, item, ci, ii));
         });
       });
-      if(bpRows.length) await BrandBpDB.saveItemsBatch(bpRows);
+      if(bpRows.length){
+        let bpOk = await BrandBpDB.saveItemsBatch(bpRows);
+        if(!bpOk){
+          // Reintento único: si falla el batch, los items no quedarían en la tabla y
+          // se perderían en la próxima recarga (la vista lee de polen_brand_bp).
+          console.warn('[Polen] Batch BP de marca nueva falló — reintentando…');
+          bpOk = await BrandBpDB.saveItemsBatch(bpRows);
+        }
+        if(!bpOk){
+          showStatus('⚠️ Marca creada pero los entregables no se guardaron completos — reintenta editándola', true);
+        }
+      }
     }
 
     // Auto-create cobros structure from cronograma hitos only
@@ -13414,6 +13456,118 @@ async function addBrandBpCat(brandId){
   const ci = brand.brandingPoints.categories.length - 1;
   await BrandBpDB.saveItem(brandId, newCat, placeholderItem, ci, 0);
   showStatus('Categoría creada ✓ — click en "Definir entregable" para nombrarlo');
+}
+
+// 🔄 Sincroniza los BP de una marca con el template VIGENTE.
+// Aditivo y seguro: agrega solo los entregables/categorías que la marca NO tiene.
+// Nunca borra ni modifica items existentes (preserva selecciones, notas del cliente,
+// notas internas, pts y cant. ya cargados). Útil para marcas creadas antes de tener
+// la versión actual del template (p.ej. Nómada) o cuando el template crece.
+async function syncBrandBpWithTemplate(brandId){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand){ showStatus('Marca no encontrada', true); return; }
+  if(!brand.brandingPoints) brand.brandingPoints = { total:0, categories:[] };
+  if(!Array.isArray(brand.brandingPoints.categories)) brand.brandingPoints.categories = [];
+
+  // 1. Releer el template FRESCO desde la tabla (no confiar en memoria).
+  let tplCats = null;
+  try{
+    if(window.TemplateBpDB){
+      const tplFresh = await TemplateBpDB.loadAll();
+      if(tplFresh && Array.isArray(tplFresh.categories) && tplFresh.categories.length){
+        tplCats = tplFresh.categories;
+      }
+    }
+  }catch(e){ console.warn('[Polen] sync: no se pudo leer template de tabla:', e); }
+  // Fallback a memoria si la tabla no devolvió nada
+  if(!tplCats) tplCats = appData.template?.brandingPoints?.categories || [];
+  if(!tplCats.length){ showStatus('El template no tiene branding points configurados', true); return; }
+
+  // 2. Calcular qué falta (por id y, como respaldo, por nombre normalizado dentro de la categoría).
+  const norm = s => (s||'').trim().toLowerCase();
+  const bCats = brand.brandingPoints.categories;
+  let catsAgregadas = 0, itemsAgregados = 0;
+  const itemsParaPreview = [];
+
+  tplCats.forEach(tcat=>{
+    if(!tcat?.id) return;
+    let bcat = bCats.find(c => c.id === tcat.id) || bCats.find(c => norm(c.name) === norm(tcat.name));
+    if(!bcat){
+      bcat = { id: tcat.id, name: tcat.name, open: tcat.open !== false, items: [] };
+      bCats.push(bcat);
+      catsAgregadas++;
+    }
+    if(!Array.isArray(bcat.items)) bcat.items = [];
+    (tcat.items||[]).forEach(titem=>{
+      if(!titem?.id) return;
+      const yaExiste = bcat.items.some(it => it.id === titem.id || norm(it.name) === norm(titem.name));
+      if(!yaExiste){
+        bcat.items.push({
+          id: titem.id,
+          name: titem.name,
+          pts: titem.pts,
+          qty: titem.qty || 1,
+          selected: false,
+        });
+        itemsAgregados++;
+        itemsParaPreview.push((bcat.name||'?') + ' › ' + (titem.name||'?'));
+      }
+    });
+  });
+
+  if(itemsAgregados === 0 && catsAgregadas === 0){
+    showStatus('✓ ' + brand.name + ' ya está al día con el template');
+    return;
+  }
+
+  // 3. Confirmar antes de persistir, mostrando cuánto se agregará.
+  const ejemplos = itemsParaPreview.slice(0, 4).join(', ');
+  const masTxt = itemsParaPreview.length > 4 ? (' y ' + (itemsParaPreview.length - 4) + ' más') : '';
+  const resumen = 'Se agregarán ' + itemsAgregados + ' entregable' + (itemsAgregados!==1?'s':'') +
+    (catsAgregadas ? (' y ' + catsAgregadas + ' categoría' + (catsAgregadas!==1?'s':'')) : '') +
+    ' a "' + brand.name + '" (' + ejemplos + masTxt + '). ' +
+    'No se borra ni modifica nada de lo que ya tiene la marca.';
+  const ok = await confirmModal(resumen, 'Sincronizar', 'background:var(--agua);color:#fff;border:none');
+  if(!ok){
+    // Revertir los cambios en memoria si el usuario cancela.
+    // (Recargar desde la tabla es lo más seguro: descarta lo agregado en memoria.)
+    try{
+      if(window.BrandBpDB){
+        const fromTable = await BrandBpDB.loadAll();
+        const nuevo = fromTable?.[brandId];
+        if(nuevo){
+          const totalViejo = brand.brandingPoints?.total || 0;
+          brand.brandingPoints = { total: totalViejo, categories: nuevo.categories || [] };
+        }
+      }
+    }catch(e){ console.warn('[Polen] sync: no se pudo revertir desde tabla:', e); }
+    renderBrandBp(brand);
+    return;
+  }
+
+  // 4. Persistir TODAS las filas (re-escribir el set completo asegura orden e índices correctos).
+  renderBrandBp(brand);
+  if(window.BrandBpDB){
+    const rows = [];
+    brand.brandingPoints.categories.forEach((cat, ci)=>{
+      (cat.items||[]).forEach((item, ii)=>{
+        if(!cat.id || !item.id) return;
+        rows.push(BrandBpDB.itemToRow(brandId, cat, item, ci, ii));
+      });
+    });
+    if(rows.length){
+      let saved = await BrandBpDB.saveItemsBatch(rows);
+      if(!saved){
+        console.warn('[Polen] sync: batch falló — reintentando');
+        saved = await BrandBpDB.saveItemsBatch(rows);
+      }
+      if(!saved){
+        showStatus('⚠️ Se agregaron en pantalla pero no se guardaron completos — reintenta', true);
+        return;
+      }
+    }
+  }
+  showStatus('✓ ' + brand.name + ' sincronizada — ' + itemsAgregados + ' entregable' + (itemsAgregados!==1?'s':'') + ' agregado' + (itemsAgregados!==1?'s':''));
 }
 
 async function deleteBrandBpCat(brandId, ci){
