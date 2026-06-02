@@ -1355,18 +1355,23 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
   .sidebar.collapsed .logo-text{opacity:1;width:auto;}
 
   /* Header más compacto */
-  .header{padding:0.7rem 1rem;}
-  .header-title{font-size:0.92rem;}
-  .header-actions{gap:0.4rem;}
+  .header{padding:0.7rem 1rem;gap:0.5rem;}
+  .header-title{font-size:0.92rem;white-space:nowrap;}
+  .header-actions{gap:0.35rem;flex-shrink:0;}
+  /* La columna del título conserva su espacio (antes quedaba aplastada y
+     "Dashboard" se cortaba detrás de los controles). */
+  .header > div:first-child{flex:0 1 auto;min-width:0;}
 
   /* Botones del header más compactos */
   .btn-reload, .btn-back{padding:0.4rem 0.7rem;font-size:0.75rem;}
   .btn-reload span:not(:first-child){display:none;} /* solo ícono */
   .btn-add{padding:0.45rem 0.85rem;font-size:0.75rem;}
 
-  /* Theme toggle más compacto */
+  /* Theme toggle: solo íconos 🌙/☀️ en móvil (libera el espacio que aplastaba
+     el título). Las palabras "Dark"/"Light" se ocultan. */
   .theme-toggle{padding:0.2rem;}
-  .theme-btn{padding:0.25rem 0.55rem;font-size:0.7rem;}
+  .theme-btn{padding:0.3rem 0.5rem;font-size:0.8rem;}
+  .theme-btn-label{display:none;}
 
   /* Inputs y botones con tamaño táctil mínimo (44px de altura efectiva) */
   input[type="text"], input[type="number"], input[type="email"], input[type="password"],
@@ -1416,7 +1421,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
   .portal-wrap{padding:1rem 0.85rem;gap:1rem;}
 
   /* Content área principal de cada página */
-  .content{padding:1rem 0.85rem;gap:1rem;}
+  .content{padding:1rem 0.85rem;gap:1rem;padding-bottom:calc(3.5rem + env(safe-area-inset-bottom));}
 
   /* Grilla del dashboard de marcas: 1 columna en móvil */
   [style*="grid-template-columns:repeat(auto-fill,minmax(300px"],
@@ -1937,8 +1942,8 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
     </div>
     <div class="header-actions">
       <div class="theme-toggle">
-        <button class="theme-btn active" id="btn-dark" onclick="setTheme('dark')">🌙 Dark</button>
-        <button class="theme-btn" id="btn-light" onclick="setTheme('light')">☀️ Light</button>
+        <button class="theme-btn active" id="btn-dark" onclick="setTheme('dark')">🌙<span class="theme-btn-label"> Dark</span></button>
+        <button class="theme-btn" id="btn-light" onclick="setTheme('light')">☀️<span class="theme-btn-label"> Light</span></button>
       </div>
       <button class="btn-reload" id="btn-reload" onclick="reloadData()">↻ Recargar</button>
       <span id="conn-dot" title="Conectado a Supabase"></span>
