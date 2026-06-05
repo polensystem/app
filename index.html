@@ -3516,6 +3516,28 @@ const REC_ID='polen-team-data';
 const sb=createClient(SB_URL,SB_KEY);
 window.sb = sb; // Para diagnóstico
 
+// 🔒 Helper de paginación: Supabase limita select a 1000 filas por defecto.
+// Trae TODAS las filas de una tabla en bloques. `applyOrder(query)` aplica los
+// .order() que necesite cada tabla. Devuelve {data, error}.
+async function sbSelectAll(tableName, applyOrder){
+  const PAGE = 1000;
+  let from = 0;
+  let all = [];
+  while(true){
+    let q = sb.from(tableName).select('*');
+    if(typeof applyOrder === 'function') q = applyOrder(q);
+    const { data, error } = await q.range(from, from + PAGE - 1);
+    if(error) return { data: null, error };
+    const batch = data || [];
+    all = all.concat(batch);
+    if(batch.length < PAGE) break;
+    from += PAGE;
+    if(from > 200000) break; // corte de seguridad
+  }
+  return { data: all, error: null };
+}
+window.sbSelectAll = sbSelectAll;
+
 /* ═══ STATE ═══ */
 let appData={brands:[],template:null,members:[]};
 window.appData = appData; // Para diagnóstico
@@ -4063,7 +4085,7 @@ window.CobrosDB = (function(){
   // Cargar TODOS los pagos de la tabla nueva, agrupados por brandId
   async function loadAll(){
     try {
-      const { data, error } = await sb.from(TABLE).select('*');
+      const { data, error } = await sbSelectAll(TABLE);
       if(error) {
         console.error('[CobrosDB] loadAll error:', error);
         return null;
@@ -4317,10 +4339,27 @@ window.BrandBpDB = (function(){
   // Reconstruir la estructura agrupada (brandId → categorías → items)
   async function loadAll(){
     try {
-      const { data, error } = await sb.from(TABLE).select('*').order('brand_id').order('orden_cat').order('orden_item');
-      if(error){ console.error('[BrandBpDB] loadAll error:', error); return null; }
+      // 🔒 PAGINACIÓN: Supabase limita select a 1000 filas por defecto. Con muchas
+      // marcas (50+ × ~27 items = 1400+ filas) las marcas después de la fila 1000
+      // se PERDÍAN — el portal de esas marcas salía vacío aunque la tabla sí tenía
+      // los datos. Traemos TODAS las filas en bloques de 1000.
+      const PAGE = 1000;
+      let from = 0;
+      let allRows = [];
+      while(true){
+        const { data, error } = await sb.from(TABLE)
+          .select('*')
+          .order('brand_id').order('orden_cat').order('orden_item')
+          .range(from, from + PAGE - 1);
+        if(error){ console.error('[BrandBpDB] loadAll error:', error); return null; }
+        const batch = data || [];
+        allRows = allRows.concat(batch);
+        if(batch.length < PAGE) break; // última página
+        from += PAGE;
+        if(from > 100000){ console.warn('[BrandBpDB] loadAll: corte de seguridad a 100k filas'); break; }
+      }
       const byBrand = {};
-      (data||[]).forEach(row=>{
+      allRows.forEach(row=>{
         const bid = row.brand_id;
         if(!byBrand[bid]) byBrand[bid] = {};
         const catKey = row.category_id;
@@ -4345,7 +4384,7 @@ window.BrandBpDB = (function(){
         cats.forEach(c=>{ delete c._orden; c.items.sort((a,b)=>(a._orden||0)-(b._orden||0)); c.items.forEach(i=>delete i._orden); });
         result[bid] = { categories: cats };
       });
-      console.log('[BrandBpDB] Cargados items de', Object.keys(result).length, 'marcas');
+      console.log('[BrandBpDB] Cargados items de', Object.keys(result).length, 'marcas ('+allRows.length+' filas)');
       return result;
     } catch(e){ console.error('[BrandBpDB] loadAll crashed:', e); return null; }
   }
@@ -4774,7 +4813,7 @@ window.PortalApprovalsDB = (function(){
 
   async function loadAll(){
     try {
-      const { data, error } = await sb.from(TABLE).select('*');
+      const { data, error } = await sbSelectAll(TABLE);
       if(error){ console.error('[PortalApprovalsDB] loadAll error:', error); return null; }
       const byBrand = {};
       (data||[]).forEach(row=>{
@@ -4973,7 +5012,7 @@ window.CronoDB = (function(){
 
   async function loadAll(){
     try {
-      const { data, error } = await sb.from(TABLE).select('*').order('brand_id').order('stage').order('orden');
+      const { data, error } = await sbSelectAll(TABLE, q=>q.order('brand_id').order('stage').order('orden'));
       if(error){ console.error('[CronoDB] loadAll error:', error); return null; }
       const byBrand = {};
       (data||[]).forEach(row=>{
@@ -17399,37 +17438,7 @@ function renderPortal(brandId){
   window._portalBrandId = brandId;
   window._portalColor = getBrandColor(brand);
   window._portalBrand = brand;
-
-  // 🔒 Hidratar SIEMPRE los datos de la marca desde las tablas (fuente de verdad)
-  // antes de pintar. El objeto del JSON puede llegar con brandingPoints vacío por
-  // carreras de carga/merge; la tabla polen_brand_bp tiene los datos reales.
-  // Hacemos un primer render inmediato (para no dejar pantalla en blanco) y luego
-  // re-render cuando lleguen los datos frescos.
-  (async function(){
-    try{
-      const [bpAll, cronoAll, paAll] = await Promise.all([
-        window.BrandBpDB?.loadAll?.() || Promise.resolve(null),
-        window.CronoDB?.loadAll?.() || Promise.resolve(null),
-        window.PortalApprovalsDB?.loadAll?.() || Promise.resolve(null),
-      ]);
-      let changed = false;
-      if(bpAll && bpAll[brandId] && Array.isArray(bpAll[brandId].categories) && bpAll[brandId].categories.length){
-        brand.brandingPoints = {
-          total: brand.brandingPoints?.total || 15,
-          categories: bpAll[brandId].categories,
-        };
-        changed = true;
-        console.log('[Polen] Portal: BP hidratados de tabla —', bpAll[brandId].categories.length, 'categorías');
-      }
-      if(cronoAll && cronoAll[brandId]){ brand.cronograma = cronoAll[brandId]; changed = true; }
-      if(paAll && paAll[brandId]){ brand.portalApprovals = paAll[brandId]; changed = true; }
-      if(changed && window._portalBrandId === brandId){
-        // Re-render del contenido del portal con los datos frescos
-        const tab = window._portalActiveTab || 'crono';
-        try{ portalSwitchTab(tab); }catch(e){ console.warn('[Polen] re-render portal tras hidratar falló:', e); }
-      }
-    }catch(e){ console.warn('[Polen] Portal: hidratación de tablas falló:', e); }
-  })();
+  console.log('%c[Polen] renderPortal v2-hidratado para '+brand.name+' ('+brandId+')', 'color:#2dc3b3;font-weight:bold');
 
   const sec = getPortalSections(brand);
   const tabBtn = (key, emo, label) => sec[key]
@@ -17455,7 +17464,34 @@ function renderPortal(brandId){
   </div>`;
 
   if(initialTab){
-    setTimeout(()=>{ portalSwitchTab(initialTab); }, 0);
+    // 🔒 Hidratar BP/crono/aprobaciones desde las tablas (fuente de verdad) ANTES
+    // de pintar la pestaña. El objeto del JSON puede venir con brandingPoints vacío
+    // por carreras de carga; la tabla tiene los datos reales (confirmado: Plaza Colón
+    // tenía 56 filas en polen_brand_bp pero el JSON llegaba con categorias:0).
+    (async function(){
+      try{
+        const [bpAll, cronoAll, paAll] = await Promise.all([
+          window.BrandBpDB?.loadAll?.() || Promise.resolve(null),
+          window.CronoDB?.loadAll?.() || Promise.resolve(null),
+          window.PortalApprovalsDB?.loadAll?.() || Promise.resolve(null),
+        ]);
+        if(bpAll && bpAll[brandId] && Array.isArray(bpAll[brandId].categories) && bpAll[brandId].categories.length){
+          brand.brandingPoints = {
+            total: brand.brandingPoints?.total || 15,
+            categories: bpAll[brandId].categories,
+          };
+          console.log('%c[Polen] Portal BP hidratados: '+bpAll[brandId].categories.length+' categorías, '+bpAll[brandId].categories.reduce((s,c)=>s+(c.items||[]).length,0)+' items', 'color:#2dc3b3;font-weight:bold');
+        } else {
+          console.warn('[Polen] Portal: la tabla NO devolvió categorías para', brandId, '— bpAll?', !!bpAll, 'entry?', !!(bpAll&&bpAll[brandId]));
+        }
+        if(cronoAll && cronoAll[brandId]) brand.cronograma = cronoAll[brandId];
+        if(paAll && paAll[brandId]) brand.portalApprovals = paAll[brandId];
+      }catch(e){ console.warn('[Polen] Portal: hidratación falló:', e); }
+      // Pintar la pestaña inicial DESPUÉS de hidratar
+      if(window._portalBrandId === brandId){
+        try{ portalSwitchTab(initialTab); }catch(e){ console.error('[Polen] portalSwitchTab inicial falló:', e); }
+      }
+    })();
   } else {
     // Nada visible (fallback improbable — el admin no debería permitirlo)
     const content = document.getElementById('portal-content-area');
