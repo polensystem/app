@@ -17400,6 +17400,37 @@ function renderPortal(brandId){
   window._portalColor = getBrandColor(brand);
   window._portalBrand = brand;
 
+  // 🔒 Hidratar SIEMPRE los datos de la marca desde las tablas (fuente de verdad)
+  // antes de pintar. El objeto del JSON puede llegar con brandingPoints vacío por
+  // carreras de carga/merge; la tabla polen_brand_bp tiene los datos reales.
+  // Hacemos un primer render inmediato (para no dejar pantalla en blanco) y luego
+  // re-render cuando lleguen los datos frescos.
+  (async function(){
+    try{
+      const [bpAll, cronoAll, paAll] = await Promise.all([
+        window.BrandBpDB?.loadAll?.() || Promise.resolve(null),
+        window.CronoDB?.loadAll?.() || Promise.resolve(null),
+        window.PortalApprovalsDB?.loadAll?.() || Promise.resolve(null),
+      ]);
+      let changed = false;
+      if(bpAll && bpAll[brandId] && Array.isArray(bpAll[brandId].categories) && bpAll[brandId].categories.length){
+        brand.brandingPoints = {
+          total: brand.brandingPoints?.total || 15,
+          categories: bpAll[brandId].categories,
+        };
+        changed = true;
+        console.log('[Polen] Portal: BP hidratados de tabla —', bpAll[brandId].categories.length, 'categorías');
+      }
+      if(cronoAll && cronoAll[brandId]){ brand.cronograma = cronoAll[brandId]; changed = true; }
+      if(paAll && paAll[brandId]){ brand.portalApprovals = paAll[brandId]; changed = true; }
+      if(changed && window._portalBrandId === brandId){
+        // Re-render del contenido del portal con los datos frescos
+        const tab = window._portalActiveTab || 'crono';
+        try{ portalSwitchTab(tab); }catch(e){ console.warn('[Polen] re-render portal tras hidratar falló:', e); }
+      }
+    }catch(e){ console.warn('[Polen] Portal: hidratación de tablas falló:', e); }
+  })();
+
   const sec = getPortalSections(brand);
   const tabBtn = (key, emo, label) => sec[key]
     ? `<button onclick="portalSwitchTab('${key}')" id="portal-tab-${key}" style="flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:all 0.2s">${emo} ${label}</button>`
