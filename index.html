@@ -17535,6 +17535,31 @@ function portalSwitchTab(tab){
       </div>
     </div>`;
     content.innerHTML = bpIntro + `<div class="card" style="padding:1.5rem" id="portal-bp-wrap">${portalRenderBp(brand)}</div>`;
+    // 🔒 FALLBACK: si la marca quedó sin categorías de BP (p.ej. el overlay de
+    // arranque corrió antes de que la tabla respondiera, o por una carrera de carga),
+    // releer polen_brand_bp en vivo y re-renderizar. Esto recupera el portal vacío
+    // sin que el cliente tenga que recargar.
+    (async function(){
+      try{
+        const cats = brand.brandingPoints?.categories || [];
+        if(cats.length === 0 && window.BrandBpDB){
+          console.log('[Polen] Portal BP vacío — recargando de tabla para', brand.id);
+          const fresh = await BrandBpDB.loadAll();
+          const nuevo = fresh && fresh[brand.id];
+          if(nuevo && Array.isArray(nuevo.categories) && nuevo.categories.length){
+            brand.brandingPoints = {
+              total: brand.brandingPoints?.total || 15,
+              categories: nuevo.categories,
+            };
+            const wrap = document.getElementById('portal-bp-wrap');
+            if(wrap) wrap.innerHTML = portalRenderBp(brand);
+            console.log('[Polen] Portal BP recuperado:', nuevo.categories.length, 'categorías');
+          } else {
+            console.warn('[Polen] Portal BP: la tabla tampoco tiene categorías para', brand.id);
+          }
+        }
+      }catch(e){ console.warn('[Polen] Portal BP fallback falló:', e); }
+    })();
   } else if(tab==='aprobaciones'){
     if(tAprob) tAprob.style.cssText=active;
     try{
