@@ -1,5 +1,5 @@
 <!DOCTYPE html><!-- POLEN-BUILD-20260417-v384.5-ENHANCED-PLAYGROUND-CARDS -->
-<html lang="es" data-theme="dark">
+<html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -1975,8 +1975,8 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
     </div>
     <div class="header-actions">
       <div class="theme-toggle">
-        <button class="theme-btn active" id="btn-dark" onclick="setTheme('dark')">🌙<span class="theme-btn-label"> Dark</span></button>
-        <button class="theme-btn" id="btn-light" onclick="setTheme('light')">☀️<span class="theme-btn-label"> Light</span></button>
+        <button class="theme-btn" id="btn-dark" onclick="setTheme('dark')">🌙<span class="theme-btn-label"> Dark</span></button>
+        <button class="theme-btn active" id="btn-light" onclick="setTheme('light')">☀️<span class="theme-btn-label"> Light</span></button>
       </div>
       <button class="btn-reload" id="btn-reload" onclick="reloadData()">↻ Recargar</button>
       <span id="conn-dot" title="Conectado a Supabase"></span>
@@ -6870,8 +6870,25 @@ async function _doUpsert(){
       // 🔄 AUTO-REFRESH UI después de guardado exitoso (INTELIGENTE)
       console.log('[polen] Auto-refreshing UI for current page:', currentPage);
       try {
+        // 🔒 MODO PORTAL: el portal reemplaza .main por su propio HTML y NO tiene
+        // los elementos del dashboard. Llamar a renderDashboard() aquí petaba con
+        // "Cannot set properties of null (setting 'innerHTML')" y dejaba el portal
+        // (incluida la sección de Branding Points) a medio renderizar / vacío.
+        // En portal, refrescamos SOLO el portal y nada del panel interno.
+        if(window._portalBrandId){
+          try{
+            const pb = (appData.brands||[]).find(b=>b.id===window._portalBrandId);
+            if(pb && typeof renderPortal === 'function'){
+              // Re-render del contenido del portal sin tocar el dashboard
+              const wrap = document.getElementById('portal-bp-wrap');
+              if(wrap && typeof portalRenderBp === 'function'){
+                wrap.innerHTML = portalRenderBp(pb);
+              }
+            }
+          }catch(pErr){ console.warn('[polen] portal refresh tras upsert falló:', pErr); }
+        }
         // Skip auto-refresh si el usuario explícitamente lo deshabilitó
-        if(window._skipAutoRefresh) {
+        else if(window._skipAutoRefresh) {
           console.log('[polen] Auto-refresh skipped - disabled by user');
         } else {
           // Refresh basado en la página actual (SIN renderCobros para evitar colapso)
@@ -7130,6 +7147,59 @@ function addWorkdaysStr(dateStr, days){
     safety++;
   }
   return fmtLocalDate(d);
+}
+
+// Devuelve la versión MÁS COMPLETA del template BP combinando la tabla
+// (polen_template_bp) y la memoria (appData.template), por id de categoría/item.
+// Resuelve el caso de carrera entre dispositivos: si otro dispositivo editó el
+// template y su escritura aún no se reflejaba del todo en una sola lectura, o si
+// la lectura de tabla venía stale, igual obtenemos el superconjunto correcto.
+// Hace un reintento corto si la tabla devuelve MENOS items que la memoria.
+async function getFreshestTemplateCategories(){
+  const memCats = () => (appData?.template?.brandingPoints?.categories) || [];
+  const countItems = cats => (cats||[]).reduce((s,c)=>s+((c.items||[]).length),0);
+
+  let tableCats = [];
+  try{
+    if(window.TemplateBpDB){
+      let res = await TemplateBpDB.loadAll();
+      tableCats = (res && Array.isArray(res.categories)) ? res.categories : [];
+      // Si la tabla trae MENOS que la memoria, puede ser una escritura en vuelo de
+      // otro dispositivo: esperamos un momento y releemos una vez.
+      if(countItems(tableCats) < countItems(memCats())){
+        await new Promise(r=>setTimeout(r, 700));
+        res = await TemplateBpDB.loadAll();
+        const retryCats = (res && Array.isArray(res.categories)) ? res.categories : [];
+        if(countItems(retryCats) >= countItems(tableCats)) tableCats = retryCats;
+      }
+    }
+  }catch(e){ console.warn('[Polen] getFreshestTemplateCategories: lectura de tabla falló:', e); }
+
+  // Merge por id: empezamos con la tabla (fuente durable) y agregamos de memoria
+  // cualquier categoría/item que la tabla no tenga (cubre lectura stale/parcial).
+  const catMap = {};
+  const order = [];
+  const addCat = (c, fromTable)=>{
+    if(!c?.id) return;
+    if(!catMap[c.id]){
+      catMap[c.id] = { id:c.id, name:c.name||'', open:c.open!==false, items:[], _itemIds:new Set() };
+      order.push(c.id);
+    }
+    const target = catMap[c.id];
+    if(fromTable && c.name) target.name = c.name; // la tabla manda en el nombre
+    (c.items||[]).forEach(it=>{
+      if(!it?.id || target._itemIds.has(it.id)) return;
+      target._itemIds.add(it.id);
+      target.items.push({...it});
+    });
+  };
+  tableCats.forEach(c=>addCat(c, true));
+  memCats().forEach(c=>addCat(c, false));
+
+  const merged = order.map(id=>{ const c=catMap[id]; delete c._itemIds; return c; });
+  // Fallback: si por alguna razón quedó vacío, usar lo que haya en memoria.
+  if(!merged.length || !countItems(merged)) return memCats();
+  return merged;
 }
 
 function buildBpFromTemplate(tpl){
@@ -8790,10 +8860,18 @@ async function saveCobField(brandId, pagoId, field, val){
   ensureCobrosData();
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
+  const prev = pago[field];
   pago[field] = field==='monto' ? (parseFloat(val)||0) : val;
   pago._updatedAt = new Date().toISOString();
-  // 🔒 Guardar directo a tabla nueva
-  await CobrosDB.savePago(brandId, pago);
+  // 🔒 Guardar directo a tabla nueva, con verificación y revert si falla.
+  const ok = await CobrosDB.savePago(brandId, pago);
+  if(!ok){
+    pago[field] = prev; // revertir para no mostrar un valor que no se guardó
+    showStatus('❌ No se pudo guardar el cambio — reintenta', true);
+    renderCobCard(brandId);
+    renderCobTabla();
+    return;
+  }
   if(field === 'monto'){
     renderCobCard(brandId);
     renderCobTabla();
@@ -9373,6 +9451,18 @@ function updateGlobalBreadcrumb(page, extra){
 }
 
 function renderCurrentPage(){
+  // 🔒 MODO PORTAL: el portal no tiene los elementos del panel interno.
+  // Refrescar solo el portal evita el crash de renderDashboard (innerHTML de null).
+  if(window._portalBrandId){
+    try {
+      const pb = (appData.brands||[]).find(b=>b.id===window._portalBrandId);
+      const wrap = document.getElementById('portal-bp-wrap');
+      if(pb && wrap && typeof portalRenderBp === 'function'){
+        wrap.innerHTML = portalRenderBp(pb);
+      }
+    } catch(e){ console.warn('[Polen] portal refresh falló:', e); }
+    return;
+  }
   try {
     if(currentPage==='dashboard')renderDashboard();
     if(currentPage==='brand')renderBrandPage();
@@ -9587,7 +9677,7 @@ async function permanentDelete(itemId){ markLocalChange("papelera");
       if(window.CobrosDB){
         const pagos = appData.cobros?.[brandId]?.pagos || item.data.cobros?.pagos || [];
         for(const pago of pagos){
-          if(pago?.id) await CobrosDB.deletePago(brandId, pago.id);
+          if(pago?.id) await CobrosDB.deletePago(pago.id);
         }
         // Borrar entrada de cobros en memoria
         if(appData.cobros && appData.cobros[brandId]) delete appData.cobros[brandId];
@@ -10704,15 +10794,13 @@ async function renderBrandPage(){
     cronoInjected = true;
   }
   if(!brand.brandingPoints || !brand.brandingPoints.categories || brand.brandingPoints.categories.length===0){
-    // 🔒 Releer template BP fresco desde la tabla antes de inyectar (evita restaurar lista stale)
+    // 🔒 Usar la versión más completa del template (tabla + memoria) antes de inyectar
     try{
-      if(window.TemplateBpDB){
-        const tplFresh = await TemplateBpDB.loadAll();
-        if(tplFresh && Array.isArray(tplFresh.categories) && tplFresh.categories.length){
-          if(!appData.template) appData.template = defaultTemplate();
-          if(!appData.template.brandingPoints) appData.template.brandingPoints = { total:0, categories:[] };
-          appData.template.brandingPoints.categories = tplFresh.categories;
-        }
+      const freshCats = await getFreshestTemplateCategories();
+      if(Array.isArray(freshCats) && freshCats.length){
+        if(!appData.template) appData.template = defaultTemplate();
+        if(!appData.template.brandingPoints) appData.template.brandingPoints = { total:0, categories:[] };
+        appData.template.brandingPoints.categories = freshCats;
       }
     }catch(e){ console.warn('[Polen] No se pudo refrescar template BP en auto-fix:', e); }
     const tpl = appData.template || defaultTemplate();
@@ -11529,7 +11617,7 @@ async function deleteCronoActivity(brandId, stage, actId){
       // Borrar cada pago de la tabla de cobros
       if(window.CobrosDB){
         for(const pago of pagosRemovidos){
-          await CobrosDB.deletePago(brandId, pago.id);
+          await CobrosDB.deletePago(pago.id);
         }
       }
       renderCobCard(brandId);
@@ -12452,18 +12540,16 @@ async function saveBrand(){
     // New brand
     if(!appData.template) appData.template = defaultTemplate();
 
-    // 🔒 FIX: releer el template BP FRESCO desde la tabla justo antes de crear.
-    // El template (categories) vive en polen_template_bp y appData.template puede estar
-    // desactualizado en memoria por la carrera de carga/merge → una marca nueva podría
-    // heredar una lista de entregables incompleta. Releer garantiza replicar el template VIGENTE.
+    // 🔒 FIX: usar la versión MÁS COMPLETA del template (tabla + memoria combinadas
+    // por id, con reintento si la tabla viene corta). Cubre el caso de que OTRO
+    // dispositivo haya editado el template y su escritura estuviera en vuelo, o que
+    // la lectura de tabla viniera stale → la marca nueva siempre replica el template vigente.
     try{
-      if(window.TemplateBpDB){
-        const tplFresh = await TemplateBpDB.loadAll();
-        if(tplFresh && Array.isArray(tplFresh.categories) && tplFresh.categories.length){
-          if(!appData.template.brandingPoints) appData.template.brandingPoints = { total:0, categories:[] };
-          appData.template.brandingPoints.categories = tplFresh.categories;
-          console.log('[Polen] Template BP refrescado desde tabla antes de crear marca:', tplFresh.categories.reduce((s,c)=>s+(c.items||[]).length,0), 'entregables');
-        }
+      const freshCats = await getFreshestTemplateCategories();
+      if(Array.isArray(freshCats) && freshCats.length){
+        if(!appData.template.brandingPoints) appData.template.brandingPoints = { total:0, categories:[] };
+        appData.template.brandingPoints.categories = freshCats;
+        console.log('[Polen] Template BP (más completo) antes de crear marca:', freshCats.reduce((s,c)=>s+(c.items||[]).length,0), 'entregables');
       }
     }catch(e){ console.warn('[Polen] No se pudo refrescar template BP antes de crear marca (se usa memoria):', e); }
 
@@ -13666,18 +13752,13 @@ async function syncBrandBpWithTemplate(brandId){
   if(!brand.brandingPoints) brand.brandingPoints = { total:0, categories:[] };
   if(!Array.isArray(brand.brandingPoints.categories)) brand.brandingPoints.categories = [];
 
-  // 1. Releer el template FRESCO desde la tabla (no confiar en memoria).
+  // 1. Obtener la versión más completa del template (tabla + memoria combinadas).
   let tplCats = null;
   try{
-    if(window.TemplateBpDB){
-      const tplFresh = await TemplateBpDB.loadAll();
-      if(tplFresh && Array.isArray(tplFresh.categories) && tplFresh.categories.length){
-        tplCats = tplFresh.categories;
-      }
-    }
-  }catch(e){ console.warn('[Polen] sync: no se pudo leer template de tabla:', e); }
-  // Fallback a memoria si la tabla no devolvió nada
-  if(!tplCats) tplCats = appData.template?.brandingPoints?.categories || [];
+    tplCats = await getFreshestTemplateCategories();
+  }catch(e){ console.warn('[Polen] sync: no se pudo leer template:', e); }
+  // Fallback a memoria si no devolvió nada
+  if(!tplCats || !tplCats.length) tplCats = appData.template?.brandingPoints?.categories || [];
   if(!tplCats.length){ showStatus('El template no tiene branding points configurados', true); return; }
 
   // 2. Calcular qué falta (por id y, como respaldo, por nombre normalizado dentro de la categoría).
@@ -16982,7 +17063,7 @@ async function boot(){
     return;
   }
 
-  setTheme(localStorage.getItem('polen-theme')||'dark');
+  setTheme(localStorage.getItem('polen-theme')||'light');
 
   const skipTimer = setTimeout(()=>{
     const skipBtn = document.getElementById('loading-skip-btn');
@@ -22149,7 +22230,7 @@ function checkAutoArchive(brandId){
     setTheme('light'); // Portal always defaults to light
     boot(); return;
   }
-  setTheme(localStorage.getItem('polen-theme')||'dark');
+  setTheme(localStorage.getItem('polen-theme')||'light');
   if(isAuthenticated()){ boot(); return; }
   // Mostrar login
   document.getElementById('login-screen').style.display = 'flex';
