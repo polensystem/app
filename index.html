@@ -11170,9 +11170,66 @@ function actSmartStatusPill(act){
 }
 
 
+// Genera el cronograma de una marca desde el template, UNA sola vez, con confirmación.
+// Guarda directo en la tabla polen_crono y re-renderiza. Seguro: si la marca ya tiene
+// actividades, avisa antes de reemplazar.
+async function generarCronogramaDesdeTemplate(brandId){
+  const brand = appData.brands.find(b=>b.id===brandId);
+  if(!brand){ showStatus('Marca no encontrada', true); return; }
+
+  // Si por alguna razón ya tiene actividades, confirmar antes de reemplazar
+  const stages=['aire','agua','tierra','fuego'];
+  const tieneActuales = brand.cronograma && stages.some(s=>(brand.cronograma[s]||[]).length);
+  if(tieneActuales){
+    const ok = await confirmModal('Esta marca ya tiene actividades. ¿Reemplazar el cronograma completo desde el template? (no se puede deshacer)', 'Reemplazar cronograma');
+    if(!ok) return;
+  }
+
+  // Fecha de inicio: la de creación de la marca, o hoy
+  const start = brand.createdAt ? brand.createdAt.slice(0,10) : todayStr();
+  const tpl = appData.template || defaultTemplate();
+  const tplWithNaming = {...tpl, includeNaming: brand.includeNaming !== false};
+  const nuevoCrono = buildCronoFromTemplate(tplWithNaming, start);
+
+  // Si había actividades en la tabla, borrarlas primero (evita mezclar viejas con nuevas)
+  if(window.CronoDB){
+    try{
+      for(const st of stages){
+        try{ await CronoDB.deleteBrandStage(brandId, st); }catch(e){}
+      }
+    }catch(e){ console.warn('[Polen] limpieza previa de crono falló:', e); }
+  }
+
+  brand.cronograma = nuevoCrono;
+
+  // Guardar todas las actividades nuevas en la tabla
+  if(window.CronoDB){
+    const rows = [];
+    stages.forEach(st=>{
+      (nuevoCrono[st]||[]).forEach((a,i)=>{ rows.push(CronoDB.actToRow(brandId, st, a, i)); });
+    });
+    if(rows.length){
+      const okSave = await CronoDB.saveActsBatch(rows);
+      if(!okSave){ showStatus('❌ Error al guardar el cronograma — reintenta', true); return; }
+    }
+  }
+  markLocalChange('brands');
+  await upsert();
+  renderBrandCrono(brand);
+  const total = stages.reduce((s,st)=>s+(nuevoCrono[st]||[]).length,0);
+  showStatus('Cronograma generado ✓ ('+total+' actividades)');
+}
+
 function renderBrandCrono(brand){
-  if(!brand.cronograma){
-    (document.getElementById('brand-crono-stages')||{innerHTML:''}).innerHTML='<div style="color:var(--text3);font-size:0.84rem">Sin cronograma.</div>';
+  const _stagesArr = ['aire','agua','tierra','fuego'];
+  const _cronoVacio = !brand.cronograma || _stagesArr.every(s=>!(brand.cronograma[s]||[]).length);
+  if(_cronoVacio){
+    const _btn = '<div style="text-align:center;padding:2rem 1rem">'
+      + '<div style="color:var(--text3);font-size:0.9rem;margin-bottom:1rem">Esta marca no tiene cronograma todavía.</div>'
+      + '<button class="btn-primary" onclick="generarCronogramaDesdeTemplate(\''+brand.id+'\')" style="padding:0.7rem 1.4rem;font-weight:700">📅 Generar cronograma desde template</button>'
+      + '</div>';
+    (document.getElementById('brand-crono-stages')||{innerHTML:''}).innerHTML=_btn;
+    (document.getElementById('brand-crono-summary')||{innerHTML:''}).innerHTML='';
     return;
   }
   const stages=['aire','agua','tierra','fuego'];
