@@ -8387,7 +8387,7 @@ function getCobTriggerLabel(pago, brand){
   if(pago.triggerType === 'manual') return '— Por definir';
   if(!brand?.cronograma) return '🚀 Inicio de proyecto';
   const allActs = ['aire','agua','tierra','fuego'].flatMap(s=>(brand.cronograma[s]||[]));
-  const pagoActIdx = allActs.findIndex(a => a.id === pago.triggerActId || a.name === pago.nombre);
+  const pagoActIdx = allActs.findIndex(a => pago.triggerActId ? a.id === pago.triggerActId : a.name === pago.nombre);
   if(pagoActIdx <= 0) return '🚀 Inicio de proyecto';
   const trigger = allActs[pagoActIdx - 1];
   return '📅 ' + (trigger.name || '—');
@@ -8476,23 +8476,47 @@ function _reconcilePagosWithCrono(brand){
   if(!Array.isArray(cob.pagos)) cob.pagos = [];
 
   // Actividades-pago del cronograma en orden
-  const cronoActs = ['aire','agua','tierra','fuego']
+  let cronoActs = ['aire','agua','tierra','fuego']
     .flatMap(s => (brand.cronograma?.[s]||[]).filter(_actIsPago));
 
   if(!cronoActs.length) return;
 
-  // Reconstruir pagos desde el cronograma usando triggerActId como única fuente de verdad
+  // 🔒 DEDUP: si el cronograma tiene actividades-pago con el MISMO nombre repetido
+  // (residuo de cronogramas duplicados), conservar solo la primera de cada nombre.
+  // Esto evita regenerar pagos multiplicados en cada reconciliación.
+  const vistosNombre = new Set();
+  cronoActs = cronoActs.filter(a=>{
+    const key = (a.name||'').trim().toLowerCase();
+    if(vistosNombre.has(key)) return false;
+    vistosNombre.add(key);
+    return true;
+  });
+
+  // Pagos manuales se conservan tal cual
   const manuales = cob.pagos.filter(p => p.triggerType === 'manual');
+
+  // 🔒 PROTECCIÓN: nunca perder un pago que tenga cobrado=true o monto>0.
+  // Estos representan dinero real; si su actividad ya no está en el cronograma,
+  // los conservamos igual (como huérfanos) en vez de borrarlos silenciosamente.
+  const pagosConValor = cob.pagos.filter(p =>
+    p.triggerType !== 'manual' &&
+    (p.cobrado || (Number(p.monto)||0) > 0) &&
+    !cronoActs.some(a => a.id === p.triggerActId)
+  );
+
   const nuevosPagos = cronoActs.map(a => {
     // Buscar SOLO por triggerActId — nunca por nombre (evita asignaciones incorrectas)
-    const existing = cob.pagos.find(p => p.triggerActId === a.id);
+    const existing = cob.pagos.find(p => p.triggerActId === a.id)
+                  // fallback: si no hay match por id pero sí por nombre Y ese pago
+                  // aún no está asignado a otra actividad, reusarlo (preserva cobrado/monto)
+                  || cob.pagos.find(p => p.triggerType!=='manual' && (p.nombre||'').trim().toLowerCase() === (a.name||'').trim().toLowerCase() && !cronoActs.some(x=>x.id===p.triggerActId && x.id!==a.id));
     return {
       id: existing?.id || uid(),
-      nombre: a.name,           // Siempre el nombre exacto del cronograma
+      nombre: a.name,
       monto: existing?.monto || 0,
       cobrado: existing?.cobrado || false,
       fechaCobrado: existing?.cobrado ? (existing?.fechaCobrado || undefined) : undefined,
-      fechaProyectada: a.endDate || existing?.fechaProyectada || '', // Siempre del cronograma
+      fechaProyectada: a.endDate || existing?.fechaProyectada || '',
       nota: existing?.nota || '',
       ultimoSeguimiento: existing?.ultimoSeguimiento || '',
       triggerType: 'evento',
@@ -8501,7 +8525,32 @@ function _reconcilePagosWithCrono(brand){
     };
   });
 
-  cob.pagos = [...nuevosPagos, ...manuales];
+  cob.pagos = [...nuevosPagos, ...pagosConValor, ...manuales];
+
+  // 🔒 RE-ALINEAR estados desfasados: si un pago está cobrado pero su actividad
+  // del cronograma sigue 'pendiente' (o viceversa), alinear la actividad al pago.
+  // Esto repara casos viejos (p.ej. pago cobrado en Cobros pero sin check en crono).
+  let _alineado = false;
+  cob.pagos.forEach(p=>{
+    if(!p.triggerActId && p.triggerType==='manual') return;
+    // Buscar la actividad por id
+    let actMatch = null;
+    for(const st of ['aire','agua','tierra','fuego']){
+      const arr = brand.cronograma?.[st]||[];
+      actMatch = arr.find(a=>a.id===p.triggerActId);
+      if(actMatch) break;
+    }
+    if(actMatch){
+      const deberia = p.cobrado ? 'completada' : (actMatch.status==='completada' ? 'pendiente' : actMatch.status);
+      // Solo forzamos a 'completada' si el pago está cobrado; no desmarcamos avance
+      // de actividades que el equipo haya completado por otras razones.
+      if(p.cobrado && actMatch.status!=='completada'){
+        actMatch.status = 'completada';
+        _alineado = true;
+      }
+    }
+  });
+  if(_alineado){ markLocalChange('brands'); }
 }
 
 // Build pagos array strictly from cronograma hitos — no generics
@@ -8544,9 +8593,9 @@ function cobStatus(pago, allPagos, brand){
   // Lista plana de todas las actividades en orden cronológico
   const allActs = ['aire','agua','tierra','fuego'].flatMap(s=>(brand.cronograma[s]||[]));
 
-  // Encontrar la actividad "pago" en el cronograma por id o por nombre
+  // Encontrar la actividad "pago" en el cronograma por id (preferido) o por nombre
   const pagoActIdx = allActs.findIndex(a =>
-    a.id === pago.triggerActId || a.name === pago.nombre
+    pago.triggerActId ? a.id === pago.triggerActId : a.name === pago.nombre
   );
   if(pagoActIdx < 0) return {label:'Futuro', cls:'pendiente'};
 
@@ -8840,22 +8889,30 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
   // ── Sync cobros → crono ──
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(brand){
-    let actEncontrada = null;
-    ['aire','agua','tierra','fuego'].forEach(st=>{
-      (brand.cronograma?.[st]||[]).forEach(a=>{
-        if(a.id === pago.triggerActId || a.name === pago.nombre){
-          actEncontrada = a;
-        }
-      });
-    });
-    if(actEncontrada){
+    // 🔒 Emparejar por triggerActId (id único). Si el id no encuentra actividad
+    // (p.ej. el cronograma se regeneró con ids nuevos → id huérfano), caer a NOMBRE,
+    // pero SOLO si hay exactamente UNA actividad con ese nombre (evita marcar la
+    // equivocada cuando hay nombres repetidos). Si reconecta por nombre, reparamos
+    // el triggerActId para que vuelva a quedar bien vinculado.
+    const todasActs = ['aire','agua','tierra','fuego'].flatMap(st=>(brand.cronograma?.[st]||[]).map(a=>({a,st})));
+    let match = pago.triggerActId ? todasActs.find(x=>x.a.id===pago.triggerActId) : null;
+    if(!match){
+      const porNombre = todasActs.filter(x=>(x.a.name||'').trim().toLowerCase() === (pago.nombre||'').trim().toLowerCase());
+      if(porNombre.length === 1){
+        match = porNombre[0];
+        // Reparar el vínculo
+        pago.triggerActId = match.a.id;
+        CobrosDB.savePago(brandId, pago);
+      }
+    }
+    if(match){
+      const act = match.a;
       const deberiaEstar = pago.cobrado ? 'completada' : 'pendiente';
-      if(actEncontrada.status !== deberiaEstar){
-        actEncontrada.status = deberiaEstar;
+      if(act.status !== deberiaEstar){
+        act.status = deberiaEstar;
         markLocalChange('brands');
         syncBrandStage(brand);
         if(currentBrandId===brandId) renderBrandCrono(brand);
-        // Upsert para guardar el cambio de crono (no es cobro)
         upsert();
       }
     }
@@ -9252,18 +9309,22 @@ async function toggleCobPagoTabla(brandId, pagoId){ markLocalChange("cobros","fi
   // ── Sync cobros → crono ──
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(brand){
-    let actEncontrada = null;
-    ['aire','agua','tierra','fuego'].forEach(st=>{
-      (brand.cronograma?.[st]||[]).forEach(a=>{
-        if(a.id === pago.triggerActId || a.name === pago.nombre){
-          actEncontrada = a;
-        }
-      });
-    });
-    if(actEncontrada){
+    // 🔒 Por id; si huérfano, por nombre solo si es único. Repara el vínculo.
+    const todasActs = ['aire','agua','tierra','fuego'].flatMap(st=>(brand.cronograma?.[st]||[]).map(a=>({a,st})));
+    let match = pago.triggerActId ? todasActs.find(x=>x.a.id===pago.triggerActId) : null;
+    if(!match){
+      const porNombre = todasActs.filter(x=>(x.a.name||'').trim().toLowerCase() === (pago.nombre||'').trim().toLowerCase());
+      if(porNombre.length === 1){
+        match = porNombre[0];
+        pago.triggerActId = match.a.id;
+        CobrosDB.savePago(brandId, pago);
+      }
+    }
+    if(match){
+      const act = match.a;
       const deberiaEstar = pago.cobrado ? 'completada' : 'pendiente';
-      if(actEncontrada.status !== deberiaEstar){
-        actEncontrada.status = deberiaEstar;
+      if(act.status !== deberiaEstar){
+        act.status = deberiaEstar;
         markLocalChange('brands');
         syncBrandStage(brand);
         if(currentBrandId===brandId) renderBrandCrono(brand);
@@ -12061,10 +12122,15 @@ async function cycleStatus(brandId,stage,actId){
     ensureCobrosData();
     const cob = appData.cobros[brandId];
     if(cob){
-      const pago = cob.pagos?.find(p=>
-        p.triggerActId === act.id ||
-        p.nombre === act.name
-      );
+      // Por triggerActId; si ninguno, por nombre solo si hay un único pago con ese nombre
+      let pago = cob.pagos?.find(p=>p.triggerActId === act.id);
+      if(!pago){
+        const porNombre = (cob.pagos||[]).filter(p=>(p.nombre||'').trim().toLowerCase() === (act.name||'').trim().toLowerCase());
+        if(porNombre.length === 1){
+          pago = porNombre[0];
+          pago.triggerActId = act.id; // reparar vínculo
+        }
+      }
       if(pago){
         const shouldBeCobrado = act.status === 'completada';
         if(shouldBeCobrado !== pago.cobrado){
