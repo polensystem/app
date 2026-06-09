@@ -10827,7 +10827,26 @@ async function renderBrandPage(){
   let needsSave = false;
   let cronoInjected = false;
   let bpInjected = false;
-  if(!brand.cronograma || Object.values(brand.cronograma).every(arr=>!arr||arr.length===0)){
+  // 🔒 GUARDA ANTI-DUPLICADOS: solo auto-inyectar el cronograma si las tablas YA
+  // terminaron de cargar. Antes, si CronoDB.loadAll aún no había traído las
+  // actividades (o el bug de paginación las dejaba fuera), el cronograma se veía
+  // "vacío" y se re-inyectaba con ids NUEVOS en cada apertura → duplicados x2, x3, x4.
+  // Verificamos además en la tabla, no solo en memoria, antes de inyectar.
+  const _cronoVacioEnMemoria = !brand.cronograma || Object.values(brand.cronograma).every(arr=>!arr||arr.length===0);
+  let _cronoRealmenteVacio = _cronoVacioEnMemoria;
+  if(_cronoVacioEnMemoria && window.CronoDB){
+    try{
+      const tablaCrono = await CronoDB.loadAll();
+      const enTabla = tablaCrono && tablaCrono[brand.id];
+      if(enTabla && Object.values(enTabla).some(arr=>arr&&arr.length)){
+        // La tabla SÍ tiene actividades — hidratar en memoria y NO inyectar.
+        brand.cronograma = enTabla;
+        _cronoRealmenteVacio = false;
+        console.log('[Polen] Cronograma hidratado de tabla (evitada re-inyección) para', brand.name);
+      }
+    }catch(e){ console.warn('[Polen] verificación de cronograma en tabla falló:', e); }
+  }
+  if(_cronoRealmenteVacio){
     const tpl = appData.template || defaultTemplate();
     const start = brand.createdAt ? brand.createdAt.slice(0,10) : todayStr();
     const tplWithNaming = {...tpl, includeNaming: brand.includeNaming !== false};
