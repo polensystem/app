@@ -8528,29 +8528,36 @@ function _reconcilePagosWithCrono(brand){
   cob.pagos = [...nuevosPagos, ...pagosConValor, ...manuales];
 
   // 🔒 RE-ALINEAR estados desfasados: si un pago está cobrado pero su actividad
-  // del cronograma sigue 'pendiente' (o viceversa), alinear la actividad al pago.
-  // Esto repara casos viejos (p.ej. pago cobrado en Cobros pero sin check en crono).
-  let _alineado = false;
+  // del cronograma sigue 'pendiente', alinear la actividad al pago Y PERSISTIRLA
+  // en polen_crono. Antes solo se cambiaba en memoria → otros usuarios (que leen el
+  // status de la tabla) no veían el check marcado. Ahora se guarda en la tabla.
+  const _actsRealineadas = [];
   cob.pagos.forEach(p=>{
     if(!p.triggerActId && p.triggerType==='manual') return;
-    // Buscar la actividad por id
-    let actMatch = null;
+    let actMatch = null, actStage = null, actIdx = -1;
     for(const st of ['aire','agua','tierra','fuego']){
       const arr = brand.cronograma?.[st]||[];
-      actMatch = arr.find(a=>a.id===p.triggerActId);
-      if(actMatch) break;
+      const i = arr.findIndex(a=>a.id===p.triggerActId);
+      if(i>=0){ actMatch = arr[i]; actStage = st; actIdx = i; break; }
     }
-    if(actMatch){
-      const deberia = p.cobrado ? 'completada' : (actMatch.status==='completada' ? 'pendiente' : actMatch.status);
-      // Solo forzamos a 'completada' si el pago está cobrado; no desmarcamos avance
-      // de actividades que el equipo haya completado por otras razones.
-      if(p.cobrado && actMatch.status!=='completada'){
-        actMatch.status = 'completada';
-        _alineado = true;
-      }
+    if(actMatch && p.cobrado && actMatch.status!=='completada'){
+      actMatch.status = 'completada';
+      _actsRealineadas.push({ act: actMatch, stage: actStage, idx: actIdx });
     }
   });
-  if(_alineado){ markLocalChange('brands'); }
+  if(_actsRealineadas.length){
+    markLocalChange('brands');
+    // Persistir en polen_crono (async, sin bloquear) para que TODOS los usuarios lo vean
+    if(window.CronoDB){
+      (async()=>{
+        try{
+          for(const r of _actsRealineadas){
+            await CronoDB.saveAct(brand.id, r.stage, r.act, r.idx);
+          }
+        }catch(e){ console.warn('[Polen] persistir re-alineación de crono falló:', e); }
+      })();
+    }
+  }
 }
 
 // Build pagos array strictly from cronograma hitos — no generics
@@ -8911,6 +8918,10 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
       if(act.status !== deberiaEstar){
         act.status = deberiaEstar;
         markLocalChange('brands');
+        if(window.CronoDB){
+          const idx = (brand.cronograma[match.st]||[]).findIndex(a=>a.id===act.id);
+          if(idx>=0){ try{ await CronoDB.saveAct(brandId, match.st, act, idx); }catch(e){ console.warn('saveAct crono falló:',e); } }
+        }
         syncBrandStage(brand);
         if(currentBrandId===brandId) renderBrandCrono(brand);
         upsert();
@@ -9326,6 +9337,10 @@ async function toggleCobPagoTabla(brandId, pagoId){ markLocalChange("cobros","fi
       if(act.status !== deberiaEstar){
         act.status = deberiaEstar;
         markLocalChange('brands');
+        if(window.CronoDB){
+          const idx = (brand.cronograma[match.st]||[]).findIndex(a=>a.id===act.id);
+          if(idx>=0){ try{ await CronoDB.saveAct(brandId, match.st, act, idx); }catch(e){ console.warn('saveAct crono falló:',e); } }
+        }
         syncBrandStage(brand);
         if(currentBrandId===brandId) renderBrandCrono(brand);
         upsert();
