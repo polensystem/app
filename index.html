@@ -73,6 +73,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .btn-reload:disabled{opacity:0.5;cursor:not-allowed;}
 .btn-add{display:flex;align-items:center;gap:0.45rem;padding:0.5rem 1.1rem;border-radius:99px;border:none;background:var(--text);color:var(--bg);font-size:0.82rem;font-weight:700;cursor:pointer;transition:all var(--transition);font-family:var(--font);}
 .btn-add:hover{opacity:0.85;transform:translateY(-1px);}
+/* ── Trayectoria ── */
+.tray-select{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.7rem;font-size:0.78rem;color:var(--text2);font-family:var(--font);cursor:pointer;outline:none;}
+.tray-grid-wrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.6rem;}
+.tray-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:0.9rem 1rem;cursor:pointer;transition:all var(--transition);display:flex;flex-direction:column;gap:0.45rem;text-align:left;}
+.tray-card:hover{border-color:var(--tierra);transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,0.06);}
+.tray-card-logo{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.05rem;color:#fff;flex-shrink:0;overflow:hidden;}
+.tray-card-logo img{width:100%;height:100%;object-fit:cover;}
+.tray-card-name{font-weight:700;font-size:0.9rem;color:var(--text);line-height:1.25;}
+.tray-card-meta{font-size:0.7rem;color:var(--text3);line-height:1.4;}
+.tray-chip{display:inline-block;background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.12rem 0.5rem;font-size:0.64rem;color:var(--text2);margin:0.1rem 0.1rem 0 0;}
+.tray-stat-num{font-size:2rem;font-weight:800;color:var(--text);line-height:1;}
 .btn-back{display:flex;align-items:center;gap:0.4rem;padding:0.45rem 0.9rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);font-size:0.82rem;font-weight:600;cursor:pointer;transition:all var(--transition);font-family:var(--font);}
 .btn-back:hover{color:var(--text);}
 
@@ -1959,6 +1970,9 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
     <button class="nav-item" id="nav-cobranzas" onclick="goToCobranzas()" style="opacity:0.45;filter:blur(0.3px)">
       <span class="nav-icon">💳</span><span class="nav-text">Cobranzas</span>
     </button>
+    <button class="nav-item" id="nav-trayectoria" onclick="goToTrayectoria()">
+      <span class="nav-icon">🗺️</span><span class="nav-text">Trayectoria</span>
+    </button>
   </div>
 </aside>
 
@@ -3203,8 +3217,49 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
     </div>
   </div>
 
-  <!-- PAGE: DIAGNÓSTICO -->
-  <div class="page" id="page-diag">
+  <!-- PAGE: TRAYECTORIA -->
+  <div class="page" id="page-trayectoria">
+    <div class="content">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;margin-bottom:1rem">
+        <div>
+          <div style="font-size:1.2rem;font-weight:800;color:var(--text)">🗺️ Trayectoria</div>
+          <div style="font-size:0.72rem;color:var(--text3);margin-top:0.2rem">Catálogo histórico de todas las marcas que Polen ha creado</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <button onclick="openTrayModal()" class="btn-add" style="background:var(--tierra)">+ Agregar marca</button>
+          <button onclick="openTrayIndustriasModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.74rem;color:var(--text2);cursor:pointer;font-family:var(--font)">🏷️ Industrias</button>
+        </div>
+      </div>
+
+      <!-- Buscador -->
+      <input id="tray-search" type="text" placeholder="Buscar marca..." oninput="renderTrayectoria()"
+        style="width:100%;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.8rem 1rem;color:var(--text);font-family:var(--font);font-size:0.95rem;outline:none;margin-bottom:0.8rem">
+
+      <!-- Filtros -->
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;margin-bottom:0.8rem">
+        <select id="tray-orden" onchange="renderTrayectoria()" class="tray-select">
+          <option value="az">Ordenar: A → Z</option>
+          <option value="za">Ordenar: Z → A</option>
+          <option value="anio-desc">Año: más reciente</option>
+          <option value="anio-asc">Año: más antiguo</option>
+        </select>
+        <select id="tray-filtro-industria" onchange="renderTrayectoria()" class="tray-select">
+          <option value="">Todas las industrias</option>
+        </select>
+        <select id="tray-filtro-anio" onchange="renderTrayectoria()" class="tray-select">
+          <option value="">Todos los años</option>
+        </select>
+        <button onclick="clearTrayFiltros()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">Limpiar</button>
+      </div>
+
+      <!-- Grilla de marcas -->
+      <div id="tray-grid"></div>
+
+      <!-- Contador / resumen -->
+      <div id="tray-resumen" style="margin-top:1.5rem"></div>
+    </div>
+  </div>
+
     <div class="content">
       <div style="margin-bottom:1.5rem">
         <div style="font-size:1.3rem;font-weight:800;letter-spacing:-0.5px">🔬 Diagnóstico</div>
@@ -4261,6 +4316,109 @@ window.CobrosDB = (function(){
   }
 
   return { loadAll, savePago, deletePago, savePagosBatch, migrateFromJson, subscribeRealtime, rowToPago, pagoToRow };
+})();
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   🔒 MÓDULO TRAYECTORIA-DB — Catálogo histórico de marcas (tabla polen_trayectoria)
+   ══════════════════════════════════════════════════════════════════════════════
+   Una fila por marca histórica + un registro especial id='_config' con las listas
+   maestras (industrias). Las marcas referencian industrias por id, en extra.industrias.
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.TrayectoriaDB = (function(){
+  const TABLE = 'polen_trayectoria';
+  const _recent = new Map();
+  function markOwn(id){ _recent.set(id, Date.now()); setTimeout(()=>_recent.delete(id), 2500); }
+  function isOwnEcho(id){ const t=_recent.get(id); return t && (Date.now()-t)<2500; }
+
+  function rowToMarca(row){
+    const ex = row.extra || {};
+    return {
+      id: row.id,
+      nombre: row.nombre || '',
+      anio: row.anio || null,
+      orden: row.orden || 0,
+      industrias: Array.isArray(ex.industrias) ? ex.industrias : [],
+      logoUrl: ex.logoUrl || '',
+      descripcion: ex.descripcion || '',
+    };
+  }
+  function marcaToRow(m){
+    return {
+      id: m.id,
+      nombre: m.nombre || '',
+      anio: m.anio || null,
+      orden: m.orden || 0,
+      extra: {
+        industrias: Array.isArray(m.industrias) ? m.industrias : [],
+        logoUrl: m.logoUrl || '',
+        descripcion: m.descripcion || '',
+      },
+    };
+  }
+
+  async function loadAll(){
+    try{
+      const { data, error } = await sbSelectAll(TABLE, q=>q.order('orden'));
+      if(error){ console.error('[TrayectoriaDB] loadAll error:', error); return null; }
+      const marcas = [];
+      let config = { industrias: [] };
+      (data||[]).forEach(row=>{
+        if(row.id === '_config'){
+          const ex = row.extra || {};
+          config = { industrias: Array.isArray(ex.industrias) ? ex.industrias : [] };
+        } else {
+          marcas.push(rowToMarca(row));
+        }
+      });
+      console.log('[TrayectoriaDB] Cargadas', marcas.length, 'marcas,', config.industrias.length, 'industrias');
+      return { marcas, config };
+    }catch(e){ console.error('[TrayectoriaDB] loadAll crashed:', e); return null; }
+  }
+
+  async function saveMarca(m){
+    try{
+      const row = marcaToRow(m);
+      row.updated_at = new Date().toISOString();
+      markOwn(m.id);
+      const { error } = await sb.from(TABLE).upsert(row, { onConflict: 'id' });
+      if(error){ console.error('[TrayectoriaDB] saveMarca error:', error); return false; }
+      return true;
+    }catch(e){ console.error('[TrayectoriaDB] saveMarca crashed:', e); return false; }
+  }
+
+  async function deleteMarca(id){
+    try{
+      markOwn(id);
+      const { error } = await sb.from(TABLE).delete().eq('id', id);
+      if(error){ console.error('[TrayectoriaDB] deleteMarca error:', error); return false; }
+      return true;
+    }catch(e){ console.error('[TrayectoriaDB] deleteMarca crashed:', e); return false; }
+  }
+
+  async function saveConfig(config){
+    try{
+      markOwn('_config');
+      const row = { id:'_config', nombre:'_config', anio:null, orden:-1,
+        extra:{ industrias: config.industrias||[] }, updated_at:new Date().toISOString() };
+      const { error } = await sb.from(TABLE).upsert(row, { onConflict: 'id' });
+      if(error){ console.error('[TrayectoriaDB] saveConfig error:', error); return false; }
+      return true;
+    }catch(e){ console.error('[TrayectoriaDB] saveConfig crashed:', e); return false; }
+  }
+
+  function subscribeRealtime(onChange){
+    try{
+      sb.channel('polen_trayectoria_rt')
+        .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
+          const id = (payload.new && payload.new.id) || (payload.old && payload.old.id);
+          if(isOwnEcho(id)) return;
+          if(typeof onChange==='function') onChange();
+        })
+        .subscribe();
+    }catch(e){ console.warn('[TrayectoriaDB] subscribeRealtime falló:', e); }
+  }
+
+  return { loadAll, saveMarca, deleteMarca, saveConfig, subscribeRealtime, rowToMarca, marcaToRow };
 })();
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -8348,6 +8506,330 @@ function goToCobranzas(){
   _updateBackBtn();
 }
 
+// ════════════════════════════════════════════════════════════
+// TRAYECTORIA — catálogo histórico de marcas
+// ════════════════════════════════════════════════════════════
+function escapeHtml(s){
+  return String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+window._trayData = { marcas: [], config: { industrias: [] }, loaded: false };
+
+async function goToTrayectoria(){
+  _navHistory.push({ page: currentPage, brandId: currentBrandId||null });
+  if(_navHistory.length > 30) _navHistory.shift();
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const nEl=document.getElementById('nav-trayectoria'); if(nEl) nEl.classList.add('active');
+  const pEl=document.getElementById('page-trayectoria'); if(pEl) pEl.classList.add('active');
+  (document.getElementById('header-title')||{}).textContent='Trayectoria';
+  currentPage='trayectoria';
+  updateGlobalBreadcrumb('trayectoria');
+  _updateBackBtn();
+  closeMobileSidebar && closeMobileSidebar();
+
+  // Cargar datos desde la tabla
+  const grid = document.getElementById('tray-grid');
+  if(grid) grid.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:2rem;text-align:center">Cargando catálogo...</div>';
+  await loadTrayectoria();
+  poblarTrayFiltros();
+  renderTrayectoria();
+}
+
+async function loadTrayectoria(){
+  if(!window.TrayectoriaDB) return;
+  const res = await TrayectoriaDB.loadAll();
+  if(res){
+    _trayData.marcas = res.marcas || [];
+    _trayData.config = res.config || { industrias: [] };
+    _trayData.loaded = true;
+  }
+}
+
+function _trayIndById(id){
+  return (_trayData.config.industrias||[]).find(i=>i.id===id);
+}
+function _trayIndNombre(id){
+  const i = _trayIndById(id); return i ? i.nombre : '';
+}
+function _trayColorFor(str){
+  const colors = ['#e07a5f','#3d9edd','#81b29a','#f2cc8f','#9b8bd4','#e29578','#6db5a4','#d4a373','#a8826b','#7d9bc1','#c98bb9','#8fb573','#d98c8c'];
+  let h=0; for(let i=0;i<(str||'').length;i++) h=(h*31+str.charCodeAt(i))>>>0;
+  return colors[h % colors.length];
+}
+
+function poblarTrayFiltros(){
+  // Industrias (ordenadas por nombre)
+  const selInd = document.getElementById('tray-filtro-industria');
+  if(selInd){
+    const inds = [...(_trayData.config.industrias||[])].sort((a,b)=>a.nombre.localeCompare(b.nombre));
+    selInd.innerHTML = '<option value="">Todas las industrias</option>' +
+      inds.map(i=>`<option value="${i.id}">${escapeHtml(i.nombre)}</option>`).join('');
+  }
+  // Años
+  const selAnio = document.getElementById('tray-filtro-anio');
+  if(selAnio){
+    const anios = [...new Set(_trayData.marcas.map(m=>m.anio).filter(Boolean))].sort((a,b)=>b-a);
+    selAnio.innerHTML = '<option value="">Todos los años</option>' +
+      anios.map(a=>`<option value="${a}">${a}</option>`).join('');
+  }
+}
+
+function clearTrayFiltros(){
+  ['tray-search','tray-filtro-industria','tray-filtro-anio'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  const o=document.getElementById('tray-orden'); if(o) o.value='az';
+  renderTrayectoria();
+}
+
+function renderTrayectoria(){
+  const grid = document.getElementById('tray-grid');
+  const resumen = document.getElementById('tray-resumen');
+  if(!grid) return;
+
+  const q = (document.getElementById('tray-search')?.value||'').trim().toLowerCase();
+  const fInd = document.getElementById('tray-filtro-industria')?.value||'';
+  const fAnio = document.getElementById('tray-filtro-anio')?.value||'';
+  const orden = document.getElementById('tray-orden')?.value||'az';
+
+  let lista = _trayData.marcas.filter(m=>{
+    if(q && !(m.nombre||'').toLowerCase().includes(q)) return false;
+    if(fInd && !(m.industrias||[]).includes(fInd)) return false;
+    if(fAnio && String(m.anio)!==String(fAnio)) return false;
+    return true;
+  });
+
+  lista.sort((a,b)=>{
+    if(orden==='az') return (a.nombre||'').localeCompare(b.nombre||'');
+    if(orden==='za') return (b.nombre||'').localeCompare(a.nombre||'');
+    if(orden==='anio-desc') return (b.anio||0)-(a.anio||0) || (a.nombre||'').localeCompare(b.nombre||'');
+    if(orden==='anio-asc') return (a.anio||0)-(b.anio||0) || (a.nombre||'').localeCompare(b.nombre||'');
+    return 0;
+  });
+
+  if(!lista.length){
+    grid.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:2rem;text-align:center">No hay marcas que coincidan con los filtros.</div>';
+  } else {
+    grid.innerHTML = '<div class="tray-grid-wrap">' + lista.map(m=>{
+      const inicial = (m.nombre||'?').trim().charAt(0).toUpperCase();
+      const col = _trayColorFor(m.nombre);
+      const logo = m.logoUrl
+        ? `<div class="tray-card-logo"><img src="${escapeHtml(m.logoUrl)}" alt=""></div>`
+        : `<div class="tray-card-logo" style="background:${col}">${inicial}</div>`;
+      const chips = (m.industrias||[]).map(id=>`<span class="tray-chip">${escapeHtml(_trayIndNombre(id))}</span>`).join('');
+      return `<div class="tray-card" onclick="openTrayModal('${m.id}')">
+        ${logo}
+        <div class="tray-card-name">${escapeHtml(m.nombre)}</div>
+        <div class="tray-card-meta">${m.anio||''}</div>
+        <div>${chips}</div>
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  // Resumen / contador con desglose por industria
+  if(resumen){
+    const total = lista.length;
+    const totalGlobal = _trayData.marcas.length;
+    const porInd = {};
+    lista.forEach(m=>(m.industrias||[]).forEach(id=>{ porInd[id]=(porInd[id]||0)+1; }));
+    const desglose = Object.entries(porInd)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([id,n])=>`<span class="tray-chip" style="font-size:0.7rem">${escapeHtml(_trayIndNombre(id))}: <b>${n}</b></span>`).join(' ');
+    resumen.innerHTML = `<div style="border-top:1px solid var(--border);padding-top:1rem">
+      <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em">Total ${total<totalGlobal?'(filtradas)':''}</div>
+      <div class="tray-stat-num">${total}${total<totalGlobal?` <span style="font-size:0.9rem;color:var(--text3);font-weight:600">de ${totalGlobal}</span>`:''}</div>
+      <div style="margin-top:0.6rem;line-height:1.9">${desglose}</div>
+    </div>`;
+  }
+}
+
+// ── Modal agregar/editar marca ──
+function openTrayModal(id){
+  const m = id ? _trayData.marcas.find(x=>x.id===id) : null;
+  const esNueva = !m;
+  const inds = [...(_trayData.config.industrias||[])].sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const selectedInds = m ? (m.industrias||[]) : [];
+  const indChecks = inds.map(i=>`
+    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;color:var(--text2);cursor:pointer;padding:0.2rem 0">
+      <input type="checkbox" class="tray-ind-check" value="${i.id}" ${selectedInds.includes(i.id)?'checked':''}>
+      ${escapeHtml(i.nombre)}
+    </label>`).join('');
+
+  const html = `
+    <div style="display:flex;flex-direction:column;gap:0.9rem">
+      <div>
+        <label style="font-size:0.74rem;color:var(--text3);display:block;margin-bottom:0.3rem">Nombre de la marca *</label>
+        <input id="tray-m-nombre" type="text" value="${m?escapeHtml(m.nombre):''}" placeholder="Ej. Polen"
+          style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.8rem;color:var(--text);font-family:var(--font);outline:none">
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:var(--text3);display:block;margin-bottom:0.3rem">Año</label>
+        <input id="tray-m-anio" type="number" value="${m&&m.anio?m.anio:''}" placeholder="2025" min="1990" max="2100"
+          style="width:120px;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.8rem;color:var(--text);font-family:var(--font);outline:none">
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:var(--text3);display:block;margin-bottom:0.3rem">Industria(s)</label>
+        <div style="max-height:180px;overflow-y:auto;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.8rem">${indChecks||'<span style="color:var(--text3);font-size:0.78rem">No hay industrias. Agrégalas con el botón 🏷️ Industrias.</span>'}</div>
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:var(--text3);display:block;margin-bottom:0.3rem">Logo (URL, opcional)</label>
+        <input id="tray-m-logo" type="text" value="${m?escapeHtml(m.logoUrl):''}" placeholder="https://..."
+          style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.8rem;color:var(--text);font-family:var(--font);outline:none">
+      </div>
+      <div style="display:flex;gap:0.5rem;justify-content:space-between;align-items:center;margin-top:0.4rem">
+        <div>${!esNueva?`<button onclick="deleteTrayMarca('${m.id}')" style="background:none;border:1px solid #ef4444;color:#ef4444;border-radius:8px;padding:0.5rem 0.9rem;font-size:0.78rem;cursor:pointer;font-family:var(--font)">Eliminar</button>`:''}</div>
+        <div style="display:flex;gap:0.5rem">
+          <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.5rem 0.9rem;font-size:0.78rem;cursor:pointer;font-family:var(--font)">Cancelar</button>
+          <button onclick="saveTrayMarca('${m?m.id:''}')" class="btn-add" style="background:var(--tierra)">${esNueva?'Agregar':'Guardar'}</button>
+        </div>
+      </div>
+    </div>`;
+  openGenericModal(esNueva?'Agregar marca':'Editar marca', html);
+}
+
+async function saveTrayMarca(id){
+  const nombre = (document.getElementById('tray-m-nombre')?.value||'').trim();
+  if(!nombre){ showStatus('El nombre es obligatorio', true); return; }
+  const anioRaw = document.getElementById('tray-m-anio')?.value;
+  const anio = anioRaw ? parseInt(anioRaw,10) : null;
+  const logoUrl = (document.getElementById('tray-m-logo')?.value||'').trim();
+  const industrias = [...document.querySelectorAll('.tray-ind-check:checked')].map(c=>c.value);
+
+  let m;
+  if(id){
+    m = _trayData.marcas.find(x=>x.id===id);
+    if(!m){ showStatus('Marca no encontrada', true); return; }
+    m.nombre=nombre; m.anio=anio; m.logoUrl=logoUrl; m.industrias=industrias;
+  } else {
+    const newId = 'tr_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    m = { id:newId, nombre, anio, logoUrl, descripcion:'', industrias, orden:(_trayData.marcas.length) };
+    _trayData.marcas.push(m);
+  }
+  const ok = await TrayectoriaDB.saveMarca(m);
+  if(!ok){ showStatus('❌ Error al guardar', true); return; }
+  closeTrayModal();
+  poblarTrayFiltros();
+  renderTrayectoria();
+  showStatus(id?'Marca actualizada ✓':'Marca agregada ✓');
+}
+
+async function deleteTrayMarca(id){
+  const m = _trayData.marcas.find(x=>x.id===id);
+  if(!m) return;
+  const ok = await confirmModal('¿Eliminar "'+m.nombre+'" del catálogo? No se puede deshacer.', 'Eliminar marca');
+  if(!ok) return;
+  const done = await TrayectoriaDB.deleteMarca(id);
+  if(!done){ showStatus('❌ Error al eliminar', true); return; }
+  _trayData.marcas = _trayData.marcas.filter(x=>x.id!==id);
+  closeTrayModal();
+  poblarTrayFiltros();
+  renderTrayectoria();
+  showStatus('Marca eliminada');
+}
+
+// ── Modal gestión de industrias (lista maestra) ──
+function openTrayIndustriasModal(){
+  const inds = [...(_trayData.config.industrias||[])].sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const cuenta = id => _trayData.marcas.filter(m=>(m.industrias||[]).includes(id)).length;
+  const filas = inds.map(i=>`
+    <div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--border)">
+      <input type="text" value="${escapeHtml(i.nombre)}" data-indid="${i.id}" class="tray-ind-edit"
+        style="flex:1;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.8rem;outline:none">
+      <span style="font-size:0.68rem;color:var(--text3);white-space:nowrap">${cuenta(i.id)} marcas</span>
+      <button onclick="deleteTrayIndustria('${i.id}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:0.95rem;padding:0 0.3rem" title="Eliminar industria">✕</button>
+    </div>`).join('');
+  const html = `
+    <div style="display:flex;flex-direction:column;gap:0.8rem">
+      <div style="font-size:0.78rem;color:var(--text2);line-height:1.5">Edita el nombre de una industria (se actualiza en todas las marcas) o elimínala. Para crear una nueva, escríbela abajo.</div>
+      <div style="max-height:300px;overflow-y:auto">${filas||'<span style="color:var(--text3);font-size:0.8rem">No hay industrias aún.</span>'}</div>
+      <div style="display:flex;gap:0.5rem;align-items:center;border-top:1px solid var(--border);padding-top:0.7rem">
+        <input id="tray-nueva-ind" type="text" placeholder="Nueva industria..."
+          style="flex:1;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem;color:var(--text);font-family:var(--font);font-size:0.82rem;outline:none"
+          onkeydown="if(event.key==='Enter')addTrayIndustria()">
+        <button onclick="addTrayIndustria()" class="btn-add" style="background:var(--aire)">+ Agregar</button>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.4rem">
+        <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.5rem 0.9rem;font-size:0.78rem;cursor:pointer;font-family:var(--font)">Cerrar</button>
+        <button onclick="saveTrayIndustriasEdits()" class="btn-add" style="background:var(--tierra)">Guardar cambios</button>
+      </div>
+    </div>`;
+  openGenericModal('🏷️ Industrias', html);
+}
+
+async function addTrayIndustria(){
+  const inp = document.getElementById('tray-nueva-ind');
+  const nombre = (inp?.value||'').trim();
+  if(!nombre) return;
+  const id = 'ind_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  _trayData.config.industrias.push({ id, nombre });
+  await TrayectoriaDB.saveConfig(_trayData.config);
+  poblarTrayFiltros();
+  openTrayIndustriasModal();
+  renderTrayectoria();
+}
+
+async function deleteTrayIndustria(id){
+  const ind = _trayData.config.industrias.find(i=>i.id===id);
+  if(!ind) return;
+  const n = _trayData.marcas.filter(m=>(m.industrias||[]).includes(id)).length;
+  const msg = n>0
+    ? `"${ind.nombre}" está asignada a ${n} marca(s). Si la eliminas, se quitará de esas marcas. ¿Continuar?`
+    : `¿Eliminar la industria "${ind.nombre}"?`;
+  const ok = await confirmModal(msg, 'Eliminar industria');
+  if(!ok) return;
+  _trayData.config.industrias = _trayData.config.industrias.filter(i=>i.id!==id);
+  await TrayectoriaDB.saveConfig(_trayData.config);
+  // Quitar de las marcas que la tenían y guardarlas
+  const afectadas = _trayData.marcas.filter(m=>(m.industrias||[]).includes(id));
+  for(const m of afectadas){
+    m.industrias = m.industrias.filter(x=>x!==id);
+    await TrayectoriaDB.saveMarca(m);
+  }
+  poblarTrayFiltros();
+  openTrayIndustriasModal();
+  renderTrayectoria();
+  showStatus('Industria eliminada');
+}
+
+async function saveTrayIndustriasEdits(){
+  const inputs = [...document.querySelectorAll('.tray-ind-edit')];
+  let changed = false;
+  inputs.forEach(inp=>{
+    const id = inp.getAttribute('data-indid');
+    const nuevo = inp.value.trim();
+    const ind = _trayData.config.industrias.find(i=>i.id===id);
+    if(ind && nuevo && ind.nombre!==nuevo){ ind.nombre = nuevo; changed = true; }
+  });
+  if(changed){
+    await TrayectoriaDB.saveConfig(_trayData.config);
+    poblarTrayFiltros();
+    renderTrayectoria();
+    showStatus('Industrias actualizadas ✓');
+  }
+  closeTrayModal();
+}
+
+// ── Modal genérico simple (reutilizable) ──
+function openGenericModal(titulo, innerHTML){
+  let modal = document.getElementById('tray-generic-modal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'tray-generic-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:1rem';
+    modal.onclick = (e)=>{ if(e.target===modal) closeTrayModal(); };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `<div style="background:var(--bg);border:1px solid var(--border);border-radius:18px;padding:1.5rem;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,0.2)">
+    <div style="font-size:1.05rem;font-weight:800;color:var(--text);margin-bottom:1rem">${escapeHtml(titulo)}</div>
+    ${innerHTML}
+  </div>`;
+  modal.style.display='flex';
+}
+function closeTrayModal(){
+  const modal = document.getElementById('tray-generic-modal');
+  if(modal) modal.style.display='none';
+}
+
 function checkCobPin(){
   ensureFinData();
   const pin = appData.finanzas.cobPin || COB_PIN_DEFAULT;
@@ -9597,6 +10079,10 @@ function renderCurrentPage(){
     if(currentPage==='cobranzas'&&_cobUnlocked)renderCobranzas();
     if(currentPage==='archivo')renderArchivo();
     if(currentPage==='diag')renderDiag();
+    if(currentPage==='trayectoria'){
+      if(!_trayData.loaded){ loadTrayectoria().then(()=>{ poblarTrayFiltros(); renderTrayectoria(); }); }
+      else { poblarTrayFiltros(); renderTrayectoria(); }
+    }
   } catch(e) {
     console.error('renderCurrentPage error:', e);
   }
@@ -17318,6 +17804,19 @@ async function boot(){
     try { syncCobrosToFin(); } catch(e){}
   });
 
+  // 🔒 Suscripción realtime a Trayectoria — refresca el catálogo si otro usuario edita
+  if(window.TrayectoriaDB){
+    TrayectoriaDB.subscribeRealtime(async ()=>{
+      try{
+        if(currentPage==='trayectoria'){
+          await loadTrayectoria();
+          poblarTrayFiltros();
+          renderTrayectoria();
+        }
+      }catch(e){}
+    });
+  }
+
   // 🔒 Suscripción realtime a la tabla de BP de marca
   // Cambios de otros usuarios llegan por item, no por JSON completo
   BrandBpDB.subscribeRealtime((payload)=>{
@@ -17905,9 +18404,12 @@ function getApprovalQuestions(brand, stage){
 function classifyApprovalAnswer(stage, questionId, answer, brand){
   if(!answer) return null;
   const qs = brand ? getApprovalQuestions(brand, stage) : (APPROVAL_QUESTIONS[stage]||[]);
-  const qDef = qs.find(q=>q.id===questionId);
+  const qDef = (qs||[]).find(q=>q.id===questionId);
   if(!qDef) return null;
-  const idx = qDef.options.indexOf(answer);
+  // 🔒 Guarda: una pregunta sin 'options' (o no-array) causaba crash en .indexOf,
+  // dejando la página de aprobaciones en blanco. Tratamos como ajustes por seguridad.
+  const opts = Array.isArray(qDef.options) ? qDef.options : [];
+  const idx = opts.indexOf(answer);
   if(idx < 0) return 'adjustments'; // respuesta no reconocida, asumimos ajustes por seguridad
   if(idx === 0) return 'positive';
   return 'adjustments';
@@ -18623,7 +19125,7 @@ function portalRenderAprobaciones(brand){
       <div style="font-size:1rem;font-weight:800;color:var(--text);margin-bottom:0.5rem">✅ Aprobaciones por etapa</div>
       <p style="font-size:0.82rem;color:var(--text2);line-height:1.6;margin:0">A medida que tu proyecto avanza, cada etapa habilitará su formulario de aprobación. Confirmar cada sección nos permite continuar con la siguiente con total alineación.</p>
     </div>
-    ${stageOrder.map(renderStage).join('')}
+    ${stageOrder.map(s=>{ try{ return renderStage(s); }catch(err){ console.error('[Polen] error render etapa aprobaciones', s, err); return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:0.6rem;font-size:0.8rem;color:var(--text3)">Esta etapa no se pudo mostrar ('+s+'). Las demás siguen disponibles.</div>'; } }).join('')}
     ${unifiedHistoryHTML}
   `;
 }
