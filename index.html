@@ -100,6 +100,35 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .tray-view-toggle{display:inline-flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 .tray-view-toggle button{background:none;border:none;padding:0.4rem 0.7rem;font-size:0.82rem;cursor:pointer;color:var(--text3);font-family:var(--font);}
 .tray-view-toggle button.active{background:var(--text);color:var(--bg);}
+/* ── CRM Kanban ── */
+.crm-board-wrap{display:flex;gap:0.75rem;align-items:flex-start;min-height:200px;padding-bottom:1rem;}
+.crm-col{background:var(--bg-card2);border:1px solid var(--border);border-radius:14px;width:250px;flex-shrink:0;display:flex;flex-direction:column;max-height:calc(100vh - 240px);}
+.crm-col-head{padding:0.7rem 0.85rem;display:flex;align-items:center;gap:0.5rem;border-bottom:1px solid var(--border);position:sticky;top:0;}
+.crm-col-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.crm-col-title{font-weight:800;font-size:0.82rem;color:var(--text);flex:1;letter-spacing:-0.01em;}
+.crm-col-count{font-size:0.66rem;color:var(--text3);background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.05rem 0.45rem;font-weight:700;}
+.crm-col-body{padding:0.55rem;display:flex;flex-direction:column;gap:0.5rem;overflow-y:auto;flex:1;min-height:60px;}
+.crm-col-body.drag-over{background:var(--bg-card);outline:2px dashed var(--tierra);outline-offset:-4px;border-radius:10px;}
+.crm-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.7rem;cursor:grab;transition:box-shadow var(--transition),transform var(--transition);border-left:3px solid var(--border);}
+.crm-card:hover{box-shadow:0 3px 12px rgba(0,0,0,0.08);}
+.crm-card:active{cursor:grabbing;}
+.crm-card.dragging{opacity:0.4;}
+.crm-card-name{font-weight:700;font-size:0.85rem;color:var(--text);line-height:1.2;margin-bottom:0.25rem;}
+.crm-card-contact{font-size:0.68rem;color:var(--text3);line-height:1.3;}
+.crm-card-foot{display:flex;align-items:center;justify-content:space-between;margin-top:0.4rem;}
+.crm-sem{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.crm-sem-v{background:#22c55e;} .crm-sem-a{background:#eab308;} .crm-sem-r{background:#ef4444;}
+.crm-card-date{font-size:0.62rem;color:var(--text3);}
+.crm-add-card{background:none;border:1px dashed var(--border);border-radius:8px;padding:0.4rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font);width:100%;}
+.crm-add-card:hover{color:var(--text2);border-color:var(--text3);}
+.crm-table-row{cursor:pointer;}
+.crm-table-detail td{border-bottom:1px solid var(--border);}
+.crm-col-head{position:relative;}
+.crm-col-collapse-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.72rem;padding:0 0.2rem;font-family:var(--font);line-height:1;}
+.crm-col-collapse-btn:hover{color:var(--text);}
+.crm-col-collapsed{width:42px !important;min-width:42px;cursor:pointer;align-items:center;padding:0.7rem 0;display:flex;flex-direction:column;align-items:center;transition:background var(--transition);}
+.crm-col-collapsed:hover{background:var(--bg-card);}
+.crm-col-vtitle{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:800;font-size:0.8rem;color:var(--text);letter-spacing:-0.01em;white-space:nowrap;margin-top:0.2rem;}
 .btn-back{display:flex;align-items:center;gap:0.4rem;padding:0.45rem 0.9rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);font-size:0.82rem;font-weight:600;cursor:pointer;transition:all var(--transition);font-family:var(--font);}
 .btn-back:hover{color:var(--text);}
 
@@ -1989,6 +2018,9 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
     <button class="nav-item" id="nav-trayectoria" onclick="goToTrayectoria()">
       <span class="nav-icon">🗺️</span><span class="nav-text">Trayectoria</span>
     </button>
+    <button class="nav-item" id="nav-crm" onclick="goToCRM()">
+      <span class="nav-icon">🎯</span><span class="nav-text">CRM</span>
+    </button>
   </div>
 </aside>
 
@@ -3282,6 +3314,33 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
     </div>
   </div>
 
+  <!-- PAGE: CRM -->
+  <div class="page" id="page-crm">
+    <div class="content">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;margin-bottom:1rem">
+        <div>
+          <div style="font-size:1.2rem;font-weight:800;color:var(--text)">🎯 CRM · Pipeline</div>
+          <div style="font-size:0.72rem;color:var(--text3);margin-top:0.2rem">Gestión de prospectos y proyectos en negociación</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <button onclick="openCrmModal()" class="btn-add" style="background:var(--tierra)">+ Agregar prospecto</button>
+          <button onclick="openCrmEtapasModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.74rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⚙️ Etapas</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem">
+        <input id="crm-search" type="text" placeholder="Buscar prospecto..." oninput="renderCRM()"
+          style="flex:1;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.7rem 1rem;color:var(--text);font-family:var(--font);font-size:0.9rem;outline:none">
+        <div class="tray-view-toggle">
+          <button id="crm-view-pipe" class="active" onclick="setCrmView('pipe')" title="Vista pipeline">▦</button>
+          <button id="crm-view-table" onclick="setCrmView('table')" title="Vista tabla">☰</button>
+        </div>
+        <button id="crm-collapse-all" onclick="crmCollapseAll()" title="Comprimir todas las columnas" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.7rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⟩⟨ Comprimir</button>
+        <button id="crm-expand-all" onclick="crmExpandAll()" title="Expandir todas las columnas" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.7rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⟨⟩ Expandir</button>
+      </div>
+      <div id="crm-board" style="overflow-x:auto"></div>
+    </div>
+  </div>
+
   <!-- PAGE: DIAGNÓSTICO -->
   <div class="page" id="page-diag">
     <div class="content">
@@ -4443,6 +4502,112 @@ window.TrayectoriaDB = (function(){
   }
 
   return { loadAll, saveMarca, deleteMarca, saveConfig, subscribeRealtime, rowToMarca, marcaToRow };
+})();
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   🔒 MÓDULO CRM-DB — Pipeline de ventas (tabla polen_crm)
+   ══════════════════════════════════════════════════════════════════════════════
+   Una fila por prospecto + un registro id='_config' con las etapas del pipeline
+   y los protocolos de seguimiento por prioridad.
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.CrmDB = (function(){
+  const TABLE = 'polen_crm';
+  const _recent = new Map();
+  function markOwn(id){ _recent.set(id, Date.now()); setTimeout(()=>_recent.delete(id), 2500); }
+  function isOwnEcho(id){ const t=_recent.get(id); return t && (Date.now()-t)<2500; }
+
+  function rowToItem(row){
+    const ex = row.extra || {};
+    return {
+      id: row.id,
+      nombre: row.nombre || '',
+      empresa: (row.extra||{}).empresa || '',
+      etapa: row.etapa || '',
+      prioridad: row.prioridad || 'verde',
+      contacto: row.contacto || '',
+      email: row.email || '',
+      telefono: row.telefono || '',
+      ultimoContacto: row.ultimo_contacto || '',
+      info: row.info || '',
+      orden: row.orden || 0,
+      marcaCreadaId: ex.marcaCreadaId || '',
+      freqCustom: ex.freqCustom || null,
+      propuestaUrl: ex.propuestaUrl || '',
+      historial: Array.isArray(ex.historial) ? ex.historial : [],
+    };
+  }
+  function itemToRow(it){
+    return {
+      id: it.id,
+      nombre: it.nombre || '',
+      etapa: it.etapa || '',
+      prioridad: it.prioridad || 'verde',
+      contacto: it.contacto || '',
+      email: it.email || '',
+      telefono: it.telefono || '',
+      ultimo_contacto: it.ultimoContacto || null,
+      info: it.info || '',
+      orden: it.orden || 0,
+      extra: { marcaCreadaId: it.marcaCreadaId||'', empresa: it.empresa||'', freqCustom: it.freqCustom||null, propuestaUrl: it.propuestaUrl||'', historial: it.historial||[] },
+    };
+  }
+
+  async function loadAll(){
+    try{
+      const { data, error } = await sbSelectAll(TABLE, q=>q.order('orden'));
+      if(error){ console.error('[CrmDB] loadAll error:', error); return null; }
+      const items = [];
+      let config = null;
+      (data||[]).forEach(row=>{
+        if(row.id === '_config'){ config = (row.extra||{}); }
+        else items.push(rowToItem(row));
+      });
+      return { items, config };
+    }catch(e){ console.error('[CrmDB] loadAll crashed:', e); return null; }
+  }
+
+  async function saveItem(it){
+    try{
+      const row = itemToRow(it); row.updated_at = new Date().toISOString();
+      markOwn(it.id);
+      const { error } = await sb.from(TABLE).upsert(row, { onConflict:'id' });
+      if(error){ console.error('[CrmDB] saveItem error:', error); return false; }
+      return true;
+    }catch(e){ console.error('[CrmDB] saveItem crashed:', e); return false; }
+  }
+
+  async function deleteItem(id){
+    try{
+      markOwn(id);
+      const { error } = await sb.from(TABLE).delete().eq('id', id);
+      if(error){ console.error('[CrmDB] deleteItem error:', error); return false; }
+      return true;
+    }catch(e){ console.error('[CrmDB] deleteItem crashed:', e); return false; }
+  }
+
+  async function saveConfig(config){
+    try{
+      markOwn('_config');
+      const row = { id:'_config', nombre:'_config', etapa:null, orden:-1, extra:config, updated_at:new Date().toISOString() };
+      const { error } = await sb.from(TABLE).upsert(row, { onConflict:'id' });
+      if(error){ console.error('[CrmDB] saveConfig error:', error); return false; }
+      return true;
+    }catch(e){ console.error('[CrmDB] saveConfig crashed:', e); return false; }
+  }
+
+  function subscribeRealtime(onChange){
+    try{
+      sb.channel('polen_crm_rt')
+        .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
+          const id = (payload.new && payload.new.id) || (payload.old && payload.old.id);
+          if(isOwnEcho(id)) return;
+          if(typeof onChange==='function') onChange();
+        })
+        .subscribe();
+    }catch(e){ console.warn('[CrmDB] subscribeRealtime falló:', e); }
+  }
+
+  return { loadAll, saveItem, deleteItem, saveConfig, subscribeRealtime, rowToItem, itemToRow };
 })();
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -8971,6 +9136,608 @@ function closeTrayModal(){
   if(modal) modal.style.display='none';
 }
 
+// ════════════════════════════════════════════════════════════
+// CRM — Pipeline de ventas (Fase 1: kanban + tarjetas + info)
+// ════════════════════════════════════════════════════════════
+window._crmData = { items: [], config: null, loaded: false };
+
+function _crmDefaultConfig(){
+  return {
+    etapas: [
+      { id:'prospecto',   nombre:'Prospecto',            color:'#9b8bd4' },
+      { id:'contactado',  nombre:'Contactado',           color:'#3d9edd' },
+      { id:'reunion',     nombre:'Reunión / Diagnóstico',color:'#6db5a4' },
+      { id:'propuesta',   nombre:'Propuesta enviada',    color:'#f2cc8f' },
+      { id:'negociacion', nombre:'Negociación',          color:'#e29578' },
+      { id:'cerrado',     nombre:'Cerrado ✓',            color:'#22c55e' },
+      { id:'perdido',     nombre:'Perdido',              color:'#94a3b8' },
+    ],
+    protocolos: { verde:7, amarillo:4, rojo:2 },
+  };
+}
+
+async function goToCRM(){
+  _navHistory.push({ page: currentPage, brandId: currentBrandId||null });
+  if(_navHistory.length > 30) _navHistory.shift();
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const nEl=document.getElementById('nav-crm'); if(nEl) nEl.classList.add('active');
+  const pEl=document.getElementById('page-crm'); if(pEl) pEl.classList.add('active');
+  (document.getElementById('header-title')||{}).textContent='CRM';
+  currentPage='crm';
+  updateGlobalBreadcrumb('crm');
+  _updateBackBtn();
+  closeMobileSidebar && closeMobileSidebar();
+  const board=document.getElementById('crm-board');
+  if(board) board.innerHTML='<div style="color:var(--text3);font-size:0.85rem;padding:2rem;text-align:center">Cargando pipeline...</div>';
+  await loadCRM();
+  renderCRM();
+}
+
+async function loadCRM(){
+  if(!window.CrmDB) return;
+  const res = await CrmDB.loadAll();
+  if(res){
+    _crmData.items = res.items || [];
+    _crmData.config = res.config && res.config.etapas ? res.config : _crmDefaultConfig();
+    _crmData.loaded = true;
+    if(!res.config || !res.config.etapas){ await CrmDB.saveConfig(_crmData.config); }
+  }
+}
+
+function _crmEtapas(){ return (_crmData.config && _crmData.config.etapas) || _crmDefaultConfig().etapas; }
+function _crmProtocolos(){ return (_crmData.config && _crmData.config.protocolos) || {verde:7,amarillo:4,rojo:2}; }
+function _crmSemClass(p){ return p==='rojo'?'crm-sem-r':p==='amarillo'?'crm-sem-a':'crm-sem-v'; }
+// Frecuencia efectiva de seguimiento (días): personalizada si existe, sino la del tier
+function _crmFreqDias(it){
+  if(it && it.freqCustom && Number(it.freqCustom)>0) return Number(it.freqCustom);
+  const p = _crmProtocolos();
+  return p[(it&&it.prioridad)||'verde'] || 7;
+}
+
+function fmtCrmDate(d){
+  if(!d) return '';
+  try{ const dt = parseLocalDate(d); return dt.getDate()+' '+['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][dt.getMonth()]; }
+  catch(e){ return d; }
+}
+function _crmMedioLabel(m){
+  const map = { mensaje:'💬 Mensaje', llamada:'📞 Llamada', mail:'✉️ Mail', visita:'🤝 Visita' };
+  return map[m] || '';
+}
+function _crmMedioChip(m){
+  const lbl = _crmMedioLabel(m);
+  if(!lbl) return '';
+  return `<span class="tray-chip" style="font-size:0.62rem">${lbl}</span>`;
+}
+
+window._crmView = 'pipe';
+window._crmExpanded = {};
+
+function setCrmView(v){
+  window._crmView = v;
+  const p=document.getElementById('crm-view-pipe'), t=document.getElementById('crm-view-table');
+  if(p) p.classList.toggle('active', v==='pipe');
+  if(t) t.classList.toggle('active', v==='table');
+  const ca=document.getElementById('crm-collapse-all'), ea=document.getElementById('crm-expand-all');
+  const show = v==='pipe' ? '' : 'none';
+  if(ca) ca.style.display=show;
+  if(ea) ea.style.display=show;
+  renderCRM();
+}
+
+function renderCRM(){
+  const board = document.getElementById('crm-board');
+  if(!board) return;
+  const q = (document.getElementById('crm-search')?.value||'').trim().toLowerCase();
+  const etapas = _crmEtapas();
+  const items = _crmData.items.filter(it=> !q || (it.nombre||'').toLowerCase().includes(q) || (it.contacto||'').toLowerCase().includes(q) || (it.empresa||'').toLowerCase().includes(q));
+
+  if(window._crmView === 'table'){ renderCrmTable(board, items, etapas); return; }
+
+  const collapsed = window._crmColCollapsed || {};
+  board.innerHTML = '<div class="crm-board-wrap">' + etapas.map(et=>{
+    const enEtapa = items.filter(it=>it.etapa===et.id).sort((a,b)=>(a.orden||0)-(b.orden||0));
+
+    // Columna COLAPSADA: tira vertical delgada con título rotado
+    if(collapsed[et.id]){
+      return `<div class="crm-col crm-col-collapsed" onclick="toggleCrmCol('${et.id}')"
+          ondragover="crmDragOver(event)" ondragleave="crmDragLeave(event)" ondrop="crmDrop(event,'${et.id}')" data-etapa="${et.id}"
+          title="Expandir ${escapeHtml(et.nombre)}">
+        <span class="crm-col-dot" style="background:${et.color};margin-bottom:0.5rem"></span>
+        <span class="crm-col-count" style="margin-bottom:0.5rem">${enEtapa.length}</span>
+        <span class="crm-col-vtitle">${escapeHtml(et.nombre)}</span>
+      </div>`;
+    }
+
+    const cards = enEtapa.map(it=>{
+      const sem = _crmSemClass(it.prioridad);
+      const fecha = it.ultimoContacto ? ('Últ. seg: '+fmtCrmDate(it.ultimoContacto)) : 'Sin seguimientos';
+      const contacto = it.contacto ? escapeHtml(it.contacto) : '<span style="opacity:0.5">Sin persona de contacto</span>';
+      return `<div class="crm-card" draggable="true" data-id="${it.id}"
+          ondragstart="crmDragStart(event,'${it.id}')" ondragend="crmDragEnd(event)"
+          onclick="openCrmView('${it.id}')" style="border-left-color:${et.color}">
+        <div class="crm-card-name">${escapeHtml(it.nombre)}</div>
+        ${it.empresa?`<div class="crm-card-contact" style="font-weight:600;color:var(--text2)">🏢 ${escapeHtml(it.empresa)}</div>`:''}
+        <div class="crm-card-contact">${contacto}</div>
+        <div class="crm-card-foot">
+          <span class="crm-sem ${sem}" title="Prioridad"></span>
+          <span style="display:inline-flex;align-items:center;gap:0.35rem">
+            ${it.propuestaUrl?'<span title="Tiene propuesta" style="font-size:0.7rem">🔗</span>':''}
+            <span class="crm-card-date">${fecha}</span>
+          </span>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="crm-col">
+      <div class="crm-col-head">
+        <span class="crm-col-dot" style="background:${et.color}"></span>
+        <span class="crm-col-title">${escapeHtml(et.nombre)}</span>
+        <span class="crm-col-count">${enEtapa.length}</span>
+        <button class="crm-col-collapse-btn" onclick="toggleCrmCol('${et.id}')" title="Colapsar columna">⟨⟩</button>
+      </div>
+      <div class="crm-col-body" data-etapa="${et.id}"
+        ondragover="crmDragOver(event)" ondragleave="crmDragLeave(event)" ondrop="crmDrop(event,'${et.id}')">
+        ${cards}
+        <button class="crm-add-card" onclick="openCrmModal('','${et.id}')">+ Agregar</button>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+window._crmColCollapsed = (function(){
+  try{ return JSON.parse(localStorage.getItem('polen-crm-collapsed')||'{}') || {}; }
+  catch(e){ return {}; }
+})();
+function _crmSaveCollapsed(){
+  try{ localStorage.setItem('polen-crm-collapsed', JSON.stringify(window._crmColCollapsed||{})); }
+  catch(e){}
+}
+function toggleCrmCol(id){
+  window._crmColCollapsed[id] = !window._crmColCollapsed[id];
+  _crmSaveCollapsed();
+  renderCRM();
+}
+function crmCollapseAll(){
+  _crmEtapas().forEach(e=>{ window._crmColCollapsed[e.id] = true; });
+  _crmSaveCollapsed();
+  renderCRM();
+}
+function crmExpandAll(){
+  window._crmColCollapsed = {};
+  _crmSaveCollapsed();
+  renderCRM();
+}
+
+function _crmEtapaInfo(id){
+  const e = _crmEtapas().find(x=>x.id===id);
+  return e || { nombre:'—', color:'var(--text3)' };
+}
+function _crmSemDot(p){
+  const c = p==='rojo'?'#ef4444':p==='amarillo'?'#eab308':'#22c55e';
+  const lbl = p==='rojo'?'Alta':p==='amarillo'?'Media':'Baja';
+  return `<span style="display:inline-flex;align-items:center;gap:0.35rem"><span style="width:10px;height:10px;border-radius:50%;background:${c}"></span><span style="font-size:0.72rem;color:var(--text2)">${lbl}</span></span>`;
+}
+
+function renderCrmTable(board, items, etapas){
+  // Orden: por etapa (orden del pipeline) y luego por orden interno
+  const etapaIdx = {}; etapas.forEach((e,i)=>etapaIdx[e.id]=i);
+  const lista = [...items].sort((a,b)=>{
+    const ea=etapaIdx[a.etapa]??99, eb=etapaIdx[b.etapa]??99;
+    return ea-eb || (a.orden||0)-(b.orden||0);
+  });
+  if(!lista.length){
+    board.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:2rem;text-align:center">No hay prospectos. Agrega el primero con "+ Agregar prospecto".</div>';
+    return;
+  }
+  const filas = lista.map(it=>{
+    const et = _crmEtapaInfo(it.etapa);
+    const exp = window._crmExpanded[it.id];
+    const fecha = it.ultimoContacto ? fmtCrmDate(it.ultimoContacto) : '—';
+    const nContactos = (it.historial||[]).length;
+    let detalle = '';
+    if(exp){
+      const hist = (it.historial||[]).slice().reverse();
+      const histHtml = hist.length
+        ? hist.map(h=>`<div style="padding:0.35rem 0;border-bottom:1px solid var(--border)">
+            <div style="font-size:0.72rem;color:var(--text2);font-weight:600;display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap">${fmtCrmDate(h.fecha)} ${_crmMedioChip(h.medio)}</div>
+            ${h.comentario?`<div style="font-size:0.74rem;color:var(--text);margin-top:0.1rem">${escapeHtml(h.comentario)}</div>`:''}
+          </div>`).join('')
+        : '<div style="font-size:0.74rem;color:var(--text3)">Sin seguimientos registrados aún.</div>';
+      detalle = `<tr class="crm-table-detail"><td colspan="8" style="background:var(--bg-card2);padding:0.8rem 1rem">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
+          <div>
+            <div style="font-size:0.66rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.2rem">Contacto</div>
+            <div style="font-size:0.8rem;color:var(--text)">${it.contacto?escapeHtml(it.contacto):'<span style="opacity:0.5">—</span>'}</div>
+            ${it.telefono?`<div style="font-size:0.74rem;color:var(--text2)">📞 ${escapeHtml(it.telefono)}</div>`:''}
+            ${it.email?`<div style="font-size:0.74rem;color:var(--text2)">✉️ ${escapeHtml(it.email)}</div>`:''}
+          </div>
+          <div>
+            <div style="font-size:0.66rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.2rem">Información</div>
+            <div style="font-size:0.78rem;color:var(--text);white-space:pre-wrap">${it.info?escapeHtml(it.info):'<span style="opacity:0.5">Sin notas</span>'}</div>
+          </div>
+        </div>
+        <div style="margin-top:0.7rem">
+          <div style="font-size:0.66rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.3rem">Seguimientos (${nContactos})</div>
+          ${histHtml}
+        </div>
+        <div style="margin-top:0.7rem;display:flex;gap:0.5rem">
+          <button onclick="event.stopPropagation();openCrmView('${it.id}')" class="btn-add" style="background:var(--aire);font-size:0.74rem">Ver ficha</button>
+          <button onclick="event.stopPropagation();openCrmModal('${it.id}')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.74rem;color:var(--text2);cursor:pointer;font-family:var(--font)">Editar</button>
+        </div>
+      </td></tr>`;
+    }
+    return `<tr class="crm-table-row" onclick="openCrmView('${it.id}')">
+      <td onclick="event.stopPropagation();toggleCrmExpand('${it.id}')" style="cursor:pointer;text-align:center;color:var(--text3);width:24px">${exp?'▾':'▸'}</td>
+      <td><b style="font-size:0.88rem">${escapeHtml(it.nombre)}</b></td>
+      <td style="color:var(--text2);font-size:0.8rem">${it.empresa?escapeHtml(it.empresa):'—'}</td>
+      <td><span class="tray-chip" style="background:${et.color}1a;border-color:${et.color}55;color:${et.color}">${escapeHtml(et.nombre)}</span></td>
+      <td>${_crmSemDot(it.prioridad)}</td>
+      <td style="color:var(--text2);font-size:0.8rem">${it.contacto?escapeHtml(it.contacto):'—'}</td>
+      <td style="color:var(--text2);font-size:0.8rem">${fecha}${nContactos?` <span style="color:var(--text3);font-size:0.68rem">(${nContactos})</span>`:''}</td>
+      <td style="text-align:center">${it.propuestaUrl?`<a href="${escapeHtml(it.propuestaUrl)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Ver propuesta" style="text-decoration:none;font-size:0.95rem">🔗</a>`:'<span style="color:var(--text3)">—</span>'}</td>
+    </tr>${detalle}`;
+  }).join('');
+  board.innerHTML = `<table class="tray-table crm-table">
+    <thead><tr>
+      <th style="width:24px"></th><th>Prospecto</th><th>Empresa</th><th>Etapa</th><th>Prioridad</th><th>Persona</th><th>Último seguimiento</th><th style="text-align:center">Propuesta</th>
+    </tr></thead>
+    <tbody>${filas}</tbody>
+  </table>`;
+}
+
+function toggleCrmExpand(id){
+  window._crmExpanded[id] = !window._crmExpanded[id];
+  renderCRM();
+}
+
+window._crmDragId = null;
+function crmDragStart(ev, id){ window._crmDragId = id; ev.currentTarget.classList.add('dragging'); ev.dataTransfer.effectAllowed='move'; }
+function crmDragEnd(ev){ ev.currentTarget.classList.remove('dragging'); }
+function crmDragOver(ev){ ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
+function crmDragLeave(ev){ ev.currentTarget.classList.remove('drag-over'); }
+async function crmDrop(ev, etapaId){
+  ev.preventDefault();
+  ev.currentTarget.classList.remove('drag-over');
+  const id = window._crmDragId;
+  if(!id) return;
+  const it = _crmData.items.find(x=>x.id===id);
+  if(!it || it.etapa===etapaId) return;
+  it.etapa = etapaId;
+  const enDestino = _crmData.items.filter(x=>x.etapa===etapaId && x.id!==id);
+  it.orden = enDestino.length;
+  await CrmDB.saveItem(it);
+  renderCRM();
+}
+
+// ── Modal de LECTURA (ficha del prospecto) ──
+function openCrmView(id){
+  const it = _crmData.items.find(x=>x.id===id);
+  if(!it) return;
+  const et = _crmEtapaInfo(it.etapa);
+  const protos = _crmProtocolos();
+  const dias = _crmFreqDias(it);
+  const esCustom = it.freqCustom && Number(it.freqCustom)>0;
+  const semColor = it.prioridad==='rojo'?'#ef4444':it.prioridad==='amarillo'?'#eab308':'#22c55e';
+  const semLbl = it.prioridad==='rojo'?'Alta':it.prioridad==='amarillo'?'Media':'Baja';
+
+  const hist = (it.historial||[]).slice().reverse();
+  const histHtml = hist.length
+    ? hist.map(h=>`<div style="padding:0.45rem 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:0.72rem;color:var(--text2);font-weight:700;display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">📅 ${fmtCrmDate(h.fecha)} ${_crmMedioChip(h.medio)}</div>
+        ${h.comentario?`<div style="font-size:0.78rem;color:var(--text);margin-top:0.15rem;white-space:pre-wrap">${escapeHtml(h.comentario)}</div>`:'<div style="font-size:0.74rem;color:var(--text3);font-style:italic">Sin comentario</div>'}
+      </div>`).join('')
+    : '<div style="font-size:0.76rem;color:var(--text3)">Aún no hay seguimientos registrados. Agrega el primero abajo.</div>';
+
+  const fila = (label, val)=> val ? `<div style="display:flex;gap:0.5rem;padding:0.25rem 0">
+      <span style="font-size:0.72rem;color:var(--text3);min-width:90px">${label}</span>
+      <span style="font-size:0.82rem;color:var(--text)">${val}</span></div>` : '';
+
+  const propuestaBtn = (it.propuestaUrl && it.propuestaUrl.trim())
+    ? `<a href="${escapeHtml(it.propuestaUrl)}" target="_blank" rel="noopener noreferrer"
+         style="display:flex;align-items:center;justify-content:center;gap:0.5rem;background:var(--tierra);color:#fff;border-radius:10px;padding:0.65rem;font-size:0.84rem;font-weight:700;text-decoration:none;font-family:var(--font)">
+         🔗 Ver propuesta enviada</a>`
+    : '';
+
+  const html = `
+    <div style="display:flex;flex-direction:column;gap:0.9rem">
+      <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+        <span class="tray-chip" style="background:${et.color}1a;border-color:${et.color}55;color:${et.color}">${escapeHtml(et.nombre)}</span>
+        <span style="display:inline-flex;align-items:center;gap:0.35rem"><span style="width:11px;height:11px;border-radius:50%;background:${semColor}"></span><span style="font-size:0.74rem;color:var(--text2)">Prioridad ${semLbl} · seguimiento cada ${dias}d${esCustom?' <span class="tray-chip" style="font-size:0.6rem">personalizado</span>':''}</span></span>
+      </div>
+      ${propuestaBtn}
+
+      <div style="border:1px solid var(--border);border-radius:10px;padding:0.7rem 0.9rem;background:var(--bg-card2)">
+        ${fila('Empresa', it.empresa?escapeHtml(it.empresa):'')}
+        ${fila('Contacto', it.contacto?escapeHtml(it.contacto):'')}
+        ${fila('Teléfono', it.telefono?escapeHtml(it.telefono):'')}
+        ${fila('Email', it.email?escapeHtml(it.email):'')}
+        ${(!it.empresa&&!it.contacto&&!it.telefono&&!it.email)?'<div style="font-size:0.76rem;color:var(--text3)">Sin datos de contacto.</div>':''}
+      </div>
+
+      ${it.info?`<div>
+        <div style="font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.3rem">Información</div>
+        <div style="font-size:0.82rem;color:var(--text);white-space:pre-wrap;line-height:1.5">${escapeHtml(it.info)}</div>
+      </div>`:''}
+
+      <div>
+        <div style="font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.3rem">Seguimientos (${(it.historial||[]).length})</div>
+        <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:0.3rem 0.8rem">${histHtml}</div>
+      </div>
+
+      <div style="border:1px dashed var(--border);border-radius:10px;padding:0.7rem 0.8rem">
+        <div style="font-size:0.72rem;color:var(--text2);font-weight:700;margin-bottom:0.4rem">+ Registrar nuevo seguimiento</div>
+        <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem">
+          <input id="crm-log-fecha" type="date" value="${todayStr()}"
+            style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.45rem 0.6rem;color:var(--text);font-family:var(--font);outline:none">
+          <select id="crm-log-medio" class="tray-select" style="flex:1">
+            <option value="mensaje">💬 Mensaje</option>
+            <option value="llamada">📞 Llamada</option>
+            <option value="mail">✉️ Mail</option>
+            <option value="visita">🤝 Visita</option>
+          </select>
+        </div>
+        <textarea id="crm-log-comentario" rows="2" placeholder="¿Qué se conversó? (opcional)"
+          style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem;color:var(--text);font-family:var(--font);outline:none;resize:vertical;margin-bottom:0.5rem"></textarea>
+        <button onclick="addCrmContacto('${it.id}')" class="btn-add" style="background:var(--agua);width:100%">Registrar seguimiento</button>
+      </div>
+
+      <div style="display:flex;gap:0.5rem;justify-content:space-between;align-items:center;margin-top:0.3rem">
+        <button onclick="openCrmModal('${it.id}')" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.5rem 0.9rem;font-size:0.78rem;cursor:pointer;font-family:var(--font)">✏️ Editar ficha</button>
+        <button onclick="closeTrayModal()" class="btn-add" style="background:var(--tierra)">Cerrar</button>
+      </div>
+    </div>`;
+  openGenericModal(escapeHtml(it.nombre), html);
+}
+
+// Registrar un nuevo seguimiento en el historial (no sobrescribe; agrega)
+async function addCrmContacto(id){
+  const it = _crmData.items.find(x=>x.id===id);
+  if(!it) return;
+  const fecha = (document.getElementById('crm-log-fecha')?.value||'').trim() || todayStr();
+  const comentario = (document.getElementById('crm-log-comentario')?.value||'').trim();
+  const medio = (document.getElementById('crm-log-medio')?.value||'mensaje');
+  if(!Array.isArray(it.historial)) it.historial = [];
+  it.historial.push({ fecha, comentario, medio, at: new Date().toISOString() });
+  // ultimoContacto = la fecha más reciente del historial (para el semáforo)
+  const fechas = it.historial.map(h=>h.fecha).filter(Boolean).sort();
+  it.ultimoContacto = fechas.length ? fechas[fechas.length-1] : fecha;
+  const ok = await CrmDB.saveItem(it);
+  if(!ok){ showStatus('❌ Error al registrar', true); return; }
+  showStatus('Seguimiento registrado ✓');
+  openCrmView(id);   // refrescar la ficha
+  renderCRM();       // refrescar el board/tabla por debajo
+}
+
+function openCrmModal(id, etapaPredefinida){
+  const it = id ? _crmData.items.find(x=>x.id===id) : null;
+  const esNuevo = !it;
+  const etapas = _crmEtapas();
+  const etapaSel = it ? it.etapa : (etapaPredefinida || (etapas[0] && etapas[0].id));
+  const prio = it ? it.prioridad : 'verde';
+  const protos = _crmProtocolos();
+  const optEtapas = etapas.map(e=>`<option value="${e.id}" ${e.id===etapaSel?'selected':''}>${escapeHtml(e.nombre)}</option>`).join('');
+  const semBtn = (val, color, label, dias)=>`
+    <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;flex:1;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.5rem;background:${prio===val?color+'22':'transparent'}">
+      <input type="radio" name="crm-prio" value="${val}" ${prio===val?'checked':''} style="accent-color:${color}">
+      <span style="width:11px;height:11px;border-radius:50%;background:${color}"></span>
+      <span style="font-size:0.74rem;color:var(--text2)">${label}<br><span style="font-size:0.62rem;color:var(--text3)">cada ${dias}d</span></span>
+    </label>`;
+  const html = `
+    <div style="display:flex;flex-direction:column;gap:0.8rem">
+      <div>
+        <label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.25rem">Nombre del prospecto / marca *</label>
+        <input id="crm-nombre" type="text" value="${it?escapeHtml(it.nombre):''}" placeholder="Ej. Restaurante La Plaza"
+          style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:9px;padding:0.55rem 0.75rem;color:var(--text);font-family:var(--font);outline:none">
+      </div>
+      <div>
+        <label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.25rem">Empresa</label>
+        <input id="crm-empresa" type="text" value="${it?escapeHtml(it.empresa):''}" placeholder="Razón social o empresa matriz (opcional)"
+          style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:9px;padding:0.55rem 0.75rem;color:var(--text);font-family:var(--font);outline:none">
+      </div>
+      <div style="display:flex;gap:0.6rem">
+        <div style="flex:1">
+          <label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.25rem">Etapa</label>
+          <select id="crm-etapa" class="tray-select" style="width:100%">${optEtapas}</select>
+        </div>
+        <div style="flex:1">
+          <label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.25rem">Último seguimiento</label>
+          <div style="font-size:0.8rem;color:var(--text2);padding:0.5rem 0;display:flex;align-items:center;height:calc(100% - 1.1rem)">${it&&it.ultimoContacto?fmtCrmDate(it.ultimoContacto):'<span style="color:var(--text3)">Se registra en la ficha</span>'}</div>
+          <input id="crm-ultimo" type="hidden" value="${it?escapeHtml(it.ultimoContacto):''}">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.25rem">Prioridad (color en el pipeline)</label>
+        <div style="display:flex;gap:0.4rem">
+          ${semBtn('verde','#22c55e','Baja',protos.verde)}
+          ${semBtn('amarillo','#eab308','Media',protos.amarillo)}
+          ${semBtn('rojo','#ef4444','Alta',protos.rojo)}
+        </div>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:9px;padding:0.6rem 0.75rem;background:var(--bg-card2)">
+        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.78rem;color:var(--text2)">
+          <input type="checkbox" id="crm-freq-toggle" ${it&&it.freqCustom?'checked':''} onchange="document.getElementById('crm-freq-input').style.display=this.checked?'flex':'none'">
+          Frecuencia de seguimiento personalizada
+        </label>
+        <div id="crm-freq-input" style="display:${it&&it.freqCustom?'flex':'none'};align-items:center;gap:0.5rem;margin-top:0.5rem">
+          <span style="font-size:0.78rem;color:var(--text2)">Cada</span>
+          <input id="crm-freq-dias" type="number" min="1" value="${it&&it.freqCustom?it.freqCustom:''}" placeholder="días"
+            style="width:80px;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.55rem;color:var(--text);font-family:var(--font);outline:none">
+          <span style="font-size:0.78rem;color:var(--text2)">días</span>
+        </div>
+        <div style="font-size:0.66rem;color:var(--text3);margin-top:0.4rem">Si se activa, sobrescribe los días del tier de prioridad solo para este prospecto.</div>
+      </div>
+      <div style="display:flex;gap:0.6rem">
+        <div style="flex:1">
+          <label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.25rem">Persona de contacto</label>
+          <input id="crm-contacto" type="text" value="${it?escapeHtml(it.contacto):''}" placeholder="Nombre"
+            style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:9px;padding:0.55rem 0.75rem;color:var(--text);font-family:var(--font);outline:none">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.25rem">Teléfono</label>
+          <input id="crm-telefono" type="text" value="${it?escapeHtml(it.telefono):''}" placeholder="Opcional"
+            style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:9px;padding:0.55rem 0.75rem;color:var(--text);font-family:var(--font);outline:none">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.25rem">Email</label>
+        <input id="crm-email" type="text" value="${it?escapeHtml(it.email):''}" placeholder="Opcional"
+          style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:9px;padding:0.55rem 0.75rem;color:var(--text);font-family:var(--font);outline:none">
+      </div>
+      <div>
+        <label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.25rem">🔗 Link a la propuesta enviada</label>
+        <input id="crm-propuesta" type="text" value="${it?escapeHtml(it.propuestaUrl):''}" placeholder="https://... (Drive, PDF, Canva, etc.)"
+          style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:9px;padding:0.55rem 0.75rem;color:var(--text);font-family:var(--font);outline:none">
+      </div>
+      <div>
+        <label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.25rem">Información / Notas</label>
+        <textarea id="crm-info" rows="3" placeholder="Contexto, necesidades, observaciones..."
+          style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:9px;padding:0.55rem 0.75rem;color:var(--text);font-family:var(--font);outline:none;resize:vertical">${it?escapeHtml(it.info):''}</textarea>
+      </div>
+      <div style="display:flex;gap:0.5rem;justify-content:space-between;align-items:center;margin-top:0.3rem">
+        <div>${!esNuevo?`<button onclick="deleteCrmItem('${it.id}')" style="background:none;border:1px solid #ef4444;color:#ef4444;border-radius:8px;padding:0.5rem 0.9rem;font-size:0.76rem;cursor:pointer;font-family:var(--font)">Eliminar</button>`:''}</div>
+        <div style="display:flex;gap:0.5rem">
+          <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.5rem 0.9rem;font-size:0.76rem;cursor:pointer;font-family:var(--font)">Cancelar</button>
+          <button onclick="saveCrmItem('${it?it.id:''}')" class="btn-add" style="background:var(--tierra)">${esNuevo?'Agregar':'Guardar'}</button>
+        </div>
+      </div>
+    </div>`;
+  openGenericModal(esNuevo?'Nuevo prospecto':'Editar prospecto', html);
+}
+
+async function saveCrmItem(id){
+  const nombre = (document.getElementById('crm-nombre')?.value||'').trim();
+  if(!nombre){ showStatus('El nombre es obligatorio', true); return; }
+  const get = id2 => (document.getElementById(id2)?.value||'').trim();
+  const prio = (document.querySelector('input[name="crm-prio"]:checked')||{}).value || 'verde';
+  let it;
+  if(id){
+    it = _crmData.items.find(x=>x.id===id);
+    if(!it){ showStatus('No encontrado', true); return; }
+  } else {
+    it = { id:'crm_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), orden:_crmData.items.length, historial:[] };
+    _crmData.items.push(it);
+  }
+  it.nombre=nombre;
+  it.empresa=get('crm-empresa');
+  it.etapa=get('crm-etapa');
+  it.prioridad=prio;
+  it.ultimoContacto=get('crm-ultimo');
+  it.contacto=get('crm-contacto');
+  it.telefono=get('crm-telefono');
+  it.email=get('crm-email');
+  it.propuestaUrl=get('crm-propuesta');
+  it.info=get('crm-info');
+  // Frecuencia personalizada (solo si el toggle está activo y hay un número válido)
+  const freqToggle = document.getElementById('crm-freq-toggle')?.checked;
+  const freqDias = parseInt(document.getElementById('crm-freq-dias')?.value,10);
+  it.freqCustom = (freqToggle && freqDias>0) ? freqDias : null;
+  const ok = await CrmDB.saveItem(it);
+  if(!ok){ showStatus('❌ Error al guardar', true); return; }
+  closeTrayModal();
+  renderCRM();
+  showStatus(id?'Prospecto actualizado ✓':'Prospecto agregado ✓');
+}
+
+async function deleteCrmItem(id){
+  const it = _crmData.items.find(x=>x.id===id);
+  if(!it) return;
+  const ok = await confirmModal('¿Eliminar "'+it.nombre+'" del pipeline?', 'Eliminar');
+  if(!ok) return;
+  const done = await CrmDB.deleteItem(id);
+  if(!done){ showStatus('❌ Error al eliminar', true); return; }
+  _crmData.items = _crmData.items.filter(x=>x.id!==id);
+  closeTrayModal();
+  renderCRM();
+  showStatus('Prospecto eliminado');
+}
+
+function openCrmEtapasModal(){
+  const etapas = _crmEtapas();
+  const cuenta = id => _crmData.items.filter(x=>x.etapa===id).length;
+  const filas = etapas.map((e,idx)=>`
+    <div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--border)">
+      <input type="color" value="${e.color}" data-eid="${e.id}" class="crm-et-color" style="width:28px;height:28px;border:none;background:none;cursor:pointer;padding:0">
+      <input type="text" value="${escapeHtml(e.nombre)}" data-eid="${e.id}" class="crm-et-name"
+        style="flex:1;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.8rem;outline:none">
+      <span style="font-size:0.66rem;color:var(--text3);white-space:nowrap">${cuenta(e.id)}</span>
+      <button onclick="crmMoveEtapa('${e.id}',-1)" ${idx===0?'disabled':''} style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0 0.2rem">▲</button>
+      <button onclick="crmMoveEtapa('${e.id}',1)" ${idx===etapas.length-1?'disabled':''} style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0 0.2rem">▼</button>
+      <button onclick="crmDeleteEtapa('${e.id}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:0.9rem;padding:0 0.3rem">✕</button>
+    </div>`).join('');
+  const protos = _crmProtocolos();
+  const html = `
+    <div style="display:flex;flex-direction:column;gap:0.9rem">
+      <div>
+        <div style="font-size:0.8rem;font-weight:700;color:var(--text);margin-bottom:0.5rem">Etapas del pipeline</div>
+        <div style="max-height:260px;overflow-y:auto">${filas}</div>
+        <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.6rem">
+          <input id="crm-nueva-etapa" type="text" placeholder="Nueva etapa..." onkeydown="if(event.key==='Enter')crmAddEtapa()"
+            style="flex:1;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.45rem 0.65rem;color:var(--text);font-family:var(--font);font-size:0.8rem;outline:none">
+          <button onclick="crmAddEtapa()" class="btn-add" style="background:var(--aire)">+ Agregar</button>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:0.8rem">
+        <div style="font-size:0.8rem;font-weight:700;color:var(--text);margin-bottom:0.5rem">Protocolo de seguimiento (días entre contactos)</div>
+        <div style="display:flex;gap:0.6rem">
+          <label style="flex:1;font-size:0.74rem;color:var(--text2)"><span style="color:#22c55e">🟢 Baja</span><input id="crm-proto-verde" type="number" min="1" value="${protos.verde}" style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.4rem;color:var(--text);font-family:var(--font);margin-top:0.2rem;outline:none"></label>
+          <label style="flex:1;font-size:0.74rem;color:var(--text2)"><span style="color:#eab308">🟡 Media</span><input id="crm-proto-amarillo" type="number" min="1" value="${protos.amarillo}" style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.4rem;color:var(--text);font-family:var(--font);margin-top:0.2rem;outline:none"></label>
+          <label style="flex:1;font-size:0.74rem;color:var(--text2)"><span style="color:#ef4444">🔴 Alta</span><input id="crm-proto-rojo" type="number" min="1" value="${protos.rojo}" style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.4rem;color:var(--text);font-family:var(--font);margin-top:0.2rem;outline:none"></label>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.3rem">
+        <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.5rem 0.9rem;font-size:0.76rem;cursor:pointer;font-family:var(--font)">Cerrar</button>
+        <button onclick="saveCrmEtapasEdits()" class="btn-add" style="background:var(--tierra)">Guardar cambios</button>
+      </div>
+    </div>`;
+  openGenericModal('⚙️ Configurar pipeline', html);
+}
+
+async function crmAddEtapa(){
+  const inp=document.getElementById('crm-nueva-etapa');
+  const nombre=(inp?.value||'').trim();
+  if(!nombre) return;
+  const palette=['#9b8bd4','#3d9edd','#6db5a4','#f2cc8f','#e29578','#22c55e','#94a3b8','#c98bb9'];
+  const id='et_'+Date.now().toString(36)+Math.random().toString(36).slice(2,4);
+  _crmData.config.etapas.push({ id, nombre, color: palette[_crmData.config.etapas.length % palette.length] });
+  await CrmDB.saveConfig(_crmData.config);
+  openCrmEtapasModal(); renderCRM();
+}
+async function crmMoveEtapa(id, dir){
+  const arr=_crmData.config.etapas;
+  const i=arr.findIndex(e=>e.id===id);
+  const j=i+dir;
+  if(i<0||j<0||j>=arr.length) return;
+  const tmp=arr[i]; arr[i]=arr[j]; arr[j]=tmp;
+  await CrmDB.saveConfig(_crmData.config);
+  openCrmEtapasModal(); renderCRM();
+}
+async function crmDeleteEtapa(id){
+  const n=_crmData.items.filter(x=>x.etapa===id).length;
+  const msg = n>0 ? `Esta etapa tiene ${n} prospecto(s). Si la eliminas, quedarán sin etapa. ¿Continuar?` : '¿Eliminar esta etapa?';
+  const ok=await confirmModal(msg,'Eliminar etapa');
+  if(!ok) return;
+  _crmData.config.etapas=_crmData.config.etapas.filter(e=>e.id!==id);
+  await CrmDB.saveConfig(_crmData.config);
+  openCrmEtapasModal(); renderCRM();
+}
+async function saveCrmEtapasEdits(){
+  document.querySelectorAll('.crm-et-name').forEach(inp=>{
+    const e=_crmData.config.etapas.find(x=>x.id===inp.getAttribute('data-eid'));
+    if(e && inp.value.trim()) e.nombre=inp.value.trim();
+  });
+  document.querySelectorAll('.crm-et-color').forEach(inp=>{
+    const e=_crmData.config.etapas.find(x=>x.id===inp.getAttribute('data-eid'));
+    if(e) e.color=inp.value;
+  });
+  const pv=parseInt(document.getElementById('crm-proto-verde')?.value,10);
+  const pa=parseInt(document.getElementById('crm-proto-amarillo')?.value,10);
+  const pr=parseInt(document.getElementById('crm-proto-rojo')?.value,10);
+  _crmData.config.protocolos={ verde:pv>0?pv:7, amarillo:pa>0?pa:4, rojo:pr>0?pr:2 };
+  await CrmDB.saveConfig(_crmData.config);
+  closeTrayModal(); renderCRM();
+  showStatus('Pipeline actualizado ✓');
+}
+
 function checkCobPin(){
   ensureFinData();
   const pin = appData.finanzas.cobPin || COB_PIN_DEFAULT;
@@ -10223,6 +10990,10 @@ function renderCurrentPage(){
     if(currentPage==='trayectoria'){
       if(!_trayData.loaded){ loadTrayectoria().then(()=>{ poblarTrayFiltros(); renderTrayectoria(); }); }
       else { poblarTrayFiltros(); renderTrayectoria(); }
+    }
+    if(currentPage==='crm'){
+      if(!_crmData.loaded){ loadCRM().then(()=>renderCRM()); }
+      else { renderCRM(); }
     }
   } catch(e) {
     console.error('renderCurrentPage error:', e);
@@ -17953,6 +18724,18 @@ async function boot(){
           await loadTrayectoria();
           poblarTrayFiltros();
           renderTrayectoria();
+        }
+      }catch(e){}
+    });
+  }
+
+  // 🔒 Suscripción realtime al CRM — refresca el pipeline si otro usuario mueve/edita
+  if(window.CrmDB){
+    CrmDB.subscribeRealtime(async ()=>{
+      try{
+        if(currentPage==='crm'){
+          await loadCRM();
+          renderCRM();
         }
       }catch(e){}
     });
