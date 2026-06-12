@@ -75,15 +75,31 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .btn-add:hover{opacity:0.85;transform:translateY(-1px);}
 /* ── Trayectoria ── */
 .tray-select{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.7rem;font-size:0.78rem;color:var(--text2);font-family:var(--font);cursor:pointer;outline:none;}
-.tray-grid-wrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.6rem;}
-.tray-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:0.9rem 1rem;cursor:pointer;transition:all var(--transition);display:flex;flex-direction:column;gap:0.45rem;text-align:left;}
-.tray-card:hover{border-color:var(--tierra);transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,0.06);}
-.tray-card-logo{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.05rem;color:#fff;flex-shrink:0;overflow:hidden;}
+.tray-grid-wrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.5rem;}
+.tray-card{background:var(--bg-card);border:1px solid var(--border);border-radius:11px;padding:0.7rem 0.8rem;cursor:pointer;transition:all var(--transition);display:flex;flex-direction:column;gap:0.3rem;text-align:left;}
+.tray-card:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,0.08);filter:brightness(1.02);}
+.tray-card-head{display:flex;align-items:center;gap:0.5rem;}
+.tray-card-logo{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.9rem;color:#fff;flex-shrink:0;overflow:hidden;}
 .tray-card-logo img{width:100%;height:100%;object-fit:cover;}
-.tray-card-name{font-weight:700;font-size:0.9rem;color:var(--text);line-height:1.25;}
-.tray-card-meta{font-size:0.7rem;color:var(--text3);line-height:1.4;}
-.tray-chip{display:inline-block;background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.12rem 0.5rem;font-size:0.64rem;color:var(--text2);margin:0.1rem 0.1rem 0 0;}
+.tray-card-name{font-weight:800;font-size:0.95rem;color:var(--text);line-height:1.15;letter-spacing:-0.01em;}
+.tray-card-meta{font-size:0.64rem;color:var(--text3);line-height:1.3;font-weight:500;}
+.tray-chip{display:inline-block;background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.1rem 0.45rem;font-size:0.6rem;color:var(--text2);margin:0.08rem 0.08rem 0 0;line-height:1.4;}
 .tray-stat-num{font-size:2rem;font-weight:800;color:var(--text);line-height:1;}
+/* Encabezados de grupo (ordenar por industria) */
+.tray-group-header{display:flex;align-items:center;gap:0.5rem;margin:0.4rem 0 0.7rem;padding-bottom:0.4rem;border-bottom:1px solid var(--border);}
+.tray-group-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.tray-group-title{font-size:0.95rem;font-weight:800;letter-spacing:-0.01em;}
+.tray-group-count{font-size:0.7rem;color:var(--text3);background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.05rem 0.5rem;font-weight:700;}
+/* Vista tabla */
+.tray-table{width:100%;border-collapse:collapse;font-size:0.82rem;}
+.tray-table th{text-align:left;padding:0.55rem 0.7rem;color:var(--text3);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border);font-weight:700;cursor:pointer;user-select:none;white-space:nowrap;}
+.tray-table th:hover{color:var(--text);}
+.tray-table td{padding:0.5rem 0.7rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;}
+.tray-table tr{cursor:pointer;transition:background var(--transition);}
+.tray-table tbody tr:hover{background:var(--bg-card2);}
+.tray-view-toggle{display:inline-flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.tray-view-toggle button{background:none;border:none;padding:0.4rem 0.7rem;font-size:0.82rem;cursor:pointer;color:var(--text3);font-family:var(--font);}
+.tray-view-toggle button.active{background:var(--text);color:var(--bg);}
 .btn-back{display:flex;align-items:center;gap:0.4rem;padding:0.45rem 0.9rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);font-size:0.82rem;font-weight:600;cursor:pointer;transition:all var(--transition);font-family:var(--font);}
 .btn-back:hover{color:var(--text);}
 
@@ -3242,6 +3258,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
           <option value="za">Ordenar: Z → A</option>
           <option value="anio-desc">Año: más reciente</option>
           <option value="anio-asc">Año: más antiguo</option>
+          <option value="industria">Por industria</option>
         </select>
         <select id="tray-filtro-industria" onchange="renderTrayectoria()" class="tray-select">
           <option value="">Todas las industrias</option>
@@ -3250,6 +3267,11 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
           <option value="">Todos los años</option>
         </select>
         <button onclick="clearTrayFiltros()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">Limpiar</button>
+        <button id="tray-toggle-ind" onclick="toggleTrayIndustria()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🏷️ Mostrar industria</button>
+        <div class="tray-view-toggle" style="margin-left:auto">
+          <button id="tray-view-grid" class="active" onclick="setTrayView('grid')" title="Vista de tarjetas">▦</button>
+          <button id="tray-view-table" onclick="setTrayView('table')" title="Vista de tabla">☰</button>
+        </div>
       </div>
 
       <!-- Grilla de marcas -->
@@ -8560,6 +8582,19 @@ function _trayColorFor(str){
   let h=0; for(let i=0;i<(str||'').length;i++) h=(h*31+str.charCodeAt(i))>>>0;
   return colors[h % colors.length];
 }
+// Color estable por industria (mismo color siempre para cada una)
+function _trayIndColor(indId){
+  const palette = ['#e07a5f','#3d9edd','#81b29a','#e6a817','#9b8bd4','#e29578','#5fa8a0','#c98bb9','#7d9bc1','#8fb573','#d98c8c','#b08968','#6c8ebf'];
+  let h=0; const s=indId||''; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0;
+  return palette[h % palette.length];
+}
+// Chip de industria coloreado (fondo translúcido + texto del color)
+function _trayIndChip(indId){
+  const nombre = _trayIndNombre(indId);
+  if(!nombre) return '';
+  const c = _trayIndColor(indId);
+  return `<span class="tray-chip" style="background:${c}1a;border-color:${c}55;color:${c}">${escapeHtml(nombre)}</span>`;
+}
 
 function poblarTrayFiltros(){
   // Industrias (ordenadas por nombre)
@@ -8581,6 +8616,42 @@ function poblarTrayFiltros(){
 function clearTrayFiltros(){
   ['tray-search','tray-filtro-industria','tray-filtro-anio'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
   const o=document.getElementById('tray-orden'); if(o) o.value='az';
+  renderTrayectoria();
+}
+
+window._trayView = 'grid';
+window._trayShowInd = false;
+window._trayTableSort = { col: 'nombre', dir: 'asc' };
+
+function toggleTrayIndustria(){
+  window._trayShowInd = !window._trayShowInd;
+  const btn = document.getElementById('tray-toggle-ind');
+  if(btn){
+    if(window._trayShowInd){
+      btn.style.background = 'var(--tierra)';
+      btn.style.color = '#fff';
+      btn.style.borderColor = 'var(--tierra)';
+    } else {
+      btn.style.background = 'none';
+      btn.style.color = 'var(--text3)';
+      btn.style.borderColor = 'var(--border)';
+    }
+  }
+  renderTrayectoria();
+}
+
+function setTrayView(v){
+  window._trayView = v;
+  const g=document.getElementById('tray-view-grid'), t=document.getElementById('tray-view-table');
+  if(g) g.classList.toggle('active', v==='grid');
+  if(t) t.classList.toggle('active', v==='table');
+  renderTrayectoria();
+}
+
+function trayTableSort(col){
+  const s = window._trayTableSort;
+  if(s.col===col){ s.dir = s.dir==='asc'?'desc':'asc'; }
+  else { s.col = col; s.dir = 'asc'; }
   renderTrayectoria();
 }
 
@@ -8606,26 +8677,94 @@ function renderTrayectoria(){
     if(orden==='za') return (b.nombre||'').localeCompare(a.nombre||'');
     if(orden==='anio-desc') return (b.anio||0)-(a.anio||0) || (a.nombre||'').localeCompare(b.nombre||'');
     if(orden==='anio-asc') return (a.anio||0)-(b.anio||0) || (a.nombre||'').localeCompare(b.nombre||'');
+    if(orden==='industria'){
+      const ia=_trayIndNombre((a.industrias||[])[0]||''), ib=_trayIndNombre((b.industrias||[])[0]||'');
+      return ia.localeCompare(ib) || (a.nombre||'').localeCompare(b.nombre||'');
+    }
     return 0;
   });
 
   if(!lista.length){
     grid.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:2rem;text-align:center">No hay marcas que coincidan con los filtros.</div>';
+  } else if(window._trayView === 'table'){
+    // Vista TABLA — con orden por columna
+    const s = window._trayTableSort;
+    let filas = [...lista].sort((a,b)=>{
+      let av, bv;
+      if(s.col==='anio'){ av=a.anio||0; bv=b.anio||0; }
+      else if(s.col==='industria'){ av=_trayIndNombre((a.industrias||[])[0]||''); bv=_trayIndNombre((b.industrias||[])[0]||''); }
+      else { av=(a.nombre||'').toLowerCase(); bv=(b.nombre||'').toLowerCase(); }
+      let cmp = av<bv?-1:av>bv?1:0;
+      return s.dir==='asc'?cmp:-cmp;
+    });
+    const flecha = col => s.col===col ? (s.dir==='asc'?' ↑':' ↓') : '';
+    const mostrarIndT = window._trayShowInd;
+    grid.innerHTML = `<div style="overflow-x:auto"><table class="tray-table">
+      <thead><tr>
+        <th onclick="trayTableSort('nombre')">Marca${flecha('nombre')}</th>
+        ${mostrarIndT?`<th onclick="trayTableSort('industria')">Industria${flecha('industria')}</th>`:''}
+        <th onclick="trayTableSort('anio')">Año${flecha('anio')}</th>
+      </tr></thead>
+      <tbody>${filas.map(m=>{
+        const inds = (m.industrias||[]).map(id=>_trayIndChip(id)).join(' ');
+        return `<tr onclick="openTrayModal('${m.id}')">
+          <td><b style="font-size:0.92rem">${escapeHtml(m.nombre)}</b></td>
+          ${mostrarIndT?`<td>${inds}</td>`:''}
+          <td style="color:var(--text2)">${m.anio||''}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
   } else {
-    grid.innerHTML = '<div class="tray-grid-wrap">' + lista.map(m=>{
-      const inicial = (m.nombre||'?').trim().charAt(0).toUpperCase();
-      const col = _trayColorFor(m.nombre);
-      const logo = m.logoUrl
-        ? `<div class="tray-card-logo"><img src="${escapeHtml(m.logoUrl)}" alt=""></div>`
-        : `<div class="tray-card-logo" style="background:${col}">${inicial}</div>`;
-      const chips = (m.industrias||[]).map(id=>`<span class="tray-chip">${escapeHtml(_trayIndNombre(id))}</span>`).join('');
-      return `<div class="tray-card" onclick="openTrayModal('${m.id}')">
-        ${logo}
-        <div class="tray-card-name">${escapeHtml(m.nombre)}</div>
+    // Vista GRID (tarjetas)
+    const mostrarInd = window._trayShowInd;
+    const cardHTML = (m)=>{
+      const chips = mostrarInd ? (m.industrias||[]).map(id=>_trayIndChip(id)).join('') : '';
+      const primId = (m.industrias||[])[0]||'';
+      const c = primId ? _trayIndColor(primId) : '';
+      const styleBorde = c ? `style="border-color:${c}66;border-left:3px solid ${c}"` : '';
+      return `<div class="tray-card" ${styleBorde} onclick="openTrayModal('${m.id}')">
+        <div class="tray-card-head">
+          <div class="tray-card-name">${escapeHtml(m.nombre)}</div>
+        </div>
         <div class="tray-card-meta">${m.anio||''}</div>
-        <div>${chips}</div>
+        ${chips?`<div>${chips}</div>`:''}
       </div>`;
-    }).join('') + '</div>';
+    };
+
+    if(orden === 'industria'){
+      // Agrupar por industria con subtítulos
+      const grupos = {}; // indId -> [marcas]
+      const sinInd = [];
+      lista.forEach(m=>{
+        const id = (m.industrias||[])[0];
+        if(!id){ sinInd.push(m); return; }
+        (grupos[id] = grupos[id] || []).push(m);
+      });
+      // Orden de los grupos por nombre de industria
+      const idsOrdenados = Object.keys(grupos).sort((a,b)=>_trayIndNombre(a).localeCompare(_trayIndNombre(b)));
+      let html = '';
+      idsOrdenados.forEach(id=>{
+        const c = _trayIndColor(id);
+        const marcasG = grupos[id].sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+        html += `<div class="tray-group-header">
+          <span class="tray-group-dot" style="background:${c}"></span>
+          <span class="tray-group-title" style="color:${c}">${escapeHtml(_trayIndNombre(id))}</span>
+          <span class="tray-group-count">${marcasG.length}</span>
+        </div>
+        <div class="tray-grid-wrap" style="margin-bottom:1.4rem">${marcasG.map(cardHTML).join('')}</div>`;
+      });
+      if(sinInd.length){
+        html += `<div class="tray-group-header">
+          <span class="tray-group-dot" style="background:var(--text3)"></span>
+          <span class="tray-group-title" style="color:var(--text3)">Sin industria</span>
+          <span class="tray-group-count">${sinInd.length}</span>
+        </div>
+        <div class="tray-grid-wrap" style="margin-bottom:1.4rem">${sinInd.map(cardHTML).join('')}</div>`;
+      }
+      grid.innerHTML = html;
+    } else {
+      grid.innerHTML = '<div class="tray-grid-wrap">' + lista.map(cardHTML).join('') + '</div>';
+    }
   }
 
   // Resumen / contador con desglose por industria
@@ -8636,7 +8775,7 @@ function renderTrayectoria(){
     lista.forEach(m=>(m.industrias||[]).forEach(id=>{ porInd[id]=(porInd[id]||0)+1; }));
     const desglose = Object.entries(porInd)
       .sort((a,b)=>b[1]-a[1])
-      .map(([id,n])=>`<span class="tray-chip" style="font-size:0.7rem">${escapeHtml(_trayIndNombre(id))}: <b>${n}</b></span>`).join(' ');
+      .map(([id,n])=>{ const c=_trayIndColor(id); return `<span class="tray-chip" style="font-size:0.68rem;background:${c}1a;border-color:${c}55;color:${c}">${escapeHtml(_trayIndNombre(id))}: <b>${n}</b></span>`; }).join(' ');
     resumen.innerHTML = `<div style="border-top:1px solid var(--border);padding-top:1rem">
       <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em">Total ${total<totalGlobal?'(filtradas)':''}</div>
       <div class="tray-stat-num">${total}${total<totalGlobal?` <span style="font-size:0.9rem;color:var(--text3);font-weight:600">de ${totalGlobal}</span>`:''}</div>
