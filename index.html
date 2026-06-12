@@ -3353,6 +3353,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         <button id="crm-collapse-all" onclick="crmCollapseAll()" title="Comprimir todas las columnas" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.7rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⟩⟨ Comprimir</button>
         <button id="crm-expand-all" onclick="crmExpandAll()" title="Expandir todas las columnas" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.7rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⟨⟩ Expandir</button>
       </div>
+      <div id="crm-notif-panel" style="margin-bottom:1rem"></div>
       <div id="crm-board" style="overflow-x:auto"></div>
     </div>
   </div>
@@ -6534,8 +6535,23 @@ async function loadData(){
       // Filter out persisted deleted IDs
       if(appData._deletedMemberIds?.length)
         appData.members = appData.members.filter(m=>!appData._deletedMemberIds.includes(m.id));
-      if(appData._deletedBrandIds?.length)
-        appData.brands = appData.brands.filter(b=>!appData._deletedBrandIds.includes(b.id));
+      // 🔒 RED DE SEGURIDAD: una marca PRESENTE en brands nunca debe ser borrada por un id
+      // colgado en _deletedBrandIds. Si la marca existe, significa que fue recreada o
+      // restaurada → limpiamos su id de la lista de borrados (auto-reparación). Así una
+      // marca real jamás desaparece por un "borrado" viejo que quedó sin limpiar.
+      if(appData._deletedBrandIds?.length){
+        const idsPresentes = new Set((appData.brands||[]).map(b=>b.id));
+        const antes = appData._deletedBrandIds.length;
+        appData._deletedBrandIds = appData._deletedBrandIds.filter(id=>!idsPresentes.has(id));
+        if(appData._deletedBrandIds.length !== antes){
+          console.warn('[auto-fix] Se limpiaron', antes-appData._deletedBrandIds.length,
+            'id(s) de _deletedBrandIds que correspondían a marcas presentes. Persistiendo…');
+          try{ markLocalChange('brands'); }catch(e){}
+        }
+        // Recién ahora filtramos: solo se quitan marcas que de verdad ya no existen
+        if(appData._deletedBrandIds.length)
+          appData.brands = appData.brands.filter(b=>!appData._deletedBrandIds.includes(b.id));
+      }
       // Auto-assign colors to brands missing one
       const _autoColors=['#e85d5d','#e87f3a','#e8c23a','#5db85d','#3a9ee8','#6b5de8','#c45de8','#e85d9e','#5de8d0','#5d8ce8','#e8825d','#a0e85d'];
       (appData.brands||[]).forEach((b,i)=>{ if(!b.color) b.color=_autoColors[i%_autoColors.length]; });
@@ -9261,6 +9277,60 @@ function updateCrmBadge(){
   else { badge.style.display='none'; }
 }
 
+// Panel de notificaciones SIEMPRE visible arriba del pipeline (colapsable)
+window._crmNotifCollapsed = (function(){
+  try{ return localStorage.getItem('polen-crm-notif-collapsed')==='1'; }catch(e){ return false; }
+})();
+function toggleCrmNotifPanel(){
+  window._crmNotifCollapsed = !window._crmNotifCollapsed;
+  try{ localStorage.setItem('polen-crm-notif-collapsed', window._crmNotifCollapsed?'1':'0'); }catch(e){}
+  renderCrmNotifPanel();
+}
+function renderCrmNotifPanel(){
+  const panel = document.getElementById('crm-notif-panel');
+  if(!panel) return;
+  const pend = _crmPendientes();
+  const colapsado = window._crmNotifCollapsed;
+
+  // Conteo por tipo
+  let nAtraso=0, nHoy=0, nNunca=0;
+  pend.forEach(({atraso,nunca})=>{ if(nunca) nNunca++; else if(atraso>0) nAtraso++; else nHoy++; });
+
+  const header = `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.7rem 0.9rem;${colapsado||!pend.length?'':'border-bottom:1px solid var(--border)'}">
+      <span style="font-size:1rem">🔔</span>
+      <span style="font-weight:800;font-size:0.9rem;color:var(--text)">Seguimientos pendientes</span>
+      ${pend.length?`<span style="background:#ef4444;color:#fff;font-size:0.66rem;font-weight:800;border-radius:99px;padding:0.05rem 0.5rem">${pend.length}</span>`:'<span style="font-size:0.74rem;color:var(--text3)">— al día 🎉</span>'}
+      <div style="flex:1"></div>
+      ${pend.length?`<span style="font-size:0.68rem;color:var(--text3)">${nAtraso?`<b style="color:#ef4444">${nAtraso}</b> atrasados · `:''}${nHoy?`<b style="color:#eab308">${nHoy}</b> hoy · `:''}${nNunca?`<b style="color:#ef4444">${nNunca}</b> sin contactar`:''}</span>`:''}
+      <button onclick="toggleCrmNotifPanel()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.8rem;padding:0 0.3rem;font-family:var(--font)">${colapsado?'▾ Expandir':'▴ Colapsar'}</button>
+    </div>`;
+
+  let body = '';
+  if(!colapsado && pend.length){
+    const filas = pend.map(({it,atraso,nunca})=>{
+      const et = _crmEtapaInfo(it.etapa);
+      let estado, color;
+      if(nunca){ estado='Sin seguimientos'; color='#ef4444'; }
+      else if(atraso>0){ estado='Atrasado '+atraso+'d'; color='#ef4444'; }
+      else { estado='Hoy'; color='#eab308'; }
+      const semColor = it.prioridad==='rojo'?'#ef4444':it.prioridad==='amarillo'?'#eab308':'#22c55e';
+      return `<div onclick="openCrmView('${it.id}')"
+          style="display:flex;align-items:center;gap:0.7rem;padding:0.55rem 0.9rem;border-top:1px solid var(--border);cursor:pointer;transition:background var(--transition)"
+          onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background='transparent'">
+        <span style="width:9px;height:9px;border-radius:50%;background:${semColor};flex-shrink:0" title="Prioridad"></span>
+        <div style="flex:1;min-width:0">
+          <span style="font-weight:700;font-size:0.82rem;color:var(--text)">${escapeHtml(it.nombre)}</span>
+          <span style="font-size:0.7rem;color:var(--text3)"> · ${it.empresa?escapeHtml(it.empresa)+' · ':''}${escapeHtml(et.nombre)}${it.ultimoContacto?' · últ. '+fmtCrmDate(it.ultimoContacto):''}</span>
+        </div>
+        <span style="font-size:0.72rem;font-weight:700;color:${color};white-space:nowrap">${estado}</span>
+      </div>`;
+    }).join('');
+    body = `<div style="max-height:280px;overflow-y:auto">${filas}</div>`;
+  }
+
+  panel.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden">${header}${body}</div>`;
+}
+
 function openCrmNotifs(){
   const pend = _crmPendientes();
   let cuerpo;
@@ -9331,6 +9401,7 @@ function renderCRM(){
   const board = document.getElementById('crm-board');
   if(!board) return;
   updateCrmBadge();
+  renderCrmNotifPanel();
   const q = (document.getElementById('crm-search')?.value||'').trim().toLowerCase();
   const etapas = _crmEtapas();
   const items = _crmData.items.filter(it=> !q || (it.nombre||'').toLowerCase().includes(q) || (it.contacto||'').toLowerCase().includes(q) || (it.empresa||'').toLowerCase().includes(q));
@@ -14380,6 +14451,10 @@ async function saveBrand(){
     };
     if(!Array.isArray(appData.brands))appData.brands=[];
     appData.brands.push(newBrand);
+    // 🔒 Defensa: si por cualquier razón el id de esta marca nueva estuviera en la lista
+    // de borrados, lo quitamos — una marca recién creada nunca debe considerarse borrada.
+    if(appData._deletedBrandIds?.length)
+      appData._deletedBrandIds = appData._deletedBrandIds.filter(id=>id!==newBrand.id);
     markBrandChange(newBrand.id); // merge granular: preserva esta marca nueva por su id
 
     // 🔒 Guardar cronograma inicial de la nueva marca en tabla
