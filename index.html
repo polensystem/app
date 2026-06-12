@@ -2514,6 +2514,19 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
               <button onclick="copyPortalLink()" style="background:var(--text);color:var(--bg);border:none;border-radius:99px;padding:0.4rem 1rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap;flex-shrink:0">Copiar enlace</button>
               <button onclick="openPortalPreview()" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:99px;padding:0.4rem 0.9rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);white-space:nowrap;flex-shrink:0">Vista previa ↗</button>
             </div>
+            <details style="margin-top:0.6rem">
+              <summary style="font-size:0.72rem;color:var(--text3);cursor:pointer;user-select:none">⚙️ Editar identificador del portal (solo emergencias)</summary>
+              <div style="margin-top:0.6rem;padding:0.8rem;border:1px dashed var(--border);border-radius:var(--r-sm)">
+                <div style="font-size:0.72rem;color:var(--text3);line-height:1.5;margin-bottom:0.5rem">El identificador es la parte final de la URL (después de <code>?portal=</code>). Cámbialo solo si el enlace dejó de funcionar. Si lo cambias, el enlace anterior dejará de servir y deberás reenviar el nuevo al cliente.</div>
+                <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+                  <span style="font-size:0.8rem;color:var(--text3);font-family:monospace">?portal=</span>
+                  <input id="portal-slug-input" type="text" placeholder="EJ-NOMBRE-03"
+                    style="flex:1;min-width:160px;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.45rem 0.6rem;color:var(--text);font-family:monospace;font-size:0.82rem;outline:none">
+                  <button onclick="savePortalSlugManual()" style="background:var(--fuego);color:#fff;border:none;border-radius:8px;padding:0.45rem 0.9rem;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap">Guardar identificador</button>
+                  <button onclick="resetPortalSlugManual()" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.45rem 0.8rem;font-size:0.76rem;cursor:pointer;font-family:var(--font);white-space:nowrap">Regenerar automático</button>
+                </div>
+              </div>
+            </details>
             <div style="margin-top:1.2rem;padding:1rem;background:rgba(59,158,221,0.06);border:1px solid rgba(59,158,221,0.2);border-radius:var(--r-sm)">
               <div style="font-size:0.78rem;color:var(--text2);line-height:1.6">
                 <strong style="color:var(--aire)">El cliente podrá:</strong> ver el cronograma actualizado, ver y seleccionar entregables de branding points, y agregar nuevos entregables (que aparecerán con <strong>?</strong> puntos hasta que el equipo los valore).<br>
@@ -3323,6 +3336,9 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
           <div style="font-size:0.72rem;color:var(--text3);margin-top:0.2rem">Gestión de prospectos y proyectos en negociación</div>
         </div>
         <div style="display:flex;align-items:center;gap:0.5rem">
+          <button onclick="openCrmNotifs()" title="Seguimientos pendientes" style="position:relative;background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.65rem;font-size:0.95rem;cursor:pointer;font-family:var(--font)">
+            🔔<span id="crm-notif-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;font-size:0.6rem;font-weight:800;min-width:16px;height:16px;border-radius:99px;padding:0 0.2rem;align-items:center;justify-content:center;line-height:1"></span>
+          </button>
           <button onclick="openCrmModal()" class="btn-add" style="background:var(--tierra)">+ Agregar prospecto</button>
           <button onclick="openCrmEtapasModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.74rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⚙️ Etapas</button>
         </div>
@@ -9194,6 +9210,92 @@ function _crmFreqDias(it){
   const p = _crmProtocolos();
   return p[(it&&it.prioridad)||'verde'] || 7;
 }
+// Próxima fecha de seguimiento (Date) = último seguimiento + frecuencia. null si nunca contactado.
+function _crmProximaFecha(it){
+  if(!it || !it.ultimoContacto) return null;
+  try{
+    const base = parseLocalDate(it.ultimoContacto);
+    base.setDate(base.getDate() + _crmFreqDias(it));
+    return base;
+  }catch(e){ return null; }
+}
+// Días de atraso del próximo seguimiento. >0 atrasado, 0 hoy, <0 faltan días.
+// Si nunca contactado, devuelve un número muy alto (máxima urgencia) para orden.
+function _crmDiasAtraso(it){
+  const prox = _crmProximaFecha(it);
+  if(!prox) return 99999; // nunca contactado → primero al ordenar por atraso
+  const hoy = parseLocalDate(todayStr());
+  const ms = hoy.getTime() - prox.getTime();
+  return Math.round(ms / 86400000);
+}
+// Etiqueta visual del próximo seguimiento
+function _crmProximoLabel(it){
+  if(!it.ultimoContacto) return '<span style="color:#ef4444;font-weight:700;font-size:0.72rem">Sin seguimientos</span>';
+  const d = _crmDiasAtraso(it);
+  if(d > 0) return `<span style="color:#ef4444;font-weight:700;font-size:0.72rem">⚠ Atrasado ${d}d</span>`;
+  if(d === 0) return '<span style="color:#eab308;font-weight:700;font-size:0.72rem">Hoy</span>';
+  return `<span style="color:var(--text3);font-size:0.72rem">en ${Math.abs(d)}d</span>`;
+}
+
+// ── Notificaciones de seguimiento (Fase 2) ──
+// Pendiente = atrasado (d>0), hoy (d===0) o nunca contactado. Excluye etapas finales
+// (cerrado/perdido) para no alertar sobre prospectos ya resueltos.
+function _crmEtapaEsFinal(etapaId){
+  const e = _crmEtapas().find(x=>x.id===etapaId);
+  if(!e) return false;
+  const n = (e.nombre||'').toLowerCase();
+  return n.includes('cerrad') || n.includes('perdid') || n.includes('ganad');
+}
+function _crmPendientes(){
+  return _crmData.items
+    .filter(it=> !_crmEtapaEsFinal(it.etapa))
+    .map(it=>({ it, atraso: _crmDiasAtraso(it), nunca: !it.ultimoContacto }))
+    .filter(x=> x.nunca || x.atraso >= 0)   // nunca, atrasado, o justo hoy
+    .sort((a,b)=> b.atraso - a.atraso);      // más atrasado primero
+}
+function updateCrmBadge(){
+  const badge = document.getElementById('crm-notif-badge');
+  if(!badge) return;
+  const n = _crmPendientes().length;
+  if(n>0){ badge.textContent = n>99?'99+':n; badge.style.display='flex'; }
+  else { badge.style.display='none'; }
+}
+
+function openCrmNotifs(){
+  const pend = _crmPendientes();
+  let cuerpo;
+  if(!pend.length){
+    cuerpo = '<div style="padding:1.5rem;text-align:center;color:var(--text3);font-size:0.85rem">🎉 No hay seguimientos pendientes. ¡Todo al día!</div>';
+  } else {
+    cuerpo = pend.map(({it,atraso,nunca})=>{
+      const et = _crmEtapaInfo(it.etapa);
+      let estado, color;
+      if(nunca){ estado='Sin seguimientos'; color='#ef4444'; }
+      else if(atraso>0){ estado='Atrasado '+atraso+'d'; color='#ef4444'; }
+      else { estado='Hoy'; color='#eab308'; }
+      const semColor = it.prioridad==='rojo'?'#ef4444':it.prioridad==='amarillo'?'#eab308':'#22c55e';
+      return `<div onclick="closeTrayModal();setTimeout(()=>openCrmView('${it.id}'),50)"
+          style="display:flex;align-items:center;gap:0.7rem;padding:0.7rem 0.8rem;border:1px solid var(--border);border-left:3px solid ${color};border-radius:10px;cursor:pointer;margin-bottom:0.5rem;transition:background var(--transition)"
+          onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background='transparent'">
+        <span style="width:10px;height:10px;border-radius:50%;background:${semColor};flex-shrink:0" title="Prioridad"></span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:0.85rem;color:var(--text)">${escapeHtml(it.nombre)}</div>
+          <div style="font-size:0.7rem;color:var(--text3)">${it.empresa?escapeHtml(it.empresa)+' · ':''}${escapeHtml(et.nombre)}${it.ultimoContacto?' · últ. '+fmtCrmDate(it.ultimoContacto):''}</div>
+        </div>
+        <span style="font-size:0.72rem;font-weight:700;color:${color};white-space:nowrap">${estado}</span>
+      </div>`;
+    }).join('');
+  }
+  const html = `
+    <div style="display:flex;flex-direction:column;gap:0.5rem">
+      <div style="font-size:0.74rem;color:var(--text3);margin-bottom:0.3rem">${pend.length} prospecto(s) requieren seguimiento. Haz clic en uno para abrir su ficha y registrar el contacto.</div>
+      <div style="max-height:60vh;overflow-y:auto">${cuerpo}</div>
+      <div style="display:flex;justify-content:flex-end;margin-top:0.4rem">
+        <button onclick="closeTrayModal()" class="btn-add" style="background:var(--tierra)">Cerrar</button>
+      </div>
+    </div>`;
+  openGenericModal('🔔 Seguimientos pendientes', html);
+}
 
 function fmtCrmDate(d){
   if(!d) return '';
@@ -9228,6 +9330,7 @@ function setCrmView(v){
 function renderCRM(){
   const board = document.getElementById('crm-board');
   if(!board) return;
+  updateCrmBadge();
   const q = (document.getElementById('crm-search')?.value||'').trim().toLowerCase();
   const etapas = _crmEtapas();
   const items = _crmData.items.filter(it=> !q || (it.nombre||'').toLowerCase().includes(q) || (it.contacto||'').toLowerCase().includes(q) || (it.empresa||'').toLowerCase().includes(q));
@@ -9318,12 +9421,32 @@ function _crmSemDot(p){
   return `<span style="display:inline-flex;align-items:center;gap:0.35rem"><span style="width:10px;height:10px;border-radius:50%;background:${c}"></span><span style="font-size:0.72rem;color:var(--text2)">${lbl}</span></span>`;
 }
 
+window._crmTableSort = { col:'etapa', dir:'asc' };
+function crmTableSort(col){
+  const s = window._crmTableSort;
+  if(s.col===col){ s.dir = s.dir==='asc'?'desc':'asc'; }
+  else { s.col = col; s.dir = (col==='atraso'||col==='ultimo')?'desc':'asc'; }
+  renderCRM();
+}
+
 function renderCrmTable(board, items, etapas){
-  // Orden: por etapa (orden del pipeline) y luego por orden interno
   const etapaIdx = {}; etapas.forEach((e,i)=>etapaIdx[e.id]=i);
+  const prioRank = { rojo:3, amarillo:2, verde:1 };
+  const s = window._crmTableSort;
   const lista = [...items].sort((a,b)=>{
-    const ea=etapaIdx[a.etapa]??99, eb=etapaIdx[b.etapa]??99;
-    return ea-eb || (a.orden||0)-(b.orden||0);
+    let cmp = 0;
+    switch(s.col){
+      case 'nombre':   cmp = (a.nombre||'').localeCompare(b.nombre||''); break;
+      case 'empresa':  cmp = (a.empresa||'').localeCompare(b.empresa||''); break;
+      case 'prioridad':cmp = (prioRank[a.prioridad]||0)-(prioRank[b.prioridad]||0); break;
+      case 'persona':  cmp = (a.contacto||'').localeCompare(b.contacto||''); break;
+      case 'ultimo':   cmp = (a.ultimoContacto||'').localeCompare(b.ultimoContacto||''); break;
+      case 'atraso':   cmp = _crmDiasAtraso(a)-_crmDiasAtraso(b); break;
+      case 'etapa':
+      default:         cmp = (etapaIdx[a.etapa]??99)-(etapaIdx[b.etapa]??99) || (a.orden||0)-(b.orden||0); break;
+    }
+    if(cmp===0 && s.col!=='etapa') cmp = (a.nombre||'').localeCompare(b.nombre||'');
+    return s.dir==='asc' ? cmp : -cmp;
   });
   if(!lista.length){
     board.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:2rem;text-align:center">No hay prospectos. Agrega el primero con "+ Agregar prospecto".</div>';
@@ -9343,7 +9466,7 @@ function renderCrmTable(board, items, etapas){
             ${h.comentario?`<div style="font-size:0.74rem;color:var(--text);margin-top:0.1rem">${escapeHtml(h.comentario)}</div>`:''}
           </div>`).join('')
         : '<div style="font-size:0.74rem;color:var(--text3)">Sin seguimientos registrados aún.</div>';
-      detalle = `<tr class="crm-table-detail"><td colspan="8" style="background:var(--bg-card2);padding:0.8rem 1rem">
+      detalle = `<tr class="crm-table-detail"><td colspan="9" style="background:var(--bg-card2);padding:0.8rem 1rem">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
           <div>
             <div style="font-size:0.66rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.2rem">Contacto</div>
@@ -9374,12 +9497,22 @@ function renderCrmTable(board, items, etapas){
       <td>${_crmSemDot(it.prioridad)}</td>
       <td style="color:var(--text2);font-size:0.8rem">${it.contacto?escapeHtml(it.contacto):'—'}</td>
       <td style="color:var(--text2);font-size:0.8rem">${fecha}${nContactos?` <span style="color:var(--text3);font-size:0.68rem">(${nContactos})</span>`:''}</td>
+      <td>${_crmProximoLabel(it)}</td>
       <td style="text-align:center">${it.propuestaUrl?`<a href="${escapeHtml(it.propuestaUrl)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Ver propuesta" style="text-decoration:none;font-size:0.95rem">🔗</a>`:'<span style="color:var(--text3)">—</span>'}</td>
     </tr>${detalle}`;
   }).join('');
+  const fl = col => s.col===col ? (s.dir==='asc'?' ↑':' ↓') : '';
   board.innerHTML = `<table class="tray-table crm-table">
     <thead><tr>
-      <th style="width:24px"></th><th>Prospecto</th><th>Empresa</th><th>Etapa</th><th>Prioridad</th><th>Persona</th><th>Último seguimiento</th><th style="text-align:center">Propuesta</th>
+      <th style="width:24px"></th>
+      <th onclick="crmTableSort('nombre')">Prospecto${fl('nombre')}</th>
+      <th onclick="crmTableSort('empresa')">Empresa${fl('empresa')}</th>
+      <th onclick="crmTableSort('etapa')">Etapa${fl('etapa')}</th>
+      <th onclick="crmTableSort('prioridad')">Prioridad${fl('prioridad')}</th>
+      <th onclick="crmTableSort('persona')">Persona${fl('persona')}</th>
+      <th onclick="crmTableSort('ultimo')">Último seguimiento${fl('ultimo')}</th>
+      <th onclick="crmTableSort('atraso')">Próximo seguimiento${fl('atraso')}</th>
+      <th style="text-align:center">Propuesta</th>
     </tr></thead>
     <tbody>${filas}</tbody>
   </table>`;
@@ -12517,6 +12650,9 @@ function renderPortalTab(){
   const url = getPortalUrl(currentBrandId);
   const el = document.getElementById('portal-link-text');
   if(el) el.textContent = url;
+  // Poblar el input de identificador manual con el slug actual
+  const slugInput = document.getElementById('portal-slug-input');
+  if(slugInput) slugInput.value = getPortalSlug(currentBrandId);
   // Sync section toggles
   const brand = (appData.brands||[]).find(b=>b.id===currentBrandId);
   const sec = getPortalSections(brand);
@@ -12601,6 +12737,44 @@ function _ensurePortalSlug(brand){
 function getPortalUrl(brandId){
   const slug = getPortalSlug(brandId);
   return window.location.origin + window.location.pathname + '?portal=' + slug;
+}
+
+// Guardar manualmente el identificador del portal (solo emergencias)
+async function savePortalSlugManual(){
+  const brand = (appData.brands||[]).find(b=>b.id===currentBrandId);
+  if(!brand){ showStatus('No hay marca seleccionada', true); return; }
+  const raw = (document.getElementById('portal-slug-input')?.value||'').trim();
+  if(!raw){ showStatus('Escribe un identificador', true); return; }
+  // Sanear: solo letras, números y guiones (igual que el slug automático)
+  const slug = raw.toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^A-Z0-9]+/g,'-')
+    .replace(/^-|-$/g,'');
+  if(!slug){ showStatus('Identificador inválido', true); return; }
+  // Verificar que no choque con el slug de OTRA marca
+  const choca = (appData.brands||[]).some(b=>b.id!==brand.id && b.portalSlug===slug);
+  if(choca){ showStatus('Ese identificador ya lo usa otra marca', true); return; }
+  const ok = await confirmModal('El enlace actual dejará de funcionar y el portal pasará a usar:\n\n?portal='+slug+'\n\n¿Confirmas el cambio?', 'Cambiar identificador');
+  if(!ok) return;
+  brand.portalSlug = slug;
+  markLocalChange('brands');
+  await upsert();
+  renderPortalTab();
+  showStatus('Identificador del portal actualizado ✓');
+}
+
+// Regenerar el identificador automático (borra el manual y vuelve al NOMBRE-NN)
+async function resetPortalSlugManual(){
+  const brand = (appData.brands||[]).find(b=>b.id===currentBrandId);
+  if(!brand){ showStatus('No hay marca seleccionada', true); return; }
+  const ok = await confirmModal('Se regenerará el identificador automático a partir del nombre de la marca. El enlace actual podría cambiar. ¿Continuar?', 'Regenerar');
+  if(!ok) return;
+  brand.portalSlug = null;
+  _ensurePortalSlug(brand);
+  markLocalChange('brands');
+  await upsert();
+  renderPortalTab();
+  showStatus('Identificador regenerado ✓');
 }
 
 function copyPortalLink(){
