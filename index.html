@@ -6552,6 +6552,26 @@ async function loadData(){
         if(appData._deletedBrandIds.length)
           appData.brands = appData.brands.filter(b=>!appData._deletedBrandIds.includes(b.id));
       }
+      // 🔒 RED DE SEGURIDAD (archivado): si una marca está ARCHIVADA en la papelera
+      // (type='brand-archived') pero reapareció en brands por un merge de otra sesión,
+      // gana el archivado: la sacamos del dashboard re-aplicando su flag y la quitamos
+      // de brands. Así una marca archivada nunca vuelve sola al dashboard.
+      {
+        const archivadasIds = new Set(
+          (appData.papelera||[])
+            .filter(i=>i && i.type==='brand-archived' && (i.data?.id||i.id))
+            .map(i=>i.data?.id||i.id)
+        );
+        if(archivadasIds.size){
+          const reaparecidas = (appData.brands||[]).filter(b=>archivadasIds.has(b.id));
+          if(reaparecidas.length){
+            console.warn('[auto-fix] Se detectaron', reaparecidas.length,
+              'marca(s) archivada(s) que reaparecieron en el dashboard. Re-archivando…');
+            appData.brands = (appData.brands||[]).filter(b=>!archivadasIds.has(b.id));
+            try{ markLocalChange('brands'); }catch(e){}
+          }
+        }
+      }
       // Auto-assign colors to brands missing one
       const _autoColors=['#e85d5d','#e87f3a','#e8c23a','#5db85d','#3a9ee8','#6b5de8','#c45de8','#e85d9e','#5de8d0','#5d8ce8','#e8825d','#a0e85d'];
       (appData.brands||[]).forEach((b,i)=>{ if(!b.color) b.color=_autoColors[i%_autoColors.length]; });
