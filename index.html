@@ -11334,7 +11334,7 @@ function _reconcilePagosWithCrono(brand){
   // los conservamos igual (como huérfanos) en vez de borrarlos silenciosamente.
   const pagosConValor = cob.pagos.filter(p =>
     p.triggerType !== 'manual' &&
-    (p.cobrado || (Number(p.monto)||0) > 0) &&
+    (p.cobrado || p.incobrable || (Number(p.monto)||0) > 0) &&
     !cronoActs.some(a => a.id === p.triggerActId)
   );
 
@@ -11349,6 +11349,7 @@ function _reconcilePagosWithCrono(brand){
       nombre: a.name,
       monto: existing?.monto || 0,
       cobrado: existing?.cobrado || false,
+      incobrable: existing?.incobrable || false,
       fechaCobrado: existing?.cobrado ? (existing?.fechaCobrado || undefined) : undefined,
       fechaProyectada: a.endDate || existing?.fechaProyectada || '',
       nota: existing?.nota || '',
