@@ -2564,7 +2564,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         <div id="brand-notas-empty" style="display:none;text-align:center;padding:3rem 2rem;color:var(--text3)">
           <div style="font-size:2.5rem;margin-bottom:0.8rem;opacity:0.3">📋</div>
           <div style="font-size:0.95rem;font-weight:600">Sin notas para esta marca</div>
-          <div style="font-size:0.78rem;margin-top:0.3rem">Las notas creadas en el Client Hub para esta marca aparecerán aquí</div>
+          <div style="font-size:0.78rem;margin-top:0.3rem">Las notas y to-dos de esta marca aparecerán aquí</div>
         </div>
       </div>
 
@@ -3507,7 +3507,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
       <!-- Tab: Notas archivadas -->
       <div id="arch-tab-notas" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.6rem">
-          <div style="font-size:0.8rem;color:var(--text3)">Notas del Client Hub marcadas como resueltas</div>
+          <div style="font-size:0.8rem;color:var(--text3)">Notas y to-dos marcados como resueltos</div>
           <div style="display:flex;gap:0.25rem">
             <button id="arch-uf-sos"      onclick="toggleArchNotesUrgFilter('sos')"      style="padding:0.22rem 0.55rem;border-radius:99px;border:1.5px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.1);font-size:0.68rem;font-weight:700;color:#ef4444;cursor:pointer;font-family:var(--font)">🆘</button>
             <button id="arch-uf-alta"     onclick="toggleArchNotesUrgFilter('alta')"     style="padding:0.22rem 0.55rem;border-radius:99px;border:1.5px solid rgba(232,98,42,0.3);background:none;font-size:0.68rem;font-weight:700;color:var(--fuego);cursor:pointer;font-family:var(--font);opacity:0.45">🔴</button>
@@ -3518,7 +3518,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         <div id="arch-notas-empty" style="display:none;text-align:center;padding:3rem 2rem;color:var(--text3)">
           <div style="font-size:2.5rem;margin-bottom:0.8rem;opacity:0.3">📋</div>
           <div style="font-size:0.95rem;font-weight:600">Sin notas archivadas</div>
-          <div style="font-size:0.78rem;margin-top:0.3rem">Las notas resueltas del Client Hub aparecerán aquí</div>
+          <div style="font-size:0.78rem;margin-top:0.3rem">Las notas y to-dos resueltos aparecerán aquí</div>
         </div>
         <div id="arch-notas-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0.8rem"></div>
       </div>
@@ -11842,7 +11842,13 @@ async function toggleCobIncobrable(brandId, pagoId){ markLocalChange("cobros","f
   }
   renderCobCard(brandId);
   renderCobTabla && renderCobTabla();
-  syncCobrosToFin && syncCobrosToFin();
+  // Actualizar finanzas sin re-renderizar toda la página de Cobranzas (que colapsaría las tarjetas)
+  try{
+    ensureFinData();
+    const now = new Date();
+    appData.finanzas.months[now.getMonth()].cobranzas = calcCobradoMes(now.getMonth(), now.getFullYear());
+    if(currentPage==='finanzas' && _finUnlocked) renderFinMes();
+  }catch(e){}
   showStatus(nuevo?'Pago marcado como incobrable':'Pago reactivado');
 }
 
@@ -24830,17 +24836,57 @@ function refreshImportPreview(){
   if(_importActivities.length) renderImportPreview(_importActivities);
 }
 
+// Tarjeta de un to-do completado en la vista de Notas archivadas
+function _archTareaCardHTML(t){
+  const titulo = _tareaTitulo(t);
+  const desc = _tareaDesc(t);
+  const brand = t.brandId ? (appData.brands||[]).find(b=>b.id===t.brandId) : null;
+  const brandCol = brand ? getBrandColor(brand) : 'var(--tierra)';
+  const doneDate = t.doneAt ? new Date(t.doneAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'2-digit'}) : '';
+  const resp = [t.r1, t.r2].map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
+  const comments = t.comments||[];
+  return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)" onclick="openTareaDetalle('${t.id}')">
+    <div style="padding:0.75rem 0.9rem;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:0.45rem;background:var(--bg-card2)">
+      <span style="font-size:0.62rem;font-weight:700;color:var(--tierra);background:rgba(90,170,53,0.12);border:1px solid rgba(90,170,53,0.3);border-radius:5px;padding:0.08rem 0.4rem;white-space:nowrap">📌 To-do</span>
+      ${brand ? `<span style="font-size:0.68rem;font-weight:700;color:${brandCol}">${brand.name}</span>` : ''}
+      <span style="font-size:0.62rem;color:var(--text3);margin-left:auto">✓ ${doneDate}</span>
+      <button onclick="event.stopPropagation();toggleTareaDone('${t.id}')" title="Reabrir to-do"
+        style="background:none;border:1px solid var(--border);border-radius:6px;padding:0.15rem 0.45rem;font-size:0.65rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s"
+        onmouseover="this.style.borderColor='var(--agua)';this.style.color='var(--agua)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">↩ Reactivar</button>
+    </div>
+    <div style="padding:0.75rem 0.9rem;font-size:0.84rem;font-weight:600;color:var(--text);line-height:1.5;word-break:break-word">${escapeHtml(titulo)}</div>
+    ${desc?`<div style="padding:0 0.9rem 0.6rem;font-size:0.78rem;color:var(--text3);line-height:1.45;word-break:break-word">${escapeHtml(desc)}</div>`:''}
+    <div style="padding:0.5rem 0.9rem;border-top:1px solid var(--border2);display:flex;align-items:center;gap:0.5rem">
+      ${resp.length?`<div style="display:flex;gap:0.2rem">${resp.map(m=>{
+        const col=m.color||'var(--aire)';
+        const av=m.photo?`<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(m.emoji||(m.apodo||m.nombre).charAt(0));
+        return `<div title="${m.apodo||m.nombre}" style="width:18px;height:18px;border-radius:50%;background:${col}22;border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:${col};overflow:hidden">${av}</div>`;
+      }).join('')}</div>`:''}
+      ${comments.length?`<span style="margin-left:auto;font-size:0.7rem;color:var(--text3)">💬 ${comments.length}</span>`:'<span style="margin-left:auto"></span>'}
+    </div>
+  </div>`;
+}
+
 function renderArchivoNotas(){
   ensureHubData();
+  ensureTareas && ensureTareas();
   const grid  = document.getElementById('arch-notas-grid');
   const empty = document.getElementById('arch-notas-empty');
   if(!grid) return;
 
-  let notes = appData.clientNotes.filter(n=>n.done);
-  if(_archNotesUrgFilters.size>0) notes = notes.filter(n=>_archNotesUrgFilters.has(n.urgency));
-  notes.sort((a,b)=>(b.doneAt||b.createdAt||'').localeCompare(a.doneAt||a.createdAt||''));
+  // Notas de cliente resueltas + tareas (to-dos) completadas, unificadas
+  let notes = (appData.clientNotes||[]).filter(n=>n.done).map(n=>({ _kind:'nota', n, when: n.doneAt||n.createdAt||'' }));
+  let tareasDone = (appData.tareas||[]).filter(t=>t.done).map(t=>({ _kind:'tarea', t, when: t.doneAt||'' }));
 
-  if(!notes.length){
+  // Filtro de urgencia: solo aplica a notas (las tareas no tienen urgencia)
+  if(_archNotesUrgFilters.size>0){
+    notes = notes.filter(x=>_archNotesUrgFilters.has(x.n.urgency));
+    tareasDone = []; // al filtrar por urgencia, ocultar to-dos (no aplican)
+  }
+
+  let items = [...notes, ...tareasDone].sort((a,b)=>(b.when||'').localeCompare(a.when||''));
+
+  if(!items.length){
     grid.style.display='none';
     if(empty) empty.style.display='block';
     return;
@@ -24848,7 +24894,9 @@ function renderArchivoNotas(){
   grid.style.display='grid';
   if(empty) empty.style.display='none';
 
-  grid.innerHTML = notes.map(note=>{
+  grid.innerHTML = items.map(item=>{
+    if(item._kind==='tarea'){ return _archTareaCardHTML(item.t); }
+    const note = item.n;
     const urg    = HUB_URGENCY[note.urgency]||HUB_URGENCY.moderada;
     const brand  = (appData.brands||[]).find(b=>b.id===note.brandId);
     const brandCol = brand ? getBrandColor(brand) : 'var(--text3)';
@@ -25810,7 +25858,7 @@ function checkAutoArchive(brandId){
   if(window.ClientNotesDB){ ClientNotesDB.saveNote(note); }
   markLocalChange('clientNotes');
   // No await here — will be saved with next upsert call by caller
-  showStatus(`📦 ${brand.name} está listo para archivar — revisa el Client Hub`);
+  showStatus(`📦 ${brand.name} está listo para archivar — revisa los To-dos`);
 }
 
 // Arranque con control de acceso
