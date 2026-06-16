@@ -9373,9 +9373,17 @@ async function enviarSugerencia(){
   if(err) err.style.display='none';
   const categoria = document.getElementById('sug-categoria')?.value || 'otro';
   // ⚠️ Anonimato: el objeto NO lleva autor ni nada identificable.
-  const item = { id: uid(), texto, categoria, votos: 0, descartada: false, createdAt: new Date().toISOString() };
+  const item = { id: uid(), texto, categoria, votos: 0, descartada: false, respuesta:'', respuestaAt:null, createdAt: new Date().toISOString() };
+  if(!window.SugerenciasDB){
+    if(err){ err.textContent='No se pudo conectar con la base de datos. Recarga la página.'; err.style.display='block'; }
+    return;
+  }
+  const ok = await SugerenciasDB.saveItem(item);
+  if(!ok){
+    if(err){ err.innerHTML='⚠️ No se pudo guardar. Puede que falte crear la tabla <b>polen_sugerencias</b> en Supabase. Revisa la consola para más detalle.'; err.style.display='block'; }
+    return;
+  }
   _sugData.items.unshift(item);
-  if(window.SugerenciasDB) await SugerenciasDB.saveItem(item);
   if(ta) ta.value='';
   renderSugerencias();
   showStatus('¡Gracias! Tu sugerencia se envió de forma anónima 🌱');
