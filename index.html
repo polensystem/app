@@ -1323,6 +1323,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
 .cob-status-pill.acobrar{background:rgba(232,98,42,0.13);color:var(--fuego);}
 .cob-status-pill.proximo{background:rgba(245,197,66,0.15);color:#a87a00;}
 .cob-status-pill.pendiente{background:var(--bg-card2);color:var(--text3);}
+.cob-status-pill.incobrable{background:rgba(148,163,184,0.18);color:#64748b;text-decoration:line-through;}
 .cob-trigger{font-size:0.65rem;color:var(--text3);}
 .cob-amount input{background:none;border:none;outline:none;font-family:var(--font);font-size:0.9rem;font-weight:700;color:var(--text);width:80px;text-align:right;border-bottom:1px solid transparent;transition:border-color 0.15s;margin-top:1px;}
 .cob-amount input:focus{border-bottom-color:var(--aire);}
@@ -3260,6 +3261,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
               <button class="cob-sort-btn" id="cob-filter-atrasado" onclick="setCobFilter('atrasado')">🔴 Atrasados</button>
               <button class="cob-sort-btn" id="cob-filter-cobrado" onclick="setCobFilter('cobrado')">✅ Cobrados</button>
               <button class="cob-sort-btn" id="cob-filter-futuro" onclick="setCobFilter('futuro')">🔵 Futuros</button>
+              <button class="cob-sort-btn" id="cob-filter-incobrable" onclick="setCobFilter('incobrable')">🚫 Incobrables</button>
               <div style="width:1px;height:18px;background:var(--border);margin:0 0.2rem"></div>
               <span style="font-size:0.6rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.8px">Ordenar</span>
               <button class="cob-sort-btn active" id="cob-sort-proximo" onclick="setCobSort('proximo')">🕐 Próximos</button>
@@ -3443,7 +3445,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;flex-wrap:wrap">
-        <input id="contactos-search" type="text" placeholder="Buscar por nombre, empresa, email..." oninput="renderContactos()"
+        <input id="contactos-search" type="text" placeholder="Buscar por marca, empresa, email..." oninput="renderContactos()"
           style="flex:1;min-width:200px;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.6rem 1rem;color:var(--text);font-family:var(--font);font-size:0.9rem;outline:none">
         <span style="font-size:0.74rem;color:var(--text3)" id="contactos-count"></span>
       </div>
@@ -4283,6 +4285,7 @@ window.CobrosDB = (function(){
       triggerType: extra.triggerType || 'evento',
       triggerActName: extra.triggerActName || '',
       ultimoSeguimiento: extra.ultimoSeguimiento || '',
+      incobrable: !!extra.incobrable,
       // Cualquier otro campo custom
       ...(extra.custom || {}),
     };
@@ -4297,6 +4300,7 @@ window.CobrosDB = (function(){
       triggerType: pago.triggerType || 'evento',
       triggerActName: pago.triggerActName || '',
       ultimoSeguimiento: pago.ultimoSeguimiento || '',
+      incobrable: !!pago.incobrable,
     };
     return {
       id: pago.id,
@@ -10706,7 +10710,7 @@ function renderContactos(){
 
   wrap.innerHTML = `<table class="tray-table crm-table" style="min-width:760px">
     <thead><tr>
-      <th onclick="contactosTableSort('nombre')">Nombre${fl('nombre')}</th>
+      <th onclick="contactosTableSort('nombre')">Marca${fl('nombre')}</th>
       <th onclick="contactosTableSort('empresa')">Empresa${fl('empresa')}</th>
       <th onclick="contactosTableSort('persona')">Contacto${fl('persona')}</th>
       <th onclick="contactosTableSort('email')">Email${fl('email')}</th>
@@ -10726,8 +10730,8 @@ function openContactoModal(id){
   const html = `
     <div style="display:flex;flex-direction:column;gap:0.7rem">
       <div style="display:flex;gap:0.5rem">
-        <div style="flex:1"><label style="font-size:0.7rem;color:var(--text3)">Nombre *</label>
-          <input id="ct-nombre" value="${c?v(c.nombre):''}" placeholder="Nombre / trato" style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem;color:var(--text);font-family:var(--font);outline:none"></div>
+        <div style="flex:1"><label style="font-size:0.7rem;color:var(--text3)">Marca *</label>
+          <input id="ct-nombre" value="${c?v(c.nombre):''}" placeholder="Nombre de la marca / trato" style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem;color:var(--text);font-family:var(--font);outline:none"></div>
         <div style="flex:1"><label style="font-size:0.7rem;color:var(--text3)">Empresa</label>
           <input id="ct-empresa" value="${c?v(c.empresa):''}" style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem;color:var(--text);font-family:var(--font);outline:none"></div>
       </div>
@@ -10755,7 +10759,7 @@ function openContactoModal(id){
 
 async function saveContacto(id){
   const nombre = (document.getElementById('ct-nombre')?.value||'').trim();
-  if(!nombre){ showStatus('El nombre es obligatorio', true); return; }
+  if(!nombre){ showStatus('La marca es obligatoria', true); return; }
   let c = id ? _contactosData.items.find(x=>x.id===id) : null;
   const esNuevo = !c;
   if(esNuevo){ c = { id: uid(), origen:'manual', crmId:'', createdAt:new Date().toISOString() }; _contactosData.items.unshift(c); }
@@ -10809,6 +10813,49 @@ async function _sembrarContactoDesdeCrm(it){
     await ContactosDB.saveItem(c);
     if(currentPage==='contactos') renderContactos();
   }catch(e){ console.warn('[_sembrarContactoDesdeCrm] falló:', e); }
+}
+
+// Volcado inicial: lleva TODOS los prospectos actuales del CRM a la base (sin duplicar)
+async function sincronizarContactosDesdeCrm(){
+  try{
+    if(!window.ContactosDB){ showStatus('❌ Base de datos no disponible', true); return; }
+    // Asegurar datos cargados
+    if(!_crmData.loaded && typeof loadCRM==='function'){ await loadCRM(); }
+    if(!_contactosData.loaded){ await loadContactos(); }
+    const crmItems = _crmData.items || [];
+    if(!crmItems.length){ showStatus('No hay prospectos en el CRM', true); return; }
+
+    // Set de crmIds ya presentes en la base
+    const yaSembrados = new Set(_contactosData.items.filter(c=>c.crmId).map(c=>c.crmId));
+    const nuevos = [];
+    crmItems.forEach(it=>{
+      if(yaSembrados.has(it.id)) return; // ya existe
+      const et = (typeof _crmEtapaInfo==='function') ? _crmEtapaInfo(it.etapa) : null;
+      nuevos.push({
+        id: uid(),
+        nombre: it.nombre||'',
+        empresa: it.empresa||'',
+        persona: it.contacto||'',
+        email: it.email||'',
+        telefono: it.telefono||'',
+        estado: et?et.nombre:'',
+        prioridad: it.prioridad||'',
+        notas: it.info||'',
+        origen: 'crm',
+        crmId: it.id,
+        createdAt: new Date().toISOString(),
+      });
+    });
+    if(!nuevos.length){ showStatus('La base ya está al día con el CRM ✓'); return; }
+    nuevos.forEach(c=>_contactosData.items.unshift(c));
+    const ok = await ContactosDB.saveItemsBatch(nuevos);
+    if(!ok){ showStatus('❌ Error al sincronizar — ¿existe la tabla polen_contactos?', true); return; }
+    renderContactos();
+    showStatus(`${nuevos.length} prospecto${nuevos.length!==1?'s':''} agregado${nuevos.length!==1?'s':''} desde el CRM ✓`);
+  }catch(e){
+    console.error('[sincronizarContactosDesdeCrm] error:', e);
+    showStatus('❌ Error al sincronizar: '+(e.message||e), true);
+  }
 }
 
 // Importar contactos desde Excel/CSV (usa SheetJS)
@@ -10872,7 +10919,7 @@ function _contactosFiltrados(){
 function exportContactosXLSX(){
   try{
     const items = _contactosFiltrados();
-    const rows = items.map(c=>({ Nombre:c.nombre, Empresa:c.empresa, Contacto:c.persona, Email:c.email, Teléfono:c.telefono, Estado:c.estado, Notas:c.notas, Origen:c.origen }));
+    const rows = items.map(c=>({ Marca:c.nombre, Empresa:c.empresa, Contacto:c.persona, Email:c.email, Teléfono:c.telefono, Estado:c.estado, Notas:c.notas, Origen:c.origen }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Contactos');
@@ -10888,7 +10935,7 @@ function exportContactosPDF(){
     const doc = new jsPDF({ orientation:'landscape' });
     doc.setFontSize(14); doc.text('Base de datos de contactos — Polen', 14, 14);
     doc.setFontSize(8);
-    const headers = ['Nombre','Empresa','Contacto','Email','Teléfono','Estado'];
+    const headers = ['Marca','Empresa','Contacto','Email','Teléfono','Estado'];
     let y = 24; const cols = [14, 60, 105, 145, 200, 245];
     doc.setFont(undefined,'bold'); headers.forEach((h,i)=>doc.text(h, cols[i], y)); doc.setFont(undefined,'normal');
     y += 5;
@@ -11376,6 +11423,9 @@ function buildPagosFromCrono(brand){
 }
 
 function cobStatus(pago, allPagos, brand){
+  // Incobrable: marcado manualmente como no recuperable
+  if(pago.incobrable) return {label:'Incobrable', cls:'incobrable'};
+
   // Cobrado: ya fue marcado como cobrado manualmente
   if(pago.cobrado) return {label:'Cobrado', cls:'cobrado'};
 
@@ -11387,21 +11437,40 @@ function cobStatus(pago, allPagos, brand){
   // Lista plana de todas las actividades en orden cronológico
   const allActs = ['aire','agua','tierra','fuego'].flatMap(s=>(brand.cronograma[s]||[]));
 
-  // Encontrar la actividad "pago" en el cronograma por id (preferido) o por nombre
-  const pagoActIdx = allActs.findIndex(a =>
-    pago.triggerActId ? a.id === pago.triggerActId : a.name === pago.nombre
-  );
+  // Encontrar la actividad "pago" en el cronograma.
+  // Primero por id (preferido); si el cronograma fue regenerado, los ids cambian,
+  // así que caemos a emparejar por nombre como respaldo robusto.
+  let pagoActIdx = -1;
+  if(pago.triggerActId){
+    pagoActIdx = allActs.findIndex(a => a.id === pago.triggerActId);
+  }
+  if(pagoActIdx < 0){
+    const nom = (pago.triggerActName || pago.nombre || '').trim().toLowerCase();
+    if(nom) pagoActIdx = allActs.findIndex(a => (a.name||'').trim().toLowerCase() === nom);
+  }
   if(pagoActIdx < 0) return {label:'Futuro', cls:'pendiente'};
 
-  // El trigger es la actividad INMEDIATAMENTE ANTERIOR al pago en el cronograma
-  if(pagoActIdx === 0){
-    // El pago es la primera actividad — no hay anterior, siempre listo para cobrar
+  // El trigger es la actividad de TRABAJO inmediatamente anterior al pago.
+  // Saltamos hacia atrás otras actividades de "pago" (que nadie marca completada),
+  // para encontrar la entrega real que justifica este cobro.
+  let triggerIdx = pagoActIdx - 1;
+  while(triggerIdx >= 0 && _actIsPago(allActs[triggerIdx])) triggerIdx--;
+  if(triggerIdx < 0){
+    // No hay actividad de trabajo previa — primer cobro, siempre listo
     return {label:'Cobrar', cls:'acobrar'};
   }
-  const triggerAct = allActs[pagoActIdx - 1];
+  const triggerAct = allActs[triggerIdx];
 
-  // "Cobrar": la actividad anterior está completada
-  if(triggerAct.status === 'completada'){
+  // "Cobrar" si la actividad de trabajo anterior está COMPLETADA o EN PROGRESO.
+  if(triggerAct.status === 'completada' || triggerAct.status === 'en progreso'){
+    return {label:'Cobrar', cls:'acobrar'};
+  }
+
+  // También "Cobrar" si la actividad de trabajo DOS pasos antes ya está completada
+  // (regla flexible: el avance ya justifica el cobro aunque la inmediata no esté lista).
+  let trigger2Idx = triggerIdx - 1;
+  while(trigger2Idx >= 0 && _actIsPago(allActs[trigger2Idx])) trigger2Idx--;
+  if(trigger2Idx >= 0 && allActs[trigger2Idx].status === 'completada'){
     return {label:'Cobrar', cls:'acobrar'};
   }
 
@@ -11435,7 +11504,12 @@ function renderCobros(){
   ensureCobrosData();
   const grid = document.getElementById('cob-brands-grid');
   if(!grid) return;
-  let brands = [...(appData.brands||[])];
+  // IDs de marcas en papelera o marcadas como borradas — no deben aparecer en Cobranzas
+  const deletedIds = new Set([
+    ...((appData._deletedBrandIds)||[]),
+    ...((appData.papelera||[]).filter(p=>p.type==='brand'||p.type==='brand-archived').map(p=>p.id))
+  ]);
+  let brands = [...(appData.brands||[])].filter(b=>!deletedIds.has(b.id) && !b.deletedAt && !b.archivedAt);
   if(!brands.length){ grid.innerHTML='<div style="color:var(--text3);font-size:0.82rem">No hay marcas activas.</div>'; return; }
 
   // Sort
@@ -11451,7 +11525,7 @@ function renderCobros(){
 
   const renderCard = (b, dimmed=false) => {
     const cob = appData.cobros[b.id];
-    const pagos = cob.pagos||[];
+    const pagos = (cob.pagos||[]).filter(p=>!p.incobrable);
     const brandCol = getBrandColor(b);
     const logo = b.image ? `<img src="${b.image}">` : b.name.charAt(0);
     const isExp = cob.expanded;
@@ -11569,15 +11643,18 @@ function renderCobCard(brandId){
   const pagos = cob.pagos||[];
   const useTotal = !!cob.useTotal;
   const valorTotal = cob.valorTotal||0;
-  const montoIndividual = useTotal && pagos.length ? Math.round((valorTotal/pagos.length)*100)/100 : null;
-  const totalDisplay = useTotal ? valorTotal : pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
-  const totalCobrado = pagos.filter(p=>p.cobrado).reduce((s,p)=>s+(useTotal?montoIndividual:(parseFloat(p.monto)||0)),0);
+  // Los incobrables NO cuentan para el total esperado ni el % cobrado
+  const pagosVigentes = pagos.filter(p=>!p.incobrable);
+  const incobrables = pagos.filter(p=>p.incobrable);
+  const montoIndividual = useTotal && pagosVigentes.length ? Math.round((valorTotal/pagosVigentes.length)*100)/100 : null;
+  const totalDisplay = useTotal ? valorTotal : pagosVigentes.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+  const totalCobrado = pagosVigentes.filter(p=>p.cobrado).reduce((s,p)=>s+(useTotal?montoIndividual:(parseFloat(p.monto)||0)),0);
   const pct = totalDisplay ? Math.round(totalCobrado/totalDisplay*100) : 0;
   const brandCol = getBrandColor(b);
 
   // Update header sub
   const sub = card.querySelector('.cob-brand-sub');
-  if(sub) sub.textContent = `${pagos.filter(p=>p.cobrado).length}/${pagos.length} cobrados · $${totalDisplay.toLocaleString()}`;
+  if(sub) sub.textContent = `${pagosVigentes.filter(p=>p.cobrado).length}/${pagosVigentes.length} cobrados · $${totalDisplay.toLocaleString()}` + (incobrables.length?` · ${incobrables.length} incobrable${incobrables.length!==1?'s':''}`:'');
   const pctEl = card.querySelector('.cob-pct');
   if(pctEl){ pctEl.textContent = pct+'%'; pctEl.style.color = ''; }
 
@@ -11589,7 +11666,11 @@ function renderCobCard(brandId){
 
   // Ordenar pagos según su posición en el cronograma
   const _cronoActs = ['aire','agua','tierra','fuego'].flatMap(s=>(b.cronograma?.[s]||[]));
-  const _pagosSorted = [...pagos].sort((pa,pb)=>{
+  // ¿Ocultar incobrables en esta tarjeta? (estado por marca, en memoria)
+  window._cobHideIncobrable = window._cobHideIncobrable || {};
+  const ocultarIncob = !!window._cobHideIncobrable[brandId];
+  let _pagosVisibles = ocultarIncob ? pagos.filter(p=>!p.incobrable) : pagos;
+  const _pagosSorted = [..._pagosVisibles].sort((pa,pb)=>{
     const ia = _cronoActs.findIndex(a=>a.id===pa.triggerActId||a.name===pa.nombre);
     const ib = _cronoActs.findIndex(a=>a.id===pb.triggerActId||a.name===pb.nombre);
     return (ia===-1?999:ia) - (ib===-1?999:ib);
@@ -11599,12 +11680,16 @@ function renderCobCard(brandId){
     const st = cobStatus(p, pagos, b);
     const triggerLabel = getCobTriggerLabel(p, b);
     const montoVal = useTotal ? montoIndividual : (p.monto||'');
-    return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;flex-direction:column;padding:0.7rem 1rem;border-bottom:1px solid var(--border)" onmouseenter="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0.45'" onmouseleave="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0'">
+    return `<div id="cobrow-${b.id}-${p.id}" style="display:flex;flex-direction:column;padding:0.7rem 1rem;border-bottom:1px solid var(--border);${p.incobrable?'opacity:0.55':''}" onmouseenter="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0.45'" onmouseleave="const b=this.querySelector('.cob-edit-btn');if(b)b.style.opacity='0'">
       <!-- Línea principal: todo en una fila -->
       <div style="display:flex;align-items:center;gap:0.4rem;min-width:0">
         <div class="cob-check ${p.cobrado?'checked':''}" onclick="event.stopPropagation();toggleCobPago('${b.id}','${p.id}')" style="flex-shrink:0">${p.cobrado?'✓':''}</div>
-        <span style="font-size:0.84rem;font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nombre||'Pago sin nombre'}</span>
+        <span style="font-size:0.84rem;font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${p.incobrable?'text-decoration:line-through':''}">${p.nombre||'Pago sin nombre'}</span>
         <span class="cob-status-pill ${st.cls}" style="flex-shrink:0">${st.label}</span>
+        <button onclick="event.stopPropagation();toggleCobIncobrable('${b.id}','${p.id}')"
+          class="cob-incob-btn"
+          style="background:none;border:none;cursor:pointer;font-size:0.7rem;padding:0.1rem 0.2rem;flex-shrink:0;opacity:${p.incobrable?'1':'0.3'};filter:${p.incobrable?'none':'grayscale(1)'}"
+          title="${p.incobrable?'Quitar marca de incobrable':'Marcar como incobrable'}">🚫</button>
         <button onclick="event.stopPropagation();editCobNombre('${b.id}','${p.id}')"
           class="cob-edit-btn"
           style="background:none;border:none;cursor:pointer;font-size:0.6rem;padding:0.1rem 0.2rem;opacity:0;flex-shrink:0;filter:grayscale(1);transition:opacity 0.15s"
@@ -11628,10 +11713,18 @@ function renderCobCard(brandId){
 
   const body = document.createElement('div');
   body.className = 'cob-body';
+  const toggleIncobHTML = incobrables.length
+    ? `<label style="display:flex;align-items:center;gap:0.25rem;cursor:pointer;user-select:none;font-size:0.6rem;color:var(--text3);white-space:nowrap" title="Ocultar pagos marcados como incobrables">
+         <input type="checkbox" ${ocultarIncob?'checked':''} onchange="event.stopPropagation();toggleCobHideIncobrable('${b.id}',this.checked)"
+           style="accent-color:var(--text3);width:11px;height:11px;cursor:pointer">
+         ocultar incobrables
+       </label>`
+    : '';
   body.innerHTML = `${pagosHTML}
     <div class="cob-footer" onclick="event.stopPropagation()">
       <button class="cob-add-btn" onclick="event.stopPropagation();addCobPago('${b.id}')">+ Agregar pago</button>
       <div style="display:flex;align-items:center;gap:0.5rem">
+        ${toggleIncobHTML}
         <label style="display:flex;align-items:center;gap:0.25rem;cursor:pointer;user-select:none;font-size:0.6rem;color:var(--text3);white-space:nowrap" title="Distribuir equitativamente">
           <input type="checkbox" ${useTotal?'checked':''} onchange="event.stopPropagation();toggleCobUseTotal('${b.id}',this.checked)"
             style="accent-color:var(--aire);width:11px;height:11px;cursor:pointer">
@@ -11725,7 +11818,42 @@ async function toggleCobPago(brandId, pagoId){ markLocalChange("cobros","finanza
   }
 }
 
-async function editCobNombre(brandId, pagoId){
+// Marcar/desmarcar un pago como incobrable
+async function toggleCobIncobrable(brandId, pagoId){ markLocalChange("cobros","finanzas");
+  ensureCobrosData();
+  const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
+  if(!pago) return;
+  const nuevo = !pago.incobrable;
+  // Confirmar solo al marcar (no al quitar)
+  if(nuevo){
+    const ok = await confirmModal(`¿Marcar "${pago.nombre||'este pago'}" como incobrable?\n\nNo contará en el total ni en el % de cobranzas, pero seguirá visible para revisión.`,'Marcar incobrable');
+    if(!ok) return;
+  }
+  pago.incobrable = nuevo;
+  // Un pago incobrable no puede estar cobrado a la vez
+  if(nuevo && pago.cobrado){ pago.cobrado = false; delete pago.fechaCobrado; }
+  pago._updatedAt = new Date().toISOString();
+  const okSave = await CobrosDB.savePago(brandId, pago);
+  if(!okSave){
+    pago.incobrable = !nuevo; // revertir
+    showStatus('❌ Error guardando — reintenta', true);
+    renderCobCard(brandId);
+    return;
+  }
+  renderCobCard(brandId);
+  renderCobTabla && renderCobTabla();
+  syncCobrosToFin && syncCobrosToFin();
+  showStatus(nuevo?'Pago marcado como incobrable':'Pago reactivado');
+}
+
+// Ocultar/mostrar los incobrables dentro de una tarjeta (estado en memoria)
+function toggleCobHideIncobrable(brandId, hide){
+  window._cobHideIncobrable = window._cobHideIncobrable || {};
+  window._cobHideIncobrable[brandId] = !!hide;
+  renderCobCard(brandId);
+}
+
+async function editCobNombre(brandId, pagoId){ markLocalChange("cobros");
   ensureCobrosData();
   const pago = appData.cobros[brandId]?.pagos?.find(p=>p.id===pagoId);
   if(!pago) return;
@@ -11894,7 +12022,7 @@ function toggleHideCobrado(){
 
 function setCobFilter(filter){
   _cobFilter = filter;
-  ['todos','mes','cobrar','atrasado','cobrado','futuro'].forEach(k=>{
+  ['todos','mes','cobrar','atrasado','cobrado','futuro','incobrable'].forEach(k=>{
     const b = document.getElementById('cob-filter-'+k);
     if(b) b.classList.toggle('active', k===filter);
   });
@@ -11902,7 +12030,12 @@ function setCobFilter(filter){
 }
 
 function _pasaCobFilter(p, pagos, brand){
+  // Filtro dedicado a incobrables
+  if(_cobFilter === 'incobrable') return !!p.incobrable;
+  // En 'todos' los incobrables SÍ se muestran (tachados), para que el cambio sea visible.
   if(_cobFilter === 'todos') return true;
+  // En el resto de filtros activos (por cobrar, futuros, etc.) los incobrables se excluyen.
+  if(p.incobrable) return false;
   const now = new Date();
   const curM = now.getMonth(), curY = now.getFullYear();
   const st = cobStatus(p, pagos, brand);
@@ -11996,7 +12129,8 @@ function renderCobTabla(){
       cobrar: 'Sin pagos listos para cobrar.',
       atrasado: 'Sin pagos atrasados. ✓',
       cobrado: 'Sin pagos cobrados aún.',
-      futuro: 'Sin pagos futuros.'
+      futuro: 'Sin pagos futuros.',
+      incobrable: 'Sin pagos marcados como incobrables.'
     };
     body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--text3);font-size:0.84rem">'+(msgs[_cobFilter]||'Sin resultados.')+'</div>';
     return;
@@ -12017,7 +12151,7 @@ function renderCobTabla(){
     const pct = totalVal ? Math.round(totalCobrado/totalVal*100) : 0;
     const triggerLabel = getCobTriggerLabel(p, b);
 
-    return `<div class="cob-tabla-row ${p.cobrado?'cobrado-row':''}">
+    return `<div class="cob-tabla-row ${p.cobrado?'cobrado-row':''}" style="${p.incobrable?'opacity:0.5':''}">
       <!-- Check -->
       <div style="width:32px;flex-shrink:0">
         <div class="cob-check ${p.cobrado?'checked':''}" onclick="toggleCobPagoTabla('${b.id}','${p.id}')" style="width:18px;height:18px;border-radius:5px">${p.cobrado?'✓':''}</div>
@@ -12061,11 +12195,14 @@ function renderCobTabla(){
           title="Fecha de último seguimiento">
       </div>
       <!-- Notas -->
-      <div style="flex:1;min-width:120px;padding-left:0.5rem">
+      <div style="flex:1;min-width:120px;padding-left:0.5rem;display:flex;align-items:flex-start;gap:0.4rem">
         <textarea class="cob-tabla-note" placeholder="Añadir nota…"
           onchange="saveCobTablaField('${b.id}','${p.id}','nota',this.value)"
           oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
         >${p.nota||''}</textarea>
+        <button onclick="toggleCobIncobrable('${b.id}','${p.id}')"
+          style="background:none;border:none;cursor:pointer;font-size:0.85rem;padding:0.2rem;flex-shrink:0;opacity:${p.incobrable?'1':'0.3'};filter:${p.incobrable?'none':'grayscale(1)'}"
+          title="${p.incobrable?'Quitar marca de incobrable':'Marcar como incobrable'}">🚫</button>
       </div>
     </div>`;
   }).join('');
@@ -12456,6 +12593,10 @@ function softDeleteBrand(brand){
   const papItem = { type:'brand', id:brand.id, data:JSON.parse(JSON.stringify(brand)), deletedAt:Date.now() };
   appData.papelera.push(papItem);
   appData.brands = appData.brands.filter(b=>b.id!==brand.id);
+  // Quitar la entrada de cobros en memoria para que la tarjeta desaparezca de Cobranzas.
+  // Los pagos siguen en la tabla polen_cobros (se reconstruyen al restaurar); solo se
+  // borran de la tabla en el borrado permanente.
+  if(appData.cobros && appData.cobros[brand.id]) delete appData.cobros[brand.id];
   // 🔒 Persistir en tabla papelera
   if(window.PapeleraDB){ PapeleraDB.saveItem(papItem); }
   // 🔒 Borrar de tabla brand_bp (BP no se restauran automáticamente porque la marca ya no existe)
