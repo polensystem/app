@@ -2028,6 +2028,9 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
       <span class="nav-icon">📊</span><span class="nav-text">Data</span>
     </button>
   </div>
+  <button class="nav-item" id="nav-sugerencias" onclick="goToSugerencias()">
+    <span class="nav-icon">💡</span><span class="nav-text">Buzón anónimo</span>
+  </button>
 </aside>
 
 <!-- MAIN -->
@@ -3364,6 +3367,56 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
     </div>
   </div>
 
+  <!-- PAGE: BUZÓN DE SUGERENCIAS (anónimo) -->
+  <div class="page" id="page-sugerencias">
+    <div class="content">
+      <div style="max-width:760px;margin:0 auto">
+        <div style="margin-bottom:1.2rem">
+          <div style="font-size:1.3rem;font-weight:800;letter-spacing:-0.5px">💡 Buzón de sugerencias</div>
+          <div style="font-size:0.82rem;color:var(--text3);margin-top:0.3rem">Un espacio para proponer ideas, mejoras o lo que sea — de forma totalmente anónima.</div>
+        </div>
+
+        <!-- Aviso de anonimato -->
+        <div style="display:flex;align-items:flex-start;gap:0.6rem;background:rgba(90,170,53,0.08);border:1px solid rgba(90,170,53,0.3);border-radius:12px;padding:0.8rem 1rem;margin-bottom:1.2rem">
+          <span style="font-size:1.1rem">🔒</span>
+          <div style="font-size:0.78rem;color:var(--text2);line-height:1.5">
+            <b style="color:var(--tierra)">100% anónimo.</b> No registramos quién envía cada sugerencia: no se guarda tu nombre, ni tu sesión, ni ningún dato que permita identificarte. Escribe con confianza.
+          </div>
+        </div>
+
+        <!-- Formulario de envío -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem;margin-bottom:1.5rem">
+          <textarea id="sug-input" placeholder="Escribe tu sugerencia…" rows="3"
+            style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.7rem 0.8rem;color:var(--text);font-family:var(--font);font-size:0.88rem;resize:vertical;outline:none"></textarea>
+          <div style="display:flex;align-items:center;gap:0.6rem;margin-top:0.7rem;flex-wrap:wrap">
+            <select id="sug-categoria" style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.45rem 0.7rem;font-size:0.8rem;color:var(--text2);font-family:var(--font);font-weight:600;outline:none">
+              <option value="cultura">🌱 Cultura / clima</option>
+              <option value="procesos">⚙️ Procesos</option>
+              <option value="herramientas">🛠 Herramientas</option>
+              <option value="clientes">🤝 Clientes</option>
+              <option value="otro" selected>💬 Otro</option>
+            </select>
+            <button onclick="enviarSugerencia()" class="btn-add" style="background:var(--tierra);margin-left:auto">Enviar sugerencia</button>
+          </div>
+          <div id="sug-err" style="display:none;color:#ef4444;font-size:0.78rem;margin-top:0.5rem"></div>
+        </div>
+
+        <!-- Controles de lista -->
+        <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.8rem;flex-wrap:wrap">
+          <div style="font-size:0.78rem;font-weight:700;color:var(--text2)" id="sug-count">Sugerencias</div>
+          <div style="display:flex;gap:0.3rem;margin-left:auto;align-items:center">
+            <button id="sug-sort-votos" onclick="setSugSort('votos')" style="font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);cursor:pointer;font-family:var(--font);font-weight:600">🔥 Más votadas</button>
+            <button id="sug-sort-fecha" onclick="setSugSort('fecha')" style="font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text3);cursor:pointer;font-family:var(--font);font-weight:600">🕐 Recientes</button>
+            <button id="sug-admin-btn" onclick="toggleSugAdmin()" style="font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text3);cursor:pointer;font-family:var(--font);font-weight:600;margin-left:0.4rem">🔑 Gestión</button>
+          </div>
+        </div>
+
+        <!-- Lista -->
+        <div id="sug-list" style="display:flex;flex-direction:column;gap:0.7rem"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- PAGE: ARCHIVO -->
   <div class="page" id="page-archivo">
     <div class="content">
@@ -4595,6 +4648,74 @@ window.CrmDB = (function(){
   }
 
   return { loadAll, saveItem, deleteItem, saveConfig, subscribeRealtime, rowToItem, itemToRow };
+})();
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   🔒 MÓDULO SUGERENCIAS-DB — Buzón de sugerencias ANÓNIMO
+   ══════════════════════════════════════════════════════════════════════════════
+   Tabla polen_sugerencias. ⚠️ ANONIMATO: la tabla NO tiene columna de autor.
+   No se guarda quién envía. Columnas: id, texto, categoria, votos, descartada,
+   created_at. RLS abierta (cualquiera inserta/lee/actualiza). Realtime habilitado.
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.SugerenciasDB = (function(){
+  const TABLE = 'polen_sugerencias';
+  const _recent = new Map();
+  function markOwn(id){ _recent.set(id, Date.now()); setTimeout(()=>_recent.delete(id), 2500); }
+  function isOwnEcho(id){ const t=_recent.get(id); return t && (Date.now()-t)<2500; }
+
+  function rowToItem(row){
+    return {
+      id: row.id,
+      texto: row.texto || '',
+      categoria: row.categoria || 'otro',
+      votos: row.votos || 0,
+      descartada: !!row.descartada,
+      respuesta: row.respuesta || '',
+      respuestaAt: (row.extra||{}).respuestaAt || null,
+      createdAt: row.created_at || null,
+    };
+  }
+
+  async function loadAll(){
+    try{
+      const { data, error } = await sbSelectAll(TABLE, q=>q.order('created_at',{ascending:false}));
+      if(error){ console.error('[SugerenciasDB] loadAll error:', error); return null; }
+      return (data||[]).map(rowToItem);
+    }catch(e){ console.error('[SugerenciasDB] loadAll crashed:', e); return null; }
+  }
+
+  async function saveItem(it){
+    try{
+      markOwn(it.id);
+      const row = { id: it.id, texto: it.texto||'', categoria: it.categoria||'otro', votos: it.votos||0, descartada: !!it.descartada, respuesta: it.respuesta||'', extra: { respuestaAt: it.respuestaAt||null } };
+      const { error } = await sb.from(TABLE).upsert(row, { onConflict:'id' });
+      if(error){ console.error('[SugerenciasDB] saveItem error:', error); return false; }
+      return true;
+    }catch(e){ console.error('[SugerenciasDB] saveItem crashed:', e); return false; }
+  }
+
+  async function deleteItem(id){
+    try{
+      markOwn(id);
+      const { error } = await sb.from(TABLE).delete().eq('id', id);
+      if(error){ console.error('[SugerenciasDB] deleteItem error:', error); return false; }
+      return true;
+    }catch(e){ console.error('[SugerenciasDB] deleteItem crashed:', e); return false; }
+  }
+
+  function subscribeRealtime(onChange){
+    try{
+      sb.channel('polen_sugerencias_rt')
+        .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload=>{
+          const id = (payload.new && payload.new.id) || (payload.old && payload.old.id);
+          if(isOwnEcho(id)) return;
+          if(typeof onChange==='function') onChange();
+        })
+        .subscribe();
+    }catch(e){ console.warn('[SugerenciasDB] subscribeRealtime falló:', e); }
+  }
+
+  return { loadAll, saveItem, deleteItem, subscribeRealtime, rowToItem };
 })();
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -9187,6 +9308,238 @@ function _crmDefaultConfig(){
   };
 }
 
+// ════════════════════════════════════════════════════════════
+// BUZÓN DE SUGERENCIAS (anónimo)
+// ════════════════════════════════════════════════════════════
+window._sugData = { items: [], loaded: false };
+window._sugSort = 'votos';
+window._sugAdmin = false;  // modo gestión (desbloqueado con PIN)
+
+const SUG_CATS = {
+  cultura:      { label:'Cultura / clima', emoji:'🌱', color:'#5aaa35' },
+  procesos:     { label:'Procesos',        emoji:'⚙️', color:'#3d9edd' },
+  herramientas: { label:'Herramientas',    emoji:'🛠', color:'#9b8bd4' },
+  clientes:     { label:'Clientes',        emoji:'🤝', color:'#e29578' },
+  otro:         { label:'Otro',            emoji:'💬', color:'#94a3b8' },
+};
+
+// Votos ya emitidos por ESTE navegador (anti-doble-voto, sin identidad)
+function _sugVotados(){
+  try{ return new Set(JSON.parse(localStorage.getItem('polen-sug-votados')||'[]')); }catch(e){ return new Set(); }
+}
+function _sugMarcarVotado(id){
+  try{ const s=_sugVotados(); s.add(id); localStorage.setItem('polen-sug-votados', JSON.stringify([...s])); }catch(e){}
+}
+
+async function goToSugerencias(){
+  _navHistory.push({ page: currentPage, brandId: currentBrandId||null });
+  if(_navHistory.length > 30) _navHistory.shift();
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const nEl=document.getElementById('nav-sugerencias'); if(nEl) nEl.classList.add('active');
+  const pEl=document.getElementById('page-sugerencias'); if(pEl) pEl.classList.add('active');
+  (document.getElementById('header-title')||{}).textContent='Buzón de sugerencias';
+  currentPage='sugerencias';
+  if(typeof updateGlobalBreadcrumb==='function') updateGlobalBreadcrumb('sugerencias');
+  _updateBackBtn();
+  closeMobileSidebar && closeMobileSidebar();
+  _sugAdmin = false; // siempre arranca bloqueado
+  const list=document.getElementById('sug-list');
+  if(list) list.innerHTML='<div style="color:var(--text3);font-size:0.85rem;padding:2rem;text-align:center">Cargando…</div>';
+  await loadSugerencias();
+  renderSugerencias();
+}
+
+async function loadSugerencias(){
+  if(!window.SugerenciasDB) return;
+  const items = await SugerenciasDB.loadAll();
+  if(items){ _sugData.items = items; _sugData.loaded = true; }
+}
+
+function setSugSort(s){
+  window._sugSort = s;
+  document.getElementById('sug-sort-votos').style.background = s==='votos'?'var(--bg-card)':'none';
+  document.getElementById('sug-sort-votos').style.color = s==='votos'?'var(--text)':'var(--text3)';
+  document.getElementById('sug-sort-fecha').style.background = s==='fecha'?'var(--bg-card)':'none';
+  document.getElementById('sug-sort-fecha').style.color = s==='fecha'?'var(--text)':'var(--text3)';
+  renderSugerencias();
+}
+
+async function enviarSugerencia(){
+  const ta = document.getElementById('sug-input');
+  const err = document.getElementById('sug-err');
+  const texto = (ta?.value||'').trim();
+  if(!texto){ if(err){err.textContent='Escribe tu sugerencia antes de enviar.';err.style.display='block';} return; }
+  if(err) err.style.display='none';
+  const categoria = document.getElementById('sug-categoria')?.value || 'otro';
+  // ⚠️ Anonimato: el objeto NO lleva autor ni nada identificable.
+  const item = { id: uid(), texto, categoria, votos: 0, descartada: false, createdAt: new Date().toISOString() };
+  _sugData.items.unshift(item);
+  if(window.SugerenciasDB) await SugerenciasDB.saveItem(item);
+  if(ta) ta.value='';
+  renderSugerencias();
+  showStatus('¡Gracias! Tu sugerencia se envió de forma anónima 🌱');
+}
+
+async function votarSugerencia(id){
+  const votados = _sugVotados();
+  if(votados.has(id)){ showStatus('Ya votaste esta sugerencia', true); return; }
+  const it = _sugData.items.find(s=>s.id===id);
+  if(!it) return;
+  it.votos = (it.votos||0) + 1;
+  _sugMarcarVotado(id);
+  if(window.SugerenciasDB) await SugerenciasDB.saveItem(it);
+  renderSugerencias();
+}
+
+function toggleSugAdmin(){
+  if(_sugAdmin){ _sugAdmin = false; renderSugerencias(); return; }
+  // Prompt de PIN (gestión solo para socios): acepta PIN de PM (1235) o maestro (1379)
+  openGenericModal('🔑 Gestión del buzón', `
+    <div style="font-size:0.8rem;color:var(--text2);line-height:1.5;margin-bottom:0.8rem">Ingresa el PIN de gestión para descartar o borrar sugerencias.</div>
+    <input id="sug-pin-input" type="password" inputmode="numeric" placeholder="PIN"
+      style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.8rem;color:var(--text);font-family:var(--font);font-size:1rem;letter-spacing:0.2em;text-align:center;outline:none"
+      onkeydown="if(event.key==='Enter')_checkSugPin()">
+    <div id="sug-pin-err" style="display:none;color:#ef4444;font-size:0.78rem;margin-top:0.5rem;text-align:center">PIN incorrecto</div>
+    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem">
+      <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:0.82rem">Cancelar</button>
+      <button onclick="_checkSugPin()" class="btn-add" style="background:var(--fuego)">Desbloquear</button>
+    </div>`);
+  setTimeout(()=>document.getElementById('sug-pin-input')?.focus(), 100);
+}
+function _checkSugPin(){
+  const val = (document.getElementById('sug-pin-input')?.value||'').trim();
+  if(val==='1235' || val==='1379' || val==='7771'){
+    _sugAdmin = true;
+    closeTrayModal();
+    renderSugerencias();
+    showStatus('Gestión desbloqueada 🔓');
+  } else {
+    const err = document.getElementById('sug-pin-err');
+    if(err) err.style.display='block';
+    const inp = document.getElementById('sug-pin-input');
+    if(inp){ inp.value=''; inp.focus(); }
+  }
+}
+// Llamado tras validar el PIN correctamente (ver wiring en checkPin)
+function _unlockSugAdmin(){
+  _sugAdmin = true;
+  if(currentPage==='sugerencias') renderSugerencias();
+}
+
+async function descartarSugerencia(id, descartar){
+  const it = _sugData.items.find(s=>s.id===id);
+  if(!it) return;
+  it.descartada = !!descartar;
+  if(window.SugerenciasDB) await SugerenciasDB.saveItem(it);
+  renderSugerencias();
+  showStatus(descartar ? 'Sugerencia descartada (oculta para el equipo)' : 'Sugerencia restaurada');
+}
+
+async function borrarSugerencia(id){
+  const ok = await confirmModal('¿Borrar esta sugerencia de forma permanente? No se puede deshacer.','Borrar');
+  if(!ok) return;
+  _sugData.items = _sugData.items.filter(s=>s.id!==id);
+  if(window.SugerenciasDB) await SugerenciasDB.deleteItem(id);
+  renderSugerencias();
+  showStatus('Sugerencia borrada');
+}
+
+// Responder como gerencia (solo en modo gestión). Pasar texto vacío borra la respuesta.
+async function responderSugerencia(id){
+  const it = _sugData.items.find(s=>s.id===id);
+  if(!it) return;
+  const ta = document.getElementById('sug-resp-'+id);
+  const texto = (ta?.value||'').trim();
+  it.respuesta = texto;
+  it.respuestaAt = texto ? new Date().toISOString() : null;
+  if(window.SugerenciasDB) await SugerenciasDB.saveItem(it);
+  renderSugerencias();
+  showStatus(texto ? 'Respuesta publicada ✓' : 'Respuesta eliminada');
+}
+
+function renderSugerencias(){
+  const list = document.getElementById('sug-list');
+  if(!list) return;
+  const adminBtn = document.getElementById('sug-admin-btn');
+  if(adminBtn){
+    adminBtn.style.background = _sugAdmin ? 'var(--fuego)' : 'none';
+    adminBtn.style.color = _sugAdmin ? '#fff' : 'var(--text3)';
+    adminBtn.textContent = _sugAdmin ? '🔓 Gestión activa' : '🔑 Gestión';
+  }
+
+  // Vista pública = no descartadas. Modo admin = todas.
+  let items = _sugData.items.filter(s=> _sugAdmin ? true : !s.descartada);
+
+  // Orden
+  if(window._sugSort==='votos') items = [...items].sort((a,b)=> (b.votos||0)-(a.votos||0) || (b.createdAt||'').localeCompare(a.createdAt||''));
+  else items = [...items].sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''));
+
+  const countEl = document.getElementById('sug-count');
+  if(countEl){
+    const visibles = _sugData.items.filter(s=>!s.descartada).length;
+    const descartadas = _sugData.items.filter(s=>s.descartada).length;
+    countEl.textContent = `${visibles} sugerencia${visibles!==1?'s':''}` + (_sugAdmin && descartadas ? ` · ${descartadas} descartada${descartadas!==1?'s':''}` : '');
+  }
+
+  if(!items.length){
+    list.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:2.5rem;text-align:center">Aún no hay sugerencias. ¡Sé el primero! 🌱</div>';
+    return;
+  }
+
+  const votados = _sugVotados();
+  list.innerHTML = items.map(s=>{
+    const cat = SUG_CATS[s.categoria] || SUG_CATS.otro;
+    const yaVoto = votados.has(s.id);
+    const fecha = s.createdAt ? new Date(s.createdAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short'}) : '';
+    // Respuesta de gerencia (visible para todos si existe)
+    const respFecha = s.respuestaAt ? new Date(s.respuestaAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short'}) : '';
+    const respuestaHTML = s.respuesta ? `
+      <div style="margin-top:0.6rem;background:rgba(45,195,179,0.08);border:1px solid rgba(45,195,179,0.3);border-left:3px solid var(--agua);border-radius:10px;padding:0.6rem 0.8rem">
+        <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.25rem">
+          <span style="font-size:0.7rem;font-weight:800;color:var(--agua)">💬 Respuesta de gerencia</span>
+          ${respFecha?`<span style="font-size:0.62rem;color:var(--text3)">${respFecha}</span>`:''}
+        </div>
+        <div style="font-size:0.82rem;color:var(--text);line-height:1.5;word-break:break-word;white-space:pre-wrap">${escapeHtml(s.respuesta)}</div>
+      </div>` : '';
+    // Editor de respuesta (solo en modo gestión)
+    const respEditorHTML = _sugAdmin ? `
+      <div style="margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border)">
+        <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.35rem">Responder como gerencia</div>
+        <textarea id="sug-resp-${s.id}" rows="2" placeholder="Escribe una respuesta pública…"
+          style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.8rem;resize:vertical;outline:none">${s.respuesta?escapeHtml(s.respuesta):''}</textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:0.4rem">
+          <button onclick="responderSugerencia('${s.id}')" style="font-size:0.72rem;padding:0.32rem 0.8rem;border-radius:8px;border:none;background:var(--agua);color:#fff;cursor:pointer;font-family:var(--font);font-weight:700">${s.respuesta?'Actualizar respuesta':'Publicar respuesta'}</button>
+        </div>
+      </div>` : '';
+    const adminControls = _sugAdmin ? `
+      <div style="display:flex;gap:0.4rem;margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border)">
+        ${s.descartada
+          ? `<button onclick="descartarSugerencia('${s.id}',false)" style="font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:none;color:var(--tierra);cursor:pointer;font-family:var(--font);font-weight:600">↩ Restaurar</button>`
+          : `<button onclick="descartarSugerencia('${s.id}',true)" style="font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:var(--font);font-weight:600">🙈 Descartar</button>`}
+        <button onclick="borrarSugerencia('${s.id}')" style="font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:none;color:#ef4444;cursor:pointer;font-family:var(--font);font-weight:600">🗑 Borrar</button>
+      </div>` : '';
+    return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:0.9rem 1rem;display:flex;gap:0.8rem;${s.descartada?'opacity:0.6':''}">
+      <button onclick="votarSugerencia('${s.id}')" ${yaVoto?'disabled':''} title="${yaVoto?'Ya votaste':'Apoyar esta sugerencia'}"
+        style="display:flex;flex-direction:column;align-items:center;gap:0.1rem;background:${yaVoto?cat.color+'22':'var(--bg-card2)'};border:1.5px solid ${yaVoto?cat.color:'var(--border)'};border-radius:10px;padding:0.4rem 0.6rem;cursor:${yaVoto?'default':'pointer'};flex-shrink:0;font-family:var(--font);min-width:48px;transition:all 0.15s">
+        <span style="font-size:0.9rem">👍</span>
+        <span style="font-size:0.9rem;font-weight:800;color:${yaVoto?cat.color:'var(--text)'}">${s.votos||0}</span>
+      </button>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.35rem">
+          <span style="font-size:0.66rem;font-weight:700;color:${cat.color};background:${cat.color}18;border:1px solid ${cat.color}44;border-radius:99px;padding:0.1rem 0.5rem">${cat.emoji} ${cat.label}</span>
+          ${s.descartada?'<span style="font-size:0.64rem;color:var(--text3);font-style:italic">descartada</span>':''}
+          <span style="font-size:0.66rem;color:var(--text3);margin-left:auto">${fecha}</span>
+        </div>
+        <div style="font-size:0.88rem;color:var(--text);line-height:1.5;word-break:break-word;white-space:pre-wrap">${escapeHtml(s.texto)}</div>
+        ${respuestaHTML}
+        ${respEditorHTML}
+        ${adminControls}
+      </div>
+    </div>`;
+  }).join('');
+}
+
 async function goToCRM(){
   _navHistory.push({ page: currentPage, brandId: currentBrandId||null });
   if(_navHistory.length > 30) _navHistory.shift();
@@ -11196,6 +11549,10 @@ function renderCurrentPage(){
     if(currentPage==='crm'){
       if(!_crmData.loaded){ loadCRM().then(()=>renderCRM()); }
       else { renderCRM(); }
+    }
+    if(currentPage==='sugerencias'){
+      if(!_sugData.loaded){ loadSugerencias().then(()=>renderSugerencias()); }
+      else { renderSugerencias(); }
     }
   } catch(e) {
     console.error('renderCurrentPage error:', e);
@@ -18983,6 +19340,18 @@ async function boot(){
         if(currentPage==='crm'){
           await loadCRM();
           renderCRM();
+        }
+      }catch(e){}
+    });
+  }
+
+  // 🔒 Suscripción realtime al Buzón de sugerencias
+  if(window.SugerenciasDB){
+    SugerenciasDB.subscribeRealtime(async ()=>{
+      try{
+        if(currentPage==='sugerencias'){
+          await loadSugerencias();
+          renderSugerencias();
         }
       }catch(e){}
     });
