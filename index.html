@@ -2260,8 +2260,8 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         <!-- Header -->
         <div style="padding:0.85rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:0.8rem;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);flex-wrap:wrap">
           <div>
-            <div style="font-size:0.95rem;font-weight:800;color:var(--text);letter-spacing:-0.3px">📋 Client Hub</div>
-            <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem" id="client-hub-sub">Notas y seguimiento de clientes</div>
+            <div style="font-size:0.95rem;font-weight:800;color:var(--text);letter-spacing:-0.3px">✅ To-dos</div>
+            <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem" id="client-hub-sub">Notas de clientes y tareas del equipo</div>
           </div>
           <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
             <!-- Filter by member -->
@@ -2279,7 +2279,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
             </div>
             <!-- Status tabs: removed — archived notes live in Archivo page -->
             <button id="hub-collapse-all-btn" onclick="toggleAllHubComments()" style="display:none;align-items:center;gap:0.3rem;padding:0.28rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:none;font-size:0.72rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all 0.15s" onmouseover="this.style.borderColor='var(--aire)'" onmouseout="this.style.borderColor='var(--border)'"><span id="hub-collapse-all-icon">▾</span> <span id="hub-collapse-all-label">Colapsar todos</span></button>
-            <button onclick="openHubModal(null)" style="display:flex;align-items:center;gap:0.4rem;padding:0.42rem 0.9rem;border-radius:99px;border:none;background:var(--text);color:var(--bg);font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font);transition:all 0.15s" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">+ Nota</button>
+            <button onclick="openTodoChooser(event)" style="display:flex;align-items:center;gap:0.4rem;padding:0.42rem 0.9rem;border-radius:99px;border:none;background:var(--text);color:var(--bg);font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font);transition:all 0.15s" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">+ Nuevo</button>
           </div>
         </div>
         <!-- Notes grid — fixed height, internal scroll -->
@@ -22928,20 +22928,41 @@ function renderClientHub(){
     return d !== 0 ? d : (b.createdAt||'').localeCompare(a.createdAt||'');
   });
 
-  const totalActive = appData.clientNotes.filter(n=>!n.done).length;
-  if(sub) sub.textContent = totalActive ? `${totalActive} nota${totalActive!==1?'s':''} activa${totalActive!==1?'s':''}` : 'Sin notas activas';
+  // ── Tareas sueltas pendientes (se mezclan con las notas) ──
+  // No se muestran si hay filtro de "archivo" activo (ese es solo para notas de archivo).
+  let tareasPend = [];
+  if(!_hubArchivoFilter){
+    ensureTareas();
+    tareasPend = (appData.tareas||[]).filter(t=>!t.done);
+    if(_hubMemberFilter) tareasPend = tareasPend.filter(t=>t.r1===_hubMemberFilter || t.r2===_hubMemberFilter);
+    // Orden de tareas: más vencidas/urgentes primero (por atraso), luego por fecha
+    tareasPend.sort((a,b)=>{
+      const da = _tareaDiasAtraso(a), db = _tareaDiasAtraso(b);
+      const va = da===null?-9999:da, vb = db===null?-9999:db;
+      return vb - va;
+    });
+  }
 
-  if(!notes.length){
+  const totalActive = appData.clientNotes.filter(n=>!n.done).length;
+  const totalTareas = (appData.tareas||[]).filter(t=>!t.done).length;
+  if(sub){
+    const parts = [];
+    if(totalActive) parts.push(`${totalActive} nota${totalActive!==1?'s':''}`);
+    if(totalTareas) parts.push(`${totalTareas} tarea${totalTareas!==1?'s':''}`);
+    sub.textContent = parts.length ? parts.join(' · ') : 'Todo al día';
+  }
+
+  if(!notes.length && !tareasPend.length){
     list.style.gridTemplateColumns = '1fr';
     list.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--text3);font-size:0.82rem">
-      ✓ Sin notas activas
+      ✓ Sin pendientes
     </div>`;
     return;
   }
   list.style.gridTemplateColumns = 'repeat(4,1fr)';
   _syncHubCollapseAllBtn();
 
-  list.innerHTML = notes.map(note=>{
+  const notesHTML = notes.map(note=>{
     const urg    = HUB_URGENCY[note.urgency] || HUB_URGENCY.moderada;
     const isGeneral = note.brandId === '__general__';
     const brand  = isGeneral ? null : (appData.brands||[]).find(b=>b.id===note.brandId);
@@ -23015,6 +23036,47 @@ function renderClientHub(){
       ${(note.comments?.length) ? buildHubCardComments(note.id, note.comments, urg) : ''}
     </div>`;
   }).join('');
+
+  // ── Tarjetas de tareas sueltas (mismo grid que las notas) ──
+  const tareasHTML = tareasPend.map(t=>{
+    const brand = t.brandId ? (appData.brands||[]).find(b=>b.id===t.brandId) : null;
+    const brandCol = brand ? getBrandColor(brand) : 'var(--text3)';
+    const isInterna = t.tipo==='interna';
+    const d = _tareaDiasAtraso(t);
+    const vencida = d!==null && d>0;
+    // color de acento por urgencia del deadline
+    const acc = vencida ? '#ef4444' : (d===0 ? '#eab308' : 'var(--aire)');
+    const accBg = vencida ? 'rgba(239,68,68,0.08)' : (d===0 ? 'rgba(234,179,8,0.08)' : 'rgba(90,150,232,0.06)');
+    const dlLabel = _tareaDeadlineLabel(t);
+    const fechaTxt = t.date ? fmtDateDisplay(t.date) : '';
+    const resp = [t.r1,t.r2].filter(Boolean).map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
+    const respInline = resp.map(m=>{
+      const col = m.color||'var(--aire)';
+      const av  = m.photo ? `<img src="${m.photo}" style="width:14px;height:14px;object-fit:cover;border-radius:50%;flex-shrink:0">` : `<span style="font-size:0.55rem;font-weight:800;color:${col}">${m.emoji||(m.apodo||m.nombre).charAt(0)}</span>`;
+      return `<span style="display:inline-flex;align-items:center;gap:0.2rem;background:${col}18;border:1px solid ${col}44;border-radius:99px;padding:0.08rem 0.35rem 0.08rem 0.22rem;font-size:0.65rem;font-weight:600;color:${col};white-space:nowrap;flex-shrink:0">
+        <span style="width:14px;height:14px;border-radius:50%;background:${col}22;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${av}</span>${m.apodo||m.nombre}
+      </span>`;
+    }).join('');
+    return `<div style="display:flex;flex-direction:column;gap:0.4rem;padding:0.7rem 0.75rem;background:${accBg};border:1px solid ${acc}55;border-left:3px solid ${acc};border-radius:10px;min-width:0;cursor:pointer" onclick="openTareaDetalle('${t.id}')">
+      <div style="display:flex;align-items:center;gap:0.35rem">
+        <button type="button" onclick="event.stopPropagation();toggleTareaDone('${t.id}',event)"
+          style="width:18px;height:18px;border-radius:5px;border:2px solid ${acc};background:transparent;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#fff"></button>
+        <span style="font-size:0.7rem;font-weight:800;color:var(--text);flex:1;min-width:0;line-height:1.3;word-break:break-word">${isInterna?'🔍 ':'📌 '}${_tareaTitulo(t)}</span>
+        ${(t.comments?.length)?`<span style="font-size:0.62rem;color:var(--agua);font-weight:700;flex-shrink:0">💬 ${t.comments.length}</span>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;min-width:0">
+        ${dlLabel||''}
+        ${_tareaDesc(t)?`<span style="font-size:0.62rem;color:var(--text3)">📝</span>`:''}
+        <span style="font-size:0.62rem;color:var(--text3);margin-left:auto;white-space:nowrap">${fechaTxt}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap;min-width:0">
+        ${brand ? `<span style="font-size:0.66rem;font-weight:700;color:${brandCol};white-space:nowrap">${brand.name}</span>` : `<span style="font-size:0.64rem;color:var(--text3)">Sin marca</span>`}
+        ${respInline}
+      </div>
+    </div>`;
+  }).join('');
+
+  list.innerHTML = notesHTML + tareasHTML;
 }
 
 async function confirmArchiveNote(noteId, brandId){
@@ -23235,6 +23297,34 @@ function openHubComments(noteId){
   renderHubCommentsList(note);
   document.getElementById('modal-hub-comments').classList.remove('hidden');
   setTimeout(()=>ta?.focus(), 80);
+}
+
+// Popup para elegir entre crear Nota de cliente o Tarea de equipo desde "To-dos"
+function openTodoChooser(ev){
+  if(ev){ ev.stopPropagation(); }
+  const prev = document.getElementById('todo-chooser-pop');
+  if(prev){ prev.remove(); return; }
+  const btn = ev?.currentTarget;
+  const pop = document.createElement('div');
+  pop.id = 'todo-chooser-pop';
+  pop.style.cssText = 'position:absolute;z-index:9999;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,0.18);padding:0.4rem;display:flex;flex-direction:column;gap:0.2rem;min-width:180px';
+  pop.innerHTML = `
+    <button onclick="document.getElementById('todo-chooser-pop').remove();openHubModal(null)" style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.7rem;border:none;background:none;border-radius:8px;cursor:pointer;font-family:var(--font);font-size:0.82rem;font-weight:600;color:var(--text);text-align:left;width:100%" onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background='none'">
+      <span style="font-size:1rem">📝</span> Nota de cliente
+    </button>
+    <button onclick="document.getElementById('todo-chooser-pop').remove();openTareaModal()" style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.7rem;border:none;background:none;border-radius:8px;cursor:pointer;font-family:var(--font);font-size:0.82rem;font-weight:600;color:var(--text);text-align:left;width:100%" onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background='none'">
+      <span style="font-size:1rem">📌</span> Tarea de equipo
+    </button>`;
+  document.body.appendChild(pop);
+  if(btn){
+    const r = btn.getBoundingClientRect();
+    pop.style.top  = (r.bottom + window.scrollY + 6) + 'px';
+    pop.style.left = (r.right + window.scrollX - pop.offsetWidth) + 'px';
+  }
+  setTimeout(()=>{
+    const close = (e)=>{ if(!pop.contains(e.target)){ pop.remove(); document.removeEventListener('click', close); } };
+    document.addEventListener('click', close);
+  }, 50);
 }
 
 function openHubModal(noteId=null){
@@ -23831,7 +23921,8 @@ function openTareaModal(editId){
     const t = appData.tareas.find(x=>x.id===editId);
     if(!t) return;
     title.textContent = '✏️ Editar tarea';
-    document.getElementById('tarea-desc').value = t.desc||'';
+    document.getElementById('tarea-titulo').value = t.titulo || t.desc || '';
+    document.getElementById('tarea-desc').value = (t.titulo ? (t.desc||'') : ''); // si era vieja sin título, desc pasó a título
     document.getElementById('tarea-date').value = t.date||today;
     document.getElementById('tarea-r1').value = t.r1||'';
     document.getElementById('tarea-r2').value = t.r2||'';
@@ -23843,6 +23934,7 @@ function openTareaModal(editId){
     modal.dataset.editId = editId;
   } else {
     title.textContent = '📌 Nueva tarea';
+    document.getElementById('tarea-titulo').value = '';
     document.getElementById('tarea-desc').value = '';
     document.getElementById('tarea-date').value = today;
     document.getElementById('tarea-r1').value = currentMemberId||'';
@@ -23855,7 +23947,7 @@ function openTareaModal(editId){
   }
 
   modal.classList.remove('hidden');
-  setTimeout(()=>document.getElementById('tarea-desc')?.focus(), 80);
+  setTimeout(()=>document.getElementById('tarea-titulo')?.focus(), 80);
 }
 
 function closeTareaModal(){
@@ -23863,6 +23955,7 @@ function closeTareaModal(){
 }
 
 async function saveTarea(){
+  const titulo = document.getElementById('tarea-titulo').value.trim();
   const desc   = document.getElementById('tarea-desc').value.trim();
   const date   = document.getElementById('tarea-date').value;
   const r1     = document.getElementById('tarea-r1').value;
@@ -23872,8 +23965,8 @@ async function saveTarea(){
   const err    = document.getElementById('tarea-err');
   const btn    = document.getElementById('btn-save-tarea');
 
-  if(!desc){ err.textContent='La descripción es obligatoria.'; err.style.display='block'; return; }
-  if(!date){ err.textContent='La fecha es obligatoria.'; err.style.display='block'; return; }
+  if(!titulo){ err.textContent='El título es obligatorio.'; err.style.display='block'; return; }
+  if(!date){ err.textContent='La fecha límite es obligatoria.'; err.style.display='block'; return; }
   if(!r1 && !r2){ err.textContent='Asigna al menos un responsable.'; err.style.display='block'; return; }
   err.style.display='none';
   btn.disabled=true; btn.textContent='Guardando…';
@@ -23882,14 +23975,15 @@ async function saveTarea(){
   const editId = document.getElementById('modal-tarea').dataset.editId;
   if(editId){
     const t = appData.tareas.find(x=>x.id===editId);
-    if(t){ Object.assign(t,{desc,date,r1,r2,brandId,tipo}); }
+    if(t){ Object.assign(t,{titulo,desc,date,r1,r2,brandId,tipo}); }
   } else {
-    appData.tareas.push({ id:uid(), desc, date, r1, r2, brandId, tipo, done:false, createdAt:new Date().toISOString() });
+    appData.tareas.push({ id:uid(), titulo, desc, date, r1, r2, brandId, tipo, done:false, comments:[], createdAt:new Date().toISOString() });
   }
 
   markLocalChange('tareas');
   closeTareaModal();
-  renderEquipoTabContent(currentEquipoTab||'grid');
+  renderEquipoTabContent(window._eqTab||"grid");
+  if(typeof renderClientHub==='function'){ try{ renderClientHub(); }catch(e){} }
   await upsert();
   btn.disabled=false; btn.textContent='Guardar tarea';
   showStatus('Tarea guardada ✓');
@@ -23905,7 +23999,8 @@ async function deleteTarea(tareaId){
   if(!appData._deletedTareaIds) appData._deletedTareaIds = [];
   if(!appData._deletedTareaIds.includes(tareaId)) appData._deletedTareaIds.push(tareaId);
   markLocalChange('tareas');
-  renderEquipoTabContent(currentEquipoTab||'grid');
+  renderEquipoTabContent(window._eqTab||"grid");
+  if(typeof renderClientHub==='function'){ try{ renderClientHub(); }catch(e){} }
   await upsert();
   showStatus('Tarea eliminada');
 }
@@ -23919,6 +24014,11 @@ function getTareasForMember(memberId){
 }
 
 // ── Deadline / estado de tareas sueltas ──
+// Título a mostrar (compat: tareas viejas sin 'titulo' usan 'desc')
+function _tareaTitulo(t){ return (t && (t.titulo || t.desc)) || 'Sin título'; }
+// Descripción a mostrar (compat: si la tarea vieja no tenía título, su desc ya es el título → sin descripción)
+function _tareaDesc(t){ return (t && t.titulo) ? (t.desc||'') : ''; }
+
 // Días de atraso respecto al deadline. >0 vencida, 0 hoy, <0 faltan días. null si hecha o sin fecha.
 function _tareaDiasAtraso(t){
   if(!t || t.done || !t.date) return null;
@@ -23947,10 +24047,115 @@ async function toggleTareaDone(tareaId, ev){
   t.done = !t.done;
   t.doneAt = t.done ? new Date().toISOString() : null;
   markLocalChange('tareas');
-  if(typeof renderEquipoTabContent==='function') renderEquipoTabContent(currentEquipoTab||'grid');
+  if(typeof renderEquipoTabContent==='function') renderEquipoTabContent(window._eqTab||"grid");
   if(typeof renderClientHub==='function'){ try{ renderClientHub(); }catch(e){} }
   await upsert();
   showStatus(t.done ? 'Tarea completada ✓' : 'Tarea reabierta');
+}
+
+// ── Detalle de tarea (modal con descripción, deadline, responsables y log de respuestas) ──
+let _tareaDetId = null;
+function openTareaDetalle(tareaId){
+  ensureTareas();
+  const t = appData.tareas.find(x=>x.id===tareaId);
+  if(!t) return;
+  _tareaDetId = tareaId;
+  // Botones del footer
+  const editBtn = document.getElementById('tarea-det-edit');
+  const doneBtn = document.getElementById('tarea-det-done');
+  if(editBtn) editBtn.onclick = ()=>{ closeTareaDetalle(); openTareaModal(tareaId); };
+  if(doneBtn){
+    doneBtn.textContent = t.done ? '↩ Reabrir' : '✓ Marcar hecha';
+    doneBtn.onclick = async ()=>{ await toggleTareaDone(tareaId); renderTareaDetalle(); };
+  }
+  renderTareaDetalle();
+  document.getElementById('modal-tarea-detalle').classList.remove('hidden');
+}
+function closeTareaDetalle(){
+  document.getElementById('modal-tarea-detalle').classList.add('hidden');
+  _tareaDetId = null;
+}
+function renderTareaDetalle(){
+  const t = (appData.tareas||[]).find(x=>x.id===_tareaDetId);
+  if(!t) return;
+  const titleEl = document.getElementById('tarea-det-title');
+  const body = document.getElementById('tarea-det-body');
+  if(titleEl) titleEl.innerHTML = `${t.tipo==='interna'?'🔍':'📌'} ${_tareaTitulo(t)}`;
+  const brand = t.brandId ? (appData.brands||[]).find(b=>b.id===t.brandId) : null;
+  const brandCol = brand ? getBrandColor(brand) : 'var(--text3)';
+  const dlLabel = _tareaDeadlineLabel(t);
+  const fechaTxt = t.date ? fmtDateDisplay(t.date) : '—';
+  const resp = [t.r1,t.r2].filter(Boolean).map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
+  const respInline = resp.map(m=>{
+    const col = m.color||'var(--aire)';
+    const av  = m.photo ? `<img src="${m.photo}" style="width:16px;height:16px;object-fit:cover;border-radius:50%;flex-shrink:0">` : `<span style="font-size:0.6rem;font-weight:800;color:${col}">${m.emoji||(m.apodo||m.nombre).charAt(0)}</span>`;
+    return `<span style="display:inline-flex;align-items:center;gap:0.25rem;background:${col}18;border:1px solid ${col}44;border-radius:99px;padding:0.1rem 0.45rem 0.1rem 0.25rem;font-size:0.7rem;font-weight:600;color:${col};white-space:nowrap">
+      <span style="width:16px;height:16px;border-radius:50%;background:${col}22;display:flex;align-items:center;justify-content:center;overflow:hidden">${av}</span>${m.apodo||m.nombre}
+    </span>`;
+  }).join('') || '<span style="font-size:0.78rem;color:var(--text3)">Sin responsables</span>';
+
+  const desc = _tareaDesc(t);
+  const comentarios = Array.isArray(t.comments) ? t.comments : [];
+  const members = appData.members||[];
+  const savedAuthor = (function(){ try{ return localStorage.getItem('polen-hub-author')||''; }catch(e){ return ''; } })();
+
+  const comentariosHTML = comentarios.length ? comentarios.map(c=>{
+    const m = members.find(x=>x.id===c.author);
+    const col = m?.color||'var(--aire)';
+    const name = m ? (m.apodo||m.nombre) : 'Alguien';
+    const av = m?.photo ? `<img src="${m.photo}" style="width:22px;height:22px;object-fit:cover;border-radius:50%;flex-shrink:0">` : `<span style="font-size:0.7rem;font-weight:800;color:${col}">${m?.emoji||name.charAt(0)}</span>`;
+    const when = c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+    return `<div style="display:flex;gap:0.5rem;align-items:flex-start">
+      <span style="width:22px;height:22px;border-radius:50%;background:${col}22;border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${av}</span>
+      <div style="flex:1;min-width:0;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.5rem 0.7rem">
+        <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.15rem"><span style="font-size:0.72rem;font-weight:700;color:${col}">${name}</span><span style="font-size:0.62rem;color:var(--text3)">${when}</span></div>
+        <div style="font-size:0.8rem;color:var(--text);line-height:1.45;word-break:break-word">${c.text}</div>
+      </div>
+    </div>`;
+  }).join('') : '<div style="font-size:0.76rem;color:var(--text3);text-align:center;padding:0.6rem">Sin respuestas aún</div>';
+
+  body.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center">
+      ${dlLabel||''}
+      <span style="font-size:0.72rem;color:var(--text3)">📅 Fecha límite: <b style="color:var(--text2)">${fechaTxt}</b></span>
+      ${brand?`<span style="font-size:0.72rem;color:${brandCol};font-weight:700;margin-left:auto">🏷 ${brand.name}</span>`:'<span style="font-size:0.72rem;color:var(--text3);margin-left:auto">Sin marca</span>'}
+    </div>
+    <div>
+      <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.3rem">Responsables</div>
+      <div style="display:flex;gap:0.35rem;flex-wrap:wrap">${respInline}</div>
+    </div>
+    ${desc?`<div>
+      <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.3rem">Descripción</div>
+      <div style="font-size:0.84rem;color:var(--text);line-height:1.55;white-space:pre-wrap;word-break:break-word;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.8rem">${desc}</div>
+    </div>`:''}
+    <div>
+      <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.4rem">💬 Log de respuestas</div>
+      <div style="display:flex;flex-direction:column;gap:0.5rem;max-height:220px;overflow-y:auto;margin-bottom:0.6rem">${comentariosHTML}</div>
+      <div style="display:flex;gap:0.4rem;align-items:flex-start">
+        <select id="tarea-det-author" style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.5rem;font-size:0.74rem;color:var(--text2);font-family:var(--font);font-weight:600;flex-shrink:0">
+          <option value="">¿Quién?</option>
+          ${members.map(m=>`<option value="${m.id}" ${m.id===savedAuthor?'selected':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('')}
+        </select>
+        <input id="tarea-det-comment" placeholder="Escribe una respuesta…" style="flex:1;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.45rem 0.6rem;font-size:0.8rem;color:var(--text);font-family:var(--font);outline:none" onkeydown="if(event.key==='Enter')saveTareaComment()">
+        <button onclick="saveTareaComment()" class="btn-save" style="flex-shrink:0;padding:0.45rem 0.8rem">Enviar</button>
+      </div>
+    </div>`;
+}
+async function saveTareaComment(){
+  const t = (appData.tareas||[]).find(x=>x.id===_tareaDetId);
+  if(!t) return;
+  const author = document.getElementById('tarea-det-author')?.value;
+  const text = (document.getElementById('tarea-det-comment')?.value||'').trim();
+  if(!author){ showStatus('Selecciona tu miembro primero', true); return; }
+  if(!text){ showStatus('Escribe una respuesta', true); return; }
+  if(!Array.isArray(t.comments)) t.comments = [];
+  t.comments.push({ id:uid(), author, text, createdAt:new Date().toISOString() });
+  try{ localStorage.setItem('polen-hub-author', author); }catch(e){}
+  markLocalChange('tareas');
+  renderTareaDetalle();
+  if(typeof renderClientHub==='function'){ try{ renderClientHub(); }catch(e){} }
+  await upsert();
+  showStatus('Respuesta guardada ✓');
 }
 
 // Build a tarea event card HTML (same style as cal events)
@@ -23989,7 +24194,7 @@ function buildTareaEventHTML(t, memberId){
       <button onclick="event.stopPropagation();openTareaModal('${t.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.6rem;padding:0;line-height:1" title="Editar">✏️</button>
       <button onclick="event.stopPropagation();deleteTarea('${t.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.6rem;padding:0;line-height:1" title="Eliminar">✕</button>
     </div>
-    <div style="font-size:0.72rem;color:var(--text2);margin:0.15rem 0;line-height:1.3;${t.done?'text-decoration:line-through':''}">${t.desc}</div>
+    <div style="font-size:0.72rem;color:var(--text2);margin:0.15rem 0;line-height:1.3;${t.done?'text-decoration:line-through':''}">${_tareaTitulo(t)}</div>
     ${dlLabel?`<div style="margin-top:0.15rem">${dlLabel}</div>`:''}
     ${partnerPill ? `<div style="margin-top:0.2rem;display:flex;gap:0.25rem;flex-wrap:wrap">${partnerPill}</div>` : ''}
   </div>`;
@@ -24017,7 +24222,7 @@ function buildTareaCardHTML(t, memberId){
         ${pm?`<span style="font-size:0.62rem;font-weight:700;color:${pm.color||'var(--aire)'};background:${pm.color||'var(--aire)'}18;border:1px solid ${pm.color||'var(--aire)'}44;border-radius:99px;padding:0.04rem 0.35rem">${pm.emoji||'👤'} ${pm.apodo||pm.nombre}</span>`:''}
         ${dlLabel}
       </div>
-      <div class="eq-hito-date" style="${t.done?'text-decoration:line-through':''}">📌 ${fmtDateDisplay(t.date)} · ${t.desc}</div>
+      <div class="eq-hito-date" style="${t.done?'text-decoration:line-through':''}">📌 ${fmtDateDisplay(t.date)} · ${_tareaTitulo(t)}</div>
     </div>
     <div style="display:flex;gap:0.3rem;flex-shrink:0">
       <button onclick="openTareaModal('${t.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.75rem;padding:0.15rem" title="Editar">✏️</button>
@@ -24661,8 +24866,12 @@ window.diagnosePolen = function(){
     </div>
     <div class="modal-body" style="display:flex;flex-direction:column;gap:1rem">
       <div>
-        <label class="form-label">DESCRIPCIÓN</label>
-        <input class="form-input" id="tarea-desc" placeholder="Ej: Reunión de seguimiento cliente" style="width:100%">
+        <label class="form-label">TÍTULO</label>
+        <input class="form-input" id="tarea-titulo" placeholder="Ej: Llamar al proveedor" style="width:100%">
+      </div>
+      <div>
+        <label class="form-label">DESCRIPCIÓN (opcional)</label>
+        <textarea class="form-input" id="tarea-desc" placeholder="Detalles, contexto, instrucciones…" rows="3" style="width:100%;resize:vertical;font-family:var(--font)"></textarea>
       </div>
       <div>
         <label class="form-label">FECHA LÍMITE (deadline)</label>
@@ -24706,6 +24915,26 @@ window.diagnosePolen = function(){
     <div class="modal-footer">
       <button class="btn-ghost" onclick="closeTareaModal()">Cancelar</button>
       <button class="btn-save" id="btn-save-tarea" onclick="saveTarea()">Guardar tarea</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Detalle de Tarea (To-dos) -->
+<div class="modal-overlay hidden" id="modal-tarea-detalle">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <div class="modal-title" id="tarea-det-title" style="flex:1;min-width:0">Tarea</div>
+      <div class="modal-close" onclick="closeTareaDetalle()">✕</div>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:0.9rem" id="tarea-det-body">
+      <!-- relleno por JS -->
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn-ghost" onclick="closeTareaDetalle()">Cerrar</button>
+      <div style="display:flex;gap:0.5rem">
+        <button class="btn-ghost" id="tarea-det-edit" onclick="">✏️ Editar</button>
+        <button class="btn-save" id="tarea-det-done" onclick="">✓ Marcar hecha</button>
+      </div>
     </div>
   </div>
 </div>
