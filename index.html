@@ -1998,6 +1998,9 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
     <button class="nav-item" id="nav-contactos" onclick="goToContactos()">
       <span class="nav-icon">🗂️</span><span class="nav-text">Base de datos</span>
     </button>
+    <button class="nav-item" id="nav-metas" onclick="goToMetas()">
+      <span class="nav-icon">🚀</span><span class="nav-text">Metas</span>
+    </button>
   </div>
   <!-- Configuración toggle -->
   <button class="nav-item" onclick="toggleConfigNav()" id="nav-config-toggle" style="justify-content:space-between">
@@ -2169,6 +2172,10 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
                 style="padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:none;color:var(--text3)">
                 🧩 Playground
               </button>
+              <button id="view-btn-timeline" onclick="setBrandsView('timeline')"
+                style="padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:none;color:var(--text3)">
+                📊 Tiempo
+              </button>
 
             </div>
             <div class="export-wrap">
@@ -2241,6 +2248,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         <!-- Miembro view -->
         <div id="brands-view-miembro" style="display:none;padding:1.2rem"></div>
         <div id="brands-view-playground" style="display:none;padding:1.2rem"></div>
+        <div id="brands-view-timeline" style="display:none;padding:1.2rem"></div>
         <!-- Table view -->
         <div id="brands-view-table" style="display:none;overflow-x:auto;overflow-y:auto;max-height:560px;background:var(--bg-card)">
           <table id="brands-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;min-width:900px">
@@ -3210,6 +3218,9 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         </div>
         <div id="cob-metas-wrap"></div>
 
+        <!-- Resumen de cartera (cuentas por cobrar) -->
+        <div id="cob-cartera-wrap" style="margin-top:1.2rem"></div>
+
         <!-- Cobros por marca -->
         <div style="margin-top:1.5rem">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.8rem">
@@ -3386,7 +3397,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         <div style="display:flex;align-items:flex-start;gap:0.6rem;background:rgba(90,170,53,0.08);border:1px solid rgba(90,170,53,0.3);border-radius:12px;padding:0.8rem 1rem;margin-bottom:1.2rem">
           <span style="font-size:1.1rem">🔒</span>
           <div style="font-size:0.78rem;color:var(--text2);line-height:1.5">
-            <b style="color:var(--tierra)">100% anónimo.</b> No registramos quién envía cada sugerencia: no se guarda tu nombre, ni tu sesión, ni ningún dato que permita identificarte. Escribe con confianza.
+            <b style="color:var(--tierra)">100% anónimo.</b> No registramos quién envía cada sugerencia: no se guarda tu nombre, ni tu sesión, ni ningún dato que permita identificarte. Escribe con confianza. <span style="color:var(--text3)">Las sugerencias pasan por una revisión de gerencia antes de publicarse para votación.</span>
           </div>
         </div>
 
@@ -3455,6 +3466,25 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         <div style="font-size:0.8rem">Se irán agregando solos desde el CRM, o créalos/importa un Excel.</div>
       </div>
       <div id="contactos-table-wrap" style="overflow-x:auto"></div>
+    </div>
+  </div>
+
+  <!-- PAGE: METAS -->
+  <div class="page" id="page-metas">
+    <div class="content">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.7rem;margin-bottom:1rem">
+        <div>
+          <div style="font-size:1.3rem;font-weight:800;letter-spacing:-0.5px">🚀 Metas</div>
+          <div style="font-size:0.82rem;color:var(--text3);margin-top:0.2rem">Marcas confirmadas por fecha de inicio. Cada quincena tiene 6 cupos por llenar.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <button onclick="metasPrevMes()" style="width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-size:0.9rem">‹</button>
+          <span id="metas-mes-label" style="font-size:0.95rem;font-weight:800;min-width:140px;text-align:center"></span>
+          <button onclick="metasNextMes()" style="width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-size:0.9rem">›</button>
+          <button onclick="metasHoy()" style="margin-left:0.3rem;font-size:0.74rem;font-weight:600;padding:0.4rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font)">Hoy</button>
+        </div>
+      </div>
+      <div id="metas-content"></div>
     </div>
   </div>
 
@@ -4719,6 +4749,7 @@ window.SugerenciasDB = (function(){
   function isOwnEcho(id){ const t=_recent.get(id); return t && (Date.now()-t)<2500; }
 
   function rowToItem(row){
+    const extra = row.extra||{};
     return {
       id: row.id,
       texto: row.texto || '',
@@ -4726,7 +4757,10 @@ window.SugerenciasDB = (function(){
       votos: row.votos || 0,
       descartada: !!row.descartada,
       respuesta: row.respuesta || '',
-      respuestaAt: (row.extra||{}).respuestaAt || null,
+      respuestaAt: extra.respuestaAt || null,
+      // publicada: las sugerencias viejas (sin el campo) se tratan como ya publicadas.
+      // Solo las nuevas tienen publicada:false explícito hasta que gerencia las apruebe.
+      publicada: extra.publicada !== false,
       createdAt: row.created_at || null,
     };
   }
@@ -4742,7 +4776,7 @@ window.SugerenciasDB = (function(){
   async function saveItem(it){
     try{
       markOwn(it.id);
-      const row = { id: it.id, texto: it.texto||'', categoria: it.categoria||'otro', votos: it.votos||0, descartada: !!it.descartada, respuesta: it.respuesta||'', extra: { respuestaAt: it.respuestaAt||null } };
+      const row = { id: it.id, texto: it.texto||'', categoria: it.categoria||'otro', votos: it.votos||0, descartada: !!it.descartada, respuesta: it.respuesta||'', extra: { respuestaAt: it.respuestaAt||null, publicada: !!it.publicada } };
       const { error } = await sb.from(TABLE).upsert(row, { onConflict:'id' });
       if(error){ console.error('[SugerenciasDB] saveItem error:', error); return false; }
       return true;
@@ -7607,6 +7641,8 @@ async function _doUpsert(){
             renderFinMes();
           } else if(currentPage === 'archivo') {
             renderArchivo();
+          } else if(currentPage === 'metas') {
+            renderMetas();
           }
         }
         console.log('[polen] UI refresh completed');
@@ -8982,6 +9018,62 @@ function renderCobranzas(){
         </div>
       </div>
     </div>`;
+  renderCobCartera();
+}
+
+// Resumen de cartera de cuentas por cobrar (excluye incobrables y pausadas opcionalmente)
+function renderCobCartera(){
+  const wrap = document.getElementById('cob-cartera-wrap');
+  if(!wrap) return;
+  ensureCobrosData();
+  const deletedIds = new Set([
+    ...((appData._deletedBrandIds)||[]),
+    ...((appData.papelera||[]).filter(p=>p.type==='brand'||p.type==='brand-archived').map(p=>p.id))
+  ]);
+  const brands = (appData.brands||[]).filter(b=>!deletedIds.has(b.id) && !b.deletedAt && !b.archivedAt);
+
+  let totalFacturado=0, totalCobrado=0, totalPorCobrar=0, totalIncobrable=0;
+  let nPorCobrar=0, nIncobrable=0;
+  let porCobrarVencido=0; // de lo por cobrar, cuánto ya pasó su fecha proyectada
+  const hoyStr = todayStr();
+
+  brands.forEach(b=>{
+    const cob = appData.cobros[b.id]; if(!cob) return;
+    const pagos = cob.pagos||[];
+    const useTotal = !!cob.useTotal;
+    // En modo "dividir", cada pago vale total ÷ (TODOS los pagos pactados), fijo.
+    // Marcar uno incobrable NO cambia cuánto valía cada pago.
+    const montoInd = useTotal && pagos.length ? (cob.valorTotal||0)/pagos.length : null;
+    pagos.forEach(p=>{
+      const monto = useTotal ? (montoInd||0) : (parseFloat(p.monto)||0);
+      if(p.incobrable){ totalIncobrable += monto; nIncobrable++; return; }
+      totalFacturado += monto;
+      if(p.cobrado){ totalCobrado += monto; }
+      else {
+        totalPorCobrar += monto; nPorCobrar++;
+        if(p.fechaProyectada && p.fechaProyectada < hoyStr) porCobrarVencido += monto;
+      }
+    });
+  });
+
+  const pct = totalFacturado ? Math.round(totalCobrado/totalFacturado*100) : 0;
+  const stat = (label,val,color,sub)=>`<div style="flex:1;min-width:140px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.8rem 1rem">
+      <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3)">${label}</div>
+      <div style="font-size:1.5rem;font-weight:800;color:${color};margin-top:0.2rem;letter-spacing:-0.5px">${fmt$(val)}</div>
+      ${sub?`<div style="font-size:0.64rem;color:var(--text3);margin-top:0.1rem">${sub}</div>`:''}
+    </div>`;
+
+  wrap.innerHTML = `
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.7rem">
+      <span style="font-size:1rem">💼</span>
+      <span style="font-size:1rem;font-weight:800;color:var(--text)">Cartera de cuentas por cobrar</span>
+      <span style="font-size:0.66rem;color:var(--text3)">— sin contar incobrables</span>
+    </div>
+    <div style="display:flex;gap:0.7rem;flex-wrap:wrap">
+      ${stat('Por cobrar', totalPorCobrar, 'var(--fuego)', `${nPorCobrar} pago${nPorCobrar!==1?'s':''} pendiente${nPorCobrar!==1?'s':''}`)}
+      ${stat('Vencido', porCobrarVencido, '#ef4444', porCobrarVencido>0?'pasó su fecha proyectada':'al día')}
+      ${nIncobrable>0?stat('Incobrable', totalIncobrable, 'var(--text3)', `${nIncobrable} pago${nIncobrable!==1?'s':''} · fuera de cartera`):''}
+    </div>`;
 }
 
 
@@ -9544,8 +9636,8 @@ async function enviarSugerencia(){
   if(!texto){ if(err){err.textContent='Escribe tu sugerencia antes de enviar.';err.style.display='block';} return; }
   if(err) err.style.display='none';
   const categoria = document.getElementById('sug-categoria')?.value || 'otro';
-  // ⚠️ Anonimato: el objeto NO lleva autor ni nada identificable.
-  const item = { id: uid(), texto, categoria, votos: 0, descartada: false, respuesta:'', respuestaAt:null, createdAt: new Date().toISOString() };
+  // ⚠️ Anonimato: el objeto NO lleva autor. Nace SIN publicar (pendiente de moderación).
+  const item = { id: uid(), texto, categoria, votos: 0, descartada: false, respuesta:'', respuestaAt:null, publicada:false, createdAt: new Date().toISOString() };
   if(!window.SugerenciasDB){
     if(err){ err.textContent='No se pudo conectar con la base de datos. Recarga la página.'; err.style.display='block'; }
     return;
@@ -9558,7 +9650,7 @@ async function enviarSugerencia(){
   _sugData.items.unshift(item);
   if(ta) ta.value='';
   renderSugerencias();
-  showStatus('¡Gracias! Tu sugerencia se envió de forma anónima 🌱');
+  showStatus('¡Gracias! Tu sugerencia se envió y será revisada por gerencia antes de publicarse 🌱');
 }
 
 async function votarSugerencia(id){
@@ -9576,7 +9668,7 @@ function toggleSugAdmin(){
   if(_sugAdmin){ _sugAdmin = false; renderSugerencias(); return; }
   // Prompt de PIN (gestión solo para socios): acepta PIN de PM (1235) o maestro (1379)
   openGenericModal('🔑 Gestión del buzón', `
-    <div style="font-size:0.8rem;color:var(--text2);line-height:1.5;margin-bottom:0.8rem">Ingresa el PIN de gestión para descartar o borrar sugerencias.</div>
+    <div style="font-size:0.8rem;color:var(--text2);line-height:1.5;margin-bottom:0.8rem">Ingresa el PIN de gestión para revisar, publicar, descartar o responder sugerencias.</div>
     <input id="sug-pin-input" type="password" inputmode="numeric" placeholder="PIN"
       style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.8rem;color:var(--text);font-family:var(--font);font-size:1rem;letter-spacing:0.2em;text-align:center;outline:none"
       onkeydown="if(event.key==='Enter')_checkSugPin()">
@@ -9625,6 +9717,17 @@ async function borrarSugerencia(id){
   showStatus('Sugerencia borrada');
 }
 
+// Publicar / despublicar una sugerencia (solo en modo gestión)
+async function publicarSugerencia(id, publicar){
+  const it = _sugData.items.find(s=>s.id===id);
+  if(!it) return;
+  it.publicada = !!publicar;
+  if(publicar) it.descartada = false; // al publicar, deja de estar descartada
+  if(window.SugerenciasDB) await SugerenciasDB.saveItem(it);
+  renderSugerencias();
+  showStatus(publicar ? 'Sugerencia publicada — el equipo ya puede votarla ✓' : 'Sugerencia retirada de la vista pública');
+}
+
 // Responder como gerencia (solo en modo gestión). Pasar texto vacío borra la respuesta.
 async function responderSugerencia(id){
   const it = _sugData.items.find(s=>s.id===id);
@@ -9638,6 +9741,65 @@ async function responderSugerencia(id){
   showStatus(texto ? 'Respuesta publicada ✓' : 'Respuesta eliminada');
 }
 
+function _sugCardHTML(s, votados){
+  const cat = SUG_CATS[s.categoria] || SUG_CATS.otro;
+  const yaVoto = votados.has(s.id);
+  const fecha = s.createdAt ? new Date(s.createdAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short'}) : '';
+  const respFecha = s.respuestaAt ? new Date(s.respuestaAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short'}) : '';
+  const pendiente = !s.publicada;
+  const respuestaHTML = s.respuesta ? `
+    <div style="margin-top:0.6rem;background:rgba(45,195,179,0.08);border:1px solid rgba(45,195,179,0.3);border-left:3px solid var(--agua);border-radius:10px;padding:0.6rem 0.8rem">
+      <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.25rem">
+        <span style="font-size:0.7rem;font-weight:800;color:var(--agua)">💬 Respuesta de gerencia</span>
+        ${respFecha?`<span style="font-size:0.62rem;color:var(--text3)">${respFecha}</span>`:''}
+      </div>
+      <div style="font-size:0.82rem;color:var(--text);line-height:1.5;word-break:break-word;white-space:pre-wrap">${escapeHtml(s.respuesta)}</div>
+    </div>` : '';
+  const respEditorHTML = _sugAdmin ? `
+    <div style="margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border)">
+      <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.35rem">Responder como gerencia</div>
+      <textarea id="sug-resp-${s.id}" rows="2" placeholder="Escribe una respuesta pública…"
+        style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.8rem;resize:vertical;outline:none">${s.respuesta?escapeHtml(s.respuesta):''}</textarea>
+      <div style="display:flex;justify-content:flex-end;margin-top:0.4rem">
+        <button onclick="responderSugerencia('${s.id}')" style="font-size:0.72rem;padding:0.32rem 0.8rem;border-radius:8px;border:none;background:var(--agua);color:#fff;cursor:pointer;font-family:var(--font);font-weight:700">${s.respuesta?'Actualizar respuesta':'Publicar respuesta'}</button>
+      </div>
+    </div>` : '';
+  const adminControls = _sugAdmin ? `
+    <div style="display:flex;gap:0.4rem;margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border);flex-wrap:wrap">
+      ${pendiente
+        ? `<button onclick="publicarSugerencia('${s.id}',true)" style="font-size:0.72rem;padding:0.3rem 0.8rem;border-radius:8px;border:none;background:var(--tierra);color:#fff;cursor:pointer;font-family:var(--font);font-weight:700">✓ Publicar</button>`
+        : `<button onclick="publicarSugerencia('${s.id}',false)" style="font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:var(--font);font-weight:600">⤓ Despublicar</button>`}
+      ${s.descartada
+        ? `<button onclick="descartarSugerencia('${s.id}',false)" style="font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:none;color:var(--tierra);cursor:pointer;font-family:var(--font);font-weight:600">↩ Restaurar</button>`
+        : `<button onclick="descartarSugerencia('${s.id}',true)" style="font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:var(--font);font-weight:600">🙈 Descartar</button>`}
+      <button onclick="borrarSugerencia('${s.id}')" style="font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:none;color:#ef4444;cursor:pointer;font-family:var(--font);font-weight:600">🗑 Borrar</button>
+    </div>` : '';
+  // Botón de voto: solo si está publicada. Si es pendiente (admin), placeholder.
+  const votoBtn = s.publicada ? `<button onclick="votarSugerencia('${s.id}')" ${yaVoto?'disabled':''} title="${yaVoto?'Ya votaste':'Apoyar esta sugerencia'}"
+      style="display:flex;flex-direction:column;align-items:center;gap:0.1rem;background:${yaVoto?cat.color+'22':'var(--bg-card2)'};border:1.5px solid ${yaVoto?cat.color:'var(--border)'};border-radius:10px;padding:0.4rem 0.6rem;cursor:${yaVoto?'default':'pointer'};flex-shrink:0;font-family:var(--font);min-width:48px;transition:all 0.15s">
+      <span style="font-size:0.9rem">👍</span>
+      <span style="font-size:0.9rem;font-weight:800;color:${yaVoto?cat.color:'var(--text)'}">${s.votos||0}</span>
+    </button>`
+    : `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.1rem;background:rgba(245,158,11,0.1);border:1.5px dashed rgba(245,158,11,0.4);border-radius:10px;padding:0.4rem 0.5rem;flex-shrink:0;min-width:48px" title="Pendiente de aprobación">
+      <span style="font-size:0.9rem">⏳</span>
+    </div>`;
+  return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:0.9rem 1rem;display:flex;gap:0.8rem;${s.descartada?'opacity:0.6':''}">
+    ${votoBtn}
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.35rem">
+        <span style="font-size:0.66rem;font-weight:700;color:${cat.color};background:${cat.color}18;border:1px solid ${cat.color}44;border-radius:99px;padding:0.1rem 0.5rem">${cat.emoji} ${cat.label}</span>
+        ${pendiente?'<span style="font-size:0.62rem;font-weight:700;color:#b45309;background:rgba(245,158,11,0.15);border-radius:99px;padding:0.05rem 0.45rem">⏳ Pendiente</span>':''}
+        ${s.descartada?'<span style="font-size:0.64rem;color:var(--text3);font-style:italic">descartada</span>':''}
+        <span style="font-size:0.66rem;color:var(--text3);margin-left:auto">${fecha}</span>
+      </div>
+      <div style="font-size:0.88rem;color:var(--text);line-height:1.5;word-break:break-word;white-space:pre-wrap">${escapeHtml(s.texto)}</div>
+      ${respuestaHTML}
+      ${respEditorHTML}
+      ${adminControls}
+    </div>
+  </div>`;
+}
+
 function renderSugerencias(){
   const list = document.getElementById('sug-list');
   if(!list) return;
@@ -9648,76 +9810,40 @@ function renderSugerencias(){
     adminBtn.textContent = _sugAdmin ? '🔓 Gestión activa' : '🔑 Gestión';
   }
 
-  // Vista pública = no descartadas. Modo admin = todas.
-  let items = _sugData.items.filter(s=> _sugAdmin ? true : !s.descartada);
+  const sortFn = (a,b)=> window._sugSort==='votos'
+    ? ((b.votos||0)-(a.votos||0) || (b.createdAt||'').localeCompare(a.createdAt||''))
+    : (b.createdAt||'').localeCompare(a.createdAt||'');
 
-  // Orden
-  if(window._sugSort==='votos') items = [...items].sort((a,b)=> (b.votos||0)-(a.votos||0) || (b.createdAt||'').localeCompare(a.createdAt||''));
-  else items = [...items].sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''));
-
+  const votados = _sugVotados();
+  const publicadas = _sugData.items.filter(s=>s.publicada && !s.descartada).sort(sortFn);
   const countEl = document.getElementById('sug-count');
-  if(countEl){
-    const visibles = _sugData.items.filter(s=>!s.descartada).length;
-    const descartadas = _sugData.items.filter(s=>s.descartada).length;
-    countEl.textContent = `${visibles} sugerencia${visibles!==1?'s':''}` + (_sugAdmin && descartadas ? ` · ${descartadas} descartada${descartadas!==1?'s':''}` : '');
-  }
 
-  if(!items.length){
-    list.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:2.5rem;text-align:center">Aún no hay sugerencias. ¡Sé el primero! 🌱</div>';
+  if(!_sugAdmin){
+    // ── Vista pública: solo publicadas ──
+    if(countEl) countEl.textContent = `${publicadas.length} sugerencia${publicadas.length!==1?'s':''}`;
+    if(!publicadas.length){
+      list.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:2.5rem;text-align:center">Aún no hay sugerencias publicadas. ¡Envía la tuya! 🌱<br><span style="font-size:0.74rem">Las sugerencias pasan por revisión de gerencia antes de mostrarse.</span></div>';
+      return;
+    }
+    list.innerHTML = publicadas.map(s=>_sugCardHTML(s, votados)).join('');
     return;
   }
 
-  const votados = _sugVotados();
-  list.innerHTML = items.map(s=>{
-    const cat = SUG_CATS[s.categoria] || SUG_CATS.otro;
-    const yaVoto = votados.has(s.id);
-    const fecha = s.createdAt ? new Date(s.createdAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short'}) : '';
-    // Respuesta de gerencia (visible para todos si existe)
-    const respFecha = s.respuestaAt ? new Date(s.respuestaAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short'}) : '';
-    const respuestaHTML = s.respuesta ? `
-      <div style="margin-top:0.6rem;background:rgba(45,195,179,0.08);border:1px solid rgba(45,195,179,0.3);border-left:3px solid var(--agua);border-radius:10px;padding:0.6rem 0.8rem">
-        <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.25rem">
-          <span style="font-size:0.7rem;font-weight:800;color:var(--agua)">💬 Respuesta de gerencia</span>
-          ${respFecha?`<span style="font-size:0.62rem;color:var(--text3)">${respFecha}</span>`:''}
-        </div>
-        <div style="font-size:0.82rem;color:var(--text);line-height:1.5;word-break:break-word;white-space:pre-wrap">${escapeHtml(s.respuesta)}</div>
-      </div>` : '';
-    // Editor de respuesta (solo en modo gestión)
-    const respEditorHTML = _sugAdmin ? `
-      <div style="margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border)">
-        <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.35rem">Responder como gerencia</div>
-        <textarea id="sug-resp-${s.id}" rows="2" placeholder="Escribe una respuesta pública…"
-          style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.8rem;resize:vertical;outline:none">${s.respuesta?escapeHtml(s.respuesta):''}</textarea>
-        <div style="display:flex;justify-content:flex-end;margin-top:0.4rem">
-          <button onclick="responderSugerencia('${s.id}')" style="font-size:0.72rem;padding:0.32rem 0.8rem;border-radius:8px;border:none;background:var(--agua);color:#fff;cursor:pointer;font-family:var(--font);font-weight:700">${s.respuesta?'Actualizar respuesta':'Publicar respuesta'}</button>
-        </div>
-      </div>` : '';
-    const adminControls = _sugAdmin ? `
-      <div style="display:flex;gap:0.4rem;margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border)">
-        ${s.descartada
-          ? `<button onclick="descartarSugerencia('${s.id}',false)" style="font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:none;color:var(--tierra);cursor:pointer;font-family:var(--font);font-weight:600">↩ Restaurar</button>`
-          : `<button onclick="descartarSugerencia('${s.id}',true)" style="font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:var(--font);font-weight:600">🙈 Descartar</button>`}
-        <button onclick="borrarSugerencia('${s.id}')" style="font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:none;color:#ef4444;cursor:pointer;font-family:var(--font);font-weight:600">🗑 Borrar</button>
-      </div>` : '';
-    return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:0.9rem 1rem;display:flex;gap:0.8rem;${s.descartada?'opacity:0.6':''}">
-      <button onclick="votarSugerencia('${s.id}')" ${yaVoto?'disabled':''} title="${yaVoto?'Ya votaste':'Apoyar esta sugerencia'}"
-        style="display:flex;flex-direction:column;align-items:center;gap:0.1rem;background:${yaVoto?cat.color+'22':'var(--bg-card2)'};border:1.5px solid ${yaVoto?cat.color:'var(--border)'};border-radius:10px;padding:0.4rem 0.6rem;cursor:${yaVoto?'default':'pointer'};flex-shrink:0;font-family:var(--font);min-width:48px;transition:all 0.15s">
-        <span style="font-size:0.9rem">👍</span>
-        <span style="font-size:0.9rem;font-weight:800;color:${yaVoto?cat.color:'var(--text)'}">${s.votos||0}</span>
-      </button>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.35rem">
-          <span style="font-size:0.66rem;font-weight:700;color:${cat.color};background:${cat.color}18;border:1px solid ${cat.color}44;border-radius:99px;padding:0.1rem 0.5rem">${cat.emoji} ${cat.label}</span>
-          ${s.descartada?'<span style="font-size:0.64rem;color:var(--text3);font-style:italic">descartada</span>':''}
-          <span style="font-size:0.66rem;color:var(--text3);margin-left:auto">${fecha}</span>
-        </div>
-        <div style="font-size:0.88rem;color:var(--text);line-height:1.5;word-break:break-word;white-space:pre-wrap">${escapeHtml(s.texto)}</div>
-        ${respuestaHTML}
-        ${respEditorHTML}
-        ${adminControls}
-      </div>
-    </div>`;
-  }).join('');
+  // ── Vista gestión: pendientes + publicadas + descartadas ──
+  const pendientes = _sugData.items.filter(s=>!s.publicada && !s.descartada).sort(sortFn);
+  const descartadas = _sugData.items.filter(s=>s.descartada).sort(sortFn);
+  if(countEl) countEl.textContent = `${pendientes.length} pendiente${pendientes.length!==1?'s':''} · ${publicadas.length} publicada${publicadas.length!==1?'s':''}${descartadas.length?` · ${descartadas.length} descartada${descartadas.length!==1?'s':''}`:''}`;
+
+  const seccion = (titulo, color, arr) => arr.length ? `
+    <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:${color};margin:0.4rem 0 0.2rem">${titulo} (${arr.length})</div>
+    ${arr.map(s=>_sugCardHTML(s, votados)).join('')}` : '';
+
+  let html = '';
+  html += pendientes.length ? seccion('📥 Pendientes de revisión', '#b45309', pendientes)
+    : '<div style="font-size:0.78rem;color:var(--text3);padding:0.6rem 0;text-align:center">No hay sugerencias pendientes de revisión 👍</div>';
+  html += seccion('✅ Publicadas', 'var(--tierra)', publicadas);
+  html += seccion('🙈 Descartadas', 'var(--text3)', descartadas);
+  list.innerHTML = html;
 }
 
 async function goToCRM(){
@@ -9849,7 +9975,8 @@ function updateCrmBadge(){
 
 // Panel de notificaciones SIEMPRE visible arriba del pipeline (colapsable)
 window._crmNotifCollapsed = (function(){
-  try{ return localStorage.getItem('polen-crm-notif-collapsed')==='1'; }catch(e){ return false; }
+  // Por defecto COLAPSADO. Solo queda expandido si el usuario lo expandió explícitamente ('0').
+  try{ return localStorage.getItem('polen-crm-notif-collapsed') !== '0'; }catch(e){ return true; }
 })();
 function toggleCrmNotifPanel(){
   window._crmNotifCollapsed = !window._crmNotifCollapsed;
@@ -10271,7 +10398,223 @@ async function crmDrop(ev, etapaId){
   const enDestino = _crmData.items.filter(x=>x.etapa===etapaId && x.id!==id);
   it.orden = enDestino.length;
   await CrmDB.saveItem(it);
+  // 🎯 Si pasó a una etapa GANADA, ocupa un cupo en la quincena en curso.
+  if(_crmEtapaEsGanada(etapaId)) await metasAsignarDesdeCrm(it);
   renderCRM();
+}
+
+// ════════════════════════════════════════════════════════════
+// METAS — quincenas de inicio (cupos de marcas confirmadas)
+// ════════════════════════════════════════════════════════════
+const METAS_SLOTS = 6; // cupos por quincena
+window._metasMes = null; // {year, month} mes en vista; null = mes actual
+
+function ensureMetas(){ if(!appData.metas || typeof appData.metas!=='object') appData.metas = {}; return appData.metas; }
+
+// Clave de quincena por fecha de INICIO: Q1 = inicio día 1, Q2 = inicio día 15
+function _quincenaKey(year, month, q){ return `${year}-${String(month+1).padStart(2,'0')}-Q${q}`; }
+// Quincena de inicio asignada a un cierre HOY:
+//  - cierre días 1–15 → inicia el 15 del mismo mes (Q2)
+//  - cierre días 16–fin → inicia el 1 del mes siguiente (Q1 del mes M+1)
+function _quincenaActual(){
+  const d = new Date();
+  if(d.getDate() <= 15) return _quincenaKey(d.getFullYear(), d.getMonth(), 2);
+  let m=d.getMonth()+1, y=d.getFullYear(); if(m>11){m=0;y++;}
+  return _quincenaKey(y, m, 1);
+}
+// Inicio de la quincena: Q1 → día 1, Q2 → día 15
+function _quincenaInicio(key){
+  const m = key.match(/^(\d{4})-(\d{2})-Q([12])$/); if(!m) return '';
+  const day = m[3]==='1' ? '01' : '15';
+  return `${m[1]}-${m[2]}-${day}`;
+}
+function _quincenaParts(key){
+  const m = key.match(/^(\d{4})-(\d{2})-Q([12])$/);
+  return m ? { year:+m[1], month:+m[2]-1, q:+m[3] } : null;
+}
+const _MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function _quincenaLabel(key){
+  const p = _quincenaParts(key); if(!p) return key;
+  return p.q===1 ? `Inicio 1 de ${_MESES[p.month]}` : `Inicio 15 de ${_MESES[p.month]}`;
+}
+
+// Asignar un prospecto ganado del CRM a la quincena en curso (si no está ya en ninguna)
+async function metasAsignarDesdeCrm(it){
+  const metas = ensureMetas();
+  // ¿ya está asignado en alguna quincena?
+  for(const k in metas){ if((metas[k]||[]).some(s=>s.crmId===it.id)) return; }
+  const key = _quincenaActual();
+  if(!metas[key]) metas[key] = [];
+  metas[key].push({ id: uid(), nombre: it.nombre||'Marca', crmId: it.id, inicio: _quincenaInicio(key) });
+  markLocalChange('metas');
+  await upsert();
+  if(currentPage==='metas') renderMetas();
+}
+
+async function goToMetas(){
+  _navHistory.push({ page: currentPage, brandId: currentBrandId||null });
+  if(_navHistory.length > 30) _navHistory.shift();
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const nEl=document.getElementById('nav-metas'); if(nEl) nEl.classList.add('active');
+  const pEl=document.getElementById('page-metas'); if(pEl) pEl.classList.add('active');
+  (document.getElementById('header-title')||{}).textContent='Metas';
+  currentPage='metas';
+  if(typeof updateGlobalBreadcrumb==='function') updateGlobalBreadcrumb('metas');
+  _updateBackBtn();
+  closeMobileSidebar && closeMobileSidebar();
+  renderMetas();
+}
+
+function metasPrevMes(){
+  const v = _metasView();
+  let m=v.month-1, y=v.year; if(m<0){m=11;y--;}
+  window._metasMes = {year:y, month:m}; renderMetas();
+}
+function metasNextMes(){
+  const v = _metasView();
+  let m=v.month+1, y=v.year; if(m>11){m=0;y++;}
+  window._metasMes = {year:y, month:m}; renderMetas();
+}
+function metasHoy(){ window._metasMes = null; renderMetas(); }
+function _metasView(){
+  if(window._metasMes) return window._metasMes;
+  const d = new Date(); return { year:d.getFullYear(), month:d.getMonth() };
+}
+
+function renderMetas(){
+  const cont = document.getElementById('metas-content');
+  if(!cont) return;
+  ensureMetas();
+  const v = _metasView();
+  let m2=v.month+1, y2=v.year; if(m2>11){m2=0;y2++;}
+  const lbl = document.getElementById('metas-mes-label');
+  if(lbl) lbl.textContent = (v.year===y2)
+    ? `${_MESES[v.month]} – ${_MESES[m2]} ${v.year}`
+    : `${_MESES[v.month]} ${v.year} – ${_MESES[m2]} ${y2}`;
+
+  const hoyKey = _quincenaActual();
+  const colores = {
+    1: { bg:'rgba(45,195,179,0.10)', border:'rgba(45,195,179,0.45)', accent:'var(--agua)' },
+    2: { bg:'rgba(140,130,210,0.12)', border:'rgba(140,130,210,0.45)', accent:'#7c6fd0' }
+  };
+
+  const bloque = (year, month, q)=>{
+    const key = _quincenaKey(year, month, q);
+    const arr = (appData.metas[key]||[]);
+    const col = colores[q];
+    const esActual = key===hoyKey;
+    let slots = '';
+    for(let i=0;i<METAS_SLOTS;i++){
+      const s = arr[i];
+      if(s){
+        slots += `<div style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.4rem">
+          <div style="flex:1;display:flex;align-items:center;gap:0.4rem;background:var(--text);color:var(--bg);border-radius:99px;padding:0.35rem 0.7rem;min-width:0">
+            <span style="font-size:0.78rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.nombre)}</span>
+            ${s.crmId?'<span style="font-size:0.55rem;opacity:0.7;flex-shrink:0">CRM</span>':''}
+          </div>
+          <button onclick="metasMover('${key}','${s.id}')" title="Mover de quincena" style="background:none;border:none;cursor:pointer;font-size:0.72rem;opacity:0.5;padding:0.1rem;flex-shrink:0">↔</button>
+          <button onclick="metasQuitar('${key}','${s.id}')" title="Quitar" style="background:none;border:none;cursor:pointer;font-size:0.72rem;color:#ef4444;opacity:0.6;padding:0.1rem;flex-shrink:0">✕</button>
+        </div>`;
+      } else {
+        slots += `<div onclick="metasAgregarManual('${key}')" style="display:flex;align-items:center;margin-bottom:0.4rem;cursor:pointer">
+          <div style="flex:1;border:1.5px dashed ${col.border};border-radius:99px;padding:0.35rem 0.7rem;color:var(--text3);font-size:0.74rem;background:var(--bg-card)">＋ cupo disponible</div>
+        </div>`;
+      }
+    }
+    const llenos = Math.min(arr.length, METAS_SLOTS);
+    return `<div style="flex:1 1 200px;min-width:190px;background:${col.bg};border:1px solid ${col.border};border-radius:14px;padding:0.9rem">
+      <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.8rem;flex-wrap:wrap">
+        <span style="font-size:0.82rem;font-weight:800;color:${col.accent};line-height:1.2">${_quincenaLabel(key)}</span>
+        <span style="margin-left:auto;font-size:0.7rem;font-weight:700;color:${col.accent}">${llenos}/${METAS_SLOTS}</span>
+        ${esActual?'<span style="font-size:0.55rem;font-weight:700;color:#fff;background:'+col.accent+';border-radius:99px;padding:0.08rem 0.45rem;flex-basis:100%;width:fit-content">EN CURSO</span>':''}
+      </div>
+      ${slots}
+    </div>`;
+  };
+
+  cont.innerHTML = `<div style="display:flex;gap:0.8rem;flex-wrap:wrap;align-items:flex-start">
+    ${bloque(v.year, v.month, 1)}
+    ${bloque(v.year, v.month, 2)}
+    ${bloque(y2, m2, 1)}
+    ${bloque(y2, m2, 2)}
+  </div>`;
+}
+
+// Agregar marca manual a una quincena
+function metasAgregarManual(key){
+  openGenericModal('Agregar marca a la quincena', `
+    <div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.7rem">Quincena: <b>${_quincenaLabel(key)}</b></div>
+    <input id="metas-nombre-input" type="text" placeholder="Nombre de la marca"
+      style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.8rem;color:var(--text);font-family:var(--font);font-size:0.95rem;outline:none"
+      onkeydown="if(event.key==='Enter')metasGuardarManual('${key}')">
+    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem">
+      <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:0.82rem">Cancelar</button>
+      <button onclick="metasGuardarManual('${key}')" class="btn-add" style="background:var(--tierra)">Agregar</button>
+    </div>`);
+  setTimeout(()=>document.getElementById('metas-nombre-input')?.focus(),100);
+}
+async function metasGuardarManual(key){
+  const nombre = (document.getElementById('metas-nombre-input')?.value||'').trim();
+  if(!nombre) return;
+  ensureMetas();
+  if(!appData.metas[key]) appData.metas[key]=[];
+  appData.metas[key].push({ id: uid(), nombre, crmId:null, inicio:_quincenaInicio(key) });
+  markLocalChange('metas');
+  await upsert();
+  closeTrayModal();
+  renderMetas();
+  showStatus('Marca agregada a la quincena ✓');
+}
+async function metasQuitar(key, slotId){
+  ensureMetas();
+  const arr = appData.metas[key]||[];
+  const s = arr.find(x=>x.id===slotId);
+  const ok = await confirmModal(`¿Quitar "${s?s.nombre:'esta marca'}" de la quincena?`,'Quitar');
+  if(!ok) return;
+  appData.metas[key] = arr.filter(x=>x.id!==slotId);
+  markLocalChange('metas');
+  await upsert();
+  renderMetas();
+}
+// Mover una marca a otra quincena (elige mes/quincena)
+function metasMover(key, slotId){
+  const arr = appData.metas[key]||[];
+  const s = arr.find(x=>x.id===slotId);
+  if(!s) return;
+  const v = _metasView();
+  // Opciones: las 2 quincenas del mes en vista, el mes anterior y el siguiente
+  const opts = [];
+  [[-1,2],[0,1],[0,2],[1,1]].forEach(([dm,q])=>{
+    let m=v.month+dm, y=v.year; if(m<0){m=11;y--;} if(m>11){m=0;y++;}
+    const k=_quincenaKey(y,m,q);
+    if(k!==key) opts.push(k);
+  });
+  // siempre incluir la otra quincena del mismo mes
+  const body = `
+    <div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.8rem">Mover <b>${escapeHtml(s.nombre)}</b> a:</div>
+    <div style="display:flex;flex-direction:column;gap:0.4rem">
+      ${opts.map(k=>`<button onclick="metasConfirmarMover('${key}','${slotId}','${k}')" style="text-align:left;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.8rem;color:var(--text);cursor:pointer;font-family:var(--font);font-size:0.85rem;font-weight:600">${_quincenaLabel(k)} <span style="color:var(--text3);font-weight:400">· ${_quincenaParts(k).year}</span></button>`).join('')}
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:1rem">
+      <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:0.82rem">Cancelar</button>
+    </div>`;
+  openGenericModal('Mover de quincena', body);
+}
+async function metasConfirmarMover(fromKey, slotId, toKey){
+  ensureMetas();
+  const arr = appData.metas[fromKey]||[];
+  const idx = arr.findIndex(x=>x.id===slotId);
+  if(idx<0) return;
+  const [s] = arr.splice(idx,1);
+  s.inicio = _quincenaInicio(toKey);
+  if(!appData.metas[toKey]) appData.metas[toKey]=[];
+  appData.metas[toKey].push(s);
+  markLocalChange('metas');
+  await upsert();
+  closeTrayModal();
+  renderMetas();
+  showStatus(`Movida a ${_quincenaLabel(toKey)} ✓`);
 }
 
 // ── Modal de LECTURA (ficha del prospecto) ──
@@ -11077,6 +11420,8 @@ async function saveCrmItem(id){
   if(!ok){ showStatus('❌ Error al guardar', true); return; }
   // Sembrar en la Base de datos de contactos (solo prospectos nuevos)
   if(!id) _sembrarContactoDesdeCrm(it);
+  // 🎯 Si quedó en etapa ganada, ocupa un cupo en la quincena en curso
+  if(_crmEtapaEsGanada(it.etapa)) await metasAsignarDesdeCrm(it);
   closeTrayModal();
   renderCRM();
   showStatus(id?'Prospecto actualizado ✓':'Prospecto agregado ✓');
@@ -11285,16 +11630,13 @@ function ensureCobrosData(){
   if(!appData.cobros || typeof appData.cobros !== 'object') appData.cobros = {};
   (appData.brands||[]).forEach(b=>{
     if(!appData.cobros[b.id]){
-      // Solo inicializar si la marca es completamente nueva (sin entrada en cobros)
+      // Solo inicializar EN MEMORIA si la marca no tiene entrada en cobros.
+      // ⚠️ NO guardamos estos pagos (monto 0) en la tabla automáticamente: si la marca
+      // ya tuviera montos en polen_cobros y su entrada en memoria se perdiera por un
+      // merge/timing, guardar aquí pisaría los valores reales con 0. Los pagos se
+      // persisten cuando el usuario asigna un monto (saveCobField) o marca cobrado.
       const pagos = buildPagosFromCrono(b);
       appData.cobros[b.id] = { expanded:false, pagos };
-      // 🔒 Persistir los pagos nuevos en la tabla
-      if(pagos.length && window.CobrosDB){
-        pagos.forEach((p, idx)=>{
-          if(!p.orden) p.orden = idx;
-          CobrosDB.savePago(b.id, p);
-        });
-      }
     } else {
       // Ya existe — reconciliar sin duplicar
       _reconcilePagosWithCrono(b);
@@ -11526,14 +11868,15 @@ function renderCobros(){
 
   const renderCard = (b, dimmed=false) => {
     const cob = appData.cobros[b.id];
-    const pagos = (cob.pagos||[]).filter(p=>!p.incobrable);
+    const allPagos = cob.pagos||[];
+    const pagos = allPagos.filter(p=>!p.incobrable);
     const brandCol = getBrandColor(b);
     const logo = b.image ? `<img src="${b.image}">` : b.name.charAt(0);
     const isExp = cob.expanded;
     const useTotal = !!cob.useTotal;
     const valorTotal = cob.valorTotal||0;
-    const montoInd = useTotal && pagos.length ? Math.round((valorTotal/pagos.length)*100)/100 : null;
-    const totalDisplay = useTotal ? valorTotal : pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+    const montoInd = useTotal && allPagos.length ? Math.round((valorTotal/allPagos.length)*100)/100 : null;
+    const totalDisplay = useTotal ? (montoInd||0)*pagos.length : pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
     const pct = pagos.length ? Math.round(pagos.filter(p=>p.cobrado).length/pagos.length*100) : 0;
     return `<div class="cob-brand-card" id="cob-card-${b.id}" style="${dimmed?'opacity:0.45;filter:grayscale(0.4)':''}">
       <div class="cob-brand-header" onclick="toggleCobCard(event,'${b.id}')">
@@ -11647,8 +11990,10 @@ function renderCobCard(brandId){
   // Los incobrables NO cuentan para el total esperado ni el % cobrado
   const pagosVigentes = pagos.filter(p=>!p.incobrable);
   const incobrables = pagos.filter(p=>p.incobrable);
-  const montoIndividual = useTotal && pagosVigentes.length ? Math.round((valorTotal/pagosVigentes.length)*100)/100 : null;
-  const totalDisplay = useTotal ? valorTotal : pagosVigentes.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+  // En modo "dividir": cada pago vale total ÷ (TODOS los pagos), fijo.
+  const montoIndividual = useTotal && pagos.length ? Math.round((valorTotal/pagos.length)*100)/100 : null;
+  // Total esperado (sin incobrables): en modo dividir = monto individual × pagos vigentes
+  const totalDisplay = useTotal ? (montoIndividual||0)*pagosVigentes.length : pagosVigentes.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
   const totalCobrado = pagosVigentes.filter(p=>p.cobrado).reduce((s,p)=>s+(useTotal?montoIndividual:(parseFloat(p.monto)||0)),0);
   const pct = totalDisplay ? Math.round(totalCobrado/totalDisplay*100) : 0;
   const brandCol = getBrandColor(b);
@@ -22333,9 +22678,260 @@ function syncBrandsMemberDropdown(){
     members.map(m=>`<option value="${m.id}" ${m.id===cur?'selected':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
 }
 
+// ════════════════════════════════════════════════════════════
+// VISTA LÍNEA DE TIEMPO (Gantt por tiempo transcurrido)
+// ════════════════════════════════════════════════════════════
+// Fecha de inicio del proyecto = primera fecha del cronograma.
+function _cronoStartDate(brand){
+  let min = null;
+  ['aire','agua','tierra','fuego'].forEach(st=>{
+    (brand.cronograma?.[st]||[]).forEach(a=>{
+      if(a.startDate){
+        const d = parseLocalDate(a.startDate);
+        if(d && (!min || d < min)) min = d;
+      }
+    });
+  });
+  return min;
+}
+
+const TL_BENCH_WEEKS = 4;        // benchmark ideal
+const TL_WEEK_PX = 150;          // ancho de cada semana en px
+
+// Marcas ocultas del timeline (preferencia local por navegador)
+function _tlHidden(){
+  try{ return new Set(JSON.parse(localStorage.getItem('polen-timeline-hidden')||'[]')); }catch(e){ return new Set(); }
+}
+function _tlSaveHidden(set){
+  try{ localStorage.setItem('polen-timeline-hidden', JSON.stringify([...set])); }catch(e){}
+}
+function ocultarMarcaTimeline(brandId){
+  const s=_tlHidden(); s.add(brandId); _tlSaveHidden(s); renderBrandsTimeline();
+}
+function mostrarMarcaTimeline(brandId){
+  const s=_tlHidden(); s.delete(brandId); _tlSaveHidden(s); renderBrandsTimeline();
+}
+function mostrarTodasTimeline(){
+  _tlSaveHidden(new Set()); renderBrandsTimeline();
+}
+
+// ── Editor de tramos de pausa (vista de tiempo) ──
+function _renderPausasModalBody(brandId){
+  const b = (appData.brands||[]).find(x=>x.id===brandId);
+  if(!b) return '';
+  const tramos = b.pausasHistorial || [];
+  const filas = tramos.map((t,i)=>`
+    <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.5rem">
+      <input type="date" value="${t.start||''}" onchange="_setPausaCampo('${brandId}',${i},'start',this.value)"
+        style="flex:1;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.5rem;color:var(--text);font-family:var(--font);font-size:0.8rem;outline:none">
+      <span style="font-size:0.7rem;color:var(--text3)">→</span>
+      <input type="date" value="${t.end||''}" onchange="_setPausaCampo('${brandId}',${i},'end',this.value)"
+        style="flex:1;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.5rem;color:var(--text);font-family:var(--font);font-size:0.8rem;outline:none">
+      <button onclick="_removePausaTramo('${brandId}',${i})" title="Eliminar tramo"
+        style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:0.85rem;padding:0.2rem;flex-shrink:0">🗑</button>
+    </div>`).join('');
+  return `
+    <div style="font-size:0.8rem;color:var(--text2);line-height:1.5;margin-bottom:0.9rem">Define los periodos en que <b>${escapeHtml(b.name)}</b> estuvo pausada. Se pintarán en gris sobre su barra de tiempo.</div>
+    <div id="pausas-lista">${filas || '<div style="font-size:0.78rem;color:var(--text3);text-align:center;padding:0.5rem 0">Sin tramos de pausa.</div>'}</div>
+    <button onclick="_addPausaTramo('${brandId}')" style="font-size:0.74rem;font-weight:600;padding:0.4rem 0.8rem;border-radius:8px;border:1px dashed var(--border);background:none;color:var(--tierra);cursor:pointer;font-family:var(--font);width:100%;margin-top:0.3rem">+ Agregar tramo de pausa</button>
+    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem">
+      <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:0.82rem">Cerrar</button>
+      <button onclick="guardarPausasTimeline('${brandId}')" class="btn-add" style="background:var(--tierra)">Guardar</button>
+    </div>`;
+}
+function editarPausasTimeline(brandId){
+  const b = (appData.brands||[]).find(x=>x.id===brandId);
+  if(!b) return;
+  if(!Array.isArray(b.pausasHistorial)) b.pausasHistorial = [];
+  openGenericModal('⏸️ Tramos de pausa', _renderPausasModalBody(brandId));
+}
+function _refreshPausasModal(brandId){
+  openGenericModal('⏸️ Tramos de pausa', _renderPausasModalBody(brandId));
+}
+function _addPausaTramo(brandId){
+  const b = (appData.brands||[]).find(x=>x.id===brandId); if(!b) return;
+  if(!Array.isArray(b.pausasHistorial)) b.pausasHistorial = [];
+  b.pausasHistorial.push({ start:'', end:'' });
+  _refreshPausasModal(brandId);
+}
+function _removePausaTramo(brandId, idx){
+  const b = (appData.brands||[]).find(x=>x.id===brandId); if(!b) return;
+  (b.pausasHistorial||[]).splice(idx,1);
+  _refreshPausasModal(brandId);
+}
+function _setPausaCampo(brandId, idx, campo, val){
+  const b = (appData.brands||[]).find(x=>x.id===brandId); if(!b) return;
+  if(b.pausasHistorial && b.pausasHistorial[idx]) b.pausasHistorial[idx][campo] = val;
+}
+async function guardarPausasTimeline(brandId){
+  const b = (appData.brands||[]).find(x=>x.id===brandId); if(!b) return;
+  // Limpiar tramos incompletos o invertidos
+  b.pausasHistorial = (b.pausasHistorial||[]).filter(t=> t.start && t.end && t.start <= t.end);
+  markBrandChange(b.id);
+  markLocalChange('brands');
+  await upsert();
+  closeTrayModal();
+  renderBrandsTimeline();
+  showStatus('Tramos de pausa guardados ✓');
+}
+
+function renderBrandsTimeline(){
+  const wrap = document.getElementById('brands-view-timeline');
+  if(!wrap) return;
+  const q = (document.getElementById('brands-search-cards')?.value||'').trim().toLowerCase();
+  const hidden = _tlHidden();
+  let allActive = (appData.brands||[]).filter(b=>!b.archivedAt && !b.deletedAt && !b.porIniciar);
+  if(q) allActive = allActive.filter(b=>(b.name||'').toLowerCase().includes(q));
+  const hiddenBrands = allActive.filter(b=>hidden.has(b.id));
+  let brands = allActive.filter(b=>!hidden.has(b.id));
+
+  if(!allActive.length){
+    wrap.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:2rem;text-align:center">No hay marcas activas para mostrar en la línea de tiempo.</div>';
+    return;
+  }
+
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const MS_WEEK = 7*24*60*60*1000;
+
+  // Calcular semanas transcurridas por marca y el máximo (para el ancho total)
+  const rows = brands.map(b=>{
+    const start = _cronoStartDate(b);
+    let semanas = 0, pausedFrac = 0;
+    if(start){
+      semanas = Math.max(0, (hoy - start) / MS_WEEK);
+      // Tramo pausado actual: desde pausedAt hasta hoy (en semanas)
+      if(b.paused && b.pausedAt){
+        const pd = parseLocalDate(b.pausedAt);
+        if(pd) pausedFrac = Math.max(0, (hoy - pd) / MS_WEEK);
+      }
+    }
+    return { b, start, semanas, pausedFrac };
+  });
+  const maxSemanas = Math.max(TL_BENCH_WEEKS + 2, ...rows.map(r=>Math.ceil(r.semanas)+1));
+  const totalWeeks = Math.max(6, maxSemanas);
+  const trackW = totalWeeks * TL_WEEK_PX;
+
+  // Cabecera de semanas
+  let weekHeaders = '';
+  for(let i=1;i<=totalWeeks;i++){
+    const esBench = i===TL_BENCH_WEEKS;
+    weekHeaders += `<div style="width:${TL_WEEK_PX}px;flex-shrink:0;text-align:center;font-size:0.72rem;font-weight:${esBench?'800':'600'};color:${esBench?'var(--tierra)':'var(--text3)'};position:relative">
+      semana ${i}${esBench?'<div style="font-size:0.58rem;font-weight:700;color:var(--tierra)">entrega óptima</div>':''}
+    </div>`;
+  }
+
+  // Zona de fondo: verde hasta benchmark, degradado rojo después
+  const benchPx = TL_BENCH_WEEKS * TL_WEEK_PX;
+  const fondo = `<div style="position:absolute;top:0;left:0;height:100%;width:${benchPx}px;background:rgba(90,170,53,0.05);border-right:2px dashed rgba(90,170,53,0.4);z-index:0"></div>
+    <div style="position:absolute;top:0;left:${benchPx}px;height:100%;width:${trackW-benchPx}px;background:linear-gradient(to right, rgba(239,68,68,0.04), rgba(239,68,68,0.16));z-index:0"></div>`;
+
+  // Filas de marcas
+  const filas = rows.map(({b,start,semanas,pausedFrac})=>{
+    const brandCol = getBrandColor(b);
+    const barW = Math.max(8, semanas * TL_WEEK_PX);
+    const atrasado = semanas > TL_BENCH_WEEKS;
+    const barColor = brandCol;
+    const startLabel = start ? `inició el ${start.toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'2-digit'})}` : 'sin fecha de inicio';
+    const semanasTxt = start ? `${semanas.toFixed(1)} sem` : '—';
+
+    // Tramos de pausa: historial manual + pausa actual
+    const tramos = [];
+    (b.pausasHistorial||[]).forEach(p=>{ if(p.start && p.end) tramos.push({s:p.start, e:p.end}); });
+    if(b.paused && b.pausedAt) tramos.push({s:b.pausedAt, e:todayStr()});
+    const pausaDivs = start ? tramos.map(t=>{
+      const ts=parseLocalDate(t.s), te=parseLocalDate(t.e);
+      if(!ts||!te) return '';
+      const offW=(ts-start)/MS_WEEK, wW=(te-ts)/MS_WEEK;
+      if(wW<=0) return '';
+      let left=Math.max(0, offW*TL_WEEK_PX);
+      let width=wW*TL_WEEK_PX;
+      if(left>=barW) return '';
+      if(left+width>barW) width=barW-left;
+      if(width<=0) return '';
+      return `<div style="position:absolute;top:0;left:${left}px;width:${width}px;height:100%;background:repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1 4px,#e2e8f0 4px,#e2e8f0 8px);opacity:0.9" title="Pausado"></div>`;
+    }).join('') : '';
+
+    const barHTML = start ? `
+      <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);height:18px;border-radius:9px;overflow:hidden;width:${barW}px;box-shadow:0 1px 3px rgba(0,0,0,0.15);background:${barColor}">
+        ${pausaDivs}
+      </div>
+      <!-- Check de fin al extremo de la barra (tenue hasta hover) -->
+      <button onclick="event.stopPropagation();timelineArchivar('${b.id}')" title="Dar por terminada y archivar"
+        style="position:absolute;left:${barW+8}px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;border:1.5px solid ${atrasado?'#ef4444':'var(--tierra)'};background:var(--bg-card);color:${atrasado?'#ef4444':'var(--tierra)'};cursor:pointer;font-size:0.8rem;display:flex;align-items:center;justify-content:center;z-index:2;padding:0;opacity:0.18;transition:opacity 0.15s"
+        onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.18'">✓</button>
+    ` : '<span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:0.7rem;color:var(--text3)">Sin cronograma con fechas</span>';
+
+    const nTramos = tramos.length;
+    return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border);min-height:54px">
+      <!-- Etiqueta de marca (fija a la izquierda) -->
+      <div style="width:160px;flex-shrink:0;padding:0.5rem 0.7rem;display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--border);background:var(--bg-card);position:sticky;left:0;z-index:3">
+        <div style="display:flex;align-items:center;gap:0.4rem">
+          <span style="width:8px;height:8px;border-radius:50%;background:${brandCol};flex-shrink:0"></span>
+          <span style="font-size:0.82rem;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;cursor:pointer" onclick="openBrand('${b.id}')">${b.name}${b.paused?' <span style="font-size:0.6rem;color:var(--text3)">⏸</span>':''}</span>
+          <button onclick="event.stopPropagation();editarPausasTimeline('${b.id}')" title="Editar tramos de pausa"
+            style="background:none;border:none;cursor:pointer;font-size:0.72rem;padding:0;flex-shrink:0;opacity:${nTramos?'0.8':'0.3'};transition:opacity 0.15s"
+            onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='${nTramos?'0.8':'0.3'}'">⏸️</button>
+          <button onclick="event.stopPropagation();ocultarMarcaTimeline('${b.id}')" title="Ocultar del timeline"
+            style="background:none;border:none;cursor:pointer;font-size:0.72rem;padding:0;flex-shrink:0;opacity:0.3;transition:opacity 0.15s"
+            onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.3'">🙈</button>
+        </div>
+        <div style="font-size:0.62rem;color:${atrasado?'#ef4444':'var(--text3)'};margin-top:0.15rem;cursor:pointer" onclick="openBrand('${b.id}')">${semanasTxt}${atrasado?' · atrasado':''}${nTramos?` · ${nTramos} pausa${nTramos!==1?'s':''}`:''}</div>
+        <div style="font-size:0.58rem;color:var(--text3)">${startLabel}</div>
+      </div>
+      <!-- Track -->
+      <div style="flex:1;position:relative;min-width:${trackW}px">${barHTML}</div>
+    </div>`;
+  }).join('');
+
+  // Control de marcas ocultas
+  const ocultasHTML = hiddenBrands.length ? `
+    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.7rem;padding:0.5rem 0.7rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px">
+      <span style="font-size:0.7rem;font-weight:700;color:var(--text3)">🙈 Ocultas (${hiddenBrands.length}):</span>
+      ${hiddenBrands.map(b=>`<button onclick="mostrarMarcaTimeline('${b.id}')" title="Volver a mostrar"
+        style="display:flex;align-items:center;gap:0.3rem;font-size:0.7rem;font-weight:600;padding:0.18rem 0.55rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font)">
+        <span style="width:7px;height:7px;border-radius:50%;background:${getBrandColor(b)}"></span>${b.name} <span style="color:var(--tierra)">＋</span></button>`).join('')}
+      <button onclick="mostrarTodasTimeline()" style="font-size:0.68rem;font-weight:600;padding:0.18rem 0.55rem;border-radius:99px;border:none;background:none;color:var(--tierra);cursor:pointer;font-family:var(--font);margin-left:auto">Mostrar todas</button>
+    </div>` : '';
+
+  const intro = `<div style="font-size:0.75rem;color:var(--text3);margin-bottom:0.8rem;line-height:1.5">
+      Tiempo transcurrido desde el inicio del cronograma de cada marca. El ideal son <b style="color:var(--tierra)">4 semanas</b>; pasado ese punto, la zona se torna roja. El tramo gris de una barra indica tiempo en pausa. Marca el ✓ al final para dar por terminada y archivar.
+    </div>`;
+
+  if(!brands.length){
+    wrap.innerHTML = intro + ocultasHTML + '<div style="color:var(--text3);font-size:0.85rem;padding:2rem;text-align:center">Todas las marcas están ocultas. Usa los botones de arriba para volver a mostrarlas.</div>';
+    return;
+  }
+
+  wrap.innerHTML = intro + ocultasHTML + `
+    <div style="border:1px solid var(--border);border-radius:12px;overflow-x:auto;overflow-y:hidden;background:var(--bg-card)">
+      <div style="min-width:${160+trackW}px">
+        <!-- Header de semanas -->
+        <div style="display:flex;align-items:flex-end;border-bottom:2px solid var(--border);background:var(--glass)">
+          <div style="width:160px;flex-shrink:0;padding:0.5rem 0.7rem;font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);border-right:1px solid var(--border);position:sticky;left:0;background:var(--glass);z-index:3">Marca</div>
+          <div style="flex:1;position:relative;display:flex;padding:0.5rem 0;min-width:${trackW}px">${weekHeaders}</div>
+        </div>
+        <!-- Filas con zona de fondo -->
+        <div style="position:relative">
+          <div style="position:absolute;top:0;left:160px;right:0;height:100%;pointer-events:none;min-width:${trackW}px">${fondo}</div>
+          ${filas}
+        </div>
+      </div>
+    </div>`;
+}
+
+async function timelineArchivar(brandId){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand) return;
+  const ok = await confirmModal(`¿Dar por terminada la marca "${brand.name}" y archivarla?\n\nSe moverá al Archivo (proyectos terminados).`,'Archivar');
+  if(!ok) return;
+  await executeBrandArchive(brandId);
+  // executeBrandArchive navega al dashboard; re-render para reflejar
+  if(typeof renderDashboard==='function') renderDashboard();
+}
+
 function setBrandsView(mode){
   _brandsView = mode;
-  const views = ['cards','table','etapa','miembro','playground'];
+  const views = ['cards','table','etapa','miembro','playground','timeline'];
   const activeStyle   = 'padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.12)';
   const inactiveStyle = 'padding:0.32rem 0.75rem;border-radius:6px;border:none;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--font);background:none;color:var(--text3)';
   const filtersBar = document.getElementById('brands-table-filters');
@@ -22352,6 +22948,7 @@ function setBrandsView(mode){
   else if(mode==='etapa')      renderBrandsEtapa();
   else if(mode==='miembro')    renderBrandsMiembro();
   else if(mode==='playground') renderPlayground();
+  else if(mode==='timeline')   renderBrandsTimeline();
 }
 
 // ── PLAYGROUND ──────────────────────────────────────────────────────
@@ -22706,7 +23303,7 @@ function renderBrandsEtapa(){
         <div style="display:flex;align-items:center;gap:0.5rem">
           <div style="width:28px;height:28px;border-radius:7px;border:1.5px solid ${col};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
           <div style="min-width:0;flex:1">
-            <div style="font-size:0.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2">${b.name}</div>
+            <div style="font-size:0.88rem;font-weight:700;line-height:1.2;word-break:break-word">${b.name}</div>
             <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.2rem">
               <span style="font-size:0.6rem;color:var(--text3)">${stageEmoji} ${b.stage}</span>
               <span style="font-size:0.6rem;color:var(--text3)">·</span>
@@ -22718,13 +23315,13 @@ function renderBrandsEtapa(){
     }
 
     return `<div onclick="openBrand('${b.id}')" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.7rem;margin-bottom:0.5rem;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='${sc.col}'" onmouseout="this.style.borderColor='var(--border)'">
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+      <div style="display:flex;align-items:flex-start;gap:0.5rem;margin-bottom:0.5rem">
         <div style="width:26px;height:26px;border-radius:7px;border:1.5px solid ${col};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
         <div style="min-width:0;flex:1">
-          <div style="font-size:0.8rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
+          <div style="font-size:0.8rem;font-weight:700;line-height:1.25;word-break:break-word">${b.name}</div>
           ${b.industria?`<div style="font-size:0.65rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.industria}</div>`:''}
         </div>
-        <span style="font-size:0.7rem;font-weight:700;color:${pct>=90?'var(--tierra)':pct>0?'var(--aire)':'var(--text3)'}">${pct}%</span>
+        <span style="font-size:0.7rem;font-weight:700;flex-shrink:0;color:${pct>=90?'var(--tierra)':pct>0?'var(--aire)':'var(--text3)'}">${pct}%</span>
       </div>
       <div style="height:3px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
         <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
@@ -22736,7 +23333,7 @@ function renderBrandsEtapa(){
   const stageCol = (stage) => {
     const sc = SC[stage];
     const sb = brands.filter(b=>b.stage===stage && !b.paused && !b.archivedAt && !b.deletedAt);
-    return `<div style="background:${sc.bg};border:1px solid ${sc.border};border-radius:14px;padding:1rem">
+    return `<div style="flex:0 0 max(260px, calc((100% - 3rem) / 4));background:${sc.bg};border:1px solid ${sc.border};border-radius:14px;padding:1rem">
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.9rem;padding-bottom:0.7rem;border-bottom:1px solid ${sc.border}">
         <span style="font-size:1.1rem">${sc.emoji}</span>
         <span style="font-size:0.82rem;font-weight:800;color:${sc.col};text-transform:uppercase;letter-spacing:0.5px">${sc.label}</span>
@@ -22748,7 +23345,7 @@ function renderBrandsEtapa(){
 
   const pausedBrands = brands.filter(b=>b.paused && !b.archivedAt && !b.deletedAt);
   const psc = SC.pausado;
-  const pausedCol = `<div style="background:${psc.bg};border:1px solid ${psc.border};border-radius:14px;padding:1rem">
+  const pausedCol = `<div style="flex:0 0 max(260px, calc((100% - 3rem) / 4));background:${psc.bg};border:1px solid ${psc.border};border-radius:14px;padding:1rem">
     <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.9rem;padding-bottom:0.7rem;border-bottom:1px solid ${psc.border}">
       <span style="font-size:1.1rem">${psc.emoji}</span>
       <span style="font-size:0.82rem;font-weight:800;color:${psc.col};text-transform:uppercase;letter-spacing:0.5px">${psc.label}</span>
@@ -22757,10 +23354,6 @@ function renderBrandsEtapa(){
     ${pausedBrands.length ? pausedBrands.map(b=>brandCard(b,psc)).join('') : `<div style="text-align:center;padding:1.5rem 0;color:var(--text3);font-size:0.78rem">Sin proyectos pausados</div>`}
   </div>`;
 
-  const cols = _etapaShowPaused && pausedBrands.length
-    ? `repeat(4,1fr) minmax(160px,220px)`
-    : `repeat(4,1fr)`;
-
   el.innerHTML = `
     <div style="display:flex;justify-content:flex-end;margin-bottom:0.7rem">
       <button onclick="_etapaShowPaused=!_etapaShowPaused;renderBrandsEtapa()"
@@ -22768,7 +23361,7 @@ function renderBrandsEtapa(){
         ⏸️ Pausados${pausedBrands.length?` (${pausedBrands.length})`:''}
       </button>
     </div>
-    <div style="display:grid;grid-template-columns:${cols};gap:1rem">
+    <div style="display:flex;gap:1rem;overflow-x:auto;overflow-y:hidden;padding-bottom:0.6rem;-webkit-overflow-scrolling:touch">
       ${['aire','agua','tierra','fuego'].map(stageCol).join('')}
       ${_etapaShowPaused && pausedBrands.length ? pausedCol : ''}
     </div>`;
