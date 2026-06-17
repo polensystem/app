@@ -2415,6 +2415,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         <button class="tab-btn" id="tab-notas-btn" onclick="switchTab('notas')">📋 Notas</button>
         <button class="tab-btn" id="tab-domo-btn" onclick="switchTab('domo')">🏠 Domo</button>
         <button class="tab-btn" id="tab-portal-btn" onclick="switchTab('portal')">🌐 Portal cliente</button>
+        <button class="tab-btn" id="tab-tiempo-btn" onclick="switchTab('tiempo')">📊 Tiempo</button>
         <!-- Export pills — per tab -->
         <div id="brand-export-crono" style="margin-left:auto">
           <div class="export-wrap">
@@ -2568,6 +2569,11 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Tab: Tiempo (timeline de esta marca) -->
+      <div class="tab-panel" id="tab-tiempo">
+        <div id="brand-tiempo-content"></div>
       </div>
 
       <!-- Tab: Notas de cliente -->
@@ -3391,7 +3397,10 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         <button id="crm-collapse-all" onclick="crmCollapseAll()" title="Comprimir todas las columnas" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.7rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⟩⟨ Comprimir</button>
         <button id="crm-expand-all" onclick="crmExpandAll()" title="Expandir todas las columnas" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.7rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⟨⟩ Expandir</button>
       </div>
-      <div id="crm-notif-panel" style="margin-bottom:1rem"></div>
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;align-items:flex-start">
+        <div id="crm-notif-panel" style="flex:1 1 340px;min-width:0"></div>
+        <div id="crm-tareas-panel" style="flex:1 1 340px;min-width:0"></div>
+      </div>
       <div id="crm-board" style="overflow-x:auto"></div>
     </div>
   </div>
@@ -10156,11 +10165,87 @@ function setCrmView(v){
   renderCRM();
 }
 
+// ── Bloque de tareas pendientes en CRM (lista comercial INDEPENDIENTE del dashboard) ──
+function ensureCrmTareas(){ if(!Array.isArray(appData.crmTareas)) appData.crmTareas = []; return appData.crmTareas; }
+window._crmTareasCollapsed = (function(){ try{ return localStorage.getItem('polen-crm-tareas-collapsed')!=='0'; }catch(e){ return true; } })();
+function toggleCrmTareasPanel(){
+  window._crmTareasCollapsed = !window._crmTareasCollapsed;
+  try{ localStorage.setItem('polen-crm-tareas-collapsed', window._crmTareasCollapsed?'1':'0'); }catch(e){}
+  renderCrmTareas();
+}
+function renderCrmTareas(){
+  const panel = document.getElementById('crm-tareas-panel');
+  if(!panel) return;
+  ensureCrmTareas();
+  const pend = (appData.crmTareas||[]).filter(t=>!t.done);
+  pend.sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''));
+  const colapsado = window._crmTareasCollapsed;
+  const filas = pend.map(t=>{
+    return `<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.6rem 0.7rem;border-bottom:1px solid var(--border2)">
+      <div onclick="toggleCrmTareaDone('${t.id}')" title="Marcar como hecha" style="width:18px;height:18px;border-radius:5px;border:2px solid var(--border);cursor:pointer;flex-shrink:0;margin-top:1px;transition:all 0.15s" onmouseover="this.style.borderColor='var(--tierra)'" onmouseout="this.style.borderColor='var(--border)'"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.82rem;font-weight:600;color:var(--text);line-height:1.35;word-break:break-word">${escapeHtml(t.titulo||'')}</div>
+      </div>
+      <button onclick="event.stopPropagation();borrarCrmTarea('${t.id}')" title="Eliminar" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.72rem;padding:0.1rem;flex-shrink:0;opacity:0.4" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.4'">✕</button>
+    </div>`;
+  }).join('');
+
+  const header = `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.7rem 0.8rem;${colapsado?'':'border-bottom:1px solid var(--border)'};background:var(--bg-card2)">
+        <span style="font-size:0.85rem;font-weight:800;color:var(--text)">💼 To-dos comerciales</span>
+        <span style="font-size:0.7rem;color:var(--text3)">${pend.length}</span>
+        <div style="flex:1"></div>
+        <button onclick="toggleCrmTareasPanel()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.8rem;padding:0 0.3rem;font-family:var(--font)">${colapsado?'▾ Expandir':'▴ Colapsar'}</button>
+      </div>`;
+  const cuerpo = colapsado ? '' : `
+      <div style="display:flex;gap:0.4rem;padding:0.6rem 0.7rem;border-bottom:1px solid var(--border2)">
+        <input id="crm-tarea-input" type="text" placeholder="Nuevo to-do comercial…" onkeydown="if(event.key==='Enter')addCrmTarea()"
+          style="flex:1;min-width:0;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.45rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.82rem;outline:none">
+        <button onclick="addCrmTarea()" style="background:var(--tierra);color:#fff;border:none;border-radius:8px;padding:0.45rem 0.8rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:var(--font);flex-shrink:0">+</button>
+      </div>
+      <div style="max-height:420px;overflow-y:auto">
+        ${filas || '<div style="padding:1.5rem;text-align:center;color:var(--text3);font-size:0.8rem">Sin to-dos pendientes 🎉</div>'}
+      </div>`;
+
+  panel.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden">${header}${cuerpo}</div>`;
+}
+async function addCrmTarea(){
+  const inp = document.getElementById('crm-tarea-input');
+  const titulo = (inp?.value||'').trim();
+  if(!titulo) return;
+  ensureCrmTareas();
+  appData.crmTareas.unshift({ id: uid(), titulo, done:false, createdAt: new Date().toISOString() });
+  if(inp) inp.value='';
+  markLocalChange('crmTareas');
+  renderCrmTareas();
+  await upsert();
+}
+async function borrarCrmTarea(id){
+  ensureCrmTareas();
+  appData.crmTareas = appData.crmTareas.filter(t=>t.id!==id);
+  markLocalChange('crmTareas');
+  renderCrmTareas();
+  await upsert();
+  showStatus('To-do eliminado');
+}
+async function toggleCrmTareaDone(id){
+  ensureCrmTareas();
+  const t = appData.crmTareas.find(x=>x.id===id);
+  if(!t) return;
+  t.done = !t.done;
+  t.doneAt = t.done ? new Date().toISOString() : null;
+  markLocalChange('crmTareas');
+  if(currentPage==='crm') renderCrmTareas();
+  if(currentPage==='archivo' && typeof renderArchivoNotas==='function'){ try{ renderArchivoNotas(); }catch(e){} }
+  await upsert();
+  showStatus(t.done ? 'To-do completado ✓ — va al archivo' : 'To-do reabierto');
+}
+
 function renderCRM(){
   const board = document.getElementById('crm-board');
   if(!board) return;
   updateCrmBadge();
   renderCrmNotifPanel();
+  renderCrmTareas();
   const q = (document.getElementById('crm-search')?.value||'').trim().toLowerCase();
   const etapas = _crmEtapas();
   const items = _crmData.items.filter(it=> !q || (it.nombre||'').toLowerCase().includes(q) || (it.contacto||'').toLowerCase().includes(q) || (it.empresa||'').toLowerCase().includes(q));
@@ -11916,7 +12001,7 @@ function renderCobros(){
     const pct = pagos.length ? Math.round(pagos.filter(p=>p.cobrado).length/pagos.length*100) : 0;
     return `<div class="cob-brand-card" id="cob-card-${b.id}" style="${dimmed?'opacity:0.45;filter:grayscale(0.4)':''}">
       <div class="cob-brand-header" onclick="toggleCobCard(event,'${b.id}')">
-        <div class="cob-brand-logo" style="border-color:${brandCol}">${logo}</div>
+        <div class="cob-brand-logo" style="border-color:${b.image?'var(--border)':brandCol}">${logo}</div>
         <div style="flex:1;min-width:0;overflow:hidden">
           <div class="cob-brand-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}${dimmed?' <span style="font-size:0.6rem;color:var(--text3);font-weight:400">⏸ pausado</span>':''}</div>
           <div class="cob-brand-sub">${pagos.filter(p=>p.cobrado).length}/${pagos.length} cobrados · $${totalDisplay.toLocaleString()}</div>
@@ -12546,7 +12631,7 @@ function renderCobTabla(){
       </div>
       <!-- Marca / Pago -->
       <div style="width:200px;flex-shrink:0;display:flex;align-items:center;gap:0.5rem">
-        <div style="width:30px;height:30px;border-radius:8px;background:var(--bg-card2);border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${logo}</div>
+        <div style="width:30px;height:30px;border-radius:8px;background:var(--bg-card2);border:1.5px solid ${b.image?'var(--border)':col};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${logo}</div>
         <div style="min-width:0">
           <div style="font-size:0.82rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
           <div style="font-size:0.68rem;color:var(--text3)">${p.nombre||'Pago '+(pi+1)}</div>
@@ -13281,7 +13366,7 @@ function renderArchCobros(){
       : '<span style="font-size:0.8rem;color:var(--text3);letter-spacing:2px">••••</span>';
 
     return '<div style="background:var(--bg-card);border:1px solid rgba(90,170,53,0.3);border-radius:14px;padding:1rem;display:flex;align-items:center;gap:0.9rem">'
-      + '<div style="width:44px;height:44px;border-radius:10px;border:2px solid '+col+';background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">'+logo+'</div>'
+      + '<div style="width:44px;height:44px;border-radius:10px;border:2px solid '+(b.image?'var(--border)':col)+';background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">'+logo+'</div>'
       + '<div style="flex:1;min-width:0">'
       + '<div style="font-size:0.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+b.name+'</div>'
       + '<div style="font-size:0.65rem;color:var(--text3);margin-top:0.1rem">'+pagos.length+' pago'+(pagos.length!==1?'s':'')+' · todos cobrados ✓</div>'
@@ -14482,6 +14567,7 @@ function switchTab(tab){
   }
   if(tab==='portal') renderPortalTab();
   if(tab==='notas')  renderBrandNotas();
+  if(tab==='tiempo') renderBrandTiempo();
 }
 
 /* ── Inline export dropdown toggle ── */
@@ -15983,12 +16069,24 @@ function renderBrandColorPicker(selectedColor){
   if(!container) return;
   const defaultColor = selectedColor || BRAND_COLORS[0];
   if(!selectedColor) (document.getElementById('input-brand-color')||{}).value = defaultColor;
+  const esCustom = !BRAND_COLORS.includes(defaultColor);
   container.innerHTML = BRAND_COLORS.map(col => `
     <div class="brand-color-swatch ${col===defaultColor?'selected':''}"
       style="background:${col}"
       onclick="selectBrandColor('${col}')"
       title="${col}"></div>
-  `).join('');
+  `).join('') + `
+    <label class="brand-color-swatch ${esCustom?'selected':''}" title="Color personalizado"
+      style="position:relative;overflow:hidden;background:${esCustom?defaultColor:'conic-gradient(from 0deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)'};display:flex;align-items:center;justify-content:center;cursor:pointer">
+      <span style="font-size:0.85rem;filter:drop-shadow(0 0 1px rgba(0,0,0,0.5))">🎨</span>
+      <input type="color" value="${defaultColor}" oninput="selectBrandColorCustom(this.value)"
+        style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+    </label>`;
+}
+
+function selectBrandColorCustom(color){
+  (document.getElementById('input-brand-color')||{}).value = color;
+  renderBrandColorPicker(color);
 }
 
 function selectBrandColor(color){
@@ -22808,6 +22906,11 @@ function toggleTimelineHidePaused(){
   try{ localStorage.setItem('polen-timeline-hide-paused', window._tlHidePaused?'1':'0'); }catch(e){}
   renderBrandsTimeline();
 }
+// Orden y filtro de la vista de tiempo
+window._tlSort = (function(){ try{ return localStorage.getItem('polen-timeline-sort')||'totales-desc'; }catch(e){ return 'totales-desc'; } })();
+window._tlFilter = (function(){ try{ return localStorage.getItem('polen-timeline-filter')||'todas'; }catch(e){ return 'todas'; } })();
+function setTimelineSort(v){ window._tlSort=v; try{ localStorage.setItem('polen-timeline-sort',v); }catch(e){} renderBrandsTimeline(); }
+function setTimelineFilter(v){ window._tlFilter=v; try{ localStorage.setItem('polen-timeline-filter',v); }catch(e){} renderBrandsTimeline(); }
 
 // ── Editor de tramos de pausa (vista de tiempo) ──
 function _renderPausasModalBody(brandId){
@@ -22865,7 +22968,8 @@ async function guardarPausasTimeline(brandId){
   markLocalChange('brands');
   await upsert();
   closeTrayModal();
-  renderBrandsTimeline();
+  if(typeof renderBrandsTimeline==='function') renderBrandsTimeline();
+  if(document.getElementById('tab-tiempo')?.classList.contains('active')) renderBrandTiempo();
   showStatus('Tramos de pausa guardados ✓');
 }
 
@@ -22889,20 +22993,45 @@ function renderBrandsTimeline(){
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const MS_WEEK = 7*24*60*60*1000;
 
-  // Calcular semanas transcurridas por marca y el máximo (para el ancho total)
+  // Calcular semanas (totales, pausa, activas) por marca
   const rows = brands.map(b=>{
     const start = _cronoStartDate(b);
-    let semanas = 0, pausedFrac = 0;
+    let semanas = 0, semPausa = 0;
+    const tramos = [];
     if(start){
       semanas = Math.max(0, (hoy - start) / MS_WEEK);
-      // Tramo pausado actual: desde pausedAt hasta hoy (en semanas)
-      if(b.paused && b.pausedAt){
-        const pd = parseLocalDate(b.pausedAt);
-        if(pd) pausedFrac = Math.max(0, (hoy - pd) / MS_WEEK);
-      }
+      (b.pausasHistorial||[]).forEach(p=>{ if(p.start && p.end) tramos.push({s:p.start, e:p.end}); });
+      if(b.paused && b.pausedAt) tramos.push({s:b.pausedAt, e:todayStr()});
+      tramos.forEach(t=>{
+        const ts=parseLocalDate(t.s), te=parseLocalDate(t.e);
+        if(!ts||!te) return;
+        const ini=Math.max(ts.getTime(),start.getTime()), fin=Math.min(te.getTime(),hoy.getTime());
+        if(fin>ini) semPausa += (fin-ini)/MS_WEEK;
+      });
     }
-    return { b, start, semanas, pausedFrac };
+    const semActivas = start ? Math.max(0, semanas - semPausa) : 0;
+    return { b, start, semanas, semPausa, semActivas, tramos, atrasado: semanas > TL_BENCH_WEEKS };
   });
+
+  // Filtro
+  let rowsF = rows;
+  if(window._tlFilter==='activas')   rowsF = rows.filter(r=>!r.b.paused);
+  else if(window._tlFilter==='pausadas') rowsF = rows.filter(r=>r.b.paused);
+  else if(window._tlFilter==='atrasadas') rowsF = rows.filter(r=>r.atrasado);
+
+  // Orden
+  const sortFns = {
+    'activas-desc': (a,b)=> b.semActivas - a.semActivas,
+    'activas-asc':  (a,b)=> a.semActivas - b.semActivas,
+    'totales-desc': (a,b)=> b.semanas - a.semanas,
+    'totales-asc':  (a,b)=> a.semanas - b.semanas,
+    'nombre-az':    (a,b)=> (a.b.name||'').localeCompare(b.b.name||''),
+    'nombre-za':    (a,b)=> (b.b.name||'').localeCompare(a.b.name||''),
+    'inicio-reciente': (a,b)=> (b.start?b.start.getTime():0) - (a.start?a.start.getTime():0),
+    'inicio-antiguo':  (a,b)=> (a.start?a.start.getTime():Infinity) - (b.start?b.start.getTime():Infinity),
+  };
+  rowsF = [...rowsF].sort(sortFns[window._tlSort] || sortFns['totales-desc']);
+
   const maxSemanas = Math.max(TL_BENCH_WEEKS + 2, ...rows.map(r=>Math.ceil(r.semanas)+1));
   const totalWeeks = Math.max(6, maxSemanas);
   const trackW = totalWeeks * TL_WEEK_PX;
@@ -22921,31 +23050,23 @@ function renderBrandsTimeline(){
   const fondo = `<div style="position:absolute;top:0;left:0;height:100%;width:${benchPx}px;background:rgba(90,170,53,0.05);border-right:2px dashed rgba(90,170,53,0.4);z-index:0"></div>
     <div style="position:absolute;top:0;left:${benchPx}px;height:100%;width:${trackW-benchPx}px;background:linear-gradient(to right, rgba(239,68,68,0.04), rgba(239,68,68,0.16));z-index:0"></div>`;
 
+  // Gradiente de color por bloques de tiempo (en px absolutos sobre la barra)
+  const W = TL_WEEK_PX;
+  const VERDE='#22c55e', AMARILLO='#fbbf24', NARANJA='#f97316', ROJO='#ef4444';
+  function _barGradient(){
+    return `linear-gradient(to right,
+      ${VERDE} 0px, ${VERDE} ${3.6*W}px,
+      ${AMARILLO} ${4.4*W}px, ${AMARILLO} ${5.6*W}px,
+      ${NARANJA} ${6.4*W}px, ${NARANJA} ${7.6*W}px,
+      ${ROJO} ${8.4*W}px, ${ROJO} 100%)`;
+  }
+
   // Filas de marcas
-  const filas = rows.map(({b,start,semanas,pausedFrac})=>{
+  const filas = rowsF.map(({b,start,semanas,semPausa,semActivas,tramos,atrasado})=>{
     const brandCol = getBrandColor(b);
     const barW = Math.max(8, semanas * TL_WEEK_PX);
-    const atrasado = semanas > TL_BENCH_WEEKS;
-    const barColor = brandCol;
     const startLabel = start ? `inició el ${start.toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'2-digit'})}` : 'sin fecha de inicio';
-    const semanasTxt = start ? `${semanas.toFixed(1)} sem` : '—';
 
-    // Tramos de pausa: historial manual + pausa actual
-    const tramos = [];
-    (b.pausasHistorial||[]).forEach(p=>{ if(p.start && p.end) tramos.push({s:p.start, e:p.end}); });
-    if(b.paused && b.pausedAt) tramos.push({s:b.pausedAt, e:todayStr()});
-    // Semanas en pausa (clampeadas al periodo del proyecto) y semanas activas
-    let semPausa = 0;
-    if(start){
-      tramos.forEach(t=>{
-        const ts=parseLocalDate(t.s), te=parseLocalDate(t.e);
-        if(!ts||!te) return;
-        const ini = Math.max(ts.getTime(), start.getTime());
-        const fin = Math.min(te.getTime(), hoy.getTime());
-        if(fin>ini) semPausa += (fin-ini)/MS_WEEK;
-      });
-    }
-    const semActivas = start ? Math.max(0, semanas - semPausa) : 0;
     const pausaDivs = start ? tramos.map(t=>{
       const ts=parseLocalDate(t.s), te=parseLocalDate(t.e);
       if(!ts||!te) return '';
@@ -22960,33 +23081,41 @@ function renderBrandsTimeline(){
     }).join('') : '';
 
     const barHTML = start ? `
-      <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);height:18px;border-radius:9px;overflow:hidden;width:${barW}px;box-shadow:0 1px 3px rgba(0,0,0,0.15);background:${barColor}">
+      <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);height:18px;border-radius:9px;overflow:hidden;width:${barW}px;box-shadow:0 1px 3px rgba(0,0,0,0.15);background:${_barGradient()};background-size:${trackW}px 100%;background-repeat:no-repeat">
         ${pausaDivs}
       </div>
-      <!-- Check de fin al extremo de la barra (tenue hasta hover) -->
       <button onclick="event.stopPropagation();timelineArchivar('${b.id}')" title="Dar por terminada y archivar"
-        style="position:absolute;left:${barW+8}px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;border:1.5px solid ${atrasado?'#ef4444':'var(--tierra)'};background:var(--bg-card);color:${atrasado?'#ef4444':'var(--tierra)'};cursor:pointer;font-size:0.8rem;display:flex;align-items:center;justify-content:center;z-index:2;padding:0;opacity:0.18;transition:opacity 0.15s"
+        style="position:absolute;left:${barW+8}px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;border:1.5px solid var(--tierra);background:var(--bg-card);color:var(--tierra);cursor:pointer;font-size:0.8rem;display:flex;align-items:center;justify-content:center;z-index:2;padding:0;opacity:0.18;transition:opacity 0.15s"
         onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.18'">✓</button>
     ` : '<span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:0.7rem;color:var(--text3)">Sin cronograma con fechas</span>';
 
     const nTramos = tramos.length;
-    return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border);min-height:54px">
+    const logo = b.image
+      ? `<img src="${b.image}" style="width:100%;height:100%;object-fit:cover;border-radius:9px">`
+      : `<span style="font-size:1.05rem;font-weight:800;color:${brandCol}">${(b.name||'?').charAt(0)}</span>`;
+    const avBorder = b.image ? 'var(--border)' : brandCol+'66';
+    const avBg = b.image ? 'var(--bg-card2)' : brandCol+'1f';
+    const rowStyle = b.paused ? 'opacity:0.4;filter:grayscale(1)' : '';
+
+    return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border);min-height:66px;${rowStyle};transition:opacity 0.15s">
       <!-- Etiqueta de marca (fija a la izquierda) -->
-      <div style="width:160px;flex-shrink:0;padding:0.5rem 0.7rem;display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--border);background:var(--bg-card);position:sticky;left:0;z-index:3">
-        <div style="display:flex;align-items:center;gap:0.4rem">
-          <span style="width:8px;height:8px;border-radius:50%;background:${brandCol};flex-shrink:0"></span>
-          <span style="font-size:0.82rem;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;cursor:pointer" onclick="openBrand('${b.id}')">${b.name}${b.paused?' <span style="font-size:0.6rem;color:var(--text3)">⏸</span>':''}</span>
-          <button onclick="event.stopPropagation();editarPausasTimeline('${b.id}')" title="Editar tramos de pausa"
-            style="background:none;border:none;cursor:pointer;font-size:0.72rem;padding:0;flex-shrink:0;opacity:${nTramos?'0.8':'0.3'};transition:opacity 0.15s"
-            onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='${nTramos?'0.8':'0.3'}'">⏸️</button>
-          <button onclick="event.stopPropagation();ocultarMarcaTimeline('${b.id}')" title="Ocultar del timeline"
-            style="background:none;border:none;cursor:pointer;font-size:0.72rem;padding:0;flex-shrink:0;opacity:0.3;transition:opacity 0.15s"
-            onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.3'">🙈</button>
+      <div style="width:220px;flex-shrink:0;padding:0.6rem 0.8rem;display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--border);background:var(--bg-card);position:sticky;left:0;z-index:3">
+        <div style="display:flex;align-items:center;gap:0.55rem">
+          <div style="width:36px;height:36px;border-radius:9px;background:${avBg};border:1.5px solid ${avBorder};display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
+          <span style="font-size:1.05rem;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;cursor:pointer;letter-spacing:-0.3px" onclick="openBrand('${b.id}')">${b.name}</span>
+          <div style="position:relative;flex-shrink:0">
+            <button onclick="event.stopPropagation();_tlToggleMenu('${b.id}')" title="Opciones"
+              style="background:none;border:none;cursor:pointer;font-size:1rem;padding:0 0.2rem;color:var(--text3);line-height:1">⋯</button>
+            <div id="tl-menu-${b.id}" style="display:none;position:absolute;right:0;top:100%;margin-top:2px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.18);z-index:20;min-width:150px;overflow:hidden">
+              <button onclick="event.stopPropagation();_tlCloseMenus();editarPausasTimeline('${b.id}')" style="display:block;width:100%;text-align:left;background:none;border:none;padding:0.5rem 0.8rem;font-size:0.78rem;color:var(--text);cursor:pointer;font-family:var(--font)">⏸️ Pausas${nTramos?` (${nTramos})`:''}</button>
+              <button onclick="event.stopPropagation();_tlCloseMenus();ocultarMarcaTimeline('${b.id}')" style="display:block;width:100%;text-align:left;background:none;border:none;padding:0.5rem 0.8rem;font-size:0.78rem;color:var(--text);cursor:pointer;font-family:var(--font);border-top:1px solid var(--border2)">🙈 Ocultar</button>
+            </div>
+          </div>
         </div>
-        <div style="margin-top:0.2rem;cursor:pointer" onclick="openBrand('${b.id}')">
+        <div style="margin-top:0.3rem;cursor:pointer" onclick="openBrand('${b.id}')">
           ${start
-            ? `<div style="font-size:0.72rem;font-weight:800;color:${atrasado?'#ef4444':'var(--text)'};line-height:1.3">${semActivas.toFixed(1)} sem activas${atrasado?' · atrasado':''}</div>
-               <div style="font-size:0.6rem;color:var(--text3);line-height:1.3">${semanas.toFixed(1)} sem totales${nTramos?` · ${nTramos} pausa${nTramos!==1?'s':''}`:''}</div>
+            ? `<div style="font-size:0.72rem;font-weight:800;color:var(--text);line-height:1.3">${semActivas.toFixed(1)} sem activas</div>
+               ${semPausa>0?`<div style="font-size:0.6rem;color:var(--text3);line-height:1.3">${semanas.toFixed(1)} sem totales${nTramos?` · ${nTramos} pausa${nTramos!==1?'s':''}`:''}</div>`:''}
                <div style="font-size:0.58rem;color:var(--text3);line-height:1.3">${startLabel}</div>`
             : `<div style="font-size:0.62rem;color:var(--text3)">—</div>
                <div style="font-size:0.58rem;color:var(--text3)">${startLabel}</div>`}
@@ -23005,7 +23134,23 @@ function renderBrandsTimeline(){
         <span style="width:7px;height:7px;border-radius:50%;background:${getBrandColor(b)}"></span>${b.name} <span style="color:var(--tierra)">＋</span></button>`).join('')}
       <button onclick="mostrarTodasTimeline()" style="font-size:0.68rem;font-weight:600;padding:0.18rem 0.55rem;border-radius:99px;border:none;background:none;color:var(--tierra);cursor:pointer;font-family:var(--font)">Mostrar todas</button>` : '';
 
+  const selStyle = 'font-size:0.72rem;font-weight:600;padding:0.3rem 0.5rem;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font);outline:none';
+  const opt = (v,label,cur)=>`<option value="${v}" ${v===cur?'selected':''}>${label}</option>`;
   const controlsHTML = `<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.8rem;padding:0.5rem 0.7rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px">
+      <select onchange="setTimelineFilter(this.value)" style="${selStyle}" title="Filtrar">
+        ${opt('todas','Todas las marcas',window._tlFilter)}
+        ${opt('activas','Solo activas',window._tlFilter)}
+        ${opt('pausadas','Solo pausadas',window._tlFilter)}
+        ${opt('atrasadas','Solo atrasadas',window._tlFilter)}
+      </select>
+      <select onchange="setTimelineSort(this.value)" style="${selStyle}" title="Ordenar">
+        ${opt('totales-desc','↓ Más semanas totales',window._tlSort)}
+        ${opt('totales-asc','↑ Menos semanas totales',window._tlSort)}
+        ${opt('nombre-az','Nombre A–Z',window._tlSort)}
+        ${opt('nombre-za','Nombre Z–A',window._tlSort)}
+        ${opt('inicio-reciente','Inicio más reciente',window._tlSort)}
+        ${opt('inicio-antiguo','Inicio más antiguo',window._tlSort)}
+      </select>
       <button onclick="toggleTimelineHidePaused()"
         style="font-size:0.72rem;font-weight:600;padding:0.3rem 0.75rem;border-radius:99px;border:1.5px solid var(--border);background:${window._tlHidePaused?'var(--bg-card)':'none'};color:${window._tlHidePaused?'var(--text)':'var(--text3)'};cursor:pointer;font-family:var(--font);transition:all 0.15s;box-shadow:${window._tlHidePaused?'0 1px 4px rgba(0,0,0,0.08)':'none'}">
         ${window._tlHidePaused?'▶ Mostrar pausadas':'⏸️ Ocultar pausadas'}${nPausadas?` (${nPausadas})`:''}
@@ -23013,24 +23158,123 @@ function renderBrandsTimeline(){
       ${ocultasChips}
     </div>`;
 
-  if(!brands.length){
+  if(!rowsF.length){
     wrap.innerHTML = controlsHTML + '<div style="color:var(--text3);font-size:0.85rem;padding:2rem;text-align:center">No hay marcas para mostrar con los filtros actuales.</div>';
     return;
   }
 
   wrap.innerHTML = controlsHTML + `
-    <div style="border:1px solid var(--border);border-radius:12px;overflow-x:auto;overflow-y:hidden;background:var(--bg-card)">
-      <div style="min-width:${160+trackW}px">
-        <!-- Header de semanas -->
-        <div style="display:flex;align-items:flex-end;border-bottom:2px solid var(--border);background:var(--glass)">
-          <div style="width:160px;flex-shrink:0;padding:0.5rem 0.7rem;font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);border-right:1px solid var(--border);position:sticky;left:0;background:var(--glass);z-index:3">Marca</div>
+    <div style="border:1px solid var(--border);border-radius:12px;overflow:auto;background:var(--bg-card);max-height:min(70vh,620px)">
+      <div style="min-width:${220+trackW}px">
+        <!-- Header de semanas (sticky arriba) -->
+        <div style="display:flex;align-items:flex-end;border-bottom:2px solid var(--border);background:var(--bg-card2);position:sticky;top:0;z-index:5">
+          <div style="width:220px;flex-shrink:0;padding:0.5rem 0.8rem;font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);border-right:1px solid var(--border);position:sticky;left:0;background:var(--bg-card2);z-index:6">Marca</div>
           <div style="flex:1;position:relative;display:flex;padding:0.5rem 0;min-width:${trackW}px">${weekHeaders}</div>
         </div>
         <!-- Filas con zona de fondo -->
         <div style="position:relative">
-          <div style="position:absolute;top:0;left:160px;right:0;height:100%;pointer-events:none;min-width:${trackW}px">${fondo}</div>
+          <div style="position:absolute;top:0;left:220px;right:0;height:100%;pointer-events:none;min-width:${trackW}px">${fondo}</div>
           ${filas}
         </div>
+      </div>
+    </div>`;
+}
+
+// Mini-menú (⋯) de cada fila del timeline
+function _tlCloseMenus(){
+  document.querySelectorAll('[id^="tl-menu-"]').forEach(m=>m.style.display='none');
+}
+function _tlToggleMenu(brandId){
+  const el = document.getElementById('tl-menu-'+brandId);
+  if(!el) return;
+  const abierto = el.style.display==='block';
+  _tlCloseMenus();
+  if(!abierto) el.style.display='block';
+}
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest || !e.target.closest('[id^="tl-menu-"]')){
+    if(!(e.target.getAttribute && e.target.getAttribute('onclick')||'').includes('_tlToggleMenu')) _tlCloseMenus();
+  }
+});
+
+// Timeline de UNA marca (pestaña "Tiempo" dentro de la tarjeta de marca)
+function renderBrandTiempo(){
+  const cont = document.getElementById('brand-tiempo-content');
+  if(!cont) return;
+  const b = (appData.brands||[]).find(x=>x.id===currentBrandId);
+  if(!b){ cont.innerHTML=''; return; }
+
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const MS_WEEK = 7*24*60*60*1000;
+  const W = TL_WEEK_PX;
+  const start = _cronoStartDate(b);
+  if(!start){
+    cont.innerHTML = '<div class="section-card"><div class="section-body" style="color:var(--text3);font-size:0.85rem;text-align:center;padding:2rem">Esta marca aún no tiene fechas en su cronograma, así que no hay línea de tiempo que mostrar.</div></div>';
+    return;
+  }
+  const semanas = Math.max(0, (hoy - start)/MS_WEEK);
+  // Tramos de pausa
+  const tramos = [];
+  (b.pausasHistorial||[]).forEach(p=>{ if(p.start && p.end) tramos.push({s:p.start, e:p.end}); });
+  if(b.paused && b.pausedAt) tramos.push({s:b.pausedAt, e:todayStr()});
+  let semPausa = 0;
+  tramos.forEach(t=>{
+    const ts=parseLocalDate(t.s), te=parseLocalDate(t.e);
+    if(!ts||!te) return;
+    const ini=Math.max(ts.getTime(),start.getTime()), fin=Math.min(te.getTime(),hoy.getTime());
+    if(fin>ini) semPausa += (fin-ini)/MS_WEEK;
+  });
+  const semActivas = Math.max(0, semanas - semPausa);
+
+  const totalWeeks = Math.max(6, Math.ceil(semanas)+1);
+  const trackW = totalWeeks * W;
+  const barW = Math.max(8, semanas * W);
+  const VERDE='#22c55e', AMARILLO='#fbbf24', NARANJA='#f97316', ROJO='#ef4444';
+  const grad = `linear-gradient(to right, ${VERDE} 0px, ${VERDE} ${3.6*W}px, ${AMARILLO} ${4.4*W}px, ${AMARILLO} ${5.6*W}px, ${NARANJA} ${6.4*W}px, ${NARANJA} ${7.6*W}px, ${ROJO} ${8.4*W}px, ${ROJO} 100%)`;
+
+  let weekHeaders='';
+  for(let i=1;i<=totalWeeks;i++){
+    const esBench=i===TL_BENCH_WEEKS;
+    weekHeaders += `<div style="width:${W}px;flex-shrink:0;text-align:center;font-size:0.66rem;font-weight:${esBench?'800':'600'};color:${esBench?'var(--tierra)':'var(--text3)'}">sem ${i}${esBench?'<div style="font-size:0.54rem">óptima</div>':''}</div>`;
+  }
+  const benchPx = TL_BENCH_WEEKS*W;
+  const fondo = `<div style="position:absolute;top:0;left:0;height:100%;width:${benchPx}px;background:rgba(90,170,53,0.05);border-right:2px dashed rgba(90,170,53,0.4)"></div>`;
+  const pausaDivs = tramos.map(t=>{
+    const ts=parseLocalDate(t.s), te=parseLocalDate(t.e);
+    if(!ts||!te) return '';
+    const offW=(ts-start)/MS_WEEK, wW=(te-ts)/MS_WEEK;
+    if(wW<=0) return '';
+    let left=Math.max(0,offW*W), width=wW*W;
+    if(left>=barW) return ''; if(left+width>barW) width=barW-left; if(width<=0) return '';
+    return `<div style="position:absolute;top:0;left:${left}px;width:${width}px;height:100%;background:repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1 4px,#e2e8f0 4px,#e2e8f0 8px);opacity:0.9"></div>`;
+  }).join('');
+  const nTramos = tramos.length;
+
+  cont.innerHTML = `
+    <div class="section-card">
+      <div class="section-head">
+        <div class="section-head-left">
+          <div class="section-head-title">📊 Línea de tiempo</div>
+          <div class="section-head-sub">Tiempo transcurrido desde el inicio del cronograma</div>
+        </div>
+        <button onclick="editarPausasTimeline('${b.id}')" style="font-size:0.74rem;font-weight:600;padding:0.4rem 0.85rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font)">⏸️ Editar pausas${nTramos?` (${nTramos})`:''}</button>
+      </div>
+      <div class="section-body">
+        <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin-bottom:1rem">
+          <div><div style="font-size:1.5rem;font-weight:800;letter-spacing:-0.5px">${semActivas.toFixed(1)}</div><div style="font-size:0.68rem;color:var(--text3)">semanas activas</div></div>
+          ${semPausa>0?`<div><div style="font-size:1.5rem;font-weight:800;letter-spacing:-0.5px;color:var(--text3)">${semanas.toFixed(1)}</div><div style="font-size:0.68rem;color:var(--text3)">semanas totales</div></div>`:''}
+          <div><div style="font-size:0.95rem;font-weight:700;margin-top:0.3rem">${start.toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'})}</div><div style="font-size:0.68rem;color:var(--text3)">inicio del proyecto</div></div>
+        </div>
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--bg-card2)">
+          <div style="min-width:${trackW}px">
+            <div style="display:flex;padding:0.5rem 0;border-bottom:1px solid var(--border)">${weekHeaders}</div>
+            <div style="position:relative;height:46px">
+              ${fondo}
+              <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);height:18px;border-radius:9px;overflow:hidden;width:${barW}px;box-shadow:0 1px 3px rgba(0,0,0,0.15);background:${grad};background-size:${trackW}px 100%;background-repeat:no-repeat">${pausaDivs}</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size:0.7rem;color:var(--text3);margin-top:0.7rem;line-height:1.5">La barra cambia de color según el tiempo: <b style="color:${VERDE}">verde</b> semanas 1–4, <b style="color:${AMARILLO}">amarillo</b> semanas 5–6, <b style="color:${NARANJA}">naranja</b> semanas 7–8 y <b style="color:${ROJO}">rojo</b> desde la 9. El tramo gris indica pausa.</div>
       </div>
     </div>`;
 }
@@ -23417,7 +23661,7 @@ function renderBrandsEtapa(){
     if(b.paused){
       return `<div onclick="openBrand('${b.id}')" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.65rem 0.7rem;margin-bottom:0.5rem;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='${sc.col}'" onmouseout="this.style.borderColor='var(--border)'">
         <div style="display:flex;align-items:center;gap:0.5rem">
-          <div style="width:28px;height:28px;border-radius:7px;border:1.5px solid ${col};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
+          <div style="width:28px;height:28px;border-radius:7px;border:1.5px solid ${b.image?'var(--border)':col};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
           <div style="min-width:0;flex:1">
             <div style="font-size:0.88rem;font-weight:700;line-height:1.2;word-break:break-word">${b.name}</div>
             <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.2rem">
@@ -23432,7 +23676,7 @@ function renderBrandsEtapa(){
 
     return `<div onclick="openBrand('${b.id}')" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.7rem;margin-bottom:0.5rem;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='${sc.col}'" onmouseout="this.style.borderColor='var(--border)'">
       <div style="display:flex;align-items:flex-start;gap:0.5rem;margin-bottom:0.5rem">
-        <div style="width:26px;height:26px;border-radius:7px;border:1.5px solid ${col};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
+        <div style="width:26px;height:26px;border-radius:7px;border:1.5px solid ${b.image?'var(--border)':col};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
         <div style="min-width:0;flex:1">
           <div style="font-size:0.8rem;font-weight:700;line-height:1.25;word-break:break-word">${b.name}</div>
           ${b.industria?`<div style="font-size:0.65rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.industria}</div>`:''}
@@ -23532,7 +23776,7 @@ function renderBrandsMiembro(){
               ? `<img src="${b.image}" style="width:100%;height:100%;object-fit:cover;border-radius:3px">`
               : `<span style="font-size:0.55rem;font-weight:800;color:${bc}">${b.name.charAt(0)}</span>`;
             return `<div onclick="openBrand('${b.id}')" style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0.75rem;cursor:pointer;transition:background 0.12s" onmouseover="this.style.background='var(--glass)'" onmouseout="this.style.background='transparent'">
-              <div style="width:16px;height:16px;border-radius:4px;border:1.5px solid ${bc};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
+              <div style="width:16px;height:16px;border-radius:4px;border:1.5px solid ${b.image?'var(--border)':bc};background:var(--bg-card2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${logo}</div>
               <span style="font-size:0.72rem;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</span>
               <span style="font-size:0.6rem">${SC[b.stage]||'🌬️'}</span>
               <span style="font-size:0.62rem;font-weight:700;color:${pct>=100?'var(--tierra)':pct>0?'var(--aire)':'var(--text3)'};min-width:26px;text-align:right">${pct}%</span>
@@ -25547,7 +25791,9 @@ function refreshImportPreview(){
 }
 
 // Tarjeta de un to-do completado en la vista de Notas archivadas
-function _archTareaCardHTML(t){
+function _archTareaCardHTML(t, origen){
+  origen = origen || 'tarea';
+  const esCrm = origen==='crmtarea';
   const titulo = _tareaTitulo(t);
   const desc = _tareaDesc(t);
   const brand = t.brandId ? (appData.brands||[]).find(b=>b.id===t.brandId) : null;
@@ -25555,12 +25801,17 @@ function _archTareaCardHTML(t){
   const doneDate = t.doneAt ? new Date(t.doneAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'2-digit'}) : '';
   const resp = [t.r1, t.r2].map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
   const comments = t.comments||[];
-  return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)" onclick="openTareaDetalle('${t.id}')">
+  const reactivarFn = esCrm ? `toggleCrmTareaDone('${t.id}')` : `toggleTareaDone('${t.id}')`;
+  const etiqueta = esCrm
+    ? '<span style="font-size:0.62rem;font-weight:700;color:#7c6fd0;background:rgba(124,111,208,0.12);border:1px solid rgba(124,111,208,0.3);border-radius:5px;padding:0.08rem 0.4rem;white-space:nowrap">💼 To-do comercial</span>'
+    : '<span style="font-size:0.62rem;font-weight:700;color:var(--tierra);background:rgba(90,170,53,0.12);border:1px solid rgba(90,170,53,0.3);border-radius:5px;padding:0.08rem 0.4rem;white-space:nowrap">📌 To-do</span>';
+  const clickAbrir = esCrm ? '' : `onclick="openTareaDetalle('${t.id}')"`;
+  return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)" ${clickAbrir}>
     <div style="padding:0.75rem 0.9rem;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:0.45rem;background:var(--bg-card2)">
-      <span style="font-size:0.62rem;font-weight:700;color:var(--tierra);background:rgba(90,170,53,0.12);border:1px solid rgba(90,170,53,0.3);border-radius:5px;padding:0.08rem 0.4rem;white-space:nowrap">📌 To-do</span>
+      ${etiqueta}
       ${brand ? `<span style="font-size:0.68rem;font-weight:700;color:${brandCol}">${brand.name}</span>` : ''}
       <span style="font-size:0.62rem;color:var(--text3);margin-left:auto">✓ ${doneDate}</span>
-      <button onclick="event.stopPropagation();toggleTareaDone('${t.id}')" title="Reabrir to-do"
+      <button onclick="event.stopPropagation();${reactivarFn}" title="Reabrir to-do"
         style="background:none;border:1px solid var(--border);border-radius:6px;padding:0.15rem 0.45rem;font-size:0.65rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s"
         onmouseover="this.style.borderColor='var(--agua)';this.style.color='var(--agua)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">↩ Reactivar</button>
     </div>
@@ -25584,17 +25835,18 @@ function renderArchivoNotas(){
   const empty = document.getElementById('arch-notas-empty');
   if(!grid) return;
 
-  // Notas de cliente resueltas + tareas (to-dos) completadas, unificadas
+  // Notas de cliente resueltas + to-dos (dashboard) + to-dos comerciales (CRM), unificadas
   let notes = (appData.clientNotes||[]).filter(n=>n.done).map(n=>({ _kind:'nota', n, when: n.doneAt||n.createdAt||'' }));
   let tareasDone = (appData.tareas||[]).filter(t=>t.done).map(t=>({ _kind:'tarea', t, when: t.doneAt||'' }));
+  let crmTareasDone = (appData.crmTareas||[]).filter(t=>t.done).map(t=>({ _kind:'crmtarea', t, when: t.doneAt||'' }));
 
   // Filtro de urgencia: solo aplica a notas (las tareas no tienen urgencia)
   if(_archNotesUrgFilters.size>0){
     notes = notes.filter(x=>_archNotesUrgFilters.has(x.n.urgency));
-    tareasDone = []; // al filtrar por urgencia, ocultar to-dos (no aplican)
+    tareasDone = []; crmTareasDone = []; // al filtrar por urgencia, ocultar to-dos (no aplican)
   }
 
-  let items = [...notes, ...tareasDone].sort((a,b)=>(b.when||'').localeCompare(a.when||''));
+  let items = [...notes, ...tareasDone, ...crmTareasDone].sort((a,b)=>(b.when||'').localeCompare(a.when||''));
 
   if(!items.length){
     grid.style.display='none';
@@ -25605,7 +25857,8 @@ function renderArchivoNotas(){
   if(empty) empty.style.display='none';
 
   grid.innerHTML = items.map(item=>{
-    if(item._kind==='tarea'){ return _archTareaCardHTML(item.t); }
+    if(item._kind==='tarea'){ return _archTareaCardHTML(item.t, 'tarea'); }
+    if(item._kind==='crmtarea'){ return _archTareaCardHTML(item.t, 'crmtarea'); }
     const note = item.n;
     const urg    = HUB_URGENCY[note.urgency]||HUB_URGENCY.moderada;
     const brand  = (appData.brands||[]).find(b=>b.id===note.brandId);
@@ -26220,6 +26473,7 @@ async function toggleTareaDone(tareaId, ev){
   markLocalChange('tareas');
   if(typeof renderEquipoTabContent==='function') renderEquipoTabContent(window._eqTab||"grid");
   if(typeof renderClientHub==='function'){ try{ renderClientHub(); }catch(e){} }
+  if(currentPage==='crm' && typeof renderCrmTareas==='function'){ try{ renderCrmTareas(); }catch(e){} }
   await upsert();
   showStatus(t.done ? 'Tarea completada ✓' : 'Tarea reabierta');
 }
