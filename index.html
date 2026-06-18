@@ -7749,8 +7749,26 @@ async function importBackup(){
       if(!ok) return;
       showStatus('Restaurando backup…');
       appData = parsed.data;
-      markLocalChange('brands','members','cobros','finanzas','template','clientNotes','domos','tareas','banners','digitalTools','calendarUrl','domoNames','papelera','metas');
+      markLocalChange('brands','members','cobros','finanzas','template','clientNotes','domos','tareas','crmTareas','banners','digitalTools','calendarUrl','domoNames','papelera','metas');
       const saved = await upsert();
+
+      // 🔒 Re-persistir imágenes a tablas dedicadas (el JSON descarta base64 grandes):
+      // logos de marca y fotos de miembro viven en polen_photos, no en el JSON.
+      let imgCount = 0;
+      try{
+        for(const b of (appData.brands||[])){
+          if(b && b.image && typeof b.image==='string' && b.image.startsWith('data:')){
+            const okImg = await saveBrandImageToSupabase(b.id, b.image);
+            if(okImg) imgCount++;
+          }
+        }
+        for(const m of (appData.members||[])){
+          if(m && m.photo && typeof m.photo==='string' && m.photo.startsWith('data:')){
+            await savePhotoToSupabase(m.id, m.photo, m.color||null);
+          }
+        }
+      }catch(imgE){ console.error('[importBackup] error re-persistiendo imágenes:', imgE); }
+      if(imgCount) console.log('[Polen] Restauradas '+imgCount+' imágenes de marca a polen_photos');
 
       // Restaurar módulos que viven en tablas dedicadas
       let modErr = false;
@@ -7794,6 +7812,7 @@ async function reloadData(){
   // Reload photos from separate table
   const photoMap = await loadPhotosFromSupabase();
   applyPhotosToMembers(photoMap);
+  applyBrandImagesFromPhotoMap(photoMap);
   window._photoCache = photoMap;
 
   renderCurrentPage();
@@ -13675,36 +13694,86 @@ function renderCumples(){
   const MESES_CAP = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   if(lbl) lbl.textContent = `Quién cumple en ${MESES_CAP[mesIdx]}`;
 
-  // Miembros activos con cumpleaños en el mes actual
-  const cumpleApplies = (appData.members||[]).filter(m=>m.active!==false && m.cumple).map(m=>{
-    const parts = (m.cumple||'').split('-'); // YYYY-MM-DD
+  const hoy0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const conCumple = (appData.members||[]).filter(m=>m.active!==false && m.cumple).map(m=>{
+    const parts = (m.cumple||'').split('-');
     if(parts.length<3) return null;
     const mes = parseInt(parts[1],10)-1, dia = parseInt(parts[2],10);
-    if(mes!==mesIdx) return null;
-    return { m, dia };
-  }).filter(Boolean).sort((a,b)=>a.dia-b.dia);
+    let next = new Date(now.getFullYear(), mes, dia);
+    if(mes!==mesIdx && next < hoy0) next = new Date(now.getFullYear()+1, mes, dia);
+    return { m, mes, dia, next, esMes: mes===mesIdx, esHoy: mes===mesIdx && dia===hoyDia };
+  }).filter(Boolean);
 
-  if(!cumpleApplies.length){
-    grid.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;text-align:center;color:var(--text3);font-size:0.82rem">🎈 Nadie del equipo cumple años en ${MESES_CAP[mesIdx]}.</div>`;
-    return;
+  const delMes = conCumple.filter(x=>x.esMes).sort((a,b)=>a.dia-b.dia);
+  const proximos = conCumple.filter(x=>!x.esMes).sort((a,b)=>a.next-b.next).slice(0,6);
+
+  // Tarjeta full-width para cumpleañeros del mes: foto·nombre·fecha + sabor de torta + deseos
+  const tarjetaMes = ({m,mes,dia,esHoy})=>{
+    const col = m.color || 'var(--aire)';
+    const av = m.photo
+      ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+      : (m.emoji || (m.apodo||m.nombre||'?').charAt(0));
+    const fechaTxt = esHoy ? '🎉 ¡Hoy es su cumpleaños!' : `🎂 ${dia} de ${MESES_CAP[mes]}`;
+    const fechaCol = esHoy ? '#f472b6' : 'var(--text2)';
+    return `<div style="background:${esHoy?'linear-gradient(135deg,rgba(244,114,182,0.12),rgba(251,146,60,0.08))':'var(--bg-card2)'};border:1.5px solid ${esHoy?'#f472b6':'var(--border)'};border-radius:14px;padding:0.7rem 0.8rem;margin-bottom:0.4rem">
+      <div style="display:flex;align-items:center;gap:0.8rem">
+        <div style="width:54px;height:54px;border-radius:50%;background:${col}22;border:2px solid ${col};display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;color:${col};overflow:hidden;flex-shrink:0">${av}</div>
+        <div style="min-width:0;flex:1">
+          <div style="font-size:1.15rem;font-weight:800;color:var(--text);letter-spacing:-0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(m.apodo||m.nombre)}</div>
+          <div style="font-size:0.85rem;color:${fechaCol};font-weight:${esHoy?'800':'600'}">${fechaTxt}</div>
+        </div>
+      </div>
+      <input type="text" value="${escapeHtml(m.torta||'')}" placeholder="🍰 Sabor de torta que desea…"
+        onchange="setCumpleField('${m.id}','torta',this.value)"
+        style="width:100%;margin-top:0.55rem;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.45rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.78rem;outline:none;box-sizing:border-box">
+      <textarea placeholder="🎉 Deseos de cumpleaños…" rows="2"
+        onchange="setCumpleField('${m.id}','deseos',this.value)"
+        style="width:100%;margin-top:0.4rem;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.45rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.78rem;outline:none;box-sizing:border-box;resize:vertical;line-height:1.4">${escapeHtml(m.deseos||'')}</textarea>
+    </div>`;
+  };
+
+  // Tarjetita horizontal para "Próximos": foto · nombre · fecha (al medio) · torta (campo largo)
+  const celdaProx = ({m,mes,dia})=>{
+    const col = m.color || 'var(--aire)';
+    const av = m.photo
+      ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+      : (m.emoji || (m.apodo||m.nombre||'?').charAt(0));
+    return `<div style="display:flex;align-items:center;gap:0.45rem;padding:0.45rem 0.55rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:11px;min-width:0">
+      <div style="width:38px;height:38px;border-radius:50%;background:${col}22;border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:${col};overflow:hidden;flex-shrink:0">${av}</div>
+      <span style="font-size:0.85rem;font-weight:800;color:var(--text);flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-0.2px">${escapeHtml(m.apodo||m.nombre)}</span>
+      <span style="font-size:0.72rem;color:var(--text2);font-weight:600;white-space:nowrap;flex:1;text-align:center">🎂 ${dia} ${MESES_CAP[mes].slice(0,3).toLowerCase()}</span>
+      <input type="text" value="${escapeHtml(m.torta||'')}" placeholder="🍰 sabor de torta" title="Sabor de torta que desea"
+        onchange="setCumpleField('${m.id}','torta',this.value)"
+        style="width:118px;flex-shrink:0;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.45rem;color:var(--text3);font-family:var(--font);font-size:0.66rem;outline:none;box-sizing:border-box">
+    </div>`;
+  };
+
+  let inner = '';
+  if(delMes.length){
+    inner += `<div style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#f472b6;padding:0.2rem 0.2rem 0.4rem">🎂 Este mes</div>`;
+    inner += delMes.map(tarjetaMes).join('');
+  } else {
+    inner += `<div style="padding:0.6rem 0.2rem 0.5rem;color:var(--text3);font-size:0.85rem">🎈 Nadie del equipo cumple años en ${MESES_CAP[mesIdx]}.</div>`;
+  }
+  if(proximos.length){
+    inner += `<div style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0.6rem 0.2rem 0.4rem;margin-top:0.3rem;border-top:1px solid var(--border2)">Próximos</div>`;
+    inner += `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0.4rem">${proximos.map(celdaProx).join('')}</div>`;
   }
 
-  grid.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.7rem">
-    ${cumpleApplies.map(({m,dia})=>{
-      const esHoy = dia===hoyDia;
-      const col = m.color || 'var(--aire)';
-      const av = m.photo
-        ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-        : (m.emoji || (m.apodo||m.nombre||'?').charAt(0));
-      return `<div style="background:${esHoy?'linear-gradient(135deg,rgba(244,114,182,0.14),rgba(251,146,60,0.10))':'var(--bg-card)'};border:1.5px solid ${esHoy?'#f472b6':'var(--border)'};border-radius:16px;padding:0.9rem 1rem;display:flex;align-items:center;gap:0.7rem">
-        <div style="width:42px;height:42px;border-radius:50%;background:${col}22;border:2px solid ${col};display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;color:${col};overflow:hidden;flex-shrink:0">${av}</div>
-        <div style="min-width:0;flex:1">
-          <div style="font-size:0.85rem;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(m.apodo||m.nombre)}</div>
-          <div style="font-size:0.7rem;color:${esHoy?'#f472b6':'var(--text3)'};font-weight:${esHoy?'700':'400'}">${esHoy?'🎉 ¡Hoy!':`🎂 ${dia} de ${MESES_CAP[mesIdx]}`}</div>
-        </div>
-      </div>`;
-    }).join('')}
-  </div>`;
+  grid.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:0.5rem 0.6rem">
+      <div style="max-height:340px;overflow-y:auto">${inner}</div>
+    </div>`;
+}
+
+async function setCumpleField(memberId, field, value){
+  const m = (appData.members||[]).find(x=>x.id===memberId);
+  if(!m) return;
+  m[field] = (value||'').trim();
+  markLocalChange('members');
+  try{
+    if(window.MembersDB){ const idx = appData.members.indexOf(m); await MembersDB.saveMember(m, idx<0?0:idx); }
+  }catch(e){ console.error('[cumple field]', e); }
+  showStatus(field==='deseos'?'Deseos guardados 🎉':'Sabor de torta guardado 🍰');
 }
 
 function renderDashboard(){
@@ -16278,7 +16347,7 @@ async function saveBrand(){
       if(!brand.domo)brand.domo={m1:'',m2:'',helpers:[]};
       brand.domo.m1=document.getElementById('input-domo-m1').value;
       brand.domo.m2=document.getElementById('input-domo-m2').value;
-      if(image)brand.image=image;
+      if(image){ brand.image=image; await saveBrandImageToSupabase(brand.id, image); }
       markBrandChange(brand.id); // merge granular: local gana solo para ESTA marca
     }
   }else{
@@ -16359,6 +16428,7 @@ async function saveBrand(){
     if(appData._deletedBrandIds?.length)
       appData._deletedBrandIds = appData._deletedBrandIds.filter(id=>id!==newBrand.id);
     markBrandChange(newBrand.id); // merge granular: preserva esta marca nueva por su id
+    if(image){ await saveBrandImageToSupabase(newBrand.id, image); }
 
     // 🔒 Guardar cronograma inicial de la nueva marca en tabla
     const cronoRows = [];
@@ -17802,6 +17872,7 @@ function subscribeRealtime(onUpdate){
           if(!changed) return;
           window._photoCache = freshMap;
           applyPhotosToMembers(freshMap);
+          applyBrandImagesFromPhotoMap(freshMap);
           try{ renderCurrentPage(); }catch(e){}
         });
         // Re-apply deleted ids as final safety net
@@ -20747,9 +20818,45 @@ async function deletePhotoFromSupabase(memberId){
     const lbak = JSON.parse(localStorage.getItem('polen-photos-bak')||'{}');
     delete lbak[memberId];
     localStorage.setItem('polen-photos-bak', JSON.stringify(lbak));
+  }catch(e){}}
+
+// ── BRAND IMAGE STORAGE — reutiliza polen_photos con id 'brand_<id>' ────
+// Las fotos/logos de marca son base64 que el JSON principal descarta (>20KB),
+// así que viven en polen_photos igual que las fotos de miembros (fuente de verdad).
+const BRAND_PHOTO_PREFIX = 'brand_';
+async function saveBrandImageToSupabase(brandId, imageB64){
+  if(!brandId || !imageB64 || !imageB64.startsWith('data:')) return false;
+  try{
+    const row = { id: BRAND_PHOTO_PREFIX+brandId, photo: imageB64, updated_at: new Date().toISOString() };
+    const {error} = await sb.from('polen_photos').upsert(row, {onConflict:'id'});
+    if(error){ console.error('[Polen] Error guardando logo de marca:', error.message); return false; }
+    try{
+      const lbak = JSON.parse(localStorage.getItem('polen-brand-photos-bak')||'{}');
+      lbak[brandId] = imageB64;
+      localStorage.setItem('polen-brand-photos-bak', JSON.stringify(lbak));
+    }catch(le){}
+    return true;
+  }catch(e){ console.error('[Polen] Error guardando logo de marca:', e); return false; }
+}
+async function deleteBrandImageFromSupabase(brandId){
+  try{
+    await sb.from('polen_photos').delete().eq('id', BRAND_PHOTO_PREFIX+brandId);
+    const lbak = JSON.parse(localStorage.getItem('polen-brand-photos-bak')||'{}');
+    delete lbak[brandId];
+    localStorage.setItem('polen-brand-photos-bak', JSON.stringify(lbak));
   }catch(e){}
 }
-// ── END PHOTO STORAGE ─────────────────────────────────────────────────
+// Aplica las imágenes de marca (del mismo photoMap de polen_photos) a appData.brands
+function applyBrandImagesFromPhotoMap(photoMap){
+  if(!photoMap || !Array.isArray(appData.brands)) return;
+  appData.brands.forEach(b=>{
+    const entry = photoMap[BRAND_PHOTO_PREFIX+b.id];
+    if(entry && entry.photo && entry.photo.startsWith('data:')){
+      b.image = entry.photo;
+    }
+  });
+}
+// ── END BRAND IMAGE STORAGE ───────────────────────────────────────────
 
 async function boot(){
   // Check for portal mode first
@@ -20833,6 +20940,7 @@ async function boot(){
   // Load photos from separate table and inject into members
   const photoMap = await loadPhotosFromSupabase();
   applyPhotosToMembers(photoMap);
+  applyBrandImagesFromPhotoMap(photoMap);
   // Cache for realtime use
   window._photoCache = photoMap;
 
@@ -21145,6 +21253,9 @@ async function boot(){
           // Re-aplicar a los miembros en memoria y re-render
           if(appData.members && window._photoCache){
             applyPhotosToMembers(window._photoCache);
+          }
+          if(Array.isArray(appData.brands) && window._photoCache){
+            applyBrandImagesFromPhotoMap(window._photoCache);
           }
           try { renderCurrentPage(); } catch(e){}
         } catch(e){ console.error('[Polen] photos realtime handler:', e); }
