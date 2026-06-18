@@ -3223,6 +3223,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
             <div style="font-size:0.72rem;color:var(--text3);margin-top:0.2rem">Metas del mes — sincronizado con Finanzas en tiempo real</div>
           </div>
           <div style="display:flex;align-items:center;gap:0.5rem">
+            <button onclick="consolidarPagosDuplicados()" title="Detectar y unir pagos funcionalmente duplicados (ej. 'Primer pago' y 'Pago 1')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🧹 Consolidar duplicados</button>
             <button onclick="lockCobranzas()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔒 Bloquear</button>
             <button onclick="openPinModal('cob')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.72rem;color:var(--text3);cursor:pointer;font-family:var(--font)">🔑 Cambiar PIN</button>
             <div class="export-wrap">
@@ -11994,6 +11995,95 @@ function buildPagosFromCrono(brand){
     });
   });
   return pagos;
+}
+
+// Ordinal funcional de un pago: "Primer pago"→1, "Pago 1"→1, "Segundo pago"→2, "Pago 2"→2, …
+// Permite reconocer que "Primer pago" y "Pago 1" son el MISMO pago aunque tengan distinto nombre.
+const _PAGO_ORDINALES = {primer:1,primero:1,segundo:2,tercer:3,tercero:3,cuarto:4,quinto:5,sexto:6,septimo:7,'séptimo':7,octavo:8,noveno:9,decimo:10,'décimo':10};
+function _pagoOrdinal(nombre){
+  const s = (nombre||'').trim().toLowerCase();
+  let m = s.match(/pago\s*#?\s*(\d+)/);            // "Pago 1", "pago #2"
+  if(m) return parseInt(m[1],10);
+  m = s.match(/^([a-záéíóú]+)\s+pago/);            // "Primer pago", "Segundo pago"
+  if(m && _PAGO_ORDINALES[m[1]]) return _PAGO_ORDINALES[m[1]];
+  return null;
+}
+
+// Detecta grupos de pagos funcionalmente equivalentes (mismo ordinal) dentro de una marca.
+function _detectarGruposDuplicados(cob){
+  const grupos = {};
+  (cob.pagos||[]).forEach(p=>{
+    const ord = _pagoOrdinal(p.nombre);
+    if(ord==null) return;
+    (grupos[ord] = grupos[ord]||[]).push(p);
+  });
+  return Object.entries(grupos).filter(([_,arr])=>arr.length>1).map(([ord,arr])=>({ord:parseInt(ord,10), pagos:arr}));
+}
+
+// Consolidación asistida: muestra qué se unirá y, al confirmar, fusiona + borra de la tabla.
+async function consolidarPagosDuplicados(){
+  ensureCobrosData();
+  const _val = q => (q.cobrado?1000000:0) + (Number(q.monto)||0); // cobrado pesa más, luego monto
+  const planes = []; // {brand, conservar, eliminar[], montoFinal, ambiguo}
+  (appData.brands||[]).forEach(b=>{
+    const cob = appData.cobros[b.id];
+    if(!cob) return;
+    _detectarGruposDuplicados(cob).forEach(({ord, pagos})=>{
+      // Conservar preferentemente el vinculado al cronograma (evento con triggerActId presente)
+      const cronoIds = new Set(['aire','agua','tierra','fuego'].flatMap(s=>(b.cronograma?.[s]||[]).map(a=>a.id)));
+      let conservar = pagos.find(p=>p.triggerType==='evento' && cronoIds.has(p.triggerActId)) || pagos.find(p=>p.triggerType==='evento') || pagos[0];
+      const otros = pagos.filter(p=>p!==conservar);
+      // Monto final: el de mayor "valor" del grupo
+      const mejor = [...pagos].sort((a,b)=>_val(b)-_val(a))[0];
+      const cobradoAny = pagos.some(p=>p.cobrado);
+      // Ambiguo: dos o más COBRADOS con montos distintos
+      const cobrados = pagos.filter(p=>p.cobrado);
+      const montosCobrados = [...new Set(cobrados.map(p=>Number(p.monto)||0))];
+      const ambiguo = cobrados.length>1 && montosCobrados.length>1;
+      planes.push({ brand:b, ord, conservar, eliminar:otros, montoFinal:(Number(mejor.monto)||0), cobradoFinal:cobradoAny, ambiguo, montos: pagos.map(p=>({nombre:p.nombre,monto:Number(p.monto)||0,cobrado:!!p.cobrado})) });
+    });
+  });
+
+  if(!planes.length){ showStatus('No se detectaron pagos duplicados ✓'); return; }
+
+  // Resumen para confirmar
+  const lineas = planes.map(pl=>{
+    const detalle = pl.montos.map(m=>`${m.nombre} $${m.monto}${m.cobrado?' ✓':''}`).join('  vs  ');
+    const aviso = pl.ambiguo ? '  ⚠️ montos cobrados distintos — se conservará el mayor' : '';
+    return `• ${pl.brand.name} — Pago ${pl.ord}: ${detalle}\n   → queda 1 pago de $${pl.montoFinal}${pl.cobradoFinal?' (cobrado)':''}, se elimina ${pl.eliminar.length}${aviso}`;
+  }).join('\n\n');
+
+  const ok = await confirmModal(
+    `Se detectaron ${planes.length} grupo(s) de pagos duplicados:\n\n${lineas}\n\n¿Consolidar? (Se conserva un pago por grupo con el monto de mayor valor y se elimina el resto. Esto se guarda de forma permanente.)`,
+    '🧹 Sí, consolidar',
+    'background:var(--tierra);color:#fff;border:none'
+  );
+  if(!ok) return;
+
+  let totalEliminados = 0;
+  for(const pl of planes){
+    // Aplicar monto/estado final al pago que se conserva
+    pl.conservar.monto = pl.montoFinal;
+    if(pl.cobradoFinal) pl.conservar.cobrado = true;
+    // Heredar nota/seguimiento si el conservado no tiene y algún eliminado sí
+    pl.eliminar.forEach(e=>{
+      if(!pl.conservar.nota && e.nota) pl.conservar.nota = e.nota;
+      if(!pl.conservar.ultimoSeguimiento && e.ultimoSeguimiento) pl.conservar.ultimoSeguimiento = e.ultimoSeguimiento;
+      if(!pl.conservar.fechaCobrado && e.fechaCobrado) pl.conservar.fechaCobrado = e.fechaCobrado;
+    });
+    const cob = appData.cobros[pl.brand.id];
+    const eliminarIds = new Set(pl.eliminar.map(e=>e.id));
+    cob.pagos = cob.pagos.filter(p=>!eliminarIds.has(p.id));
+    // Persistir: borrar de la tabla los eliminados, guardar el conservado
+    if(window.CobrosDB){
+      for(const e of pl.eliminar){ try{ await CobrosDB.deletePago(e.id); totalEliminados++; }catch(err){} }
+      try{ await CobrosDB.savePago(pl.brand.id, pl.conservar); }catch(err){}
+    }
+  }
+  markLocalChange('cobros');
+  try{ await upsert(); }catch(e){}
+  renderCobranzas();
+  showStatus(`✓ Consolidado: ${totalEliminados} pago(s) duplicado(s) eliminados`);
 }
 
 function cobStatus(pago, allPagos, brand){
