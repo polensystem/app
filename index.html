@@ -3517,8 +3517,8 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
       </div>
       <!-- Tabs -->
       <div class="tabs-bar" style="margin-bottom:1.5rem">
-        <button class="tab-btn active" id="arch-tab-papelera-btn" onclick="switchArchivoTab('papelera')">🗑️ Papelera <span id="papelera-count-badge" style="display:none;background:var(--fuego);color:#fff;border-radius:99px;font-size:0.6rem;padding:0.1rem 0.45rem;margin-left:0.3rem;font-weight:700"></span></button>
-        <button class="tab-btn" id="arch-tab-proyectos-btn" onclick="switchArchivoTab('proyectos')">🗄️ Archivo</button>
+        <button class="tab-btn active" id="arch-tab-proyectos-btn" onclick="switchArchivoTab('proyectos')">🗄️ Archivo</button>
+        <button class="tab-btn" id="arch-tab-papelera-btn" onclick="switchArchivoTab('papelera')">🗑️ Papelera <span id="papelera-count-badge" style="display:none;background:var(--fuego);color:#fff;border-radius:99px;font-size:0.6rem;padding:0.1rem 0.45rem;margin-left:0.3rem;font-weight:700"></span></button>
         <button class="tab-btn" id="arch-tab-notas-btn" onclick="switchArchivoTab('notas')">📋 Notas archivadas</button>
         <button class="tab-btn" id="arch-tab-cobros-btn" onclick="switchArchivoTab('cobros')">💰 Cobranzas</button>
         <button class="tab-btn" id="arch-tab-prospectos-btn" onclick="switchArchivoTab('prospectos')">💼 Prospectos</button>
@@ -7156,6 +7156,36 @@ function deepMergeAppData(server, local){
     merged[k] = _localChangedKeys.has(k) ? local[k] : (server[k] ?? local[k]);
   });
 
+  // ── metas (quincenas): merge por slot-id GLOBAL — la unión de local+server. ──
+  // Sin esto, merged.metas = server.metas y cada evento realtime borraba las marcas
+  // recién agregadas a una quincena. Cada slot vive en UNA quincena (por id); si se
+  // movió localmente, la ubicación local gana. Los borrados se respetan vía _deletedMetaIds.
+  {
+    const sMetas = (server.metas && typeof server.metas==='object') ? server.metas : {};
+    const lMetas = (local.metas  && typeof local.metas==='object')  ? local.metas  : {};
+    const delIds = new Set([...(local._deletedMetaIds||[]), ...(server._deletedMetaIds||[])]);
+    const metasChangedLocally = _localChangedKeys.has('metas');
+    const placement = {}; // id -> { key, slot }
+    Object.keys(sMetas).forEach(qk=>{
+      (Array.isArray(sMetas[qk])?sMetas[qk]:[]).forEach(s=>{
+        if(s && s.id && !delIds.has(s.id)) placement[s.id] = { key:qk, slot:s };
+      });
+    });
+    Object.keys(lMetas).forEach(qk=>{
+      (Array.isArray(lMetas[qk])?lMetas[qk]:[]).forEach(l=>{
+        if(!l || !l.id || delIds.has(l.id)) return;
+        if(!placement[l.id] || metasChangedLocally) placement[l.id] = { key:qk, slot:l };
+      });
+    });
+    const mergedMetas = {};
+    Object.values(placement).forEach(({key,slot})=>{
+      if(!mergedMetas[key]) mergedMetas[key] = [];
+      mergedMetas[key].push(slot);
+    });
+    merged.metas = mergedMetas;
+    merged._deletedMetaIds = [...delIds];
+  }
+
   // ── digitalTools: merge por-item (id), EXCLUYENDO los borrados ──
   // Antes era escalar last-write-wins sobre el array completo → si dos usuarios
   // editaban herramientas a la vez, una edición/adición podía perderse, o una
@@ -7502,6 +7532,11 @@ async function _doUpsert(){
           };
         });
         toWriteSafe.cobros = cobrosMeta;
+      }
+
+      // 🔒 Excluir marcas archivadas que se estén visualizando temporalmente (no son activas)
+      if(Array.isArray(toWriteSafe.brands) && window._archivedViewIds && window._archivedViewIds.size){
+        toWriteSafe.brands = toWriteSafe.brands.filter(b=>!window._archivedViewIds.has(b.id));
       }
 
       // 🔒 REFACTOR: BP de marca viven en tabla polen_brand_bp, NO en el JSON.
@@ -8062,12 +8097,15 @@ function _navDirect(page, brandId, memberId){
 
 function goTo(page,brandId=null){
   if(page==='member') page='equipo'; // unified
+  // Al salir de la vista de marca, limpiar cualquier marca archivada inyectada para visualización
+  if(page!=='brand') _clearArchivedView();
   // Push current location to history before leaving
   if(_navHistory.length === 0 || _navHistory[_navHistory.length-1].page !== currentPage || _navHistory[_navHistory.length-1].brandId !== (currentBrandId||null)){
     _navHistory.push({ page: currentPage, brandId: currentBrandId||null });
     if(_navHistory.length > 30) _navHistory.shift();
   }
   currentPage=page;
+  if(page==='archivo') _archivoActiveTab = 'proyectos'; // entrar al menú Archivo siempre abre Archivo, no Papelera
   if(brandId)currentBrandId=brandId;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -10713,7 +10751,9 @@ async function metasQuitar(key, slotId){
   const ok = await confirmModal(`¿Quitar "${s?s.nombre:'esta marca'}" de la quincena?`,'Quitar');
   if(!ok) return;
   appData.metas[key] = arr.filter(x=>x.id!==slotId);
-  markLocalChange('metas');
+  if(!Array.isArray(appData._deletedMetaIds)) appData._deletedMetaIds = [];
+  if(!appData._deletedMetaIds.includes(slotId)) appData._deletedMetaIds.push(slotId);
+  markLocalChange('metas','_deletedMetaIds');
   await upsert();
   renderMetas();
 }
@@ -11811,15 +11851,6 @@ function _reconcilePagosWithCrono(brand){
   // Pagos manuales se conservan tal cual
   const manuales = cob.pagos.filter(p => p.triggerType === 'manual');
 
-  // 🔒 PROTECCIÓN: nunca perder un pago que tenga cobrado=true o monto>0.
-  // Estos representan dinero real; si su actividad ya no está en el cronograma,
-  // los conservamos igual (como huérfanos) en vez de borrarlos silenciosamente.
-  const pagosConValor = cob.pagos.filter(p =>
-    p.triggerType !== 'manual' &&
-    (p.cobrado || p.incobrable || (Number(p.monto)||0) > 0) &&
-    !cronoActs.some(a => a.id === p.triggerActId)
-  );
-
   const nuevosPagos = cronoActs.map(a => {
     // Buscar SOLO por triggerActId — nunca por nombre (evita asignaciones incorrectas)
     const existing = cob.pagos.find(p => p.triggerActId === a.id)
@@ -11842,7 +11873,67 @@ function _reconcilePagosWithCrono(brand){
     };
   });
 
-  cob.pagos = [...nuevosPagos, ...pagosConValor, ...manuales];
+  // 🔒 PROTECCIÓN: pagos NO manuales con valor real (cobrado/incobrable/monto) cuya
+  // actividad ya no está en el cronograma (huérfanos). En vez de conservarlos como
+  // entradas SEPARADAS (lo que duplicaba pagos cuando el triggerActId había cambiado),
+  // fusionamos su valor dentro del pago correcto que comparte nombre, preservando el
+  // vínculo con la actividad actual. Solo si no hay pago con ese nombre se conservan aparte.
+  const huerfanos = cob.pagos.filter(p =>
+    p.triggerType !== 'manual' &&
+    (p.cobrado || p.incobrable || (Number(p.monto)||0) > 0) &&
+    !cronoActs.some(a => a.id === p.triggerActId)
+  );
+  const nuevoByName = new Map(nuevosPagos.map(p => [(p.nombre||'').trim().toLowerCase(), p]));
+  const usedIds = new Set(nuevosPagos.map(p => p.id));
+  const huerfanosReales = [];
+  const idsDuplicadosABorrar = [];  // duplicados confirmados → se borran de polen_cobros
+  const pagosAGuardar = new Set();   // pagos consolidados cuyo valor cambió → re-guardar en tabla
+  huerfanos.forEach(o => {
+    if(usedIds.has(o.id)) return; // ya reusado en nuevosPagos (mismo id) → no duplicar
+    const key = (o.nombre||'').trim().toLowerCase();
+    const np = nuevoByName.get(key);
+    if(np){
+      // Fusionar el valor del huérfano en el pago correcto (conserva el vínculo al crono)
+      let cambio = false;
+      if(!np.cobrado && o.cobrado){ np.cobrado = true; np.fechaCobrado = o.fechaCobrado; cambio = true; }
+      if((Number(np.monto)||0) === 0 && (Number(o.monto)||0) > 0){ np.monto = o.monto; cambio = true; }
+      if(!np.incobrable && o.incobrable){ np.incobrable = true; cambio = true; }
+      if(!np.nota && o.nota){ np.nota = o.nota; cambio = true; }
+      if(!np.ultimoSeguimiento && o.ultimoSeguimiento){ np.ultimoSeguimiento = o.ultimoSeguimiento; cambio = true; }
+      // El huérfano es un DUPLICADO con id distinto → borrarlo de la tabla para que no resucite
+      if(o.id !== np.id) idsDuplicadosABorrar.push(o.id);
+      if(cambio) pagosAGuardar.add(np);
+    } else {
+      huerfanosReales.push(o); // nombre único → es un pago real sin actividad, se conserva
+    }
+  });
+
+  cob.pagos = [...nuevosPagos, ...huerfanosReales, ...manuales];
+
+  // 🔒 PERSISTIR LA LIMPIEZA EN LA TABLA polen_cobros (la pieza que faltaba):
+  // los arreglos anteriores solo tocaban memoria, así que el duplicado seguía en la
+  // tabla y reaparecía al recargar. Ahora borramos los duplicados de la tabla y
+  // guardamos el pago consolidado, dejando el arreglo grabado de forma permanente.
+  if(window.CobrosDB && (idsDuplicadosABorrar.length || pagosAGuardar.size)){
+    (async()=>{
+      try{
+        for(const id of idsDuplicadosABorrar){ try{ await CobrosDB.deletePago(id); }catch(e){} }
+        for(const p of pagosAGuardar){ try{ await CobrosDB.savePago(brand.id, p); }catch(e){} }
+        if(idsDuplicadosABorrar.length) console.log('[Polen] Cobros: '+idsDuplicadosABorrar.length+' pago(s) duplicado(s) eliminados de la tabla en '+brand.name);
+      }catch(e){ console.warn('[Polen] persistir limpieza de cobros falló:', e); }
+    })();
+  }
+
+  // 🔒 DEDUP FINAL por id (limpia cualquier duplicado preexistente con el mismo id)
+  {
+    const seen = new Map();
+    const score = q => (q.cobrado?4:0)+(q.incobrable?2:0)+((Number(q.monto)||0)>0?1:0);
+    cob.pagos.forEach(p=>{
+      const ex = seen.get(p.id);
+      if(!ex || score(p) > score(ex)) seen.set(p.id, p);
+    });
+    cob.pagos = [...seen.values()];
+  }
 
   // 🔒 RE-ALINEAR estados desfasados: si un pago está cobrado pero su actividad
   // del cronograma sigue 'pendiente', alinear la actividad al pago Y PERSISTIRLA
@@ -13036,7 +13127,7 @@ function renderCurrentPage(){
 /* ═══ ARCHIVO ═══ */
 let _archivoSort = 'fecha';
 let _archivoMoneyUnlocked = false;
-let _archivoActiveTab = 'papelera';
+let _archivoActiveTab = 'proyectos';
 const ARCHIVO_PIN = '7771';
 const PAPELERA_DIAS = 30;
 
@@ -13511,6 +13602,37 @@ function renderArchivo(){
     const totalCobrado = pagos.reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
     const allActs = Object.values(brand.cronograma||{}).flat();
     const totalActs = allActs.length;
+    // Tiempo ACTIVO del proyecto: desde el onboarding hasta el fin, descontando pausas
+    let tiempoTxt = '';
+    const tStart = _cronoStartDate(brand);
+    const MSW = 7*24*60*60*1000;
+    const archAtRaw = brand.archivedAt || (appData.papelera||[]).find(p=>p.type==='brand-archived'&&p.data?.id===brand.id)?.data?.archivedAt;
+    const archAt = archAtRaw ? parseLocalDate(String(archAtRaw).slice(0,10)) : null;
+    if(tStart){
+      let tEnd = null;
+      allActs.forEach(a=>{ if(a.startDate){ const d=parseLocalDate(a.startDate); if(d&&(!tEnd||d>tEnd)) tEnd=d; } });
+      if(archAt && (!tEnd || archAt>tEnd)) tEnd = archAt;
+      if(!tEnd) tEnd = new Date();
+      // Descontar pausas (clampeadas al periodo)
+      const tramos = [];
+      (brand.pausasHistorial||[]).forEach(p=>{ if(p.start&&p.end) tramos.push({s:p.start,e:p.end}); });
+      if(brand.paused && brand.pausedAt) tramos.push({s:brand.pausedAt, e:(archAtRaw?String(archAtRaw).slice(0,10):todayStr())});
+      let semPausa = 0;
+      tramos.forEach(t=>{
+        const ts=parseLocalDate(t.s), te=parseLocalDate(t.e);
+        if(!ts||!te) return;
+        const ini=Math.max(ts.getTime(),tStart.getTime()), fin=Math.min(te.getTime(),tEnd.getTime());
+        if(fin>ini) semPausa += (fin-ini)/MSW;
+      });
+      const semTotal = (tEnd - tStart)/MSW;
+      const semActivas = Math.max(0, semTotal - semPausa);
+      tiempoTxt = semActivas.toFixed(1)+' sem';
+    }
+    // Progreso REAL (no asumir 100%)
+    const actsCompletadas = allActs.filter(a=>a.status==='completada').length;
+    const progPct = totalActs ? Math.round(actsCompletadas/totalActs*100) : 0;
+    const pagosCobrados = pagos.filter(p=>p.cobrado).length;
+    const cobrosPct = pagos.length ? Math.round(pagosCobrados/pagos.length*100) : 0;
     const stages = ['aire','agua','tierra','fuego'];
     const SC2 = {aire:{emoji:'🌬️',color:'var(--aire)'},agua:{emoji:'💧',color:'var(--agua)'},tierra:{emoji:'🌱',color:'var(--tierra)'},fuego:{emoji:'🔥',color:'var(--fuego)'}};
     const logo = brand.image
@@ -13530,10 +13652,10 @@ function renderArchivo(){
     // ¿Es una marca archivada formalmente (en papelera) o detectada como auto-completada?
     const isFormallyArchived = (appData.papelera||[]).some(p=>p.type==='brand-archived' && p.data?.id===brand.id);
 
-    // Las marcas formalmente archivadas no son cliqueables (no existen en appData.brands)
-    // Solo el botón "Restaurar" permite recuperarlas.
-    const cardClick = isFormallyArchived ? '' : `onclick="openBrand('${brand.id}')"`;
-    const cardCursor = isFormallyArchived ? 'default' : 'pointer';
+    // Ambos tipos son cliqueables: abren la página de marca para ver toda su info.
+    // Las formalmente archivadas se inyectan temporalmente en openBrand (solo lectura).
+    const cardClick = `onclick="openBrand('${brand.id}')"`;
+    const cardCursor = 'pointer';
 
     return `<div class="card" style="padding:1.4rem;position:relative;overflow:hidden;cursor:${cardCursor}" ${cardClick}>
       <!-- Accent bar -->
@@ -13568,15 +13690,18 @@ function renderArchivo(){
         <div style="display:flex;align-items:center;gap:0.3rem;font-size:0.72rem;color:var(--agua);background:rgba(45,195,179,0.1);border-radius:99px;padding:0.2rem 0.7rem;font-weight:600">
           💳 ${pagos.length} pagos
         </div>
+        ${tiempoTxt?`<div style="display:flex;align-items:center;gap:0.3rem;font-size:0.72rem;color:var(--fuego);background:rgba(232,98,42,0.1);border-radius:99px;padding:0.2rem 0.7rem;font-weight:600">
+          ⏱️ ${tiempoTxt} activas
+        </div>`:''}
         <div style="display:flex;align-items:center;gap:0.3rem;font-size:0.72rem;color:var(--text3)">${stagesHTML}</div>
       </div>
-      <!-- Progress bar (full green) -->
+      <!-- Progress bar (real) -->
       <div style="height:5px;background:var(--bg-card2);border-radius:99px;overflow:hidden;margin-bottom:0.5rem">
-        <div style="height:100%;width:100%;background:var(--tierra);border-radius:99px"></div>
+        <div style="height:100%;width:${progPct}%;background:var(--tierra);border-radius:99px"></div>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:var(--text3)">
-        <span>Cronograma completado ✓</span>
-        <span>Cobros al 100% ✓</span>
+        <span>${progPct>=100?'Cronograma completado ✓':'Cronograma '+progPct+'%'}</span>
+        <span>${cobrosPct>=100?'Cobros al 100% ✓':'Cobros '+cobrosPct+'%'}</span>
       </div>
     </div>`;
   }).join('');
@@ -13950,9 +14075,33 @@ async function migrateBpToTemplate(brandNames){
   if(currentPage==='brand') renderBrandPage();
 }
 
+// Marca archivada (papelera) → para poder abrir su página y ver toda su info
+function _findArchivedBrand(id){
+  const item = (appData.papelera||[]).find(p=>p.type==='brand-archived' && (p.data?.id===id || p.id===id));
+  return item ? item.data : null;
+}
 function openBrand(id){
+  // Si la marca no está activa, puede ser una archivada: la inyectamos TEMPORALMENTE
+  // (solo para visualizar). Se excluye del guardado y se limpia al salir de la página.
+  if(!(appData.brands||[]).some(b=>b.id===id)){
+    const arch = _findArchivedBrand(id);
+    if(arch){
+      if(!window._archivedViewIds) window._archivedViewIds = new Set();
+      window._archivedViewIds.add(id);
+      if(!Array.isArray(appData.brands)) appData.brands = [];
+      appData.brands.push(JSON.parse(JSON.stringify(arch)));
+      showStatus('👁️ Viendo marca archivada (solo lectura — los cambios no se guardan)');
+    }
+  }
   currentBrandId=id;
   goTo('brand');
+}
+// Quita de memoria las marcas archivadas que se estaban visualizando (no deben quedar como activas)
+function _clearArchivedView(){
+  if(window._archivedViewIds && window._archivedViewIds.size){
+    appData.brands = (appData.brands||[]).filter(b=>!window._archivedViewIds.has(b.id));
+    window._archivedViewIds.clear();
+  }
 }
 
 async function deleteBrand(id){
@@ -14604,7 +14753,7 @@ async function renderBrandPage(){
 }
 
 function switchTab(tab){
-  ['crono','rondas','bp','notas','domo','portal'].forEach(t=>{
+  ['crono','rondas','bp','notas','domo','portal','tiempo'].forEach(t=>{
     const panel=document.getElementById('tab-'+t);
     const btn=document.getElementById('tab-'+t+'-btn');
     if(panel)panel.classList.toggle('active',t===tab);
@@ -22977,16 +23126,22 @@ function syncBrandsMemberDropdown(){
 // ════════════════════════════════════════════════════════════
 // Fecha de inicio del proyecto = primera fecha del cronograma.
 function _cronoStartDate(brand){
-  let min = null;
+  // El tiempo de una marca arranca en la "Reunión de onboarding", no en el primer pago.
+  // Si por alguna razón la marca no tiene esa actividad con fecha, usamos como respaldo
+  // la primera fecha del cronograma (comportamiento anterior).
+  let onboarding = null, min = null;
   ['aire','agua','tierra','fuego'].forEach(st=>{
     (brand.cronograma?.[st]||[]).forEach(a=>{
-      if(a.startDate){
-        const d = parseLocalDate(a.startDate);
-        if(d && (!min || d < min)) min = d;
+      if(!a.startDate) return;
+      const d = parseLocalDate(a.startDate);
+      if(!d) return;
+      if(!min || d < min) min = d;
+      if(a.name && /onboarding/i.test(a.name)){
+        if(!onboarding || d < onboarding) onboarding = d;
       }
     });
   });
-  return min;
+  return onboarding || min;
 }
 
 const TL_BENCH_WEEKS = 4;        // benchmark ideal
