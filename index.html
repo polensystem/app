@@ -7679,7 +7679,7 @@ async function _doUpsert(){
         // En portal, refrescamos SOLO el portal y nada del panel interno.
         if(window._portalBrandId){
           try{
-            const pb = (appData.brands||[]).find(b=>b.id===window._portalBrandId);
+            const pb = (appData.brands||[]).find(b=>b.id===window._portalBrandId) || (appData.demos||[]).find(b=>b.id===window._portalBrandId);
             if(pb && typeof renderPortal === 'function'){
               // Re-render del contenido del portal sin tocar el dashboard
               const wrap = document.getElementById('portal-bp-wrap');
@@ -13226,7 +13226,7 @@ function renderCurrentPage(){
   // Refrescar solo el portal evita el crash de renderDashboard (innerHTML de null).
   if(window._portalBrandId){
     try {
-      const pb = (appData.brands||[]).find(b=>b.id===window._portalBrandId);
+      const pb = (appData.brands||[]).find(b=>b.id===window._portalBrandId) || (appData.demos||[]).find(b=>b.id===window._portalBrandId);
       const wrap = document.getElementById('portal-bp-wrap');
       if(pb && wrap && typeof portalRenderBp === 'function'){
         wrap.innerHTML = portalRenderBp(pb);
@@ -17776,7 +17776,7 @@ function toggleAllTplBpCats(){
 }
 
 function portalToggleBpCat(ci){
-  const brand = (appData.brands||[]).find(b=>b.id===window._portalBrandId);
+  const brand = (appData.brands||[]).find(b=>b.id===window._portalBrandId) || (appData.demos||[]).find(b=>b.id===window._portalBrandId);
   if(!brand?.brandingPoints?.categories?.[ci]) return;
   const cat = brand.brandingPoints.categories[ci];
   // Solo memoria — al recargar el portal siempre se ven expandidas
@@ -17788,7 +17788,7 @@ function portalToggleBpCat(ci){
 }
 
 function toggleAllPortalBpCats(){
-  const brand = (appData.brands||[]).find(b=>b.id===window._portalBrandId);
+  const brand = (appData.brands||[]).find(b=>b.id===window._portalBrandId) || (appData.demos||[]).find(b=>b.id===window._portalBrandId);
   if(!brand?.brandingPoints?.categories) return;
   const cats = brand.brandingPoints.categories;
   const allOpen = cats.every(c=>!c._uiCollapsed);
@@ -21798,7 +21798,7 @@ function _portalHeaderHTML(brand){
 
 
 function portalSwitchTab(tab){
-  const brand = (appData?.brands||[]).find(b=>b.id===window._portalBrandId);
+  const brand = (appData?.brands||[]).find(b=>b.id===window._portalBrandId) || (appData?.demos||[]).find(b=>b.id===window._portalBrandId);
   const sec = getPortalSections(brand);
 
   // Si el tab pedido no está visible, caer al primero visible
