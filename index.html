@@ -1388,6 +1388,14 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
   .cob-brands-grid{grid-template-columns:1fr;}
 }
 
+/* Grids de "Próximos" (cumpleaños / pausa activa) — responsive */
+.cumple-prox-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.4rem;}
+.pa-prox-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0.4rem;}
+@media (max-width: 560px){
+  .cumple-prox-grid{grid-template-columns:1fr;}
+  .pa-prox-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+
 /* ── MOBILE (≤768px) ── */
 @media (max-width: 768px){
   /* Mostrar hamburguesa, ocultar sidebar por default */
@@ -2327,16 +2335,30 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         </div>
       </div>
 
-      <!-- ── CUMPLEAÑOS DEL MES ── -->
-      <div style="margin-top:1.5rem" id="cumples-section">
-        <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem">
-          <div style="width:32px;height:32px;background:linear-gradient(135deg,#f472b6,#fb923c);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem">🎂</div>
-          <div>
-            <div style="font-size:0.9rem;font-weight:800;color:var(--text);letter-spacing:-0.2px">Cumpleaños del mes</div>
-            <div style="font-size:0.65rem;color:var(--text3);margin-top:0.05rem" id="cumples-mes-label">Quién cumple este mes</div>
+      <!-- ── CUMPLEAÑOS + PAUSA ACTIVA (mitad y mitad) ── -->
+      <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin-top:1.5rem;align-items:stretch">
+        <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column" id="cumples-section">
+          <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem">
+            <div style="width:32px;height:32px;background:linear-gradient(135deg,#f472b6,#fb923c);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem">🎂</div>
+            <div>
+              <div style="font-size:0.9rem;font-weight:800;color:var(--text);letter-spacing:-0.2px">Cumpleaños del mes</div>
+              <div style="font-size:0.65rem;color:var(--text3);margin-top:0.05rem" id="cumples-mes-label">Quién cumple este mes</div>
+            </div>
           </div>
+          <div id="cumples-grid" style="flex:1;min-height:0"></div>
         </div>
-        <div id="cumples-grid"></div>
+
+        <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column" id="pausa-activa-section">
+          <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem">
+            <div style="width:32px;height:32px;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem">🤸</div>
+            <div style="flex:1">
+              <div style="font-size:0.9rem;font-weight:800;color:var(--text);letter-spacing:-0.2px">Pausa Activa</div>
+              <div style="font-size:0.65rem;color:var(--text3);margin-top:0.05rem">Líder de la pausa activa del día</div>
+            </div>
+            <button onclick="configurarPausaActiva()" title="Configurar secuencia de líderes" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;font-size:0.7rem;color:var(--text3);cursor:pointer;font-family:var(--font)">⚙️</button>
+          </div>
+          <div id="pausa-activa-grid" style="flex:1;min-height:0"></div>
+        </div>
       </div>
 
       <!-- ── DIGITAL TOOLS ── -->
@@ -7152,7 +7174,7 @@ function deepMergeAppData(server, local){
   merged.banners = Array.isArray(local.banners) ? local.banners : [];
 
   // ── scalar fields: local wins if user changed them, else server ──
-  const scalarKeys = ['finanzas','calendarUrl','domoNames'];
+  const scalarKeys = ['finanzas','calendarUrl','domoNames','pausaActiva'];
   scalarKeys.forEach(k=>{
     merged[k] = _localChangedKeys.has(k) ? local[k] : (server[k] ?? local[k]);
   });
@@ -13976,7 +13998,7 @@ function renderCumples(){
   }).filter(Boolean);
 
   const delMes = conCumple.filter(x=>x.esMes).sort((a,b)=>a.dia-b.dia);
-  const proximos = conCumple.filter(x=>!x.esMes).sort((a,b)=>a.next-b.next).slice(0,8);
+  const proximos = conCumple.filter(x=>!x.esMes).sort((a,b)=>a.next-b.next).slice(0,4);
 
   // Tarjeta full-width para cumpleañeros del mes: foto·nombre·fecha + sabor de torta + deseos
   const tarjetaMes = ({m,mes,dia,esHoy})=>{
@@ -14028,11 +14050,11 @@ function renderCumples(){
   }
   if(proximos.length){
     inner += `<div style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0.6rem 0.2rem 0.4rem;margin-top:0.3rem;border-top:1px solid var(--border2)">Próximos</div>`;
-    inner += `<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0.4rem">${proximos.map(celdaProx).join('')}</div>`;
+    inner += `<div class="cumple-prox-grid">${proximos.map(celdaProx).join('')}</div>`;
   }
 
-  grid.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:0.5rem 0.6rem">
-      <div style="max-height:340px;overflow-y:auto">${inner}</div>
+  grid.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:0.5rem 0.6rem;height:100%;display:flex;flex-direction:column;box-sizing:border-box">
+      <div style="flex:1;min-height:0;overflow-y:auto">${inner}</div>
     </div>`;
 }
 
@@ -14047,12 +14069,179 @@ async function setCumpleField(memberId, field, value){
   showStatus(field==='deseos'?'Deseos guardados 🎉':'Sabor de torta guardado 🍰');
 }
 
+// ════════════════════ PAUSA ACTIVA ════════════════════
+// Líder del día rotando por una secuencia de miembros. Solo lunes a viernes.
+// La rotación es determinista: se cuenta cuántos días hábiles han pasado desde
+// la fecha ancla y se toma el módulo sobre el largo de la secuencia (reinicia sola).
+function ensurePausaActiva(){
+  if(!appData.pausaActiva || typeof appData.pausaActiva!=='object') appData.pausaActiva = { secuencia:[], ancla:'' };
+  if(!Array.isArray(appData.pausaActiva.secuencia)) appData.pausaActiva.secuencia = [];
+  return appData.pausaActiva;
+}
+function _paEsFinde(d){ const wd=d.getDay(); return wd===0||wd===6; }
+// Cuenta días hábiles (L-V) en [a, b): a incluido, b excluido.
+function _paWeekdaysBetween(a, b){
+  let count=0; const d=new Date(a.getFullYear(),a.getMonth(),a.getDate());
+  const end=new Date(b.getFullYear(),b.getMonth(),b.getDate());
+  while(d < end){ const wd=d.getDay(); if(wd>=1&&wd<=5) count++; d.setDate(d.getDate()+1); }
+  return count;
+}
+function _paLiderIndexFor(fecha, pa){
+  const len = pa.secuencia.length;
+  if(!len) return -1;
+  const ancla = pa.ancla ? parseLocalDate(pa.ancla) : fecha;
+  if(!ancla) return 0;
+  const n = _paWeekdaysBetween(ancla, fecha);
+  return ((n % len) + len) % len;
+}
+function _paMemberById(id){ return (appData.members||[]).find(m=>m.id===id); }
+function _paAvatarHTML(m, size){
+  if(!m) return '';
+  const col = m.color || 'var(--aire)';
+  const av = m.photo ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : (m.emoji || (m.apodo||m.nombre||'?').charAt(0));
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${col}22;border:2px solid ${col};display:flex;align-items:center;justify-content:center;font-size:${size>=56?'1.5rem':'0.9rem'};font-weight:700;color:${col};overflow:hidden;flex-shrink:0">${av}</div>`;
+}
+
+function renderPausaActiva(){
+  const grid = document.getElementById('pausa-activa-grid');
+  if(!grid) return;
+  const pa = ensurePausaActiva();
+  const card = (inner)=>`<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1rem;box-sizing:border-box;height:100%;display:flex;flex-direction:column;justify-content:space-between;gap:0.8rem">${inner}</div>`;
+
+  if(!pa.secuencia.length){
+    grid.innerHTML = card(`<div style="text-align:center;color:var(--text3);font-size:0.82rem;padding:0.5rem 0">
+      🤸 Aún no hay secuencia de líderes.<br>
+      <button onclick="configurarPausaActiva()" style="margin-top:0.6rem;background:var(--tierra);color:#fff;border:none;border-radius:8px;padding:0.45rem 0.9rem;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font)">Configurar secuencia</button>
+    </div>`);
+    return;
+  }
+
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+
+  // Próximos días hábiles (incluye hoy si es hábil) para preview
+  const upcoming = [];
+  { const d = new Date(hoy); let guard=0; while(upcoming.length<5 && guard<16){ if(!_paEsFinde(d)) upcoming.push(new Date(d)); d.setDate(d.getDate()+1); guard++; } }
+
+  let header;
+  if(_paEsFinde(hoy)){
+    const prox = upcoming[0];
+    const idx = _paLiderIndexFor(prox, pa);
+    const m = _paMemberById(pa.secuencia[idx]);
+    header = `<div style="display:flex;align-items:center;gap:0.85rem;padding:0.3rem 0 0.7rem">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--bg-card2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">🌙</div>
+      <div>
+        <div style="font-size:1.05rem;font-weight:800;color:var(--text)">Fin de semana</div>
+        <div style="font-size:0.74rem;color:var(--text3)">No hay pausa activa hoy.${m?` El ${DIAS[prox.getDay()].toLowerCase()} le toca a <b style="color:var(--text2)">${escapeHtml(m.apodo||m.nombre)}</b>.`:''}</div>
+      </div>
+    </div>`;
+  } else {
+    const idx = _paLiderIndexFor(hoy, pa);
+    const m = _paMemberById(pa.secuencia[idx]);
+    header = `<div style="display:flex;align-items:center;gap:0.85rem;padding:0.2rem 0 0">
+      ${m?_paAvatarHTML(m,56):'<div style="width:56px;height:56px;border-radius:50%;background:var(--bg-card2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center">?</div>'}
+      <div style="min-width:0">
+        <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--tierra)">Líder de hoy · ${DIAS[hoy.getDay()]}</div>
+        <div style="font-size:1.25rem;font-weight:800;color:var(--text);letter-spacing:-0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m?escapeHtml(m.apodo||m.nombre):'(miembro no encontrado)'}</div>
+      </div>
+    </div>`;
+  }
+
+  // Preview de próximos días
+  const previewStart = _paEsFinde(hoy) ? 0 : 1; // si es finde, mostrar desde el primer hábil; si no, desde mañana hábil
+  const proxItems = upcoming.slice(previewStart, previewStart+4).map(d=>{
+    const idx = _paLiderIndexFor(d, pa);
+    const m = _paMemberById(pa.secuencia[idx]);
+    return `<div style="min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:0.25rem;padding:0.55rem 0.35rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:11px">
+      ${m?_paAvatarHTML(m,34):'<div style="width:34px;height:34px;border-radius:50%;background:var(--bg-card);border:1px dashed var(--border)"></div>'}
+      <span style="font-size:0.74rem;font-weight:700;color:var(--text);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m?escapeHtml(m.apodo||m.nombre):'—'}</span>
+      <span style="font-size:0.64rem;color:var(--text3);white-space:nowrap">${DIAS[d.getDay()].slice(0,3)} ${d.getDate()} ${MESES[d.getMonth()]}</span>
+    </div>`;
+  }).join('');
+
+  grid.innerHTML = card(`${header}
+    <div>
+      <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.45rem">Próximos</div>
+      <div class="pa-prox-grid">${proxItems}</div>
+    </div>`);
+}
+
+// ── Configuración de la secuencia (modal) ──
+function configurarPausaActiva(){
+  ensurePausaActiva();
+  if(!window._paEdit) window._paEdit = JSON.parse(JSON.stringify(appData.pausaActiva));
+  _paAbrirModal();
+}
+function _paAbrirModal(){
+  const pa = window._paEdit;
+  const activos = (appData.members||[]).filter(m=>m.active!==false);
+  const enSec = new Set(pa.secuencia);
+  const disponibles = activos.filter(m=>!enSec.has(m.id));
+
+  const secHTML = pa.secuencia.length ? pa.secuencia.map((id,i)=>{
+    const m=_paMemberById(id);
+    return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.5rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:9px;margin-bottom:0.35rem">
+      <span style="font-size:0.7rem;font-weight:800;color:var(--text3);width:18px;text-align:center">${i+1}</span>
+      ${m?_paAvatarHTML(m,26):''}
+      <span style="flex:1;min-width:0;font-size:0.8rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m?escapeHtml(m.apodo||m.nombre):'(eliminado)'}</span>
+      <button onclick="_paMover('${id}',-1)" ${i===0?'disabled':''} title="Subir" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.85rem;padding:0 0.2rem;${i===0?'opacity:0.3':''}">▲</button>
+      <button onclick="_paMover('${id}',1)" ${i===pa.secuencia.length-1?'disabled':''} title="Bajar" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.85rem;padding:0 0.2rem;${i===pa.secuencia.length-1?'opacity:0.3':''}">▼</button>
+      <button onclick="_paQuitar('${id}')" title="Quitar" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:0.8rem;padding:0 0.2rem">✕</button>
+    </div>`;
+  }).join('') : '<div style="color:var(--text3);font-size:0.78rem;padding:0.5rem 0;text-align:center">Agrega miembros para armar la secuencia.</div>';
+
+  const dispHTML = disponibles.length ? disponibles.map(m=>`
+    <button onclick="_paAgregar('${m.id}')" style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0.6rem;background:var(--bg-card);border:1px solid var(--border);border-radius:99px;cursor:pointer;font-family:var(--font);font-size:0.74rem;color:var(--text2)">
+      ${_paAvatarHTML(m,22)}<span>${escapeHtml(m.apodo||m.nombre)}</span><span style="color:var(--tierra);font-weight:700">＋</span>
+    </button>`).join('') : '<div style="color:var(--text3);font-size:0.72rem">Todos los miembros activos ya están en la secuencia.</div>';
+
+  const anclaVal = pa.ancla || todayStr();
+
+  const html = `<div style="max-height:70vh;overflow-y:auto">
+    <p style="font-size:0.78rem;color:var(--text3);line-height:1.5;margin:0 0 0.8rem">El orden define la rotación del líder de la pausa activa. Solo cuentan los días hábiles (lunes a viernes); al terminar la lista, vuelve a empezar.</p>
+    <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.4rem">Secuencia</div>
+    ${secHTML}
+    <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin:0.9rem 0 0.4rem">Agregar miembro</div>
+    <div style="display:flex;flex-wrap:wrap;gap:0.4rem">${dispHTML}</div>
+    <div style="margin-top:1rem;border-top:1px solid var(--border2);padding-top:0.8rem">
+      <label style="font-size:0.72rem;color:var(--text2);font-weight:600;display:block;margin-bottom:0.3rem">Fecha de inicio de la rotación (el #1 lidera ese día)</label>
+      <input type="date" id="pa-ancla" value="${anclaVal}" onchange="_paSetAncla(this.value)" style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.8rem;outline:none">
+    </div>
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1.2rem">
+      <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;font-size:0.8rem;color:var(--text2);cursor:pointer;font-family:var(--font)">Cancelar</button>
+      <button onclick="guardarPausaActiva()" style="background:var(--tierra);color:#fff;border:none;border-radius:8px;padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:var(--font)">Guardar</button>
+    </div>
+  </div>`;
+  openGenericModal('🤸 Configurar Pausa Activa', html);
+}
+function _paAgregar(id){ window._paEdit.secuencia.push(id); _paAbrirModal(); }
+function _paQuitar(id){ window._paEdit.secuencia = window._paEdit.secuencia.filter(x=>x!==id); _paAbrirModal(); }
+function _paMover(id,dir){
+  const s=window._paEdit.secuencia; const i=s.indexOf(id); const j=i+dir;
+  if(i<0||j<0||j>=s.length) return;
+  [s[i],s[j]]=[s[j],s[i]]; _paAbrirModal();
+}
+function _paSetAncla(v){ window._paEdit.ancla = v; }
+async function guardarPausaActiva(){
+  ensurePausaActiva();
+  if(!window._paEdit.ancla) window._paEdit.ancla = todayStr();
+  appData.pausaActiva = JSON.parse(JSON.stringify(window._paEdit));
+  window._paEdit = null;
+  markLocalChange('pausaActiva');
+  await upsert();
+  closeTrayModal();
+  renderPausaActiva();
+  showStatus('Pausa Activa guardada ✓');
+}
+
 function renderDashboard(){
   const brands=appData.brands||[];
   renderBanners();
   renderDigitalTools();
   renderClientHub();
   renderCumples();
+  renderPausaActiva();
   _updateHitosBadge();
   // Set calendar URL if saved
   const iframe = document.getElementById('gcal-iframe');
