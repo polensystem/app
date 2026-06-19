@@ -13976,7 +13976,7 @@ function renderCumples(){
   }).filter(Boolean);
 
   const delMes = conCumple.filter(x=>x.esMes).sort((a,b)=>a.dia-b.dia);
-  const proximos = conCumple.filter(x=>!x.esMes).sort((a,b)=>a.next-b.next).slice(0,6);
+  const proximos = conCumple.filter(x=>!x.esMes).sort((a,b)=>a.next-b.next).slice(0,8);
 
   // Tarjeta full-width para cumpleañeros del mes: foto·nombre·fecha + sabor de torta + deseos
   const tarjetaMes = ({m,mes,dia,esHoy})=>{
@@ -14028,7 +14028,7 @@ function renderCumples(){
   }
   if(proximos.length){
     inner += `<div style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0.6rem 0.2rem 0.4rem;margin-top:0.3rem;border-top:1px solid var(--border2)">Próximos</div>`;
-    inner += `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0.4rem">${proximos.map(celdaProx).join('')}</div>`;
+    inner += `<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0.4rem">${proximos.map(celdaProx).join('')}</div>`;
   }
 
   grid.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:0.5rem 0.6rem">
