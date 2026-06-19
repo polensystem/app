@@ -14298,9 +14298,39 @@ async function crearDemoProspecto(crmId){
   appData.demos.push(demo);
   markLocalChange('demos');
   await upsert();
+
+  // 🔒 Persistir cronograma y branding points del demo en sus tablas (polen_crono,
+  // polen_brand_bp). El portal y la página de marca LEEN de esas tablas, no del JSON,
+  // así que sin esto el portal mostraría las secciones vacías o incompletas.
+  await _persistDemoToTables(demo);
+
   showStatus('Demo creado ✓');
   if(currentPage==='crm' && typeof closeTrayModal==='function'){ closeTrayModal(); }
   abrirDemo(demo.id);
+}
+
+// Sube el cronograma y BP embebidos del demo a las tablas (idempotente, por id).
+// Repara también demos viejos cuyos datos no llegaron a la tabla.
+async function _persistDemoToTables(demo){
+  try{
+    if(window.CronoDB){
+      const cronoRows = [];
+      ['aire','agua','tierra','fuego'].forEach(st=>{
+        (demo.cronograma?.[st]||[]).forEach((a,i)=>{ cronoRows.push(CronoDB.actToRow(demo.id, st, a, i)); });
+      });
+      if(cronoRows.length) await CronoDB.saveActsBatch(cronoRows);
+    }
+    if(window.BrandBpDB && demo.brandingPoints?.categories?.length){
+      const bpRows = [];
+      demo.brandingPoints.categories.forEach((cat,ci)=>{
+        (cat.items||[]).forEach((item,ii)=>{ if(cat.id && item.id) bpRows.push(BrandBpDB.itemToRow(demo.id, cat, item, ci, ii)); });
+      });
+      if(bpRows.length){
+        let ok = await BrandBpDB.saveItemsBatch(bpRows);
+        if(!ok) ok = await BrandBpDB.saveItemsBatch(bpRows);
+      }
+    }
+  }catch(e){ console.warn('[Polen] No se pudieron persistir crono/BP del demo:', e); }
 }
 
 async function eliminarDemoProspecto(crmId){
@@ -14321,6 +14351,7 @@ async function eliminarDemoProspecto(crmId){
 function abrirDemo(demoId){
   const demo = (appData.demos||[]).find(d=>d.id===demoId);
   if(!demo){ showStatus('Demo no encontrado', true); return; }
+  if(typeof closeTrayModal==='function') closeTrayModal(); // cerrar el modal del prospecto para ver el demo
   if(!window._demoViewIds) window._demoViewIds = new Set();
   // Inyectar temporalmente en appData.brands para reutilizar la página de marca
   if(!(appData.brands||[]).some(b=>b.id===demo.id)){
@@ -14329,6 +14360,8 @@ function abrirDemo(demoId){
     window._demoViewIds.add(demo.id);
   }
   showStatus('🎬 Demo (no cuenta en el dashboard ni en los totales)');
+  // Reparar/asegurar que el crono y BP del demo estén en sus tablas (para demos viejos)
+  _persistDemoToTables(demo);
   currentBrandId = demo.id;
   goTo('brand');
 }
