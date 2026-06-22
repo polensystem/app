@@ -7062,14 +7062,31 @@ function _mergeBrandingPointsSafe(serverBp, localBp){
   // El server solo aporta 'total' si local no lo tiene.
   const lCats = (localBp?.categories && Array.isArray(localBp.categories)) ? localBp.categories : null;
   const sCats = (serverBp?.categories && Array.isArray(serverBp.categories)) ? serverBp.categories : null;
-  const total = (localBp?.total !== undefined) ? localBp.total : (serverBp?.total || 0);
+
+  // 🔒 TOTAL por marca de tiempo (last-writer-wins), NO "local siempre gana".
+  // Antes el total local ganaba siempre → en uso multi-usuario el cambio de uno
+  // nunca llegaba a los demás y el dispositivo con el valor viejo lo reescribía,
+  // revirtiendo el cambio "solo, después de un rato". Ahora gana el más reciente.
+  const lTotal = localBp?.total, sTotal = serverBp?.total;
+  const lAt = localBp?.totalUpdatedAt ? new Date(localBp.totalUpdatedAt).getTime() : 0;
+  const sAt = serverBp?.totalUpdatedAt ? new Date(serverBp.totalUpdatedAt).getTime() : 0;
+  let total, totalUpdatedAt;
+  if(lAt || sAt){
+    if(sAt > lAt){ total = (sTotal !== undefined ? sTotal : lTotal); totalUpdatedAt = serverBp.totalUpdatedAt; }
+    else { total = (lTotal !== undefined ? lTotal : sTotal); totalUpdatedAt = localBp?.totalUpdatedAt || serverBp?.totalUpdatedAt; }
+  } else {
+    // Ninguno tiene timestamp (datos viejos) → preferir local si existe (comportamiento previo)
+    total = (lTotal !== undefined) ? lTotal : (sTotal || 0);
+  }
+  if(total === undefined) total = 0;
+  const extra = totalUpdatedAt ? { totalUpdatedAt } : {};
 
   // Local tiene categories → local gana (vienen de polen_brand_bp)
-  if(lCats) return { ...localBp, total, categories: lCats };
+  if(lCats) return { ...localBp, total, ...extra, categories: lCats };
   // Local no tiene pero server sí → fallback para marcas que aún no están en la tabla
-  if(sCats) return { ...serverBp, total };
+  if(sCats) return { ...serverBp, total, ...extra };
   // Ninguno tiene → vacío
-  return { total, categories: [] };
+  return { total, ...extra, categories: [] };
 }
 
 function deepMergeAppData(server, local){
@@ -7306,7 +7323,11 @@ function deepMergeAppData(server, local){
     const localCats  = Array.isArray(localPg.categories)  ? localPg.categories  : [];
     const deletedCatIds = _localDeletedIds.playgroundCats || new Set();
 
-    if(_localChangedKeys.has('playground')){
+    // Local gana si: lo cambié en esta sesión (bandera) O mi versión es más reciente
+    // (timestamp). El timestamp protege contra ecos viejos de otros dispositivos que
+    // llegan DESPUÉS de que la bandera local ya se limpió tras guardar.
+    const localNewer = (Number(localPg.updatedAt)||0) > (Number(serverPg.updatedAt)||0);
+    if(_localChangedKeys.has('playground') || localNewer){
       // Local cambió: mi versión gana, pero añadir categorías del server que yo no tengo
       // (evita perder categorías creadas por otro usuario mientras yo editaba)
       const localIds = new Set(localCats.map(c=>c.id));
@@ -7590,7 +7611,7 @@ async function _doUpsert(){
           if(b && b.brandingPoints){
             return {
               ...b,
-              brandingPoints: { total: b.brandingPoints.total || 0 }, // solo total
+              brandingPoints: { total: b.brandingPoints.total || 0, totalUpdatedAt: b.brandingPoints.totalUpdatedAt || undefined }, // total + timestamp
             };
           }
           return b;
@@ -13392,12 +13413,24 @@ async function restoreFromPapelera(itemId){ markLocalChange("papelera","brands",
         window.CronoDB?.loadAll?.() || Promise.resolve(null),
         window.CobrosDB?.loadAll?.() || Promise.resolve(null),
       ]);
-      // Branding Points
-      if(bpAll && bpAll[brandId]){
-        restored.brandingPoints = {
-          total: restored.brandingPoints?.total || 15,
-          categories: bpAll[brandId].categories || [],
-        };
+      // Branding Points — 🔒 FUSIÓN a prueba de pérdidas: estructura de la tabla +
+      // elecciones del cliente del snapshot congelado. Nunca descartamos lo que el
+      // cliente eligió/especificó (evidencia ante disputas).
+      const snapBp = item.data?.brandingPoints || restored.brandingPoints || null;
+      const tableBp = (bpAll && bpAll[brandId]) ? bpAll[brandId] : null;
+      if(snapBp || tableBp){
+        const mergedBp = _mergeRestoredBp(snapBp, tableBp);
+        restored.brandingPoints = mergedBp;
+        // Reescribir el resultado fusionado en la tabla para que quede consistente
+        try {
+          if(window.BrandBpDB && mergedBp.categories?.length){
+            const rows = [];
+            mergedBp.categories.forEach((cat,ci)=>{
+              (cat.items||[]).forEach((it,ii)=>{ if(cat.id && it.id) rows.push(BrandBpDB.itemToRow(brandId, cat, it, ci, ii)); });
+            });
+            if(rows.length){ let ok = await BrandBpDB.saveItemsBatch(rows); if(!ok) await BrandBpDB.saveItemsBatch(rows); }
+          }
+        } catch(persistErr){ console.warn('[restore] No se pudo reescribir BP fusionado:', persistErr); }
       }
       // Portal Approvals
       if(paAll && paAll[brandId]){
@@ -13447,6 +13480,53 @@ async function restoreFromPapelera(itemId){ markLocalChange("papelera","brands",
   if(typeof renderArchivo === 'function') renderArchivo();
   if(typeof renderBrands === 'function') renderBrands();
   updatePapeleraBadge();
+}
+
+// 🔒 Fusiona los branding points de la TABLA con el SNAPSHOT congelado al archivar,
+// SIN perder nunca lo que eligió el cliente (selected/qty/pts/notas). La tabla aporta
+// la estructura vigente; el snapshot rellena cualquier elección/dato que la tabla no tenga.
+// Importante para no borrar evidencia de lo acordado con el cliente al restaurar.
+function _mergeRestoredBp(snapBp, tableBp){
+  const snapCats  = (snapBp && Array.isArray(snapBp.categories))  ? snapBp.categories  : [];
+  const tableCats = (tableBp && Array.isArray(tableBp.categories)) ? tableBp.categories : [];
+  // Index del snapshot por item id
+  const snapItemById = {};
+  snapCats.forEach(c => (c.items||[]).forEach(it => { if(it && it.id) snapItemById[it.id] = it; }));
+
+  // Base: estructura de la tabla, rellenando con el snapshot donde la tabla no tenga el dato
+  const mergedCats = tableCats.map(c => ({
+    ...c,
+    items: (c.items||[]).map(it => {
+      const s = snapItemById[it.id];
+      if(!s) return it;
+      return {
+        ...it,
+        selected: it.selected || s.selected || false,
+        qty: (Number(it.qty) > 1) ? it.qty : (Number(s.qty) > 1 ? s.qty : (it.qty || 1)),
+        pts: (it.pts !== null && it.pts !== undefined) ? it.pts : (s.pts ?? null),
+        notes: it.notes || s.notes || '',
+        teamNotes: it.teamNotes || s.teamNotes || '',
+      };
+    })
+  }));
+
+  // Conservar categorías / items que estaban en el snapshot pero la tabla NO tiene
+  const tableCatIds = new Set(tableCats.map(c=>c.id));
+  const tableItemIds = new Set(tableCats.flatMap(c=>(c.items||[]).map(i=>i.id)));
+  snapCats.forEach(sc => {
+    if(!tableCatIds.has(sc.id)){
+      mergedCats.push(JSON.parse(JSON.stringify(sc))); // categoría entera ausente en la tabla
+    } else {
+      const mc = mergedCats.find(c=>c.id===sc.id);
+      (sc.items||[]).forEach(si => { if(si && si.id && !tableItemIds.has(si.id)) mc.items.push(JSON.parse(JSON.stringify(si))); });
+    }
+  });
+
+  return {
+    total: (snapBp?.total ?? tableBp?.total ?? 15),
+    totalUpdatedAt: snapBp?.totalUpdatedAt || tableBp?.totalUpdatedAt,
+    categories: mergedCats,
+  };
 }
 
 // Restaurar una marca archivada al dashboard (botón "Restaurar" en card de Archivados)
@@ -15118,7 +15198,30 @@ async function renderBrandPage(){
     needsSave = true;
     cronoInjected = true;
   }
-  if(!brand.brandingPoints || !brand.brandingPoints.categories || brand.brandingPoints.categories.length===0){
+  // 🔒 GUARDA ANTI-RESET (igual que el cronograma): solo inyectar BP del template si la
+  // marca REALMENTE no tiene BP — ni en memoria NI en la tabla polen_brand_bp. Antes
+  // se miraba solo la memoria; si la tabla aún no había hidratado, se reinyectaba el
+  // template y se SOBRESCRIBÍAN los branding points reasignados (y se guardaba el reset
+  // en la tabla → pérdida permanente). Esto era especialmente grave en marcas nuevas.
+  const _bpVacioEnMemoria = !brand.brandingPoints || !brand.brandingPoints.categories || brand.brandingPoints.categories.length===0;
+  let _bpRealmenteVacio = _bpVacioEnMemoria;
+  if(_bpVacioEnMemoria && window.BrandBpDB){
+    try{
+      const tablaBp = await BrandBpDB.loadAll();
+      const enTabla = tablaBp && tablaBp[brand.id];
+      if(enTabla && Array.isArray(enTabla.categories) && enTabla.categories.length){
+        // La tabla SÍ tiene BP — hidratar en memoria y NO inyectar (evita el reset).
+        brand.brandingPoints = {
+          total: brand.brandingPoints?.total || enTabla.total || 15,
+          totalUpdatedAt: brand.brandingPoints?.totalUpdatedAt,
+          categories: enTabla.categories,
+        };
+        _bpRealmenteVacio = false;
+        console.log('[Polen] BP hidratados de tabla (evitado reset del template) para', brand.name);
+      }
+    }catch(e){ console.warn('[Polen] verificación de BP en tabla falló:', e); }
+  }
+  if(_bpRealmenteVacio){
     // 🔒 Usar la versión más completa del template (tabla + memoria) antes de inyectar
     try{
       const freshCats = await getFreshestTemplateCategories();
@@ -16674,6 +16777,7 @@ async function saveBrandBpTotal(val){
   if(!brand?.brandingPoints)return;
   const n=parseInt(val)||0;
   brand.brandingPoints.total=n;
+  brand.brandingPoints.totalUpdatedAt = new Date().toISOString(); // 🔒 para merge por timestamp (multi-usuario)
   renderBrandBp(brand);
   // Total es escalar, sigue en el JSON
   markLocalChange('brands');
@@ -21812,11 +21916,8 @@ async function boot(){
                     window.CronoDB?.loadAll?.() || Promise.resolve(null),
                     window.CobrosDB?.loadAll?.() || Promise.resolve(null),
                   ]);
-                  if(bpAll && bpAll[itemData.id]){
-                    fresh.brandingPoints = {
-                      total: fresh.brandingPoints?.total || 15,
-                      categories: bpAll[itemData.id].categories || [],
-                    };
+                  if(bpAll && bpAll[itemData.id] || itemData.brandingPoints){
+                    fresh.brandingPoints = _mergeRestoredBp(itemData.brandingPoints || fresh.brandingPoints, (bpAll && bpAll[itemData.id]) ? bpAll[itemData.id] : null);
                   }
                   if(paAll && paAll[itemData.id]) fresh.portalApprovals = paAll[itemData.id];
                   if(cronoAll && cronoAll[itemData.id]) fresh.cronograma = cronoAll[itemData.id];
@@ -24227,7 +24328,7 @@ async function pgDrop(event, targetCatId){
 
   _pgDragBrandId = null;
   _pgDragSrcCatId = null;
-  markLocalChange('playground');
+  getPlaygroundData().updatedAt = Date.now(); markLocalChange('playground');
   await upsert();
   renderPlayground();
 }
@@ -24243,7 +24344,7 @@ function pgNewCategory(){
     brandIds: []
   };
   getPlaygroundData().categories.push(newCat);
-  markLocalChange('playground');
+  getPlaygroundData().updatedAt = Date.now(); markLocalChange('playground');
   upsert();
   renderPlayground();
   // Auto-open edit for the new category
@@ -24299,7 +24400,7 @@ async function pgSaveCategory(catId, btn){
   cat.emoji = document.getElementById('pg-edit-emoji').value || '📁';
   cat.color = document.getElementById('pg-edit-color').value || '#3b9edd';
   modal?.remove();
-  markLocalChange('playground');
+  getPlaygroundData().updatedAt = Date.now(); markLocalChange('playground');
   await upsert();
   renderPlayground();
 }
@@ -24313,7 +24414,7 @@ async function pgDeleteCategory(catId){
   // Marcar el delete localmente — sobrevive a realtimes que aún traigan la categoría
   _localDeletedIds.playgroundCats.add(catId);
   pg.categories = pg.categories.filter(c=>c.id!==catId);
-  markLocalChange('playground');
+  getPlaygroundData().updatedAt = Date.now(); markLocalChange('playground');
   await upsert();
   // Limpiar el tracker después de un tiempo suficiente para que el upsert propague
   setTimeout(()=>{ _localDeletedIds.playgroundCats.delete(catId); }, 8000);
@@ -25131,13 +25232,13 @@ function exportBrandBpPDF(){
       const sel = i.selected ? '✓' : '—';
       const pts = i.pts!=null ? i.pts : '?';
       const ptsTotal = i.selected && i.pts!=null ? (i.pts*(i.qty||1)) : '—';
-      return [sel, i.name||'', i.qty||1, pts, ptsTotal];
+      return [sel, i.name||'', i.qty||1, pts, ptsTotal, i.notes||''];
     });
 
     doc.autoTable({
       startY: y,
       margin: {left:ML, right:MR},
-      head: [['', 'Entregable','Cant.','Pts unit.','Pts total']],
+      head: [['', 'Entregable','Cant.','Pts unit.','Pts total','Nota del cliente']],
       body: rows,
       styles: { fontSize:7.5, cellPadding:2.5, textColor:EX.text, font:'helvetica' },
       headStyles: { fillColor:EX.text, textColor:EX.white, fontStyle:'bold', fontSize:7 },
@@ -25145,13 +25246,14 @@ function exportBrandBpPDF(){
       columnStyles: {
         0: { cellWidth:8, halign:'center', fontStyle:'bold' },
         2: { cellWidth:12, halign:'center' },
-        3: { cellWidth:18, halign:'center' },
-        4: { cellWidth:18, halign:'center' },
+        3: { cellWidth:16, halign:'center' },
+        4: { cellWidth:16, halign:'center' },
+        5: { cellWidth:46, fontStyle:'italic', textColor:EX.text3 },
       },
       didParseCell: (data)=>{
         // Resaltar filas seleccionadas
         if(data.section==='body' && data.row.raw[0]==='✓'){
-          data.cell.styles.textColor = [...brandCol];
+          if(data.column.index!==5) data.cell.styles.textColor = [...brandCol];
           if(data.column.index===0) data.cell.styles.fontStyle='bold';
         }
       },
@@ -25177,15 +25279,24 @@ function exportBrandBpXLSX(){
   const bp = brand.brandingPoints;
   const data = [];
   (bp.categories||[]).forEach(cat=>{
-    cat.items.filter(i=>i.selected).forEach(i=>{
-      data.push({ Categoría:cat.name, Entregable:i.name, Cantidad:i.qty||1, 'Pts unitarios':i.pts!=null?i.pts:'?', 'Pts total':i.pts!=null?(i.pts*(i.qty||1)):'?', Notas:i.notes||'' });
+    (cat.items||[]).forEach(i=>{
+      data.push({
+        Categoría: cat.name,
+        Entregable: i.name,
+        Elegido: i.selected ? 'Sí' : 'No',
+        Cantidad: i.qty||1,
+        'Pts unitarios': i.pts!=null ? i.pts : '?',
+        'Pts total': (i.selected && i.pts!=null) ? (i.pts*(i.qty||1)) : 0,
+        'Nota del cliente': i.notes||'',
+        'Nota del equipo': i.teamNotes||'',
+      });
     });
   });
   const total = bp.total||0;
-  const used = data.filter(r=>typeof r['Pts total']==='number').reduce((s,r)=>s+r['Pts total'],0);
-  data.push({Categoría:'── RESUMEN ──', Entregable:'Total usado', Cantidad:'', 'Pts unitarios':'', 'Pts total':used, Notas:''});
-  data.push({Categoría:'', Entregable:'Total disponible', Cantidad:'', 'Pts unitarios':'', 'Pts total':total, Notas:''});
-  data.push({Categoría:'', Entregable:'Restantes', Cantidad:'', 'Pts unitarios':'', 'Pts total':total-used, Notas:''});
+  const used = data.filter(r=>r.Elegido==='Sí' && typeof r['Pts total']==='number').reduce((s,r)=>s+r['Pts total'],0);
+  data.push({Categoría:'── RESUMEN ──', Entregable:'Total usado', Elegido:'', Cantidad:'', 'Pts unitarios':'', 'Pts total':used, 'Nota del cliente':'', 'Nota del equipo':''});
+  data.push({Categoría:'', Entregable:'Total disponible', Elegido:'', Cantidad:'', 'Pts unitarios':'', 'Pts total':total, 'Nota del cliente':'', 'Nota del equipo':''});
+  data.push({Categoría:'', Entregable:'Restantes', Elegido:'', Cantidad:'', 'Pts unitarios':'', 'Pts total':total-used, 'Nota del cliente':'', 'Nota del equipo':''});
   saveXLSX(xlsxBook([{name:'Branding Points', data}]), `Polen_BP_${brand.name}_${new Date().toISOString().slice(0,10)}`);
 }
 
