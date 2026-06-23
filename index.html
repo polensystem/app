@@ -2633,21 +2633,11 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
               <select class="form-select" id="domo-director" onchange="updateDirectorPreview()" style="font-size:0.82rem;margin-bottom:0.6rem"><option value="">— Sin asignar —</option></select>
               <div id="domo-director-preview"></div>
             </div>
-            <!-- Principals: side by side visual cards -->
+            <!-- Principals: lista dinámica (múltiples diseñadores/redactores) -->
             <div style="margin-bottom:1.2rem">
-              <label class="form-label" style="margin-bottom:0.7rem">Integrantes principales (máx. 2)</label>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
-                <div id="domo-p1-card" style="border:1.5px solid var(--border);border-radius:14px;padding:1rem;display:flex;flex-direction:column;gap:0.6rem;transition:border-color 0.2s">
-                  <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Principal 1</div>
-                  <select class="form-select" id="domo-p1" onchange="renderDomoPrincipalCards()" style="font-size:0.82rem"><option value="">— Sin asignar —</option></select>
-                  <div id="domo-p1-preview"></div>
-                </div>
-                <div id="domo-p2-card" style="border:1.5px solid var(--border);border-radius:14px;padding:1rem;display:flex;flex-direction:column;gap:0.6rem;transition:border-color 0.2s">
-                  <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Principal 2</div>
-                  <select class="form-select" id="domo-p2" onchange="renderDomoPrincipalCards()" style="font-size:0.82rem"><option value="">— Sin asignar —</option></select>
-                  <div id="domo-p2-preview"></div>
-                </div>
-              </div>
+              <label class="form-label" style="margin-bottom:0.7rem">Integrantes principales (diseñadores / redactores)</label>
+              <div id="domo-principales-list" style="display:flex;flex-direction:column;gap:0.6rem"></div>
+              <button type="button" onclick="domoAddPrincipal()" style="margin-top:0.6rem;background:none;border:1px dashed var(--border);border-radius:10px;padding:0.5rem 0.95rem;font-size:0.78rem;color:var(--tierra);cursor:pointer;font-family:var(--font);font-weight:700">+ Agregar principal</button>
             </div>
             <!-- Astronautas toggle -->
             <div>
@@ -2655,8 +2645,8 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
                 <span id="astronautas-toggle-arrow">▶</span> 🚀 Astronautas (opcionales)
               </button>
               <div id="domo-helpers-wrap" style="display:none;flex-direction:column;gap:0.4rem;margin-top:0.6rem">
-                <select class="form-select" id="domo-h1"><option value="">— Sin asignar —</option></select>
-                <select class="form-select" id="domo-h2"><option value="">— Sin asignar —</option></select>
+                <div id="domo-astronautas-list" style="display:flex;flex-direction:column;gap:0.4rem"></div>
+                <button type="button" onclick="domoAddAstronauta()" style="align-self:flex-start;background:none;border:1px dashed var(--border);border-radius:10px;padding:0.45rem 0.9rem;font-size:0.76rem;color:var(--text3);cursor:pointer;font-family:var(--font);font-weight:600">+ Agregar astronauta</button>
               </div>
             </div>
           </div>
@@ -6012,7 +6002,20 @@ window.ClientNotesDB = (function(){
           } else if(newRow){
             const newNote = rowToNote(newRow);
             const idx = appData.clientNotes.findIndex(n=>n.id === newNote.id);
-            if(idx >= 0) appData.clientNotes[idx] = newNote;
+            if(idx >= 0){
+              const localNote = appData.clientNotes[idx];
+              // 🔒 ANTI AUTO-ARCHIVADO: no dejar que un evento de sync más viejo cambie el
+              // estado archivado/activo (done). Una nota solo se archiva con un check real,
+              // y gana el cambio MÁS RECIENTE, no cualquier eco que llegue después.
+              const localAt = localNote.doneChangedAt ? new Date(localNote.doneChangedAt).getTime() : 0;
+              const incomingAt = newNote.doneChangedAt ? new Date(newNote.doneChangedAt).getTime() : 0;
+              if(localNote.done !== newNote.done && localAt > incomingAt){
+                newNote.done = localNote.done;
+                newNote.doneAt = localNote.doneAt;
+                newNote.doneChangedAt = localNote.doneChangedAt;
+              }
+              appData.clientNotes[idx] = newNote;
+            }
             else appData.clientNotes.unshift(newNote);
           }
           if(onChange) onChange(payload);
@@ -14356,7 +14359,7 @@ function renderDashboard(){
   // Apply cards filters
   let filteredBrands = brands;
   if(_brandsStageFilter !== 'all') filteredBrands = filteredBrands.filter(b => b.stage === _brandsStageFilter);
-  if(_brandsMemberFilter) filteredBrands = filteredBrands.filter(b => b.domo && (b.domo.m1===_brandsMemberFilter || b.domo.m2===_brandsMemberFilter || (b.domo.helpers||[]).includes(_brandsMemberFilter)));
+  if(_brandsMemberFilter) filteredBrands = filteredBrands.filter(b => b.domo && _domoHasMember(b.domo, _brandsMemberFilter));
   // Búsqueda rápida
   const searchVal2 = (document.getElementById('brands-search-cards')?.value||'').toLowerCase().trim();
   if(searchVal2) filteredBrands = filteredBrands.filter(b=>(b.name||'').toLowerCase().includes(searchVal2)||(b.industria||'').toLowerCase().includes(searchVal2));
@@ -15313,9 +15316,8 @@ async function renderBrandPage(){
   // Domo display
   let domoDisplay = '';
   if(brand.domo) {
-    const dm1 = appData.members.find(m=>m.id===brand.domo.m1);
-    const dm2 = appData.members.find(m=>m.id===brand.domo.m2);
-    if(dm1||dm2) domoDisplay=`<span style="font-size:0.75rem;color:var(--text2)">🔗 ${[dm1,dm2].filter(Boolean).map(m=>m.apodo||m.nombre).join(' + ')}</span>`;
+    const nombres = _domoPrincipalIds(brand.domo).map(id=>appData.members.find(m=>m.id===id)).filter(Boolean).map(m=>m.apodo||m.nombre);
+    if(nombres.length) domoDisplay=`<span style="font-size:0.75rem;color:var(--text2)">🔗 ${nombres.join(' + ')}</span>`;
   }
   let directorDisplay = '';
   if(brand.director){
@@ -16523,31 +16525,80 @@ async function cycleStatus(brandId,stage,actId){
 
 /* ── Brand Domo management ── */
 
+// ── Helpers de domo: soportan múltiples integrantes (array principales/astronautas),
+//    con fallback a los campos antiguos m1/m2/helpers para marcas viejas. ──
+function _domoPrincipalIds(domo){
+  if(!domo) return [];
+  if(Array.isArray(domo.principales) && domo.principales.length) return domo.principales.filter(Boolean);
+  return [domo.m1, domo.m2].filter(Boolean);
+}
+function _domoAstronautaIds(domo){
+  if(!domo) return [];
+  if(Array.isArray(domo.astronautas) && domo.astronautas.length) return domo.astronautas.filter(Boolean);
+  return (domo.helpers||[]).filter(Boolean);
+}
+function _domoAllIds(domo){ return [..._domoPrincipalIds(domo), ..._domoAstronautaIds(domo)]; }
+function _domoHasMember(domo, id){ return !!id && _domoAllIds(domo).includes(id); }
+
+// Estado de edición del domo (arrays de ids mientras se edita)
+window._domoEditPrincipales = [];
+window._domoEditAstronautas = [];
+
+function _domoMemberSelectHTML(value, kind, idx){
+  const members = appData.members||[];
+  const opts = '<option value="">— Sin asignar —</option>' +
+    members.map(m=>`<option value="${m.id}" ${value===m.id?'selected':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
+  const m = members.find(x=>x.id===value);
+  let preview = '';
+  if(m){
+    const grad = getMemberGradient(m.id);
+    const avatarHTML = m.photo?`<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:m.emoji||'👤';
+    preview = `<div style="display:flex;align-items:center;gap:0.6rem;background:${grad};border-radius:10px;padding:0.45rem 0.7rem;margin-top:0.5rem">
+      <div style="width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;overflow:hidden">${avatarHTML}</div>
+      <div><div style="font-size:0.8rem;font-weight:700;color:#fff">${m.apodo||m.nombre}</div><div style="font-size:0.64rem;color:rgba(255,255,255,0.75)">${m.cargo||''}</div></div>
+    </div>`;
+  }
+  const labelTxt = kind==='p' ? `Principal ${idx+1}` : `Astronauta ${idx+1}`;
+  const onchange = `_domoOnSelectChange('${kind}',${idx},this.value)`;
+  return `<div style="border:1.5px solid ${m?'var(--aire)':'var(--border)'};border-radius:14px;padding:0.85rem;transition:border-color 0.2s">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.45rem">
+      <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">${labelTxt}</div>
+      <button type="button" onclick="_domoRemove('${kind}',${idx})" title="Quitar" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:0.8rem;line-height:1">✕</button>
+    </div>
+    <select class="form-select" onchange="${onchange}" style="font-size:0.82rem">${opts}</select>
+    ${preview}
+  </div>`;
+}
+
+// Renderiza las listas dinámicas de principales y astronautas
 function renderDomoPrincipalCards(){
-  ['p1','p2'].forEach(key=>{
-    const sel = document.getElementById(`domo-${key}`);
-    const preview = document.getElementById(`domo-${key}-preview`);
-    if(!preview) return;
-    const card = document.getElementById(`domo-${key}-card`);
-    if(!sel||!preview) return;
-    const memberId = sel.value;
-    const m = (appData.members||[]).find(x=>x.id===memberId);
-    if(m){
-      const grad = getMemberGradient(m.id);
-      const avatarHTML = m.photo?`<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:m.emoji||'👤';
-      preview.innerHTML = `<div style="display:flex;align-items:center;gap:0.7rem;background:${grad};border-radius:10px;padding:0.6rem 0.8rem">
-        <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;overflow:hidden">${avatarHTML}</div>
-        <div>
-          <div style="font-size:0.82rem;font-weight:700;color:#fff">${m.apodo||m.nombre}</div>
-          <div style="font-size:0.68rem;color:rgba(255,255,255,0.75)">${m.cargo||''}</div>
-        </div>
-      </div>`;
-      if(card) card.style.borderColor = 'var(--aire)';
-    } else {
-      preview.innerHTML = '';
-      if(card) card.style.borderColor = 'var(--border)';
-    }
-  });
+  const pList = document.getElementById('domo-principales-list');
+  if(pList){
+    if(!window._domoEditPrincipales.length) window._domoEditPrincipales = [''];
+    pList.innerHTML = window._domoEditPrincipales.map((id,i)=>_domoMemberSelectHTML(id,'p',i)).join('');
+  }
+  const aList = document.getElementById('domo-astronautas-list');
+  if(aList){
+    aList.innerHTML = window._domoEditAstronautas.map((id,i)=>_domoMemberSelectHTML(id,'a',i)).join('');
+  }
+}
+function _domoOnSelectChange(kind, idx, val){
+  const arr = kind==='p' ? window._domoEditPrincipales : window._domoEditAstronautas;
+  arr[idx] = val;
+  renderDomoPrincipalCards();
+}
+function _domoRemove(kind, idx){
+  const arr = kind==='p' ? window._domoEditPrincipales : window._domoEditAstronautas;
+  arr.splice(idx,1);
+  if(kind==='p' && !arr.length) arr.push(''); // siempre dejar al menos 1 casilla de principal
+  renderDomoPrincipalCards();
+}
+function domoAddPrincipal(){ window._domoEditPrincipales.push(''); renderDomoPrincipalCards(); }
+function domoAddAstronauta(){
+  window._domoEditAstronautas.push('');
+  const wrap = document.getElementById('domo-helpers-wrap');
+  if(wrap && wrap.style.display==='none'){ toggleAstronautasSection(); }
+  renderDomoPrincipalCards();
 }
 
 function updateDirectorPreview(){
@@ -16573,63 +16624,61 @@ function updateDirectorPreview(){
 function renderBrandDomo(){
   const brand = appData.brands.find(b=>b.id===currentBrandId);
   if(!brand) return;
-  const domo = brand.domo || {principales:[],astronautas:[]};
+  const domo = brand.domo || {};
   const members = appData.members||[];
 
-  // Populate selects
-  ['domo-p1','domo-p2','domo-h1','domo-h2','domo-director'].forEach(selId=>{
-    const sel = document.getElementById(selId);
-    if(!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">— Sin asignar —</option>' +
-      members.map(m=>`<option value="${m.id}" ${cur===m.id?'selected':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
-  });
-
-  // Set current values
-  const p = domo.principales||[];
-  const h = domo.astronautas||[];
-  if(document.getElementById('domo-p1')) (document.getElementById('domo-p1')||{}).value = p[0]||domo.m1||'';
-  if(document.getElementById('domo-p2')) (document.getElementById('domo-p2')||{}).value = p[1]||domo.m2||'';
-  if(document.getElementById('domo-h1')) (document.getElementById('domo-h1')||{}).value = (h[0]||(domo.helpers||[])[0])||'';
-  if(document.getElementById('domo-h2')) (document.getElementById('domo-h2')||{}).value = (h[1]||(domo.helpers||[])[1])||'';
-  // Director creativo
+  // Director select
   const dirSel = document.getElementById('domo-director');
-  if(dirSel) dirSel.value = brand.director||'';
+  if(dirSel){
+    dirSel.innerHTML = '<option value="">— Sin asignar —</option>' +
+      members.map(m=>`<option value="${m.id}" ${brand.director===m.id?'selected':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
+    dirSel.value = brand.director||'';
+  }
   updateDirectorPreview();
+
+  // Inicializar arrays de edición desde el domo (con fallback a m1/m2/helpers)
+  window._domoEditPrincipales = _domoPrincipalIds(domo).slice();
+  if(!window._domoEditPrincipales.length) window._domoEditPrincipales = [''];
+  window._domoEditAstronautas = _domoAstronautaIds(domo).slice();
+  // Si hay astronautas, abrir la sección
+  if(window._domoEditAstronautas.length){
+    const wrap = document.getElementById('domo-helpers-wrap');
+    const arrow = document.getElementById('astronautas-toggle-arrow');
+    if(wrap){ wrap.style.display='flex'; if(arrow) arrow.textContent='▼'; }
+  }
   renderDomoPrincipalCards();
 
   // Preview
   const preview = document.getElementById('domo-preview');
-  const allIds = [...p,...h].filter(Boolean);
   if(!preview) return;
-  if(!allIds.length){ preview.innerHTML=''; return; }
-  const allMembers = allIds.map(id=>members.find(m=>m.id===id)).filter(Boolean);
+  const p = window._domoEditPrincipales.filter(Boolean);
+  const h = window._domoEditAstronautas.filter(Boolean);
+  if(!p.length && !h.length){ preview.innerHTML=''; return; }
   preview.innerHTML = `<div style="font-size:0.75rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:0.5rem">Domo actual</div>
     <div class="domo-members-row">
-      ${p.filter(Boolean).map(id=>{const m=members.find(x=>x.id===id);return m?`<span class="domo-member-chip principal">${m.emoji||'👤'} ${m.apodo||m.nombre}</span>`:''}).join('')}
-      ${h.filter(Boolean).map(id=>{const m=members.find(x=>x.id===id);return m?`<span class="domo-member-chip astronauta">${m.emoji||'👤'} ${m.apodo||m.nombre}</span>`:''}).join('')}
+      ${p.map(id=>{const m=members.find(x=>x.id===id);return m?`<span class="domo-member-chip principal">${m.emoji||'👤'} ${m.apodo||m.nombre}</span>`:''}).join('')}
+      ${h.map(id=>{const m=members.find(x=>x.id===id);return m?`<span class="domo-member-chip astronauta">${m.emoji||'👤'} ${m.apodo||m.nombre}</span>`:''}).join('')}
     </div>`;
 }
 
 async function saveBrandDomo(){
-    const brand = appData.brands.find(b=>b.id===currentBrandId);
+  const brand = appData.brands.find(b=>b.id===currentBrandId);
   if(!brand) return;
-  const p1 = document.getElementById('domo-p1')?.value||'';
-  const p2 = document.getElementById('domo-p2')?.value||'';
-  const h1 = document.getElementById('domo-h1')?.value||'';
-  const h2 = document.getElementById('domo-h2')?.value||'';
+  const principales = (window._domoEditPrincipales||[]).filter(Boolean);
+  const astronautas = (window._domoEditAstronautas||[]).filter(Boolean);
   brand.domo = {
-    m1: p1, m2: p2,
-    helpers: [h1,h2].filter(Boolean),
-    principales: [p1,p2].filter(Boolean),
-    astronautas: [h1,h2].filter(Boolean)
+    principales,
+    astronautas,
+    // Compatibilidad hacia atrás con el resto del código que aún lee m1/m2/helpers:
+    m1: principales[0] || '',
+    m2: principales[1] || '',
+    helpers: astronautas,
   };
   brand.director = document.getElementById('domo-director')?.value||'';
   markLocalChange('brands');
   await upsert();
   showStatus('Domo guardado ✓');
   renderBrandDomo();
-  // Actualizar hero para reflejar cambios de domo y director
   if(currentBrandId) renderBrandPage();
 }
 
@@ -17082,6 +17131,10 @@ async function saveBrand(){
       if(!brand.domo)brand.domo={m1:'',m2:'',helpers:[]};
       brand.domo.m1=document.getElementById('input-domo-m1').value;
       brand.domo.m2=document.getElementById('input-domo-m2').value;
+      // Sincronizar el array de principales preservando un 3º+ asignado en la pestaña Domo
+      const _prevP = Array.isArray(brand.domo.principales)?brand.domo.principales.slice():[];
+      brand.domo.principales = [brand.domo.m1, brand.domo.m2, ..._prevP.slice(2)].filter(Boolean);
+      if(!Array.isArray(brand.domo.astronautas)) brand.domo.astronautas = (brand.domo.helpers||[]).filter(Boolean);
       if(image){ brand.image=image; await saveBrandImageToSupabase(brand.id, image); }
       markBrandChange(brand.id); // merge granular: local gana solo para ESTA marca
     }
@@ -17144,7 +17197,9 @@ async function saveBrand(){
       domo:{
         m1:document.getElementById('input-domo-m1').value||(appData.template?.domoM1||''),
         m2:document.getElementById('input-domo-m2').value||(appData.template?.domoM2||''),
-        helpers:[]
+        helpers:[],
+        principales:[document.getElementById('input-domo-m1').value||(appData.template?.domoM1||''), document.getElementById('input-domo-m2').value||(appData.template?.domoM2||'')].filter(Boolean),
+        astronautas:[]
       },
       image,
       includeNaming,
@@ -19127,19 +19182,14 @@ function ensureTeamData() {
 function domoPartnerPill(brandId, viewingMemberId){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand?.domo) return '';
-  const m1 = (appData.members||[]).find(m=>m.id===brand.domo.m1);
-  const m2 = (appData.members||[]).find(m=>m.id===brand.domo.m2);
+  const principalMembers = _domoPrincipalIds(brand.domo).map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
   let toShow = [];
   if(viewingMemberId){
-    // Show the partner (the one who is NOT the viewing member)
-    if(m1 && m1.id !== viewingMemberId) toShow.push(m1);
-    if(m2 && m2.id !== viewingMemberId) toShow.push(m2);
-    // Cap to 1 (the direct partner)
-    toShow = toShow.slice(0,1);
+    // Mostrar los compañeros (todos los principales excepto el que se está viendo)
+    toShow = principalMembers.filter(m=>m.id !== viewingMemberId);
   } else {
-    // Show both principals
-    if(m1) toShow.push(m1);
-    if(m2) toShow.push(m2);
+    // Mostrar todos los principales
+    toShow = principalMembers;
   }
   if(!toShow.length) return '';
   return toShow.map(m=>{
@@ -19218,7 +19268,7 @@ function getMemberHitos(memberId) {
   (appData.brands || []).forEach(brand => {
     if(brand.paused || brand.archivedAt || brand.deletedAt) return; // skip paused/archived
     const domo = brand.domo;
-    const inDomo = domo && (domo.m1 === memberId || domo.m2 === memberId || (domo.helpers||[]).includes(memberId));
+    const inDomo = domo && (_domoHasMember(domo, memberId));
     const isDirector = brand.director === memberId;
 
     if (!inDomo && !isDirector) return;
@@ -19320,7 +19370,7 @@ function getMemberDomos(memberId) {
   return (appData.brands || []).filter(brand => {
     const domo = brand.domo;
     if (!domo) return false;
-    return domo.m1 === memberId || domo.m2 === memberId || (domo.helpers||[]).includes(memberId);
+    return _domoHasMember(domo, memberId);
   });
 }
 
@@ -19438,7 +19488,7 @@ function renderEquipoMiniCard(memberId){
   const m = (appData.members||[]).find(x=>x.id===memberId);
   if(!m) return;
   const grad = getMemberGradient(memberId);
-  const myBrands = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id||(b.domo.helpers||[]).includes(m.id)));
+  const myBrands = (appData.brands||[]).filter(b=>b.domo && _domoHasMember(b.domo, m.id));
   const totalActs = myBrands.reduce((s,b)=>{
     return s + Object.values(b.cronograma||{}).flat().length;
   },0);
@@ -19628,7 +19678,7 @@ function renderPmContent(){
   // ── Marcas sin domo ──
   const sdEl=document.getElementById('pm-sin-domo');
   if(sdEl){
-    const sinDomo=brands.filter(b=>!b.domo||(!b.domo.m1&&!b.domo.m2));
+    const sinDomo=brands.filter(b=>!b.domo || _domoPrincipalIds(b.domo).length===0);
     if(!sinDomo.length){sdEl.innerHTML='<div style="font-size:0.78rem;color:var(--tierra)">✅ Todas las marcas tienen domo asignado</div>';}
     else sdEl.innerHTML=sinDomo.map(b=>{
       const col=getBrandColor(b);
@@ -19785,7 +19835,7 @@ function renderPmContent(){
   // Calcular datos domo
   const domoMap={};
   brands.forEach(b=>{
-    if(!b.domo||(!b.domo.m1&&!b.domo.m2)) return;
+    if(!b.domo || _domoPrincipalIds(b.domo).length===0) return;
     const key=[b.domo.m1,b.domo.m2].filter(Boolean).sort().join('_');
     if(!domoMap[key]) domoMap[key]={key,m1:b.domo.m1,m2:b.domo.m2,hitosMes:0,hitosTrim:0};
     Object.values(b.cronograma||{}).flat().forEach(a=>{
@@ -19799,7 +19849,7 @@ function renderPmContent(){
 
   // Calcular datos miembro
   window._pmProdData.miem=members.map(m=>{
-    const myBrands=brands.filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id));
+    const myBrands=brands.filter(b=>b.domo && _domoPrincipalIds(b.domo).includes(m.id));
     let hitosMes=0,hitosTrim=0;
     myBrands.forEach(b=>{
       Object.values(b.cronograma||{}).flat().forEach(a=>{
@@ -19992,7 +20042,7 @@ function setEqCardMode(mode){
 function _renderMemberBrands(m){
   // Marcas donde este miembro está en el domo (m1, m2, o helpers)
   const brands = (appData.brands||[]).filter(b =>
-    b.domo && (b.domo.m1===m.id || b.domo.m2===m.id || (b.domo.helpers||[]).includes(m.id))
+    b.domo && _domoHasMember(b.domo, m.id)
   );
   if(!brands.length) return '<div style="font-size:0.7rem;color:var(--text3);padding:0.5rem 0.5rem 0.3rem">Sin marcas asignadas</div>';
   const cards = brands.map(b => {
@@ -20099,7 +20149,7 @@ function renderMembersGrid(){
     const areaPills = memberAreas.map(aid=>{ const a=AREAS.find(x=>x.id===aid); return a?`<span style="font-size:0.68rem;opacity:0.85">${a.emoji} ${a.label}</span>`:''; }).filter(Boolean).join(' · ');
     const avatarHTML = m.photo ? `<img src="${m.photo}" alt="">` : (m.emoji||'👤');
     const gradient = getMemberGradient(m.id);
-    const myDomos = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id||(b.domo.helpers||[]).includes(m.id))).map(b=>b.name);
+    const myDomos = (appData.brands||[]).filter(b=>b.domo && _domoHasMember(b.domo, m.id)).map(b=>b.name);
     return `<div class="member-card" id="mcard-${m.id}"
       draggable="true"
       ondragstart="memberDragStart(event,'${m.id}')"
@@ -20137,7 +20187,7 @@ function renderMembersGrid(){
       <!-- Tareas / Marcas -->
       <div class="member-card-right">
         <div onclick="event.stopPropagation();${_eqCardMode==='marcas'?`toggleMemberBrands('${m.id}')`:"toggleMemberTasks('${m.id}')"}" style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.9rem;cursor:pointer;border-bottom:1px solid var(--border);user-select:none" onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background='transparent'">
-          <span style="font-size:0.67rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px">${_eqCardMode==='marcas'?'Marcas':'Tareas'} <span style="font-weight:400;color:var(--text3)">(${_eqCardMode==='marcas'?(appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id||(b.domo.helpers||[]).includes(m.id))).length:upcoming.length})</span></span>
+          <span style="font-size:0.67rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px">${_eqCardMode==='marcas'?'Marcas':'Tareas'} <span style="font-weight:400;color:var(--text3)">(${_eqCardMode==='marcas'?(appData.brands||[]).filter(b=>b.domo && _domoHasMember(b.domo, m.id)).length:upcoming.length})</span></span>
           <span id="tasks-arrow-${m.id}" style="font-size:0.65rem;color:var(--text3);display:inline-block;transition:transform 0.2s;transform:${_eqCardMode==='tareas'?'rotate(-90deg)':''}">▼</span>
         </div>
         <div class="${_eqCardMode==='marcas'?'member-hitos-preview':'member-hitos-preview collapsed'}" id="tasks-body-${m.id}" style="${_eqCardMode==='marcas'?'height:auto':''}">
@@ -20400,7 +20450,7 @@ function renderEqWeekPM(){
     const member = (appData.members||[]).find(m=>m.id===memberId);
     if(!member) return result;
     (appData.brands||[]).forEach(brand=>{
-      const inDomo = brand.domo && (brand.domo.m1===memberId || brand.domo.m2===memberId || (brand.domo.helpers||[]).includes(memberId));
+      const inDomo = brand.domo && _domoHasMember(brand.domo, memberId);
       const isDirector = brand.director===memberId;
       if(!inDomo && !isDirector) return;
       ['aire','agua','tierra','fuego'].forEach(stage=>{
@@ -20865,7 +20915,7 @@ function _renderRoleColumn(containerId, members, brands, roleType){
     if(roleType==='dir'){
       brandList = brands.filter(b=>b.director===m.id);
     } else {
-      brandList = brands.filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id));
+      brandList = brands.filter(b=>b.domo && _domoPrincipalIds(b.domo).includes(m.id));
     }
 
     const col = getMemberColor(m);
@@ -20995,7 +21045,7 @@ function renderEqDomos(){
   // ── Build domos from brand domo assignments ──
   const domoMap = {}; // key → {m1,m2,brands:[]}
   brands.forEach(b=>{
-    if(!b.domo||(!b.domo.m1&&!b.domo.m2)) return;
+    if(!b.domo || _domoPrincipalIds(b.domo).length===0) return;
     // Si hay un miembro seleccionado, solo incluir domos donde aparece ese miembro
     if(currentMemberId && b.domo.m1!==currentMemberId && b.domo.m2!==currentMemberId && !(b.domo.helpers||[]).includes(currentMemberId)) return;
     const key = getDomoKey(b.domo.m1, b.domo.m2);
@@ -21316,6 +21366,8 @@ async function deleteMemberCurrent(){
     if(b.domo.m1===deletedId) b.domo.m1='';
     if(b.domo.m2===deletedId) b.domo.m2='';
     b.domo.helpers = (b.domo.helpers||[]).filter(h=>h!==deletedId);
+    if(Array.isArray(b.domo.principales)) b.domo.principales = b.domo.principales.filter(id=>id!==deletedId);
+    if(Array.isArray(b.domo.astronautas)) b.domo.astronautas = b.domo.astronautas.filter(id=>id!==deletedId);
   });
 
   // 3. Clean clientNotes assignees
@@ -24587,7 +24639,7 @@ function renderBrandsMiembro(){
 
   const groups = [];
   members.forEach(m=>{
-    const mb = brands.filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id||(b.domo.helpers||[]).includes(m.id)));
+    const mb = brands.filter(b=>b.domo && _domoHasMember(b.domo, m.id));
     if(mb.length) groups.push({member:m, brands:mb});
   });
   const asignadas = new Set(brands.filter(b=>b.domo&&(b.domo.m1||b.domo.m2)).map(b=>b.id));
@@ -25574,7 +25626,7 @@ function exportEquipoPDF(){
   const rows = members.map(m=>{
     const hitos = getMemberHitos(m.id).filter(h=>new Date(h.date+'T00:00:00')>=today).sort((a,b)=>a.date.localeCompare(b.date));
     const proxima = hitos[0] ? `${(appData.brands||[]).find(b=>b.id===hitos[0].brandId)?.name||'—'} · ${hitos[0].date}` : 'Sin tareas';
-    const myBrands = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id)).map(b=>b.name).join(', ')||'—';
+    const myBrands = (appData.brands||[]).filter(b=>b.domo && _domoPrincipalIds(b.domo).includes(m.id)).map(b=>b.name).join(', ')||'—';
     return [m.apodo||m.nombre, m.cargo||'—', (m.areas&&m.areas.length?m.areas:m.area?[m.area]:[]).join(', ')||'—', String(hitos.length), proxima, myBrands];
   });
 
@@ -25595,7 +25647,7 @@ function exportEquipoXLSX(){
   const today = new Date(); today.setHours(0,0,0,0);
   const data = members.map(m=>{
     const hitos = getMemberHitos(m.id).filter(h=>new Date(h.date+'T00:00:00')>=today).sort((a,b)=>a.date.localeCompare(b.date));
-    const myBrands = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1===m.id||b.domo.m2===m.id)).map(b=>b.name).join(', ')||'—';
+    const myBrands = (appData.brands||[]).filter(b=>b.domo && _domoPrincipalIds(b.domo).includes(m.id)).map(b=>b.name).join(', ')||'—';
     return { Nombre:m.apodo||m.nombre, 'Nombre completo':m.nombre, Cargo:m.cargo||'—', Área:(m.areas&&m.areas.length?m.areas:m.area?[m.area]:[]).join(', ')||'—', 'Tareas próximas':hitos.length, 'Marcas asignadas':myBrands, Status:m.status||'' };
   });
   // Detailed tasks sheet
@@ -27133,6 +27185,7 @@ async function toggleHubNote(noteId){
   if(!note) return;
   note.done = !note.done;
   if(note.done) note.doneAt = new Date().toISOString();
+  note.doneChangedAt = new Date().toISOString(); // 🔒 marca de tiempo del cambio (anti auto-archivado por sync viejo)
   // 🔒 Guardar en tabla
   if(window.ClientNotesDB){ await ClientNotesDB.saveNote(note); }
   markLocalChange('clientNotes');
