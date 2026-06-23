@@ -1391,9 +1391,12 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
 /* Grids de "Próximos" (cumpleaños / pausa activa) — responsive */
 .cumple-prox-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.4rem;}
 .pa-prox-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0.4rem;}
+.domo-grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0.6rem;align-items:start;}
+@media (max-width: 900px){ .domo-grid-3{grid-template-columns:repeat(2,minmax(0,1fr));} }
 @media (max-width: 560px){
   .cumple-prox-grid{grid-template-columns:1fr;}
   .pa-prox-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .domo-grid-3{grid-template-columns:1fr;}
 }
 
 /* ── MOBILE (≤768px) ── */
@@ -2636,7 +2639,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
             <!-- Principals: lista dinámica (múltiples diseñadores/redactores) -->
             <div style="margin-bottom:1.2rem">
               <label class="form-label" style="margin-bottom:0.7rem">Integrantes principales (diseñadores / redactores)</label>
-              <div id="domo-principales-list" style="display:flex;flex-direction:column;gap:0.6rem"></div>
+              <div id="domo-principales-list" class="domo-grid-3"></div>
               <button type="button" onclick="domoAddPrincipal()" style="margin-top:0.6rem;background:none;border:1px dashed var(--border);border-radius:10px;padding:0.5rem 0.95rem;font-size:0.78rem;color:var(--tierra);cursor:pointer;font-family:var(--font);font-weight:700">+ Agregar principal</button>
             </div>
             <!-- Astronautas toggle -->
@@ -2645,7 +2648,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
                 <span id="astronautas-toggle-arrow">▶</span> 🚀 Astronautas (opcionales)
               </button>
               <div id="domo-helpers-wrap" style="display:none;flex-direction:column;gap:0.4rem;margin-top:0.6rem">
-                <div id="domo-astronautas-list" style="display:flex;flex-direction:column;gap:0.4rem"></div>
+                <div id="domo-astronautas-list" class="domo-grid-3"></div>
                 <button type="button" onclick="domoAddAstronauta()" style="align-self:flex-start;background:none;border:1px dashed var(--border);border-radius:10px;padding:0.45rem 0.9rem;font-size:0.76rem;color:var(--text3);cursor:pointer;font-family:var(--font);font-weight:600">+ Agregar astronauta</button>
               </div>
             </div>
