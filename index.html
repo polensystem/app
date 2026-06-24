@@ -3399,19 +3399,30 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
             🔔<span id="crm-notif-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;font-size:0.6rem;font-weight:800;min-width:16px;height:16px;border-radius:99px;padding:0 0.2rem;align-items:center;justify-content:center;line-height:1"></span>
           </button>
           <button onclick="openCrmModal()" class="btn-add" style="background:var(--tierra)">+ Agregar prospecto</button>
+          <button onclick="openCrmImportModal()" title="Importar prospectos desde Excel/CSV" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.74rem;color:var(--text2);cursor:pointer;font-family:var(--font)">📥 Importar</button>
           <button onclick="openCrmEtapasModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.74rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⚙️ Etapas</button>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem">
         <input id="crm-search" type="text" placeholder="Buscar prospecto..." oninput="renderCRM()"
           style="flex:1;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.7rem 1rem;color:var(--text);font-family:var(--font);font-size:0.9rem;outline:none">
-        <div class="tray-view-toggle">
-          <button id="crm-view-pipe" class="active" onclick="setCrmView('pipe')" title="Vista pipeline">▦</button>
+        <select id="crm-board-sort" onchange="setCrmBoardSort(this.value)" title="Ordenar prospectos"
+          style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.5rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font);outline:none">
+          <option value="manual">Orden: manual</option>
+          <option value="nombre">Orden: nombre (A-Z)</option>
+          <option value="ultimo">Orden: último seguimiento</option>
+          <option value="proximo">Orden: próximo (urgencia)</option>
+          <option value="prioridad">Orden: prioridad</option>
+          <option value="probabilidad">Orden: probabilidad</option>
+        </select>
+        <button id="crm-collapse-all" onclick="crmCollapseAll()" title="Comprimir todas las columnas" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.7rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⟩⟨ Comprimir</button>
+        <button id="crm-expand-all" onclick="crmExpandAll()" title="Expandir todas las columnas" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.7rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⟨⟩ Expandir</button>
+        <div class="tray-view-toggle" style="flex-shrink:0">
+          <button id="crm-view-pipe" class="active" onclick="setCrmView('pipe')" title="Vista pipeline (por etapa)">▦</button>
+          <button id="crm-view-prob" onclick="setCrmView('prob')" title="Kanban por probabilidad">◑</button>
           <button id="crm-view-table" onclick="setCrmView('table')" title="Vista tabla">☰</button>
           <button id="crm-view-agenda" onclick="setCrmView('agenda')" title="Próximos seguimientos">📅</button>
         </div>
-        <button id="crm-collapse-all" onclick="crmCollapseAll()" title="Comprimir todas las columnas" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.7rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⟩⟨ Comprimir</button>
-        <button id="crm-expand-all" onclick="crmExpandAll()" title="Expandir todas las columnas" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.7rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⟨⟩ Expandir</button>
       </div>
       <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;align-items:flex-start">
         <div id="crm-notif-panel" style="flex:1 1 340px;min-width:0"></div>
@@ -4695,6 +4706,7 @@ window.CrmDB = (function(){
       marcaCreadaId: ex.marcaCreadaId || '',
       freqCustom: ex.freqCustom || null,
       propuestaUrl: ex.propuestaUrl || '',
+      probabilidad: ex.probabilidad || 'media',
       historial: Array.isArray(ex.historial) ? ex.historial : [],
     };
   }
@@ -4710,7 +4722,7 @@ window.CrmDB = (function(){
       ultimo_contacto: it.ultimoContacto || null,
       info: it.info || '',
       orden: it.orden || 0,
-      extra: { marcaCreadaId: it.marcaCreadaId||'', empresa: it.empresa||'', freqCustom: it.freqCustom||null, propuestaUrl: it.propuestaUrl||'', historial: it.historial||[] },
+      extra: { marcaCreadaId: it.marcaCreadaId||'', empresa: it.empresa||'', freqCustom: it.freqCustom||null, propuestaUrl: it.propuestaUrl||'', probabilidad: it.probabilidad||'media', historial: it.historial||[] },
     };
   }
 
@@ -10069,6 +10081,16 @@ async function loadCRM(){
 function _crmEtapas(){ return (_crmData.config && _crmData.config.etapas) || _crmDefaultConfig().etapas; }
 function _crmProtocolos(){ return (_crmData.config && _crmData.config.protocolos) || {verde:7,amarillo:4,rojo:2}; }
 function _crmSemClass(p){ return p==='rojo'?'crm-sem-r':p==='amarillo'?'crm-sem-a':'crm-sem-v'; }
+// Probabilidad de cierre del prospecto: tag de texto con color
+const CRM_PROB = {
+  alta:  { label:'Probable',      color:'#22c55e', bg:'rgba(34,197,94,0.12)' },
+  media: { label:'Neutral',       color:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
+  baja:  { label:'Poco probable', color:'#f97316', bg:'rgba(249,115,22,0.12)' },
+};
+function _crmProbTag(it){
+  const p = CRM_PROB[(it&&it.probabilidad)||'media'] || CRM_PROB.media;
+  return `<span title="Probabilidad de cierre" style="display:inline-block;font-size:0.6rem;font-weight:700;color:${p.color};background:${p.bg};border-radius:99px;padding:0.12rem 0.5rem;line-height:1.3;white-space:nowrap">${p.label}</span>`;
+}
 // Frecuencia efectiva de seguimiento (días): personalizada si existe, sino la del tier
 function _crmFreqDias(it){
   if(it && it.freqCustom && Number(it.freqCustom)>0) return Number(it.freqCustom);
@@ -10117,6 +10139,12 @@ function _crmEtapaEsGanada(etapaId){
   if(!e) return false;
   const n = (e.nombre||'').toLowerCase();
   return (n.includes('cerrad') || n.includes('ganad')) && !n.includes('perdid');
+}
+// ¿Es una etapa descartada (perdido / abandonado / descartado)?
+function _crmEtapaEsDescartada(etapaId){
+  const e = _crmEtapas().find(x=>x.id===etapaId);
+  const n = (e ? (e.nombre||'') : (etapaId||'')).toLowerCase();
+  return n.includes('perdid') || n.includes('abandonad') || n.includes('descart');
 }
 // Estado de filtro/orden del panel de seguimientos
 window._crmNotifFiltroPrioridad = '';   // '', 'rojo', 'amarillo', 'verde'
@@ -10300,14 +10328,18 @@ window._crmExpanded = {};
 
 function setCrmView(v){
   window._crmView = v;
-  const p=document.getElementById('crm-view-pipe'), t=document.getElementById('crm-view-table'), a=document.getElementById('crm-view-agenda');
+  const p=document.getElementById('crm-view-pipe'), t=document.getElementById('crm-view-table'), a=document.getElementById('crm-view-agenda'), pr=document.getElementById('crm-view-prob');
   if(p) p.classList.toggle('active', v==='pipe');
+  if(pr) pr.classList.toggle('active', v==='prob');
   if(t) t.classList.toggle('active', v==='table');
   if(a) a.classList.toggle('active', v==='agenda');
   const ca=document.getElementById('crm-collapse-all'), ea=document.getElementById('crm-expand-all');
-  const show = v==='pipe' ? '' : 'none';
-  if(ca) ca.style.display=show;
-  if(ea) ea.style.display=show;
+  // Comprimir/expandir solo aplica al pipeline (columnas por etapa)
+  if(ca) ca.style.display = v==='pipe' ? '' : 'none';
+  if(ea) ea.style.display = v==='pipe' ? '' : 'none';
+  // El selector de orden aplica a los dos kanban (pipeline y probabilidad)
+  const ss=document.getElementById('crm-board-sort');
+  if(ss){ ss.style.display = (v==='pipe'||v==='prob') ? '' : 'none'; ss.value = window._crmBoardSort||'manual'; }
   renderCRM();
 }
 
@@ -10386,6 +10418,95 @@ async function toggleCrmTareaDone(id){
   showStatus(t.done ? 'To-do completado ✓ — va al archivo' : 'To-do reabierto');
 }
 
+// ── Tarjeta de prospecto (reutilizada por kanban pipeline y por probabilidad) ──
+function _crmCardHTML(it, color){
+  const sem = _crmSemClass(it.prioridad);
+  const fecha = it.ultimoContacto ? ('Últ. seg: '+fmtCrmDate(it.ultimoContacto)) : 'Sin seguimientos';
+  const contacto = it.contacto ? escapeHtml(it.contacto) : '<span style="opacity:0.5">Sin persona de contacto</span>';
+  return `<div class="crm-card" draggable="true" data-id="${it.id}"
+      ondragstart="crmDragStart(event,'${it.id}')" ondragend="crmDragEnd(event)"
+      onclick="openCrmView('${it.id}')" style="border-left-color:${color};position:relative">
+    <span style="position:absolute;top:0.4rem;right:0.45rem">${_crmProbTag(it)}</span>
+    <div class="crm-card-name" style="padding-right:5.5rem">${escapeHtml(it.nombre)}</div>
+    ${it.empresa?`<div class="crm-card-contact" style="font-weight:600;color:var(--text2)">🏢 ${escapeHtml(it.empresa)}</div>`:''}
+    <div class="crm-card-contact">${contacto}</div>
+    <div class="crm-card-foot">
+      <span class="crm-sem ${sem}" title="Prioridad"></span>
+      <span style="display:inline-flex;align-items:center;gap:0.35rem">
+        ${it.propuestaUrl?'<span title="Tiene propuesta" style="font-size:0.7rem">🔗</span>':''}
+        <span class="crm-card-date">${fecha}</span>
+      </span>
+    </div>
+  </div>`;
+}
+
+// ── Ordenamiento de prospectos dentro de las columnas kanban ──
+window._crmBoardSort = (function(){ try{ return localStorage.getItem('polen-crm-board-sort')||'manual'; }catch(e){ return 'manual'; } })();
+function setCrmBoardSort(v){
+  window._crmBoardSort = v;
+  try{ localStorage.setItem('polen-crm-board-sort', v); }catch(e){}
+  renderCRM();
+}
+function _crmSortItems(arr){
+  const s = window._crmBoardSort || 'manual';
+  const items = arr.slice();
+  const probRank = { alta:3, media:2, baja:1 };
+  const prioRank = { rojo:3, amarillo:2, verde:1 };
+  switch(s){
+    case 'nombre':
+      items.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'', 'es', {sensitivity:'base'})); break;
+    case 'ultimo': // último seguimiento (más reciente primero)
+      items.sort((a,b)=>(b.ultimoContacto||'').localeCompare(a.ultimoContacto||'')); break;
+    case 'proximo': // más atrasado / urgente primero
+      items.sort((a,b)=>_crmDiasAtraso(b)-_crmDiasAtraso(a)); break;
+    case 'prioridad':
+      items.sort((a,b)=>(prioRank[b.prioridad]||0)-(prioRank[a.prioridad]||0)); break;
+    case 'probabilidad':
+      items.sort((a,b)=>(probRank[b.probabilidad||'media']||0)-(probRank[a.probabilidad||'media']||0)); break;
+    default: // 'manual' → orden definido por arrastre
+      items.sort((a,b)=>(a.orden||0)-(b.orden||0));
+  }
+  return items;
+}
+
+// ── Kanban agrupado por PROBABILIDAD (3 columnas) ──
+const _CRM_PROB_COLS = [
+  { id:'alta',  nombre:'Probable',      color:'#22c55e' },
+  { id:'media', nombre:'Neutral',       color:'#3b82f6' },
+  { id:'baja',  nombre:'Poco probable', color:'#f97316' },
+];
+function renderCrmProbBoard(board, items){
+  // Los prospectos perdidos / abandonados no se consideran en el kanban de probabilidad
+  const activos = items.filter(it=> !_crmEtapaEsDescartada(it.etapa));
+  board.innerHTML = '<div class="crm-board-wrap">' + _CRM_PROB_COLS.map(col=>{
+    const enCol = _crmSortItems(activos.filter(it=>(it.probabilidad||'media')===col.id));
+    const cards = enCol.map(it=>_crmCardHTML(it, col.color)).join('');
+    return `<div class="crm-col">
+      <div class="crm-col-head">
+        <span class="crm-col-dot" style="background:${col.color}"></span>
+        <span class="crm-col-title">${col.nombre}</span>
+        <span class="crm-col-count">${enCol.length}</span>
+      </div>
+      <div class="crm-col-body" data-prob="${col.id}"
+        ondragover="crmDragOver(event)" ondragleave="crmDragLeave(event)" ondrop="crmProbDrop(event,'${col.id}')">
+        ${cards || '<div style="padding:1rem;text-align:center;color:var(--text3);font-size:0.78rem">—</div>'}
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+async function crmProbDrop(event, probId){
+  event.preventDefault();
+  event.currentTarget.classList.remove('drag-over');
+  const id = window._crmDragId;
+  if(!id) return;
+  const it = _crmData.items.find(x=>x.id===id);
+  if(!it || (it.probabilidad||'media')===probId) return;
+  it.probabilidad = probId;
+  await CrmDB.saveItem(it);
+  renderCRM();
+  showStatus('Probabilidad actualizada ✓');
+}
+
 function renderCRM(){
   const board = document.getElementById('crm-board');
   if(!board) return;
@@ -10396,12 +10517,14 @@ function renderCRM(){
   const etapas = _crmEtapas();
   const items = _crmData.items.filter(it=> !q || (it.nombre||'').toLowerCase().includes(q) || (it.contacto||'').toLowerCase().includes(q) || (it.empresa||'').toLowerCase().includes(q));
 
+  const _ss=document.getElementById('crm-board-sort'); if(_ss) _ss.value = window._crmBoardSort||'manual';
   if(window._crmView === 'table'){ renderCrmTable(board, items, etapas); return; }
   if(window._crmView === 'agenda'){ renderCrmAgenda(board, items, etapas); return; }
+  if(window._crmView === 'prob'){ renderCrmProbBoard(board, items); return; }
 
   const collapsed = window._crmColCollapsed || {};
   board.innerHTML = '<div class="crm-board-wrap">' + etapas.map(et=>{
-    const enEtapa = items.filter(it=>it.etapa===et.id).sort((a,b)=>(a.orden||0)-(b.orden||0));
+    const enEtapa = _crmSortItems(items.filter(it=>it.etapa===et.id));
 
     // Columna COLAPSADA: tira vertical delgada con título rotado
     if(collapsed[et.id]){
@@ -10414,25 +10537,7 @@ function renderCRM(){
       </div>`;
     }
 
-    const cards = enEtapa.map(it=>{
-      const sem = _crmSemClass(it.prioridad);
-      const fecha = it.ultimoContacto ? ('Últ. seg: '+fmtCrmDate(it.ultimoContacto)) : 'Sin seguimientos';
-      const contacto = it.contacto ? escapeHtml(it.contacto) : '<span style="opacity:0.5">Sin persona de contacto</span>';
-      return `<div class="crm-card" draggable="true" data-id="${it.id}"
-          ondragstart="crmDragStart(event,'${it.id}')" ondragend="crmDragEnd(event)"
-          onclick="openCrmView('${it.id}')" style="border-left-color:${et.color}">
-        <div class="crm-card-name">${escapeHtml(it.nombre)}</div>
-        ${it.empresa?`<div class="crm-card-contact" style="font-weight:600;color:var(--text2)">🏢 ${escapeHtml(it.empresa)}</div>`:''}
-        <div class="crm-card-contact">${contacto}</div>
-        <div class="crm-card-foot">
-          <span class="crm-sem ${sem}" title="Prioridad"></span>
-          <span style="display:inline-flex;align-items:center;gap:0.35rem">
-            ${it.propuestaUrl?'<span title="Tiene propuesta" style="font-size:0.7rem">🔗</span>':''}
-            <span class="crm-card-date">${fecha}</span>
-          </span>
-        </div>
-      </div>`;
-    }).join('');
+    const cards = enEtapa.map(it=>_crmCardHTML(it, et.color)).join('');
     return `<div class="crm-col">
       <div class="crm-col-head">
         <span class="crm-col-dot" style="background:${et.color}"></span>
@@ -10501,6 +10606,7 @@ function renderCrmTable(board, items, etapas){
       case 'nombre':   cmp = (a.nombre||'').localeCompare(b.nombre||''); break;
       case 'empresa':  cmp = (a.empresa||'').localeCompare(b.empresa||''); break;
       case 'prioridad':cmp = (prioRank[a.prioridad]||0)-(prioRank[b.prioridad]||0); break;
+      case 'probabilidad':{ const pr={alta:3,media:2,baja:1}; cmp = (pr[a.probabilidad||'media']||0)-(pr[b.probabilidad||'media']||0); break; }
       case 'persona':  cmp = (a.contacto||'').localeCompare(b.contacto||''); break;
       case 'ultimo':   cmp = (a.ultimoContacto||'').localeCompare(b.ultimoContacto||''); break;
       case 'atraso':   cmp = _crmDiasAtraso(a)-_crmDiasAtraso(b); break;
@@ -10529,7 +10635,7 @@ function renderCrmTable(board, items, etapas){
             ${h.comentario?`<div style="font-size:0.74rem;color:var(--text);margin-top:0.1rem">${escapeHtml(h.comentario)}</div>`:''}
           </div>`).join('')
         : '<div style="font-size:0.74rem;color:var(--text3)">Sin seguimientos registrados aún.</div>';
-      detalle = `<tr class="crm-table-detail"><td colspan="9" style="background:var(--bg-card2);padding:0.8rem 1rem">
+      detalle = `<tr class="crm-table-detail"><td colspan="10" style="background:var(--bg-card2);padding:0.8rem 1rem">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
           <div>
             <div style="font-size:0.66rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.2rem">Contacto</div>
@@ -10558,6 +10664,7 @@ function renderCrmTable(board, items, etapas){
       <td style="color:var(--text2);font-size:0.8rem">${it.empresa?escapeHtml(it.empresa):'—'}</td>
       <td><span class="tray-chip" style="background:${et.color}1a;border-color:${et.color}55;color:${et.color}">${escapeHtml(et.nombre)}</span></td>
       <td>${_crmSemDot(it.prioridad)}</td>
+      <td>${_crmProbTag(it)}</td>
       <td style="color:var(--text2);font-size:0.8rem">${it.contacto?escapeHtml(it.contacto):'—'}</td>
       <td style="color:var(--text2);font-size:0.8rem;max-width:300px;min-width:180px">
         <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap">${fecha}${nContactos?` <span style="color:var(--text3);font-size:0.68rem">(${nContactos})</span>`:''}${lastSeg?_crmMedioChip(lastSeg.medio):''}</div>
@@ -10575,6 +10682,7 @@ function renderCrmTable(board, items, etapas){
       <th onclick="crmTableSort('empresa')">Empresa${fl('empresa')}</th>
       <th onclick="crmTableSort('etapa')">Etapa${fl('etapa')}</th>
       <th onclick="crmTableSort('prioridad')">Prioridad${fl('prioridad')}</th>
+      <th onclick="crmTableSort('probabilidad')">Probabilidad${fl('probabilidad')}</th>
       <th onclick="crmTableSort('persona')">Persona${fl('persona')}</th>
       <th onclick="crmTableSort('ultimo')">Último seguimiento${fl('ultimo')}</th>
       <th onclick="crmTableSort('atraso')">Próximo seguimiento${fl('atraso')}</th>
@@ -11599,6 +11707,14 @@ function openCrmModal(id, etapaPredefinida){
       <span style="width:11px;height:11px;border-radius:50%;background:${color}"></span>
       <span style="font-size:0.74rem;color:var(--text2)">${label}<br><span style="font-size:0.62rem;color:var(--text3)">cada ${dias}d</span></span>
     </label>`;
+  const prob = it ? (it.probabilidad||'media') : 'media';
+  const probBtn = (val)=>{
+    const p = CRM_PROB[val];
+    return `<label style="display:flex;align-items:center;justify-content:center;cursor:pointer;flex:1;border:1.5px solid ${prob===val?p.color:'var(--border)'};border-radius:8px;padding:0.5rem 0.4rem;background:${prob===val?p.bg:'transparent'}">
+      <input type="radio" name="crm-prob" value="${val}" ${prob===val?'checked':''} style="display:none">
+      <span style="font-size:0.78rem;font-weight:700;color:${prob===val?p.color:'var(--text2)'}">${p.label}</span>
+    </label>`;
+  };
   const html = `
     <div style="display:flex;flex-direction:column;gap:0.8rem">
       <div>
@@ -11628,6 +11744,14 @@ function openCrmModal(id, etapaPredefinida){
           ${semBtn('verde','#22c55e','Baja',protos.verde)}
           ${semBtn('amarillo','#eab308','Media',protos.amarillo)}
           ${semBtn('rojo','#ef4444','Alta',protos.rojo)}
+        </div>
+      </div>
+      <div>
+        <label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.25rem">Probabilidad de cierre</label>
+        <div style="display:flex;gap:0.4rem">
+          ${probBtn('alta')}
+          ${probBtn('media')}
+          ${probBtn('baja')}
         </div>
       </div>
       <div style="border:1px solid var(--border);border-radius:9px;padding:0.6rem 0.75rem;background:var(--bg-card2)">
@@ -11704,6 +11828,7 @@ async function saveCrmItem(id){
   if(!nombre){ showStatus('El nombre es obligatorio', true); return; }
   const get = id2 => (document.getElementById(id2)?.value||'').trim();
   const prio = (document.querySelector('input[name="crm-prio"]:checked')||{}).value || 'verde';
+  const prob = (document.querySelector('input[name="crm-prob"]:checked')||{}).value || 'media';
   let it;
   if(id){
     it = _crmData.items.find(x=>x.id===id);
@@ -11716,6 +11841,7 @@ async function saveCrmItem(id){
   it.empresa=get('crm-empresa');
   it.etapa=get('crm-etapa');
   it.prioridad=prio;
+  it.probabilidad=prob;
   it.ultimoContacto=get('crm-ultimo');
   it.contacto=get('crm-contacto');
   it.telefono=get('crm-telefono');
@@ -11735,6 +11861,136 @@ async function saveCrmItem(id){
   closeTrayModal();
   renderCRM();
   showStatus(id?'Prospecto actualizado ✓':'Prospecto agregado ✓');
+}
+
+// ════════ Importación masiva de prospectos desde Excel / CSV ════════
+function openCrmImportModal(){
+  window._crmImportParsed = null;
+  const html = `<div>
+    <p style="font-size:0.8rem;color:var(--text2);line-height:1.5;margin:0 0 0.8rem">
+      Sube un archivo <b>Excel (.xlsx)</b> o <b>CSV</b> con una fila por prospecto. La primera fila debe contener los encabezados de columna.
+    </p>
+    <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.7rem 0.9rem;margin-bottom:0.9rem">
+      <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.4rem">Columnas reconocidas</div>
+      <div style="font-size:0.74rem;color:var(--text2);line-height:1.6">
+        <b>Nombre</b> (obligatorio) · Empresa · Etapa · Prioridad (alta/media/baja) · Probabilidad (probable/neutral/poco probable) · Contacto · Teléfono · Email · Notas · Propuesta (URL)
+      </div>
+    </div>
+    <button onclick="descargarPlantillaCrm()" style="width:100%;background:none;border:1px dashed var(--border);border-radius:10px;padding:0.6rem;font-size:0.8rem;color:var(--tierra);cursor:pointer;font-family:var(--font);font-weight:600;margin-bottom:0.8rem">⬇ Descargar plantilla de ejemplo</button>
+    <label style="display:block;background:var(--tierra);color:#fff;border-radius:10px;padding:0.7rem;text-align:center;font-size:0.85rem;font-weight:700;cursor:pointer">
+      📥 Seleccionar archivo Excel / CSV
+      <input type="file" accept=".xlsx,.xls,.csv" onchange="crmImportFileChange(event)" style="display:none">
+    </label>
+    <div id="crm-import-preview" style="margin-top:0.9rem"></div>
+  </div>`;
+  openGenericModal('📥 Importar prospectos', html);
+}
+
+function descargarPlantillaCrm(){
+  const rows = [{
+    Nombre:'Restaurante La Plaza', Empresa:'La Plaza S.A.', Etapa:'', Prioridad:'media',
+    Probabilidad:'neutral', Contacto:'Juan Pérez', 'Teléfono':'0991234567', Email:'juan@laplaza.com',
+    Notas:'Interesado en branding completo', Propuesta:''
+  }];
+  try{ saveXLSX(xlsxBook([{name:'Prospectos', data:rows}]), 'plantilla_prospectos_polen'); showStatus('Plantilla descargada ✓'); }
+  catch(e){ console.error(e); showStatus('❌ Error al generar la plantilla', true); }
+}
+
+function _crmParseImportRows(rows){
+  const norm = k => (''+k).toLowerCase().trim();
+  const pick = (row, keys)=>{ for(const k of Object.keys(row)){ if(keys.includes(norm(k))) return (''+row[k]).trim(); } return ''; };
+  const etapas = _crmEtapas();
+  const firstEtapa = (etapas[0] && etapas[0].id) || '';
+  const matchEtapa = (val)=>{ const v=norm(val); if(!v) return firstEtapa; const e=etapas.find(et=>norm(et.nombre)===v); return e?e.id:firstEtapa; };
+  const mapPrio = (val)=>{ const v=norm(val); if(['alta','high','rojo','red','urgente'].includes(v)) return 'rojo'; if(['media','medium','amarillo','yellow'].includes(v)) return 'amarillo'; return 'verde'; };
+  const mapProb = (val)=>{ const v=norm(val); if(['probable','alta','high','sí','si'].includes(v)) return 'alta'; if(['poco probable','baja','low','no'].includes(v)) return 'baja'; return 'media'; };
+  const out = [];
+  rows.forEach(row=>{
+    const nombre = pick(row,['nombre','prospecto','marca','name','cliente']);
+    const empresa = pick(row,['empresa','company','negocio','razón social','razon social']);
+    if(!nombre && !empresa) return;
+    out.push({
+      nombre: nombre || empresa,
+      empresa,
+      etapa: matchEtapa(pick(row,['etapa','stage','fase'])),
+      prioridad: mapPrio(pick(row,['prioridad','priority'])),
+      probabilidad: mapProb(pick(row,['probabilidad','probability'])),
+      contacto: pick(row,['contacto','persona','persona de contacto','contact','responsable']),
+      telefono: pick(row,['telefono','teléfono','phone','celular','tel']),
+      email: pick(row,['email','correo','e-mail','mail']),
+      info: pick(row,['info','notas','nota','observaciones','comentarios']),
+      propuestaUrl: pick(row,['propuesta','propuestaurl','url','link','enlace']),
+    });
+  });
+  return out;
+}
+
+function crmImportFileChange(event){
+  const file = event.target.files?.[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type:'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
+      const parsed = _crmParseImportRows(rows);
+      window._crmImportParsed = parsed;
+      _renderCrmImportPreview(parsed);
+    }catch(err){ console.error('[crmImport] error:', err); showStatus('❌ Error al leer el archivo', true); }
+    event.target.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function _renderCrmImportPreview(parsed){
+  const el = document.getElementById('crm-import-preview');
+  if(!el) return;
+  if(!parsed.length){ el.innerHTML = '<div style="color:#ef4444;font-size:0.8rem;text-align:center;padding:0.5rem">No se encontraron prospectos válidos. Revisa que exista la columna <b>Nombre</b> o <b>Empresa</b>.</div>'; return; }
+  const etapas = _crmEtapas();
+  const etName = id => (etapas.find(e=>e.id===id)||{}).nombre || '—';
+  const sample = parsed.slice(0,5).map(p=>`<tr>
+    <td style="padding:0.3rem 0.5rem;font-weight:600;border-top:1px solid var(--border)">${escapeHtml(p.nombre)}</td>
+    <td style="padding:0.3rem 0.5rem;color:var(--text2);border-top:1px solid var(--border)">${escapeHtml(p.empresa||'—')}</td>
+    <td style="padding:0.3rem 0.5rem;color:var(--text2);border-top:1px solid var(--border)">${escapeHtml(etName(p.etapa))}</td>
+    <td style="padding:0.3rem 0.5rem;border-top:1px solid var(--border)">${_crmProbTag(p)}</td>
+  </tr>`).join('');
+  el.innerHTML = `
+    <div style="font-size:0.82rem;color:var(--text);font-weight:700;margin-bottom:0.5rem">Se importarán ${parsed.length} prospecto${parsed.length!==1?'s':''}:</div>
+    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:0.8rem">
+      <table style="width:100%;border-collapse:collapse;font-size:0.74rem">
+        <thead><tr style="background:var(--bg-card2)">
+          <th style="text-align:left;padding:0.3rem 0.5rem">Nombre</th>
+          <th style="text-align:left;padding:0.3rem 0.5rem">Empresa</th>
+          <th style="text-align:left;padding:0.3rem 0.5rem">Etapa</th>
+          <th style="text-align:left;padding:0.3rem 0.5rem">Prob.</th>
+        </tr></thead>
+        <tbody>${sample}</tbody>
+      </table>
+      ${parsed.length>5?`<div style="padding:0.35rem 0.5rem;font-size:0.7rem;color:var(--text3);background:var(--bg-card2);border-top:1px solid var(--border)">… y ${parsed.length-5} más</div>`:''}
+    </div>
+    <button onclick="confirmarImportCrm()" style="width:100%;background:var(--tierra);color:#fff;border:none;border-radius:10px;padding:0.7rem;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:var(--font)">✓ Confirmar importación</button>`;
+}
+
+async function confirmarImportCrm(){
+  const parsed = window._crmImportParsed || [];
+  if(!parsed.length) return;
+  const baseOrden = _crmData.items.length;
+  const nuevos = parsed.map((p,i)=>({
+    id: 'crm_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5)+i,
+    orden: baseOrden + i,
+    historial: [],
+    ...p,
+  }));
+  nuevos.forEach(it=>_crmData.items.push(it));
+  closeTrayModal();
+  showStatus('Importando…');
+  let ok=0;
+  for(const it of nuevos){ try{ if(await CrmDB.saveItem(it)) ok++; }catch(e){ console.error(e); } }
+  window._crmImportParsed = null;
+  renderCRM();
+  showStatus(`${ok} prospecto${ok!==1?'s':''} importado${ok!==1?'s':''} ✓`);
 }
 
 async function deleteCrmItem(id){
