@@ -14188,6 +14188,7 @@ function ensurePausaActiva(){
   if(!Array.isArray(appData.pausaActiva.secuencia)) appData.pausaActiva.secuencia = [];
   if(!appData.pausaActiva.overrides || typeof appData.pausaActiva.overrides!=='object') appData.pausaActiva.overrides = {}; // fecha → memberId
   if(!Array.isArray(appData.pausaActiva.holidays)) appData.pausaActiva.holidays = []; // fechas sin pausa (saltan turno)
+  if(typeof appData.pausaActiva.offset !== 'number') appData.pausaActiva.offset = 0; // corrimiento global de la rotación
   return appData.pausaActiva;
 }
 function _paEsFinde(d){ const wd=d.getDay(); return wd===0||wd===6; }
@@ -14206,7 +14207,8 @@ function _paLiderIndexFor(fecha, pa){
   const ancla = pa.ancla ? parseLocalDate(pa.ancla) : fecha;
   if(!ancla) return 0;
   const n = _paWeekdaysBetween(ancla, fecha, pa);
-  return ((n % len) + len) % len;
+  const off = Number(pa.offset)||0; // corrimiento global de la secuencia
+  return (((n + off) % len) + len) % len;
 }
 // Devuelve el estado del líder para una fecha: {tipo, member}.
 // tipo: 'finde' | 'feriado' | 'override' | 'auto'
@@ -14311,9 +14313,27 @@ function renderPausaActiva(){
 
   grid.innerHTML = card(`${header}
     <div>
-      <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.45rem">Próximos · toca un día para reasignar o marcar feriado</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.45rem">
+        <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3)">Próximos · toca un día para editar</span>
+        <span style="display:flex;align-items:center;gap:0.3rem">
+          <span style="font-size:0.62rem;color:var(--text3)" title="Desplaza toda la rotación un lugar, manteniendo el orden">Correr secuencia</span>
+          <button onclick="_paCorrerSecuencia(-1)" title="Retroceder un lugar (toda la secuencia)" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.1rem 0.45rem;font-size:0.78rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⏮</button>
+          <button onclick="_paCorrerSecuencia(1)" title="Adelantar un lugar (toda la secuencia)" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.1rem 0.45rem;font-size:0.78rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⏭</button>
+        </span>
+      </div>
       <div class="pa-prox-grid">${proxItems}</div>
     </div>`);
+}
+
+// Corre TODA la rotación un lugar (mantiene el orden preestablecido). dir +1 adelanta, -1 retrocede.
+async function _paCorrerSecuencia(dir){
+  const pa = ensurePausaActiva();
+  if(!pa.secuencia.length){ showStatus('Primero configura la secuencia', true); return; }
+  pa.offset = (Number(pa.offset)||0) + dir;
+  markLocalChange('pausaActiva');
+  await upsert();
+  renderPausaActiva();
+  showStatus(dir>0 ? 'Secuencia corrida adelante ⏭' : 'Secuencia corrida atrás ⏮');
 }
 
 // Editar un día puntual: reasignar líder, marcar feriado (salta turno) o volver a automático.
