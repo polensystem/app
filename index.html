@@ -3400,6 +3400,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
           </button>
           <button onclick="openCrmModal()" class="btn-add" style="background:var(--tierra)">+ Agregar prospecto</button>
           <button onclick="openCrmImportModal()" title="Importar prospectos desde Excel/CSV" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.74rem;color:var(--text2);cursor:pointer;font-family:var(--font)">📥 Importar</button>
+          <button onclick="openCrmBulkSeguimiento()" title="Registrar un seguimiento en varios prospectos a la vez" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.74rem;color:var(--text2);cursor:pointer;font-family:var(--font)">📋 Seguimiento masivo</button>
           <button onclick="openCrmEtapasModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.74rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⚙️ Etapas</button>
         </div>
       </div>
@@ -11366,6 +11367,117 @@ async function addCrmContacto(id){
   showStatus('Seguimiento registrado ✓');
   openCrmView(id);   // refrescar la ficha
   renderCRM();       // refrescar el board/tabla por debajo
+}
+
+// ════════ Seguimiento masivo: un mismo seguimiento en varios prospectos ════════
+function openCrmBulkSeguimiento(){
+  const activos = (_crmData.items||[]).filter(it=>!it.archivado);
+  if(!activos.length){ showStatus('No hay prospectos activos', true); return; }
+  const inputCss = 'box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.85rem;outline:none';
+  const filaProspecto = (it)=>`<label class="crm-bulk-row" data-busca="${escapeHtml(((it.nombre||'')+' '+(it.empresa||'')).toLowerCase())}" style="display:flex;align-items:center;gap:0.6rem;padding:0.45rem 0.6rem 0.45rem 1rem;border-bottom:1px solid var(--border2);cursor:pointer">
+      <input type="checkbox" class="crm-bulk-chk" value="${it.id}" onchange="_crmBulkUpdateCount()" style="accent-color:var(--tierra);width:16px;height:16px;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.82rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(it.nombre||'(sin nombre)')}</div>
+        ${it.empresa?`<div style="font-size:0.7rem;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(it.empresa)}</div>`:''}
+      </div>
+      ${_crmProbTag(it)}
+    </label>`;
+  // Agrupar por etapa del pipeline, en el orden del pipeline
+  let rows = _crmEtapas().map(et=>{
+    const enEtapa = activos.filter(it=>it.etapa===et.id)
+      .sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'','es',{sensitivity:'base'}));
+    if(!enEtapa.length) return '';
+    return `<div class="crm-bulk-group" data-etapa="${et.id}">
+      <div class="crm-bulk-group-head" style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0.6rem;background:var(--bg-card2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1">
+        <span style="width:9px;height:9px;border-radius:50%;background:${et.color};flex-shrink:0"></span>
+        <span style="font-size:0.72rem;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:0.4px">${escapeHtml(et.nombre)}</span>
+        <span style="font-size:0.66rem;color:var(--text3)">${enEtapa.length}</span>
+        <button type="button" onclick="_crmBulkSelectEtapa('${et.id}',true)" title="Seleccionar esta etapa" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:0.15rem 0.45rem;font-size:0.64rem;color:var(--text3);cursor:pointer;font-family:var(--font)">+ etapa</button>
+      </div>
+      ${enEtapa.map(filaProspecto).join('')}
+    </div>`;
+  }).join('');
+  // Prospectos sin etapa válida (por si acaso)
+  const sinEtapa = activos.filter(it=>!_crmEtapas().some(e=>e.id===it.etapa));
+  if(sinEtapa.length){
+    rows += `<div class="crm-bulk-group"><div class="crm-bulk-group-head" style="padding:0.45rem 0.6rem;background:var(--bg-card2);border-bottom:1px solid var(--border);font-size:0.72rem;font-weight:800;color:var(--text3)">Sin etapa</div>${sinEtapa.map(filaProspecto).join('')}</div>`;
+  }
+  const html = `<div style="display:flex;flex-direction:column;gap:0.7rem">
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+      <input id="crm-bulk-fecha" type="date" value="${todayStr()}" style="flex:1 1 130px;${inputCss}">
+      <select id="crm-bulk-medio" style="flex:1 1 130px;cursor:pointer;${inputCss}">
+        <option value="mensaje">💬 Mensaje</option>
+        <option value="llamada">📞 Llamada</option>
+        <option value="mail">✉️ Mail</option>
+        <option value="visita">🤝 Visita</option>
+      </select>
+    </div>
+    <textarea id="crm-bulk-comentario" rows="2" placeholder="¿Qué se conversó? (se registra igual en todos los seleccionados)" style="resize:vertical;${inputCss}"></textarea>
+    <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.6rem;background:var(--bg-card2);border-bottom:1px solid var(--border)">
+        <input id="crm-bulk-search" type="text" placeholder="Buscar prospecto…" oninput="_crmBulkFilter()" style="flex:1;${inputCss};font-size:0.78rem;padding:0.35rem 0.5rem">
+        <button type="button" onclick="_crmBulkSelectAll(true)" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.6rem;font-size:0.7rem;color:var(--text2);cursor:pointer;font-family:var(--font);white-space:nowrap">Todos</button>
+        <button type="button" onclick="_crmBulkSelectAll(false)" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.6rem;font-size:0.7rem;color:var(--text2);cursor:pointer;font-family:var(--font);white-space:nowrap">Ninguno</button>
+      </div>
+      <div id="crm-bulk-list" style="max-height:320px;overflow-y:auto">${rows}</div>
+    </div>
+    <button onclick="confirmCrmBulkSeguimiento()" id="crm-bulk-btn" class="btn-add" style="background:var(--tierra)">Registrar seguimiento (0)</button>
+  </div>`;
+  openGenericModal('📋 Seguimiento masivo', html);
+}
+function _crmBulkUpdateCount(){
+  const n = document.querySelectorAll('.crm-bulk-chk:checked').length;
+  const btn = document.getElementById('crm-bulk-btn');
+  if(btn) btn.textContent = `Registrar seguimiento (${n})`;
+}
+function _crmBulkFilter(){
+  const q = (document.getElementById('crm-bulk-search')?.value||'').toLowerCase().trim();
+  document.querySelectorAll('#crm-bulk-list .crm-bulk-row').forEach(row=>{
+    row.style.display = (!q || (row.dataset.busca||'').includes(q)) ? 'flex' : 'none';
+  });
+  // Ocultar el encabezado de las etapas que quedaron sin filas visibles
+  document.querySelectorAll('#crm-bulk-list .crm-bulk-group').forEach(g=>{
+    const visible = Array.from(g.querySelectorAll('.crm-bulk-row')).some(r=>r.style.display!=='none');
+    g.style.display = visible ? 'block' : 'none';
+  });
+}
+function _crmBulkSelectEtapa(etapaId, val){
+  const g = document.querySelector(`#crm-bulk-list .crm-bulk-group[data-etapa="${etapaId}"]`);
+  if(!g) return;
+  g.querySelectorAll('.crm-bulk-row').forEach(row=>{
+    if(row.style.display==='none') return;
+    const chk = row.querySelector('.crm-bulk-chk'); if(chk) chk.checked = val;
+  });
+  _crmBulkUpdateCount();
+}
+function _crmBulkSelectAll(val){
+  document.querySelectorAll('#crm-bulk-list .crm-bulk-row').forEach(row=>{
+    if(row.style.display==='none') return; // solo afecta los visibles tras el filtro
+    const chk = row.querySelector('.crm-bulk-chk'); if(chk) chk.checked = val;
+  });
+  _crmBulkUpdateCount();
+}
+async function confirmCrmBulkSeguimiento(){
+  const ids = Array.from(document.querySelectorAll('.crm-bulk-chk:checked')).map(c=>c.value);
+  if(!ids.length){ showStatus('Selecciona al menos un prospecto', true); return; }
+  const fecha = (document.getElementById('crm-bulk-fecha')?.value||'').trim() || todayStr();
+  const comentario = (document.getElementById('crm-bulk-comentario')?.value||'').trim();
+  const medio = document.getElementById('crm-bulk-medio')?.value||'mensaje';
+  const at = new Date().toISOString();
+  showStatus('Registrando…');
+  let ok=0;
+  for(const id of ids){
+    const it = _crmData.items.find(x=>x.id===id);
+    if(!it) continue;
+    if(!Array.isArray(it.historial)) it.historial = [];
+    it.historial.push({ fecha, comentario, medio, at });
+    const fechas = it.historial.map(h=>h.fecha).filter(Boolean).sort();
+    it.ultimoContacto = fechas.length ? fechas[fechas.length-1] : fecha;
+    try{ if(await CrmDB.saveItem(it)) ok++; }catch(e){ console.error(e); }
+  }
+  closeTrayModal();
+  renderCRM();
+  showStatus(`Seguimiento registrado en ${ok} prospecto${ok!==1?'s':''} ✓`);
 }
 
 // Crear marca (en pausa) a partir de un trato ganado del CRM
