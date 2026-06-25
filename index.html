@@ -3549,6 +3549,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         <button class="tab-btn" id="arch-tab-notas-btn" onclick="switchArchivoTab('notas')">📋 Notas archivadas</button>
         <button class="tab-btn" id="arch-tab-cobros-btn" onclick="switchArchivoTab('cobros')">💰 Cobranzas</button>
         <button class="tab-btn" id="arch-tab-prospectos-btn" onclick="switchArchivoTab('prospectos')">💼 Prospectos</button>
+        <button class="tab-btn" id="arch-tab-abandonados-btn" onclick="switchArchivoTab('abandonados')">📦 Archivados <span id="abandonados-count-badge" style="display:none;background:var(--text3);color:#fff;border-radius:99px;font-size:0.6rem;padding:0.1rem 0.45rem;margin-left:0.3rem;font-weight:700"></span></button>
       </div>
 
       <!-- Tab: Proyectos archivados -->
@@ -3629,6 +3630,17 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
           <div style="font-size:0.8rem;margin-top:0.3rem">Los prospectos que elimines del CRM aparecerán aquí.</div>
         </div>
         <div id="arch-prospectos-list" style="display:flex;flex-direction:column;gap:0.6rem"></div>
+      </div>
+
+      <!-- Tab: Prospectos archivados (CRM) -->
+      <div id="arch-tab-abandonados" style="display:none">
+        <div style="font-size:0.8rem;color:var(--text3);margin-bottom:1.2rem">Prospectos archivados: abandonados (3 meses sin retomarse), cerrados o perdidos (al cerrar cada mes), o archivados manualmente. Puedes reactivarlos al pipeline o borrarlos.</div>
+        <div id="arch-abandonados-empty" style="display:none;text-align:center;padding:4rem 2rem;color:var(--text3)">
+          <div style="font-size:3rem;margin-bottom:1rem;opacity:0.3">📦</div>
+          <div style="font-size:1rem;font-weight:600">Sin prospectos archivados</div>
+          <div style="font-size:0.8rem;margin-top:0.3rem">Los prospectos archivados (automática o manualmente) aparecerán aquí.</div>
+        </div>
+        <div id="arch-abandonados-list" style="display:flex;flex-direction:column;gap:0.6rem"></div>
       </div>
 
       <!-- Tab: Papelera -->
@@ -4707,6 +4719,12 @@ window.CrmDB = (function(){
       freqCustom: ex.freqCustom || null,
       propuestaUrl: ex.propuestaUrl || '',
       probabilidad: ex.probabilidad || 'media',
+      abandonadoAt: ex.abandonadoAt || null,
+      etapaFinalAt: ex.etapaFinalAt || null,
+      archivado: ex.archivado === true,
+      archivadoAt: ex.archivadoAt || null,
+      reactivadoAt: ex.reactivadoAt || null,
+      createdAt: row.created_at || ex.createdAt || null,
       historial: Array.isArray(ex.historial) ? ex.historial : [],
     };
   }
@@ -4722,7 +4740,7 @@ window.CrmDB = (function(){
       ultimo_contacto: it.ultimoContacto || null,
       info: it.info || '',
       orden: it.orden || 0,
-      extra: { marcaCreadaId: it.marcaCreadaId||'', empresa: it.empresa||'', freqCustom: it.freqCustom||null, propuestaUrl: it.propuestaUrl||'', probabilidad: it.probabilidad||'media', historial: it.historial||[] },
+      extra: { marcaCreadaId: it.marcaCreadaId||'', empresa: it.empresa||'', freqCustom: it.freqCustom||null, propuestaUrl: it.propuestaUrl||'', probabilidad: it.probabilidad||'media', abandonadoAt: it.abandonadoAt||null, etapaFinalAt: it.etapaFinalAt||null, archivado: it.archivado===true, archivadoAt: it.archivadoAt||null, reactivadoAt: it.reactivadoAt||null, createdAt: it.createdAt||null, historial: it.historial||[] },
     };
   }
 
@@ -10075,6 +10093,7 @@ async function loadCRM(){
     _crmData.config = res.config && res.config.etapas ? res.config : _crmDefaultConfig();
     _crmData.loaded = true;
     if(!res.config || !res.config.etapas){ await CrmDB.saveConfig(_crmData.config); }
+    try{ await _crmAutoMantenimiento(); }catch(e){ console.error('[loadCRM] mantenimiento:', e); }
   }
 }
 
@@ -10146,13 +10165,123 @@ function _crmEtapaEsDescartada(etapaId){
   const n = (e ? (e.nombre||'') : (etapaId||'')).toLowerCase();
   return n.includes('perdid') || n.includes('abandonad') || n.includes('descart');
 }
+function _crmEtapaEsAbandonado(etapaId){
+  const e = _crmEtapas().find(x=>x.id===etapaId);
+  const n = (e ? (e.nombre||'') : (etapaId||'')).toLowerCase();
+  return n.includes('abandonad');
+}
+function _crmEtapaEsPerdida(etapaId){
+  const e = _crmEtapas().find(x=>x.id===etapaId);
+  const n = (e ? (e.nombre||'') : (etapaId||'')).toLowerCase();
+  return n.includes('perdid');
+}
+
+// ── Mantenimiento automático del pipeline ──
+const CRM_DIAS_ABANDONO = 45; // sin actividad → pasa a "Abandonado"
+const CRM_DIAS_ARCHIVO  = 90; // abandonado este tiempo → se archiva (≈3 meses)
+// ¿La fecha pertenece a un mes calendario ya cerrado (anterior al mes actual)?
+function _crmEsDeMesAnterior(iso){
+  if(!iso) return false;
+  const d = new Date(iso); if(isNaN(d.getTime())) return false;
+  const now = new Date();
+  return d.getFullYear() < now.getFullYear() ||
+         (d.getFullYear() === now.getFullYear() && d.getMonth() < now.getMonth());
+}
+
+// Fecha de la última actividad del prospecto (lo más reciente entre: reactivación,
+// último seguimiento, último registro del historial y fecha de creación).
+function _crmUltimaActividad(it){
+  const fechas = [];
+  if(it.reactivadoAt) fechas.push(new Date(it.reactivadoAt).getTime());
+  if(it.ultimoContacto) fechas.push(new Date(it.ultimoContacto).getTime());
+  const hist = it.historial||[];
+  if(hist.length){ const f = hist[hist.length-1].fecha; if(f) fechas.push(new Date(f).getTime()); }
+  if(it.createdAt) fechas.push(new Date(it.createdAt).getTime());
+  const validos = fechas.filter(t=>!isNaN(t));
+  return validos.length ? Math.max(...validos) : Date.now();
+}
+function _crmDiasDesde(ts){
+  if(!ts) return 0;
+  const t = (typeof ts==='number') ? ts : new Date(ts).getTime();
+  if(isNaN(t)) return 0;
+  return Math.floor((Date.now() - t)/86400000);
+}
+
+// Devuelve el id de la etapa "Abandonado"; si no existe, la crea en la configuración.
+async function _crmEtapaAbandonadoId(){
+  const etapas = _crmEtapas();
+  const existente = etapas.find(e=>(e.nombre||'').toLowerCase().includes('abandonad'));
+  if(existente) return existente.id;
+  // Crear la etapa Abandonado
+  if(!_crmData.config) _crmData.config = _crmDefaultConfig();
+  if(!Array.isArray(_crmData.config.etapas)) _crmData.config.etapas = _crmDefaultConfig().etapas.slice();
+  const nueva = { id:'abandonado', nombre:'Abandonado', color:'#b0a8a0' };
+  // Insertar antes de "Perdido" si existe, si no al final
+  const idxPerdido = _crmData.config.etapas.findIndex(e=>(e.nombre||'').toLowerCase().includes('perdid'));
+  if(idxPerdido>=0) _crmData.config.etapas.splice(idxPerdido, 0, nueva);
+  else _crmData.config.etapas.push(nueva);
+  if(window.CrmDB) await CrmDB.saveConfig(_crmData.config);
+  return 'abandonado';
+}
+
+// Aplica las reglas automáticas (45 días → abandonado, 90 días abandonado → archivado).
+async function _crmAutoMantenimiento(){
+  if(!Array.isArray(_crmData.items) || !_crmData.items.length) return;
+  const nowISO = new Date().toISOString();
+  const cambiados = new Set();
+  let abandonadoId = null;
+
+  for(const it of _crmData.items){
+    if(it.archivado) continue;
+    const esAband = _crmEtapaEsAbandonado(it.etapa);
+    const esGanada = _crmEtapaEsGanada(it.etapa);
+    const esPerdida = _crmEtapaEsPerdida(it.etapa);
+
+    // Regla 1: inactividad → Abandonado (no toca ganados ni perdidos)
+    if(!esAband && !esGanada && !esPerdida){
+      if(_crmDiasDesde(_crmUltimaActividad(it)) > CRM_DIAS_ABANDONO){
+        if(abandonadoId===null) abandonadoId = await _crmEtapaAbandonadoId();
+        it.etapa = abandonadoId;
+        it.abandonadoAt = it.abandonadoAt || nowISO;
+        cambiados.add(it);
+      }
+    }
+
+    // Regla 2: abandonado por más de 3 meses → Archivar
+    if(_crmEtapaEsAbandonado(it.etapa)){
+      if(!it.abandonadoAt){ it.abandonadoAt = nowISO; cambiados.add(it); }
+      if(_crmDiasDesde(it.abandonadoAt) > CRM_DIAS_ARCHIVO){
+        it.archivado = true;
+        it.archivadoAt = nowISO;
+        cambiados.add(it);
+      }
+    }
+
+    // Regla 3: cerrados (ganados) o perdidos de meses ANTERIORES → Archivar.
+    // Se archivan al cerrar el mes: el día 1 las columnas Cerrado/Perdido quedan vacías.
+    if(esGanada || esPerdida){
+      if(!it.etapaFinalAt){ it.etapaFinalAt = new Date(_crmUltimaActividad(it)).toISOString(); cambiados.add(it); }
+      if(_crmEsDeMesAnterior(it.etapaFinalAt)){
+        it.archivado = true;
+        it.archivadoAt = nowISO;
+        cambiados.add(it);
+      }
+    }
+  }
+
+  if(cambiados.size){
+    for(const it of cambiados){ try{ await CrmDB.saveItem(it); }catch(e){ console.error('[crmAutoMant] save', e); } }
+    console.log('[crmAutoMant]', cambiados.size, 'prospectos actualizados');
+  }
+}
+
 // Estado de filtro/orden del panel de seguimientos
 window._crmNotifFiltroPrioridad = '';   // '', 'rojo', 'amarillo', 'verde'
 window._crmNotifOrden = 'atraso_desc';   // atraso_desc, atraso_asc, prioridad, reciente
 function _crmPendientes(){
   const prioRank = { rojo:3, amarillo:2, verde:1 };
   let arr = _crmData.items
-    .filter(it=> !_crmEtapaEsFinal(it.etapa))
+    .filter(it=> !it.archivado && !_crmEtapaEsFinal(it.etapa) && !_crmEtapaEsAbandonado(it.etapa))
     .map(it=>({ it, atraso: _crmDiasAtraso(it), nunca: !it.ultimoContacto }))
     .filter(x=> x.nunca || x.atraso >= 0);   // nunca, atrasado, o justo hoy
   // Filtro por prioridad
@@ -10515,7 +10644,7 @@ function renderCRM(){
   renderCrmTareas();
   const q = (document.getElementById('crm-search')?.value||'').trim().toLowerCase();
   const etapas = _crmEtapas();
-  const items = _crmData.items.filter(it=> !q || (it.nombre||'').toLowerCase().includes(q) || (it.contacto||'').toLowerCase().includes(q) || (it.empresa||'').toLowerCase().includes(q));
+  const items = _crmData.items.filter(it=> !it.archivado && (!q || (it.nombre||'').toLowerCase().includes(q) || (it.contacto||'').toLowerCase().includes(q) || (it.empresa||'').toLowerCase().includes(q)));
 
   const _ss=document.getElementById('crm-board-sort'); if(_ss) _ss.value = window._crmBoardSort||'manual';
   if(window._crmView === 'table'){ renderCrmTable(board, items, etapas); return; }
@@ -10774,6 +10903,9 @@ async function crmDrop(ev, etapaId){
   const it = _crmData.items.find(x=>x.id===id);
   if(!it || it.etapa===etapaId) return;
   it.etapa = etapaId;
+  // Marca de tiempo de entrada a etapa final (para archivar cerrados/perdidos al mes)
+  if(_crmEtapaEsGanada(etapaId) || _crmEtapaEsPerdida(etapaId)) it.etapaFinalAt = new Date().toISOString();
+  else it.etapaFinalAt = null;
   const enDestino = _crmData.items.filter(x=>x.etapa===etapaId && x.id!==id);
   it.orden = enDestino.length;
   await CrmDB.saveItem(it);
@@ -11112,6 +11244,7 @@ function openCrmView(id){
       <div style="display:flex;gap:0.5rem;justify-content:space-between;align-items:center;margin-top:0.3rem">
         <div style="display:flex;gap:0.5rem">
           <button onclick="openCrmModal('${it.id}')" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.5rem 0.9rem;font-size:0.78rem;cursor:pointer;font-family:var(--font)">✏️ Editar ficha</button>
+          <button onclick="archivarProspecto('${it.id}')" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.5rem 0.9rem;font-size:0.78rem;cursor:pointer;font-family:var(--font)">📦 Archivar</button>
           <button onclick="eliminarProspecto('${it.id}')" style="background:none;border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:8px;padding:0.5rem 0.9rem;font-size:0.78rem;cursor:pointer;font-family:var(--font)">🗑 Eliminar</button>
         </div>
         <button onclick="closeTrayModal()" class="btn-add" style="background:var(--tierra)">Cerrar</button>
@@ -11324,6 +11457,92 @@ function renderArchivoProspectos(){
       <button onclick="borrarProspectoDef('${p.id}')" style="font-size:0.74rem;padding:0.4rem 0.8rem;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:none;color:#ef4444;cursor:pointer;font-family:var(--font);font-weight:700;white-space:nowrap">🗑 Borrar</button>
     </div>`;
   }).join('');
+}
+
+// ── Prospectos abandonados archivados (regla automática de 3 meses) ──
+function _crmAbandonadosArchivados(){
+  return (_crmData.items||[]).filter(it=>it.archivado);
+}
+function updateAbandonadosBadge(){
+  const b = document.getElementById('abandonados-count-badge');
+  if(!b) return;
+  const n = _crmAbandonadosArchivados().length;
+  b.style.display = n ? 'inline-block' : 'none';
+  b.textContent = n;
+}
+async function renderArchivoAbandonados(){
+  const list = document.getElementById('arch-abandonados-list');
+  if(!list) return;
+  if(!_crmData.loaded && window.CrmDB){
+    list.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:2rem;text-align:center">Cargando…</div>';
+    await loadCRM();
+  }
+  const empty = document.getElementById('arch-abandonados-empty');
+  updateAbandonadosBadge();
+  const items = _crmAbandonadosArchivados().slice().sort((a,b)=>(b.archivadoAt||'').localeCompare(a.archivadoAt||''));
+  if(empty) empty.style.display = items.length ? 'none' : 'block';
+  list.innerHTML = items.map(it=>{
+    const fechaArch = it.archivadoAt ? new Date(it.archivadoAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'numeric'}) : '';
+    const ultAct = _crmUltimaActividad(it);
+    const ultActTxt = ultAct ? new Date(ultAct).toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const et = _crmEtapas().find(e=>e.id===it.etapa);
+    const etColor = et ? et.color : 'var(--text3)';
+    const etNombre = et ? et.nombre : '—';
+    return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.8rem 1rem;display:flex;align-items:center;gap:0.8rem">
+      <span style="font-size:1.1rem;flex-shrink:0;opacity:0.6">📦</span>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+          <span style="font-weight:700;font-size:0.88rem;color:var(--text)">${escapeHtml(it.nombre||'(sin nombre)')}</span>
+          <span style="font-size:0.62rem;font-weight:700;color:${etColor};background:${etColor}1a;border:1px solid ${etColor}55;border-radius:99px;padding:0.08rem 0.5rem">${escapeHtml(etNombre)}</span>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text3);margin-top:0.15rem">${it.empresa?escapeHtml(it.empresa)+' · ':''}última actividad ${ultActTxt} · archivado ${fechaArch}</div>
+      </div>
+      <button onclick="reactivarAbandonado('${it.id}')" style="font-size:0.74rem;padding:0.4rem 0.8rem;border-radius:8px;border:1px solid var(--border);background:none;color:var(--tierra);cursor:pointer;font-family:var(--font);font-weight:700;white-space:nowrap">↩ Reactivar</button>
+      <button onclick="borrarAbandonadoDef('${it.id}')" style="font-size:0.74rem;padding:0.4rem 0.8rem;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:none;color:#ef4444;cursor:pointer;font-family:var(--font);font-weight:700;white-space:nowrap">🗑 Borrar</button>
+    </div>`;
+  }).join('');
+}
+// Archivar manualmente un prospecto (botón en la ficha)
+async function archivarProspecto(id){
+  const it = (_crmData.items||[]).find(x=>x.id===id);
+  if(!it) return;
+  const ok = await confirmModal(`¿Archivar "${it.nombre||''}"? Saldrá del pipeline y quedará en Archivo → Prospectos archivados. Podrás reactivarlo cuando quieras.`,'Archivar');
+  if(!ok) return;
+  it.archivado = true;
+  it.archivadoAt = new Date().toISOString();
+  try{ await CrmDB.saveItem(it); }catch(e){ console.error(e); }
+  closeTrayModal();
+  if(currentPage==='crm') renderCRM();
+  updateAbandonadosBadge();
+  showStatus(`"${it.nombre}" archivado 📦`);
+}
+
+async function reactivarAbandonado(id){
+  const it = (_crmData.items||[]).find(x=>x.id===id);
+  if(!it) return;
+  // Volver al pipeline: a la primera etapa, con la actividad "renovada" para que no se vuelva a abandonar
+  const etapas = _crmEtapas();
+  it.etapa = (etapas[0] && etapas[0].id) || it.etapa;
+  it.archivado = false;
+  it.archivadoAt = null;
+  it.abandonadoAt = null;
+  it.reactivadoAt = new Date().toISOString();
+  try{ await CrmDB.saveItem(it); }catch(e){ console.error(e); }
+  renderArchivoAbandonados();
+  if(currentPage==='crm') renderCRM();
+  showStatus(`"${it.nombre}" reactivado al pipeline ✓`);
+}
+async function borrarAbandonadoDef(id){
+  const it = (_crmData.items||[]).find(x=>x.id===id);
+  if(!it) return;
+  const ok = await confirmModal(`¿Borrar definitivamente el prospecto "${it.nombre||''}"? No se puede deshacer.`,'Borrar definitivamente');
+  if(!ok) return;
+  try{
+    if(window.CrmDB) await CrmDB.deleteItem(id);
+    _crmData.items = _crmData.items.filter(x=>x.id!==id);
+    renderArchivoAbandonados();
+    showStatus('Prospecto borrado definitivamente');
+  }catch(e){ console.error(e); showStatus('❌ Error al borrar', true); }
 }
 
 async function restaurarProspecto(papId){
@@ -11839,7 +12058,13 @@ async function saveCrmItem(id){
   }
   it.nombre=nombre;
   it.empresa=get('crm-empresa');
+  const _prevEtapa = it.etapa;
   it.etapa=get('crm-etapa');
+  // Estampar/limpiar fecha de entrada a etapa final si cambió la etapa
+  if(it.etapa !== _prevEtapa){
+    if(_crmEtapaEsGanada(it.etapa) || _crmEtapaEsPerdida(it.etapa)) it.etapaFinalAt = new Date().toISOString();
+    else it.etapaFinalAt = null;
+  }
   it.prioridad=prio;
   it.probabilidad=prob;
   it.ultimoContacto=get('crm-ultimo');
@@ -13608,7 +13833,7 @@ const PAPELERA_DIAS = 30;
 
 function switchArchivoTab(tab){
   _archivoActiveTab = tab;
-  ['proyectos','notas','cobros','prospectos','papelera'].forEach(t=>{
+  ['proyectos','notas','cobros','prospectos','abandonados','papelera'].forEach(t=>{
     const panel = document.getElementById('arch-tab-'+t);
     const btn   = document.getElementById('arch-tab-'+t+'-btn');
     if(panel) panel.style.display = t===tab ? 'block' : 'none';
@@ -13618,6 +13843,7 @@ function switchArchivoTab(tab){
   else if(tab==='notas') renderArchivoNotas();
   else if(tab==='cobros') renderArchCobros();
   else if(tab==='prospectos') renderArchivoProspectos();
+  else if(tab==='abandonados') renderArchivoAbandonados();
   else renderArchivo();
 }
 
