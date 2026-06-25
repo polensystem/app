@@ -7019,7 +7019,7 @@ let _localChangedBrandIds = new Set();
 window._localChangedBrandIds = _localChangedBrandIds;
 // true si hubo algún cambio de marca SIN ID atribuido en este ciclo → merge clásico por seguridad
 let _unattributedBrandChange = false;
-let _localDeletedIds = { brands: new Set(), members: new Set(), clientNotes: new Set(), playgroundCats: new Set(), tareas: new Set(), tools: new Set() };
+let _localDeletedIds = { brands: new Set(), members: new Set(), clientNotes: new Set(), playgroundCats: new Set(), tareas: new Set(), crmTareas: new Set(), tools: new Set() };
 const _localDeletedPagoIds = {}; // { brandId: Set of deleted pagoIds }
 
 // Call this when user mutates a top-level key so merge prefers local for that key.
@@ -7219,6 +7219,30 @@ function deepMergeAppData(server, local){
   localTareas.forEach(t=>{ if(t?.id && !allDeletedTareaIds.has(t.id)) tareaMap[t.id]={...t}; }); // local wins para ediciones
   merged.tareas = Object.values(tareaMap);
   merged._deletedTareaIds = [...persistedDeletedTareaIds];
+
+  // ── crmTareas (to-dos comerciales): union by id, EXCLUYENDO borradas. ──
+  // Antes NO se fusionaban → merged.crmTareas = server.crmTareas, y un evento de sync
+  // con una copia vieja del servidor borraba los to-dos recién agregados (pérdida de datos
+  // sin chequear). Ahora: unión por id, local gana en ediciones, last-write-wins en `done`.
+  const serverCrmT = Array.isArray(server.crmTareas) ? server.crmTareas : [];
+  const localCrmT  = Array.isArray(local.crmTareas)  ? local.crmTareas  : [];
+  const persistedDeletedCrmTareaIds = new Set([...(local._deletedCrmTareaIds||[]), ...(server._deletedCrmTareaIds||[])]);
+  const allDeletedCrmTareaIds = new Set([..._localDeletedIds.crmTareas, ...persistedDeletedCrmTareaIds]);
+  const crmTMap = {};
+  serverCrmT.forEach(t=>{ if(t?.id && !allDeletedCrmTareaIds.has(t.id)) crmTMap[t.id]={...t}; });
+  localCrmT.forEach(t=>{
+    if(!t?.id || allDeletedCrmTareaIds.has(t.id)) return;
+    const sv = crmTMap[t.id];
+    if(!sv){ crmTMap[t.id] = {...t}; return; }
+    // El estado `done` lo decide el cambio más reciente (timestamp), no "local siempre gana".
+    const lAt = t.doneChangedAt ? new Date(t.doneChangedAt).getTime() : 0;
+    const sAt = sv.doneChangedAt ? new Date(sv.doneChangedAt).getTime() : 0;
+    const merged1 = {...sv, ...t};
+    if(sAt > lAt){ merged1.done = sv.done; merged1.doneChangedAt = sv.doneChangedAt; }
+    crmTMap[t.id] = merged1;
+  });
+  merged.crmTareas = Object.values(crmTMap);
+  merged._deletedCrmTareaIds = [...persistedDeletedCrmTareaIds];
 
   // ── papelera: vive en polen_papelera. Local siempre gana. ──
   merged.papelera = Array.isArray(local.papelera) ? local.papelera : [];
@@ -10480,23 +10504,52 @@ function toggleCrmTareasPanel(){
   try{ localStorage.setItem('polen-crm-tareas-collapsed', window._crmTareasCollapsed?'1':'0'); }catch(e){}
   renderCrmTareas();
 }
+function _crmTareaRespChip(rid){
+  if(!rid) return '';
+  const m = (appData.members||[]).find(x=>x.id===rid);
+  if(!m) return '';
+  return `<span style="font-size:0.64rem;font-weight:700;color:var(--text2);background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.1rem 0.5rem;white-space:nowrap">${m.emoji||'👤'} ${escapeHtml(m.apodo||m.nombre)}</span>`;
+}
+function _crmTareaDeadlineChip(deadline){
+  if(!deadline) return '';
+  const d = parseLocalDate(deadline); if(!d) return '';
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const dias = Math.round((d - hoy)/86400000);
+  const fechaTxt = d.toLocaleDateString('es-EC',{day:'2-digit',month:'short'});
+  let color='var(--text3)', bg='var(--bg-card2)', txt=fechaTxt;
+  if(dias < 0){ color='#ef4444'; bg='rgba(239,68,68,0.12)'; txt='Vencido · '+fechaTxt; }
+  else if(dias === 0){ color='#f97316'; bg='rgba(249,115,22,0.12)'; txt='Hoy'; }
+  else if(dias <= 2){ color='#f97316'; bg='rgba(249,115,22,0.12)'; txt=fechaTxt; }
+  return `<span style="font-size:0.64rem;font-weight:700;color:${color};background:${bg};border:1px solid ${color}44;border-radius:99px;padding:0.1rem 0.5rem;white-space:nowrap">📅 ${txt}</span>`;
+}
 function renderCrmTareas(){
   const panel = document.getElementById('crm-tareas-panel');
   if(!panel) return;
   ensureCrmTareas();
   const pend = (appData.crmTareas||[]).filter(t=>!t.done);
-  pend.sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''));
+  // Orden: primero los que tienen deadline (más próximo primero), luego el resto por reciente
+  pend.sort((a,b)=>{
+    if(a.deadline && b.deadline) return a.deadline.localeCompare(b.deadline);
+    if(a.deadline) return -1;
+    if(b.deadline) return 1;
+    return (b.createdAt||'').localeCompare(a.createdAt||'');
+  });
   const colapsado = window._crmTareasCollapsed;
   const filas = pend.map(t=>{
+    const chips = (t.responsableId||t.deadline)
+      ? `<div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-top:0.3rem">${_crmTareaRespChip(t.responsableId)}${_crmTareaDeadlineChip(t.deadline)}</div>` : '';
     return `<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.6rem 0.7rem;border-bottom:1px solid var(--border2)">
       <div onclick="toggleCrmTareaDone('${t.id}')" title="Marcar como hecha" style="width:18px;height:18px;border-radius:5px;border:2px solid var(--border);cursor:pointer;flex-shrink:0;margin-top:1px;transition:all 0.15s" onmouseover="this.style.borderColor='var(--tierra)'" onmouseout="this.style.borderColor='var(--border)'"></div>
-      <div style="flex:1;min-width:0">
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="editCrmTarea('${t.id}')">
         <div style="font-size:0.82rem;font-weight:600;color:var(--text);line-height:1.35;word-break:break-word">${escapeHtml(t.titulo||'')}</div>
+        ${chips}
       </div>
+      <button onclick="event.stopPropagation();editCrmTarea('${t.id}')" title="Editar" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.72rem;padding:0.1rem;flex-shrink:0;opacity:0.4" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.4'">✏️</button>
       <button onclick="event.stopPropagation();borrarCrmTarea('${t.id}')" title="Eliminar" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.72rem;padding:0.1rem;flex-shrink:0;opacity:0.4" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.4'">✕</button>
     </div>`;
   }).join('');
 
+  const respOpts = '<option value="">Responsable…</option>' + (appData.members||[]).map(m=>`<option value="${m.id}">${m.emoji||'👤'} ${escapeHtml(m.apodo||m.nombre)}</option>`).join('');
   const header = `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.7rem 0.8rem;${colapsado?'':'border-bottom:1px solid var(--border)'};background:var(--bg-card2)">
         <span style="font-size:0.85rem;font-weight:800;color:var(--text)">💼 To-dos comerciales</span>
         <span style="font-size:0.7rem;color:var(--text3)">${pend.length}</span>
@@ -10504,10 +10557,12 @@ function renderCrmTareas(){
         <button onclick="toggleCrmTareasPanel()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.8rem;padding:0 0.3rem;font-family:var(--font)">${colapsado?'▾ Expandir':'▴ Colapsar'}</button>
       </div>`;
   const cuerpo = colapsado ? '' : `
-      <div style="display:flex;gap:0.4rem;padding:0.6rem 0.7rem;border-bottom:1px solid var(--border2)">
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;padding:0.6rem 0.7rem;border-bottom:1px solid var(--border2)">
         <input id="crm-tarea-input" type="text" placeholder="Nuevo to-do comercial…" onkeydown="if(event.key==='Enter')addCrmTarea()"
-          style="flex:1;min-width:0;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.45rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.82rem;outline:none">
-        <button onclick="addCrmTarea()" style="background:var(--tierra);color:#fff;border:none;border-radius:8px;padding:0.45rem 0.8rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:var(--font);flex-shrink:0">+</button>
+          style="flex:1 1 100%;min-width:0;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.45rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.82rem;outline:none">
+        <select id="crm-tarea-resp" title="Responsable" style="flex:1 1 130px;min-width:0;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.45rem 0.5rem;color:var(--text2);font-family:var(--font);font-size:0.78rem;outline:none;cursor:pointer">${respOpts}</select>
+        <input id="crm-tarea-deadline" type="date" title="Deadline" style="flex:1 1 130px;min-width:0;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.5rem;color:var(--text2);font-family:var(--font);font-size:0.78rem;outline:none">
+        <button onclick="addCrmTarea()" style="background:var(--tierra);color:#fff;border:none;border-radius:8px;padding:0.45rem 0.9rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:var(--font);flex-shrink:0">+ Agregar</button>
       </div>
       <div style="max-height:420px;overflow-y:auto">
         ${filas || '<div style="padding:1.5rem;text-align:center;color:var(--text3);font-size:0.8rem">Sin to-dos pendientes 🎉</div>'}
@@ -10515,13 +10570,46 @@ function renderCrmTareas(){
 
   panel.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden">${header}${cuerpo}</div>`;
 }
+function editCrmTarea(id){
+  const t = (appData.crmTareas||[]).find(x=>x.id===id);
+  if(!t) return;
+  const respOpts = '<option value="">— Sin asignar —</option>' + (appData.members||[]).map(m=>`<option value="${m.id}" ${t.responsableId===m.id?'selected':''}>${m.emoji||'👤'} ${escapeHtml(m.apodo||m.nombre)}</option>`).join('');
+  const inputCss = 'width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.55rem 0.7rem;color:var(--text);font-family:var(--font);font-size:0.88rem;outline:none';
+  const html = `<div style="display:flex;flex-direction:column;gap:0.8rem">
+    <div><label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.3rem">To-do</label>
+      <input id="edit-crmt-titulo" type="text" value="${escapeHtml(t.titulo||'')}" style="${inputCss}"></div>
+    <div><label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.3rem">Responsable</label>
+      <select id="edit-crmt-resp" style="${inputCss};cursor:pointer">${respOpts}</select></div>
+    <div><label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.3rem">Deadline</label>
+      <input id="edit-crmt-deadline" type="date" value="${t.deadline||''}" style="${inputCss}"></div>
+    <button onclick="saveCrmTareaEdit('${id}')" class="btn-add" style="background:var(--tierra);margin-top:0.2rem">Guardar</button>
+  </div>`;
+  openGenericModal('✏️ Editar to-do comercial', html);
+}
+async function saveCrmTareaEdit(id){
+  const t = (appData.crmTareas||[]).find(x=>x.id===id);
+  if(!t) return;
+  const titulo = (document.getElementById('edit-crmt-titulo')?.value||'').trim();
+  if(titulo) t.titulo = titulo;
+  t.responsableId = document.getElementById('edit-crmt-resp')?.value||'';
+  t.deadline = document.getElementById('edit-crmt-deadline')?.value||'';
+  markLocalChange('crmTareas');
+  closeTrayModal();
+  renderCrmTareas();
+  await upsert();
+  showStatus('To-do actualizado ✓');
+}
 async function addCrmTarea(){
   const inp = document.getElementById('crm-tarea-input');
   const titulo = (inp?.value||'').trim();
   if(!titulo) return;
   ensureCrmTareas();
-  appData.crmTareas.unshift({ id: uid(), titulo, done:false, createdAt: new Date().toISOString() });
+  const responsableId = document.getElementById('crm-tarea-resp')?.value||'';
+  const deadline = document.getElementById('crm-tarea-deadline')?.value||'';
+  appData.crmTareas.unshift({ id: uid(), titulo, done:false, responsableId, deadline, createdAt: new Date().toISOString() });
   if(inp) inp.value='';
+  const rs=document.getElementById('crm-tarea-resp'); if(rs) rs.value='';
+  const dl=document.getElementById('crm-tarea-deadline'); if(dl) dl.value='';
   markLocalChange('crmTareas');
   renderCrmTareas();
   await upsert();
@@ -10529,6 +10617,7 @@ async function addCrmTarea(){
 async function borrarCrmTarea(id){
   ensureCrmTareas();
   appData.crmTareas = appData.crmTareas.filter(t=>t.id!==id);
+  markLocalDelete('crmTareas', id);
   markLocalChange('crmTareas');
   renderCrmTareas();
   await upsert();
@@ -10540,6 +10629,7 @@ async function toggleCrmTareaDone(id){
   if(!t) return;
   t.done = !t.done;
   t.doneAt = t.done ? new Date().toISOString() : null;
+  t.doneChangedAt = new Date().toISOString(); // 🔒 anti-desaparición por sync viejo
   markLocalChange('crmTareas');
   if(currentPage==='crm') renderCrmTareas();
   if(currentPage==='archivo' && typeof renderArchivoNotas==='function'){ try{ renderArchivoNotas(); }catch(e){} }
