@@ -10504,6 +10504,12 @@ function toggleCrmTareasPanel(){
   try{ localStorage.setItem('polen-crm-tareas-collapsed', window._crmTareasCollapsed?'1':'0'); }catch(e){}
   renderCrmTareas();
 }
+function _crmComercialMembers(){
+  return (appData.members||[]).filter(m=>{
+    const areas = (m.areas && m.areas.length ? m.areas : (m.area ? [m.area] : [])).map(a=>(''+a).toLowerCase());
+    return areas.includes('comercial');
+  });
+}
 function _crmTareaRespChip(rid){
   if(!rid) return '';
   const m = (appData.members||[]).find(x=>x.id===rid);
@@ -10549,7 +10555,7 @@ function renderCrmTareas(){
     </div>`;
   }).join('');
 
-  const respOpts = '<option value="">Responsable…</option>' + (appData.members||[]).map(m=>`<option value="${m.id}">${m.emoji||'👤'} ${escapeHtml(m.apodo||m.nombre)}</option>`).join('');
+  const respOpts = '<option value="">Responsable…</option>' + _crmComercialMembers().map(m=>`<option value="${m.id}">${m.emoji||'👤'} ${escapeHtml(m.apodo||m.nombre)}</option>`).join('');
   const header = `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.7rem 0.8rem;${colapsado?'':'border-bottom:1px solid var(--border)'};background:var(--bg-card2)">
         <span style="font-size:0.85rem;font-weight:800;color:var(--text)">💼 To-dos comerciales</span>
         <span style="font-size:0.7rem;color:var(--text3)">${pend.length}</span>
@@ -10573,7 +10579,7 @@ function renderCrmTareas(){
 function editCrmTarea(id){
   const t = (appData.crmTareas||[]).find(x=>x.id===id);
   if(!t) return;
-  const respOpts = '<option value="">— Sin asignar —</option>' + (appData.members||[]).map(m=>`<option value="${m.id}" ${t.responsableId===m.id?'selected':''}>${m.emoji||'👤'} ${escapeHtml(m.apodo||m.nombre)}</option>`).join('');
+  const respOpts = '<option value="">— Sin asignar —</option>' + _crmComercialMembers().map(m=>`<option value="${m.id}" ${t.responsableId===m.id?'selected':''}>${m.emoji||'👤'} ${escapeHtml(m.apodo||m.nombre)}</option>`).join('');
   const inputCss = 'width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.55rem 0.7rem;color:var(--text);font-family:var(--font);font-size:0.88rem;outline:none';
   const html = `<div style="display:flex;flex-direction:column;gap:0.8rem">
     <div><label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:0.3rem">To-do</label>
