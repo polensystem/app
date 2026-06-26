@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260417-v384.5-ENHANCED-PLAYGROUND-CARDS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260626-v385-DEDICATED-TABLES-VERSION-CHECK -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3863,9 +3863,129 @@ async function sbSelectAll(tableName, applyOrder){
 }
 window.sbSelectAll = sbSelectAll;
 
+// ════════════════════════════════════════════════════════════════════════
+// 🔒 TABLAS DEDICADAS para to-dos comerciales (polen_crm_tareas) y metas
+// (polen_metas). Antes vivían dentro del JSON gigante de polen_shared y se
+// perdían cuando otro dispositivo (sobre todo con versión vieja) reescribía
+// todo el JSON. Con tabla propia (una fila por registro), un guardado del JSON
+// ya NO puede borrarlos. Si la tabla aún no existe en Supabase, estos módulos
+// quedan "no disponibles" y la app sigue usando el JSON (sin romper nada).
+// ════════════════════════════════════════════════════════════════════════
+window.CrmTareasDB = (function(){
+  const TABLE = 'polen_crm_tareas';
+  let _available = null; // null=desconocido, true/false tras la 1ª operación
+  async function loadAll(){
+    try{
+      const { data, error } = await sb.from(TABLE).select('id,data,updated_at');
+      if(error){ _available=false; console.warn('[CrmTareasDB] tabla no disponible:', error.message); return null; }
+      _available=true;
+      return (data||[]).map(r=>({ ...(r.data||{}), id:r.id, _updatedAt:r.updated_at }));
+    }catch(e){ _available=false; console.warn('[CrmTareasDB] loadAll falló:', e); return null; }
+  }
+  async function saveOne(t){
+    if(_available===false || !t || !t.id) return false;
+    try{
+      const { error } = await sb.from(TABLE).upsert({ id:t.id, data:t, updated_at:new Date().toISOString() }, {onConflict:'id'});
+      if(error){ console.error('[CrmTareasDB] saveOne:', error); return false; }
+      _available=true; return true;
+    }catch(e){ console.error('[CrmTareasDB] saveOne:', e); return false; }
+  }
+  async function deleteOne(id){
+    if(_available===false || !id) return false;
+    try{ const { error } = await sb.from(TABLE).delete().eq('id', id); if(error){console.error(error);return false;} return true; }
+    catch(e){ console.error('[CrmTareasDB] deleteOne:', e); return false; }
+  }
+  async function migrateFromJson(){
+    if(_available===false) return;
+    const arr = Array.isArray(appData.crmTareas)?appData.crmTareas:[];
+    for(const t of arr){ if(t&&t.id) await saveOne(t); }
+  }
+  function isAvailable(){ return _available; }
+  let _subbed = false;
+  function subscribe(){
+    if(_subbed) return; _subbed = true;
+    try{
+      sb.channel('polen_crm_tareas_rt')
+        .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, async ()=>{
+          const t = await loadAll();
+          if(t){ appData.crmTareas = t; if(typeof renderCrmTareas==='function' && currentPage==='crm') renderCrmTareas(); }
+        })
+        .subscribe();
+    }catch(e){ console.warn('[CrmTareasDB] subscribe falló:', e); }
+  }
+  return { loadAll, saveOne, deleteOne, migrateFromJson, isAvailable, subscribe };
+})();
+
+window.MetasDB = (function(){
+  const TABLE = 'polen_metas';
+  let _available = null;
+  async function loadAll(){
+    try{
+      const { data, error } = await sb.from(TABLE).select('id,quincena,data,updated_at');
+      if(error){ _available=false; console.warn('[MetasDB] tabla no disponible:', error.message); return null; }
+      _available=true;
+      const byKey = {};
+      (data||[]).forEach(r=>{ const k=r.quincena||''; if(!byKey[k]) byKey[k]=[]; byKey[k].push({ ...(r.data||{}), id:r.id }); });
+      return byKey;
+    }catch(e){ _available=false; console.warn('[MetasDB] loadAll falló:', e); return null; }
+  }
+  async function saveSlot(key, slot){
+    if(_available===false || !slot || !slot.id) return false;
+    try{
+      const { error } = await sb.from(TABLE).upsert({ id:slot.id, quincena:key, data:slot, updated_at:new Date().toISOString() }, {onConflict:'id'});
+      if(error){ console.error('[MetasDB] saveSlot:', error); return false; }
+      _available=true; return true;
+    }catch(e){ console.error('[MetasDB] saveSlot:', e); return false; }
+  }
+  async function deleteSlot(id){
+    if(_available===false || !id) return false;
+    try{ const { error } = await sb.from(TABLE).delete().eq('id', id); if(error){console.error(error);return false;} return true; }
+    catch(e){ console.error('[MetasDB] deleteSlot:', e); return false; }
+  }
+  async function migrateFromJson(){
+    if(_available===false) return;
+    const m = appData.metas||{};
+    for(const k of Object.keys(m)){ for(const slot of (m[k]||[])){ if(slot&&slot.id) await saveSlot(k, slot); } }
+  }
+  function isAvailable(){ return _available; }
+  let _subbed = false;
+  function subscribe(){
+    if(_subbed) return; _subbed = true;
+    try{
+      sb.channel('polen_metas_rt')
+        .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, async ()=>{
+          const m = await loadAll();
+          if(m){ appData.metas = m; if(typeof renderMetas==='function' && currentPage==='metas') renderMetas(); }
+        })
+        .subscribe();
+    }catch(e){ console.warn('[MetasDB] subscribe falló:', e); }
+  }
+  return { loadAll, saveSlot, deleteSlot, migrateFromJson, isAvailable, subscribe };
+})();
+
 /* ═══ STATE ═══ */
 let appData={brands:[],template:null,members:[]};
 window.appData = appData; // Para diagnóstico
+
+// ════════════════════════════════════════════════════════════════════════
+// 🔄 DETECTOR DE VERSIÓN: avisa a los dispositivos con código viejo (pestañas
+// abiertas hace rato) que hay una versión más nueva corriendo, para que recarguen.
+// Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
+// su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
+// ════════════════════════════════════════════════════════════════════════
+const APP_VERSION = 385;
+function _showUpdateBanner(){
+  if(document.getElementById('polen-update-banner')) return;
+  const bar = document.createElement('div');
+  bar.id = 'polen-update-banner';
+  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#e8622a;color:#fff;display:flex;align-items:center;justify-content:center;gap:0.8rem;padding:0.6rem 1rem;font-family:var(--font,sans-serif);font-size:0.85rem;font-weight:600;box-shadow:0 2px 12px rgba(0,0,0,0.25);flex-wrap:wrap;text-align:center';
+  bar.innerHTML = '🔄 Hay una versión nueva de Polen System. Recarga para actualizar y evitar problemas de datos.' +
+    '<button onclick="location.reload(true)" style="background:#fff;color:#e8622a;border:none;border-radius:8px;padding:0.35rem 0.9rem;font-size:0.8rem;font-weight:800;cursor:pointer;font-family:inherit">Recargar ahora</button>';
+  document.body.appendChild(bar);
+}
+function _checkAppVersion(){
+  if((Number(appData._appVer)||0) > APP_VERSION) _showUpdateBanner();
+}
 let currentPage='dashboard';
 let currentBrandId=null;
 let editingBrandId=null;
@@ -6627,6 +6747,42 @@ async function loadData(){
       }
 
       // ══════════════════════════════════════════════════════════════════════
+      // 🔒 CARGAR TO-DOS COMERCIALES (polen_crm_tareas) Y METAS (polen_metas)
+      // desde su tabla dedicada. La tabla es la fuente de verdad; si está vacía
+      // migramos del JSON (una vez). Si la tabla no existe, se usa el JSON.
+      // ══════════════════════════════════════════════════════════════════════
+      try {
+        if(!appData._crmTareasMigratedToTable){
+          await CrmTareasDB.migrateFromJson();
+          if(CrmTareasDB.isAvailable()) appData._crmTareasMigratedToTable = true;
+        }
+        const tareasTabla = await CrmTareasDB.loadAll();
+        if(tareasTabla){ appData.crmTareas = tareasTabla; console.log('[Polen] ✓ To-dos comerciales cargados de tabla nueva'); }
+      } catch(e){ console.error('[Polen] Error cargando crmTareas de tabla:', e); }
+
+      try {
+        if(!appData._metasMigratedToTable){
+          await MetasDB.migrateFromJson();
+          if(MetasDB.isAvailable()) appData._metasMigratedToTable = true;
+        }
+        const metasTabla = await MetasDB.loadAll();
+        if(metasTabla){ appData.metas = metasTabla; console.log('[Polen] ✓ Metas cargadas de tabla nueva'); }
+      } catch(e){ console.error('[Polen] Error cargando metas de tabla:', e); }
+
+      // Suscripción en tiempo real a las tablas nuevas (sincroniza entre dispositivos)
+      try{ if(CrmTareasDB.isAvailable()) CrmTareasDB.subscribe(); }catch(e){}
+      try{ if(MetasDB.isAvailable()) MetasDB.subscribe(); }catch(e){}
+
+      // 🔄 Versión de app: este dispositivo propaga su número (para que los viejos avisen),
+      // y chequea periódicamente si alguien corre una versión más nueva.
+      try{
+        appData._appVer = Math.max(Number(appData._appVer)||0, APP_VERSION);
+        _checkAppVersion();
+        setInterval(_checkAppVersion, 60000);
+        setTimeout(()=>{ try{ upsert(); }catch(e){} }, 6000); // propaga la versión aunque el usuario esté inactivo
+      }catch(e){ console.warn('[version] check falló:', e); }
+
+      // ══════════════════════════════════════════════════════════════════════
       // 🔒 CARGAR BRANDING POINTS DE MARCA DESDE TABLA NUEVA (polen_brand_bp)
       // La tabla nueva es la fuente de verdad para BP de marca (NO template BP).
       // Si está vacía, migramos desde el JSON viejo (one-time).
@@ -7221,10 +7377,13 @@ function deepMergeAppData(server, local){
   merged.tareas = Object.values(tareaMap);
   merged._deletedTareaIds = [...persistedDeletedTareaIds];
 
-  // ── crmTareas (to-dos comerciales): union by id, EXCLUYENDO borradas. ──
-  // Antes NO se fusionaban → merged.crmTareas = server.crmTareas, y un evento de sync
-  // con una copia vieja del servidor borraba los to-dos recién agregados (pérdida de datos
-  // sin chequear). Ahora: unión por id, local gana en ediciones, last-write-wins en `done`.
+  // ── crmTareas (to-dos comerciales) ──
+  if(window.CrmTareasDB && CrmTareasDB.isAvailable()===true){
+    // La tabla dedicada es la fuente de verdad → el JSON del servidor (que puede venir
+    // de un dispositivo con versión vieja) NO debe pisar lo local/tabla.
+    merged.crmTareas = Array.isArray(local.crmTareas) ? local.crmTareas : [];
+  } else {
+  // (Sin tabla) union by id, EXCLUYENDO borradas, last-write-wins en `done`.
   const serverCrmT = Array.isArray(server.crmTareas) ? server.crmTareas : [];
   const localCrmT  = Array.isArray(local.crmTareas)  ? local.crmTareas  : [];
   const persistedDeletedCrmTareaIds = new Set([...(local._deletedCrmTareaIds||[]), ...(server._deletedCrmTareaIds||[])]);
@@ -7235,7 +7394,6 @@ function deepMergeAppData(server, local){
     if(!t?.id || allDeletedCrmTareaIds.has(t.id)) return;
     const sv = crmTMap[t.id];
     if(!sv){ crmTMap[t.id] = {...t}; return; }
-    // El estado `done` lo decide el cambio más reciente (timestamp), no "local siempre gana".
     const lAt = t.doneChangedAt ? new Date(t.doneChangedAt).getTime() : 0;
     const sAt = sv.doneChangedAt ? new Date(sv.doneChangedAt).getTime() : 0;
     const merged1 = {...sv, ...t};
@@ -7244,6 +7402,11 @@ function deepMergeAppData(server, local){
   });
   merged.crmTareas = Object.values(crmTMap);
   merged._deletedCrmTareaIds = [...persistedDeletedCrmTareaIds];
+  }
+
+  // 🔄 Versión de app: gana el número más alto visto (incluye el de este dispositivo).
+  merged._appVer = Math.max(Number(local._appVer)||0, Number(server._appVer)||0, APP_VERSION);
+  if(merged._appVer > APP_VERSION && typeof _showUpdateBanner==='function') _showUpdateBanner();
 
   // ── papelera: vive en polen_papelera. Local siempre gana. ──
   merged.papelera = Array.isArray(local.papelera) ? local.papelera : [];
@@ -7262,6 +7425,11 @@ function deepMergeAppData(server, local){
   // recién agregadas a una quincena. Cada slot vive en UNA quincena (por id); si se
   // movió localmente, la ubicación local gana. Los borrados se respetan vía _deletedMetaIds.
   {
+    if(window.MetasDB && MetasDB.isAvailable()===true){
+      // Tabla dedicada = fuente de verdad → no dejar que el JSON viejo pise las metas.
+      merged.metas = (local.metas && typeof local.metas==='object') ? local.metas : {};
+      merged._deletedMetaIds = [...new Set([...(local._deletedMetaIds||[]), ...(server._deletedMetaIds||[])])];
+    } else {
     const sMetas = (server.metas && typeof server.metas==='object') ? server.metas : {};
     const lMetas = (local.metas  && typeof local.metas==='object')  ? local.metas  : {};
     const delIds = new Set([...(local._deletedMetaIds||[]), ...(server._deletedMetaIds||[])]);
@@ -7285,6 +7453,7 @@ function deepMergeAppData(server, local){
     });
     merged.metas = mergedMetas;
     merged._deletedMetaIds = [...delIds];
+    }
   }
 
   // ── demos (simulaciones de venta): merge por id (unión local+server) ──
@@ -10600,6 +10769,7 @@ async function saveCrmTareaEdit(id){
   if(titulo) t.titulo = titulo;
   t.responsableId = document.getElementById('edit-crmt-resp')?.value||'';
   t.deadline = document.getElementById('edit-crmt-deadline')?.value||'';
+  if(window.CrmTareasDB) CrmTareasDB.saveOne(t);
   markLocalChange('crmTareas');
   closeTrayModal();
   renderCrmTareas();
@@ -10613,10 +10783,12 @@ async function addCrmTarea(){
   ensureCrmTareas();
   const responsableId = document.getElementById('crm-tarea-resp')?.value||'';
   const deadline = document.getElementById('crm-tarea-deadline')?.value||'';
-  appData.crmTareas.unshift({ id: uid(), titulo, done:false, responsableId, deadline, createdAt: new Date().toISOString() });
+  const nueva = { id: uid(), titulo, done:false, responsableId, deadline, createdAt: new Date().toISOString() };
+  appData.crmTareas.unshift(nueva);
   if(inp) inp.value='';
   const rs=document.getElementById('crm-tarea-resp'); if(rs) rs.value='';
   const dl=document.getElementById('crm-tarea-deadline'); if(dl) dl.value='';
+  if(window.CrmTareasDB) CrmTareasDB.saveOne(nueva);
   markLocalChange('crmTareas');
   renderCrmTareas();
   await upsert();
@@ -10624,6 +10796,7 @@ async function addCrmTarea(){
 async function borrarCrmTarea(id){
   ensureCrmTareas();
   appData.crmTareas = appData.crmTareas.filter(t=>t.id!==id);
+  if(window.CrmTareasDB) CrmTareasDB.deleteOne(id);
   markLocalDelete('crmTareas', id);
   markLocalChange('crmTareas');
   renderCrmTareas();
@@ -10637,6 +10810,7 @@ async function toggleCrmTareaDone(id){
   t.done = !t.done;
   t.doneAt = t.done ? new Date().toISOString() : null;
   t.doneChangedAt = new Date().toISOString(); // 🔒 anti-desaparición por sync viejo
+  if(window.CrmTareasDB) CrmTareasDB.saveOne(t);
   markLocalChange('crmTareas');
   if(currentPage==='crm') renderCrmTareas();
   if(currentPage==='archivo' && typeof renderArchivoNotas==='function'){ try{ renderArchivoNotas(); }catch(e){} }
@@ -11053,7 +11227,9 @@ async function metasAsignarDesdeCrm(it){
   for(const k in metas){ if((metas[k]||[]).some(s=>s.crmId===it.id)) return; }
   const key = _quincenaActual();
   if(!metas[key]) metas[key] = [];
-  metas[key].push({ id: uid(), nombre: it.nombre||'Marca', crmId: it.id, inicio: _quincenaInicio(key) });
+  const slot = { id: uid(), nombre: it.nombre||'Marca', crmId: it.id, inicio: _quincenaInicio(key) };
+  metas[key].push(slot);
+  if(window.MetasDB) MetasDB.saveSlot(key, slot);
   markLocalChange('metas');
   await upsert();
   if(currentPage==='metas') renderMetas();
@@ -11167,7 +11343,9 @@ async function metasGuardarManual(key){
   if(!nombre) return;
   ensureMetas();
   if(!appData.metas[key]) appData.metas[key]=[];
-  appData.metas[key].push({ id: uid(), nombre, crmId:null, inicio:_quincenaInicio(key) });
+  const slot = { id: uid(), nombre, crmId:null, inicio:_quincenaInicio(key) };
+  appData.metas[key].push(slot);
+  if(window.MetasDB) MetasDB.saveSlot(key, slot);
   markLocalChange('metas');
   await upsert();
   closeTrayModal();
@@ -11181,6 +11359,7 @@ async function metasQuitar(key, slotId){
   const ok = await confirmModal(`¿Quitar "${s?s.nombre:'esta marca'}" de la quincena?`,'Quitar');
   if(!ok) return;
   appData.metas[key] = arr.filter(x=>x.id!==slotId);
+  if(window.MetasDB) MetasDB.deleteSlot(slotId);
   if(!Array.isArray(appData._deletedMetaIds)) appData._deletedMetaIds = [];
   if(!appData._deletedMetaIds.includes(slotId)) appData._deletedMetaIds.push(slotId);
   markLocalChange('metas','_deletedMetaIds');
@@ -11220,6 +11399,7 @@ async function metasConfirmarMover(fromKey, slotId, toKey){
   s.inicio = _quincenaInicio(toKey);
   if(!appData.metas[toKey]) appData.metas[toKey]=[];
   appData.metas[toKey].push(s);
+  if(window.MetasDB) MetasDB.saveSlot(toKey, s); // misma id, nueva quincena
   markLocalChange('metas');
   await upsert();
   closeTrayModal();
@@ -22918,6 +23098,203 @@ function dedupCobros(){
 
 /* ═══ PORTAL CLIENT MODE ═══ */
 
+// ════════════════════════════════════════════════════════════════════════
+// 🌐 PORTAL DE CLIENTE — Traducción ES → EN (toggle en el header del portal)
+// El portal se renderiza en español; si el idioma es 'en', se traduce el DOM
+// tras pintar. Se cubren etiquetas fijas, botones, textos de aprobación,
+// duraciones y nombres de meses/días.
+// ════════════════════════════════════════════════════════════════════════
+window._portalLang = (function(){ try{ return localStorage.getItem('polen-portal-lang')||'es'; }catch(e){ return 'es'; } })();
+
+const PORTAL_I18N = {
+  // Tabs y encabezados
+  'Cronograma':'Timeline', 'Branding Points':'Branding Points', 'Aprobaciones':'Approvals',
+  '📅 Cronograma':'📅 Timeline', '⭐ Branding Points':'⭐ Branding Points', '✅ Aprobaciones':'✅ Approvals',
+  '✅ Aprobaciones por etapa':'✅ Stage approvals', '⭐ Branding Points':'⭐ Branding Points',
+  '⏱ Duración estimada del proyecto':'⏱ Estimated project duration',
+  'Sin cronograma aún.':'No timeline yet.', 'Sin branding points.':'No branding points yet.',
+  'Marca no encontrada.':'Brand not found.',
+  'El portal está temporalmente cerrado. Contacta a tu equipo.':'The portal is temporarily closed. Please contact your team.',
+  // Branding points
+  'Total':'Total', 'Usados':'Used', 'Restantes':'Remaining', 'Entregables de marca':'Brand deliverables',
+  'Notas / Especificaciones':'Notes / Specifications',
+  'expandir ▾':'expand ▾', 'ver ▾':'view ▾', 'ver detalle ▾':'view detail ▾', '⊟ Colapsar':'⊟ Collapse',
+  // Etapas (metodología Polen)
+  'Aire':'Air', 'Agua':'Water', 'Tierra':'Earth', 'Fuego':'Fire',
+  'Investigación y hallazgos':'Research & findings', 'Caminos creativos':'Creative directions',
+  'Identidad visual integral':'Full visual identity', 'Identidad verbal integral':'Full verbal identity',
+  'Sistema cromático':'Color system', 'Sistema tipográfico':'Typographic system', 'Sistema verbal':'Verbal system',
+  'Manual de marca integral':'Complete brand guidelines', 'Elementos comunicacionales':'Communication elements',
+  'Confirmación de avance':'Progress confirmation', 'Aprobación de logotipo':'Logo approval',
+  'Aprobación de entrega final':'Final delivery approval',
+  // Aprobaciones — textos
+  'A medida que tu proyecto avanza, cada etapa habilitará su formulario de aprobación. Confirmar cada sección nos permite continuar con la siguiente con total alineación.':'As your project progresses, each stage will enable its approval form. Confirming each section lets us move on to the next one in full alignment.',
+  'Se habilitará cuando el proyecto llegue a esta etapa':'It will be enabled when the project reaches this stage',
+  'Histórico de firmas del proyecto':'Project signature history', 'Historico de firmas del proyecto':'Project signature history',
+  'ver histórico del proyecto →':'view project history →', 'ver histórico del proyecto':'view project history',
+  'Firma actual':'Current signature', 'Re-firma':'Re-sign', 'Falta firma':'Signature pending',
+  'Firmado':'Signed', 'Firma sin observaciones.':'Signed without comments.',
+  'Listo para firmar':'Ready to sign', 'Faltan respuestas antes de firmar':'Some answers are missing before signing',
+  'Firmar y enviar':'Sign & send', 'Firmar y enviar ✓':'Sign & send ✓',
+  'Firmar con observaciones':'Sign with comments', 'Firmar con observaciones ⚠':'Sign with comments ⚠',
+  'Observaciones que solicitaste':'Comments you requested', 'Respuestas en esta firma':'Answers in this signature',
+  'Tu respuesta anterior':'Your previous answer', 'Etapa reabierta para tu re-firma':'Stage reopened for your re-signature',
+  'Tu nombre completo':'Your full name', 'CONSTANCIA':'RECORD',
+  'solo las preguntas que tuvieron observaciones':'only the questions that had comments',
+  'con observaciones':'with comments', 'Con observaciones':'With comments',
+  'Aprobado con observaciones':'Approved with comments', '"Aprobado con observaciones"':'"Approved with comments"',
+  '— sin registro':'— no record',
+  // ── Aprobaciones: preguntas ──
+  '¿Confirmas la aprobación de la investigación, hallazgos e insights presentados en esta etapa?':'Do you confirm the approval of the research, findings and insights presented in this stage?',
+  '¿Confirmas la aprobación de los caminos creativos y propuesta de dirección presentados?':'Do you confirm the approval of the creative directions and direction proposal presented?',
+  '¿Confirmas la aprobación del logotipo presentado en esta etapa?':'Do you confirm the approval of the logo presented in this stage?',
+  '¿Confirmas la aprobación de la cromática de marca presentada en esta etapa?':'Do you confirm the approval of the brand color palette presented in this stage?',
+  '¿Confirmas la aprobación de la tipografía de marca presentada en esta etapa?':'Do you confirm the approval of the brand typography presented in this stage?',
+  '¿Confirmas la aprobación del sistema verbal y valores de marca desarrollados en esta etapa?':'Do you confirm the approval of the verbal system and brand values developed in this stage?',
+  '¿Autorizas avanzar a la siguiente etapa del proyecto?':'Do you authorize moving on to the next stage of the project?',
+  '¿Confirmas la aprobación de la identidad visual integral de marca presentada?':'Do you confirm the approval of the complete visual brand identity presented?',
+  '¿Confirmas la aprobación de la identidad verbal integral de marca?':'Do you confirm the approval of the complete verbal brand identity?',
+  '¿Confirmas la aprobación de los entregables de marca presentados alineados a la estrategia?':'Do you confirm the approval of the brand deliverables presented in line with the strategy?',
+  '¿Confirmas la aprobación de los elementos comunicacionales estratégicos de marca?':'Do you confirm the approval of the strategic brand communication elements?',
+  '¿Autorizas avanzar a la etapa final del proyecto?':'Do you authorize moving on to the final stage of the project?',
+  '¿Confirmas la aprobación del manual de marca integral con todas las notas y correcciones ejecutadas?':'Do you confirm the approval of the complete brand guidelines with all notes and corrections applied?',
+  '¿Confirmas la aprobación de la entrega final del proyecto y das por concluido el proceso?':'Do you confirm the approval of the final project delivery and consider the process complete?',
+  // ── Aprobaciones: opciones de respuesta ──
+  'Sí, 100% aprobado ✓':'Yes, 100% approved ✓', 'Sí, aprobado al 100% ✓':'Yes, 100% approved ✓',
+  // ── Aprobaciones: títulos y descripciones ──
+  'Puntos con ajustes':'Points with adjustments',
+  'Todas las aprobaciones están al 100%. Escribe tu nombre y envía para dejar constancia oficial de esta etapa. Una vez enviado, las respuestas quedan fijas.':'All approvals are at 100%. Type your name and submit to leave an official record of this stage. Once submitted, the answers are locked.',
+  '. Al firmar, autorizas avanzar con estos cambios pendientes — el equipo los trabajará y los resolverá en rondas de revisión. Los puntos quedan registrados oficialmente:':'. By signing, you authorize moving forward with these pending changes — the team will work on them and resolve them in review rounds. The points are officially recorded:',
+  'Esto':'This', 'es una aprobación 100%. Se guardará como':'is a 100% approval. It will be saved as',
+  'con constancia de los puntos a revisar.':'with a record of the points to review.',
+  'Hay':'There are', 'punto que requiere':'point that requires', 'puntos que requieren':'points that require',
+  // Respuestas de aprobación
+  'Sí, avancemos ✓':'Yes, let\u2019s move forward ✓', 'Sí, me encanta ✓':'Yes, I love it ✓',
+  'Sí, aprobado ✓':'Yes, approved ✓', 'Sí, aprobada ✓':'Yes, approved ✓', 'Sí, aprobados ✓':'Yes, approved ✓',
+  'Sí, aprobado 🎨':'Yes, approved 🎨', 'Sí, proyecto aprobado y concluido ✓':'Yes, project approved and completed ✓',
+  'Sí, pero aún tengo ajustes':'Yes, but I still have adjustments', 'Sí, pero con ajustes menores':'Yes, but with minor adjustments',
+  'Sí, pero tengo ajustes':'Yes, but I have adjustments', 'Sí, pero tengo ajustes finales':'Yes, but I have final adjustments',
+  'No, aún necesito revisiones':'No, I still need revisions', 'No, aún no':'Not yet', 'No, tengo ajustes':'No, I have adjustments',
+  'Prefiero revisar algunos puntos antes de avanzar':'I\u2019d prefer to review some points before moving on',
+  'Tengo algunos ajustes finales pendientes':'I have some final adjustments pending',
+  'Personalizado':'Custom',
+  // Placeholders
+  'Ej: 90×60 cm, impresión en vinil mate, para pared exterior…':'E.g.: 90×60 cm, matte vinyl print, for exterior wall…',
+  'Sin problema, trabajemos en ello. ¿Cuáles son los cambios? Puedes especificarlos aquí, por el grupo (domo), en la plataforma Ruttl o en una reunión virtual.':'No problem, let\u2019s work on it. What are the changes? You can specify them here, in the group (domo), on the Ruttl platform, or in a virtual meeting.',
+  // ── Cronograma: actividades del template ──
+  'Pago 1':'Payment 1', 'Pago 2':'Payment 2', 'Pago 3':'Payment 3',
+  'Reunión de onboarding / equipo':'Onboarding / team meeting',
+  'Presentación de metodología de investigación':'Research methodology presentation',
+  'Búsqueda de insights y caminos creativos':'Insights & creative directions research',
+  'Propuestas de Naming':'Naming proposals', 'Feedback Naming':'Naming feedback',
+  'Disponibilidad legal':'Legal availability',
+  'Ajustes de dirección general y presentación interna':'General direction adjustments & internal presentation',
+  'Presentación de investigación y caminos creativos':'Research & creative directions presentation',
+  'Feedback cliente':'Client feedback',
+  'Desarrollo de identidad verbal':'Verbal identity development',
+  'Desarrollo de identidad visual':'Visual identity development',
+  'Presentación de propuesta de marca':'Brand proposal presentation',
+  'Entrega parcial de elementos de marca':'Partial delivery of brand elements',
+  'Despliegue de recursos visuales':'Visual assets rollout',
+  'Despliegue de recursos verbales':'Verbal assets rollout',
+  'Presentación de propuesta completa':'Full proposal presentation',
+  'Ajustes, correcciones y restructuraciones':'Adjustments, corrections & restructuring',
+  'Empaquetado de recursos':'Asset packaging', 'Link y entrega de proyecto':'Link & project delivery',
+  // ── Branding Points: categorías ──
+  'Papelería':'Stationery', 'Piezas Impresas':'Printed pieces', 'Empaques':'Packaging',
+  'Uniformes':'Uniforms', 'Web y Digital':'Web & Digital', 'Señalética':'Signage',
+  'Merch':'Merch', 'Vehículos':'Vehicles',
+  // ── Branding Points: entregables ──
+  'Carpeta o folder':'Folder', 'Tarjeta de presentación':'Business card', 'Sello':'Stamp',
+  'Sobre':'Envelope', 'Stickers':'Stickers', 'Flyer':'Flyer',
+  'Arte para díptico/tríptico':'Bi-fold / tri-fold artwork',
+  'Catálogo (estructura base 1 a 5 págs.)':'Catalog (base structure 1 to 5 pages)',
+  'Menú (estructura base 1 a 5 págs.)':'Menu (base structure 1 to 5 pages)',
+  'Catálogo (estructura base 6 a 10 págs.)':'Catalog (base structure 6 to 10 pages)',
+  'Menú (estructura base 6 a 10 págs.)':'Menu (base structure 6 to 10 pages)',
+  'Funda de papel o plástico':'Paper or plastic bag', 'Vaso':'Cup', 'Portavasos':'Coaster',
+  'Empaque para percha':'Hanging package',
+  'Variación de sabor de empaque para percha':'Flavor variation of hanging package',
+  'Caja para llevar':'Takeaway box', 'Inidividual':'Placemat', 'Portavasos para llevar':'Takeaway cup holder',
+  'Camiseta uniforme':'Uniform t-shirt', 'Gorra de uniforme':'Uniform cap', 'Mandil':'Apron', 'Chaleco':'Vest',
+  'Firma de correo':'Email signature', 'Banner web':'Web banner', 'Fondo de pantalla':'Wallpaper',
+  'Cartel de señalética':'Signage poster', 'Backing':'Backdrop', 'Stand de feria':'Trade show booth',
+  'Taza':'Mug', 'Termo':'Thermos', 'Gorra':'Cap',
+  // ── Bienvenida / intro ──
+  'Bienvenido a este camino.':'Welcome to this journey.',
+  'Juntos le daremos vida a la identidad que tu marca merece.':'Together we\u2019ll bring to life the identity your brand deserves.',
+  'Juntos le daremos vida a la identidad que tu marca merece. En este portal encontrarás tres secciones para acompañar tu proceso.':'Together we\u2019ll bring to life the identity your brand deserves. In this portal you\u2019ll find three sections to guide you through the process.',
+  'Juntos le daremos vida a la identidad que tu marca merece. En este portal encontrarás dos secciones para acompañar tu proceso.':'Together we\u2019ll bring to life the identity your brand deserves. In this portal you\u2019ll find two sections to guide you through the process.',
+  // Párrafos de la intro de Branding Points (segmentos entre <strong>)
+  'Imagina que estás en el market del branding, y tienes cierta cantidad de':'Imagine you\u2019re at the branding market, and you have a certain amount of',
+  '— la moneda del universo de las marcas — para canjear por los entregables que desees.':'— the currency of the brand universe — to redeem for the deliverables you want.',
+  'No olvides dejarnos toda la información relevante: medidas, tamaños, materiales, etc.':'Don\u2019t forget to leave us all the relevant information: measurements, sizes, materials, etc.',
+  'Muuuuy importante':'Veeery important', '— sin esto no podemos avanzar.':'— without this we can\u2019t move forward.',
+  '¿No encuentras lo que buscas? Al final está la sección':'Can\u2019t find what you\u2019re looking for? At the end there\u2019s the',
+  '— explícanos ese entregable especial y lo hacemos realidad. Verás un':'section — tell us about that special deliverable and we\u2019ll make it happen. You\u2019ll see a',
+  'en sus puntos hasta que nuestro equipo los asigne.':'in its points until our team assigns them.',
+  '¿Se te acabaron los puntos y quieres más? Sin problema — el equipo te envía una cotización por los puntos adicionales.':'Ran out of points and want more? No problem — the team will send you a quote for the additional points.',
+  'Cronograma':'Timeline',
+  'Ve los avances en tiempo real. Las ⭐ son actividades donde participas tú.':'See progress in real time. The ⭐ are activities where you take part.',
+  'Tu herramienta para elegir y personalizar los entregables de tu marca.':'Your tool to choose and customize your brand deliverables.',
+  'Confirma los avances de cada etapa. Se activan a medida que avanza el proyecto.':'Confirm the progress of each stage. They unlock as the project advances.',
+  'Bienvenido a tu sección de Branding Points.':'Welcome to your Branding Points section.',
+  'Cargando...':'Loading...',
+  // Estados de cronograma
+  'Completada':'Completed', 'Completado':'Completed', 'En progreso':'In progress', 'Pendiente':'Pending',
+  'Próximamente':'Upcoming', 'Hoy':'Today', 'Hito':'Milestone', 'Entregable':'Deliverable',
+  'Inicio':'Start', 'Fin':'End', 'Duración':'Duration', 'Etapa':'Stage', 'Actividad':'Activity',
+  // Meses y días (completos)
+  'enero':'January','febrero':'February','marzo':'March','abril':'April','mayo':'May','junio':'June','julio':'July','agosto':'August','septiembre':'September','octubre':'October','noviembre':'November','diciembre':'December',
+  'lunes':'Monday','martes':'Tuesday','miércoles':'Wednesday','jueves':'Thursday','viernes':'Friday','sábado':'Saturday','domingo':'Sunday',
+};
+
+// Patrones dinámicos (fechas, duraciones). Se aplican en orden.
+const PORTAL_I18N_RE = [
+  // Títulos de etapa ("Etapa Aire" → "Air Stage") — antes del reemplazo suelto
+  [/Etapa\s+Aire/gi,'Air Stage'], [/Etapa\s+Agua/gi,'Water Stage'], [/Etapa\s+Tierra/gi,'Earth Stage'], [/Etapa\s+Fuego/gi,'Fire Stage'],
+  [/Puntos con ajustes\s*\((\d+)\)/gi,'Points with adjustments ($1)'],
+  [/\((\d+)\s+d[ií]as?\s+h[áa]biles?\s+de\s+trabajo\)/gi, '($1 working days)'],
+  [/(\d+)\s+d[ií]as?\s+h[áa]biles?/gi, '$1 working days'],
+  [/(\d+)\s+semanas?\s+y\s+(\d+)\s+d[ií]as?/gi, (m,w,d)=>`${w} ${(+w===1)?'week':'weeks'} and ${d} ${(+d===1)?'day':'days'}`],
+  [/(\d+)\s+semanas\b/gi,'$1 weeks'], [/(\d+)\s+semana\b/gi,'$1 week'],
+  [/(\d+)\s+días\b/gi,'$1 days'], [/(\d+)\s+día\b/gi,'$1 day'],
+  // Abreviaturas de mes
+  [/\bene\b/gi,'Jan'],[/\bfeb\b/gi,'Feb'],[/\bmar\b/gi,'Mar'],[/\babr\b/gi,'Apr'],[/\bmay\b/gi,'May'],[/\bjun\b/gi,'Jun'],[/\bjul\b/gi,'Jul'],[/\bago\b/gi,'Aug'],[/\bsep\b/gi,'Sep'],[/\boct\b/gi,'Oct'],[/\bnov\b/gi,'Nov'],[/\bdic\b/gi,'Dec'],
+  // Abreviaturas de día
+  [/\blun\b/gi,'Mon'],[/\bmar\.\b/gi,'Tue'],[/\bmié\b/gi,'Wed'],[/\bjue\b/gi,'Thu'],[/\bvie\b/gi,'Fri'],[/\bsáb\b/gi,'Sat'],[/\bdom\b/gi,'Sun'],
+  // Nombres de etapa sueltos (en el cronograma se pintan como "🌬️ Aire")
+  [/\bAire\b/g,'Air'], [/\bAgua\b/g,'Water'], [/\bTierra\b/g,'Earth'], [/\bFuego\b/g,'Fire'],
+  [/\bEtapa\b/g,'Stage'],
+];
+
+function _portalApplyLang(){
+  if((window._portalLang||'es')!=='en') return;
+  const root = document.getElementById('portal-root');
+  if(!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  const nodes=[]; let nd; while(nd=walker.nextNode()) nodes.push(nd);
+  nodes.forEach(node=>{
+    const raw = node.nodeValue;
+    const trimmed = raw.trim();
+    if(!trimmed) return;
+    if(PORTAL_I18N[trimmed]){ node.nodeValue = raw.replace(trimmed, PORTAL_I18N[trimmed]); return; }
+    let out = raw, changed=false;
+    for(const [re,rep] of PORTAL_I18N_RE){ const before=out; out = out.replace(re, rep); if(out!==before) changed=true; }
+    if(changed) node.nodeValue = out;
+  });
+  root.querySelectorAll('[placeholder]').forEach(el=>{ const v=(el.getAttribute('placeholder')||'').trim(); if(PORTAL_I18N[v]) el.setAttribute('placeholder',PORTAL_I18N[v]); });
+  root.querySelectorAll('[title]').forEach(el=>{ const v=(el.getAttribute('title')||'').trim(); if(PORTAL_I18N[v]) el.setAttribute('title',PORTAL_I18N[v]); });
+}
+function portalSetLang(lang){
+  window._portalLang = lang;
+  try{ localStorage.setItem('polen-portal-lang', lang); }catch(e){}
+  const seg=document.getElementById('portal-lang-seg');
+  if(seg){ seg.querySelectorAll('button').forEach(b=>{ const on=b.dataset.lang===lang; b.style.background=on?'var(--text)':'transparent'; b.style.color=on?'var(--bg)':'var(--text2)'; }); }
+  // Re-pintar la pestaña actual en ES y luego aplicar EN si corresponde
+  try{ portalSwitchTab(window._portalActiveTab||'crono'); }catch(e){}
+}
+
 function renderPortal(brandId){
   const brand = (appData.brands||[]).find(b=>b.id===brandId) || (appData.demos||[]).find(b=>b.id===brandId);
   const main = document.querySelector('.main');
@@ -23003,7 +23380,11 @@ function _portalHeaderHTML(brand){
       <div class="portal-brand-name">${brand.name}</div>
       <div class="portal-brand-sub">${brand.industria||''} ${brand.industria&&brand.stage?'·':''} ${brand.stage||''}</div>
     </div>
-    <div style="margin-left:auto">
+    <div style="margin-left:auto;display:flex;align-items:center;gap:0.5rem">
+      <div id="portal-lang-seg" style="display:flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.15rem">
+        <button data-lang="es" onclick="portalSetLang('es')" style="border:none;border-radius:99px;padding:0.25rem 0.6rem;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:var(--font);background:${(window._portalLang||'es')==='es'?'var(--text)':'transparent'};color:${(window._portalLang||'es')==='es'?'var(--bg)':'var(--text2)'}">ES</button>
+        <button data-lang="en" onclick="portalSetLang('en')" style="border:none;border-radius:99px;padding:0.25rem 0.6rem;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:var(--font);background:${(window._portalLang||'es')==='en'?'var(--text)':'transparent'};color:${(window._portalLang||'es')==='en'?'var(--bg)':'var(--text2)'}">EN</button>
+      </div>
       <button onclick="setTheme(document.body.getAttribute('data-theme')==='dark'?'light':'dark')" style="background:none;border:1px solid var(--border);border-radius:99px;padding:0.35rem 0.8rem;font-size:0.78rem;color:var(--text2);cursor:pointer;font-family:var(--font)">🌙 / ☀️</button>
     </div>
   </div>`;
@@ -23131,6 +23512,7 @@ function portalSwitchTab(tab){
 
   const root = document.getElementById('portal-root');
   if(root) root.scrollTop = 0;
+  try{ _portalApplyLang(); }catch(e){ console.warn('[portal i18n]', e); }
 }
 
 function _portalCronoHTML(brand){
