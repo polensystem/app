@@ -2667,6 +2667,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
           <div class="tpl-hero-sub">Punto de partida para cada nueva marca</div>
         </div>
         <div class="btn-row">
+          <button class="btn-ghost" onclick="abrirDemoPortalPlantilla()" title="Abre un portal de cliente de ejemplo basado en este template">🌐 Ver demo del portal</button>
           <button class="btn-ghost" onclick="resetTemplate()">↺ Resetear defaults</button>
           <button class="btn-solid" onclick="saveTemplate()">Guardar template</button>
         </div>
@@ -15551,6 +15552,63 @@ function _clearArchivedView(){
 function ensureDemos(){ if(!Array.isArray(appData.demos)) appData.demos = []; return appData.demos; }
 function _demoDeProspecto(crmId){ return (appData.demos||[]).find(d=>d.crmId===crmId); }
 
+// ── Demo de portal de cliente basado en el TEMPLATE MADRE (ejemplo permanente) ──
+// Construye/actualiza una "marca de ejemplo" a partir del template actual y abre su
+// portal de cliente en una pestaña nueva. Usa ids deterministas para que regenerar
+// no duplique filas en las tablas polen_crono / polen_brand_bp.
+async function abrirDemoPortalPlantilla(){
+  // Abrir la pestaña YA (dentro del gesto del clic) para que el navegador no la bloquee.
+  const win = window.open('', '_blank');
+  if(!appData.template) appData.template = defaultTemplate();
+  ensureDemos();
+  showStatus('Preparando demo del portal…');
+  const tpl = appData.template;
+  // Usar la versión más completa de los branding points (igual que al crear una marca real)
+  try{
+    const freshCats = await getFreshestTemplateCategories();
+    if(Array.isArray(freshCats) && freshCats.length){
+      if(!tpl.brandingPoints) tpl.brandingPoints = { total:0, categories:[] };
+      tpl.brandingPoints.categories = freshCats;
+    }
+  }catch(e){}
+  const tplWithNaming = {...tpl, includeNaming:true, brandingPoints:{...tpl.brandingPoints, total:(tpl.brandingPoints?.total||15)}};
+  const DEMO_ID = 'demo_plantilla_madre';
+
+  const cronograma = buildCronoFromTemplate(tplWithNaming, todayStr());
+  const brandingPoints = buildBpFromTemplate(tplWithNaming);
+  // IDs deterministas → regenerar sobreescribe las mismas filas (sin duplicar)
+  ['aire','agua','tierra','fuego'].forEach(st=>{
+    (cronograma[st]||[]).forEach((a,i)=>{ a.id = `${DEMO_ID}_${st}_${i}`; });
+  });
+  (brandingPoints.categories||[]).forEach((cat,ci)=>{
+    cat.id = `${DEMO_ID}_cat${ci}`;
+    (cat.items||[]).forEach((item,ii)=>{ item.id = `${DEMO_ID}_c${ci}i${ii}`; });
+  });
+
+  const built = {
+    id: DEMO_ID,
+    name: 'Marca de Ejemplo',
+    isDemo: true, isTemplateDemo: true,
+    stage: 'aire', prioridad: 'media',
+    color: '#5aa435',
+    domo: { m1: tpl.domoM1||'', m2: tpl.domoM2||'', helpers: [] },
+    includeNaming: true,
+    createdAt: new Date().toISOString(),
+    cronograma, brandingPoints,
+    approvals: JSON.parse(JSON.stringify(tpl.approvals || defaultApprovalsForTemplate())),
+    portalSlug: 'ejemplo',
+  };
+  let demo = (appData.demos||[]).find(d=>d.id===DEMO_ID);
+  if(demo){ Object.assign(demo, built); } else { demo = built; appData.demos.push(demo); }
+  _ensurePortalSlug(demo);
+  markLocalChange('demos');
+  await _persistDemoToTables(demo);   // crono/BP a sus tablas (el portal los lee de ahí)
+  await upsert(true);                 // guardado INMEDIATO (sin debounce) para que la pestaña nueva ya lo encuentre
+  const url = window.location.origin + window.location.pathname + '?portal=' + demo.id;
+  if(win){ win.location = url; } else { window.open(url, '_blank'); }
+  showStatus('Demo del portal abierto ✓');
+}
+
 async function crearDemoProspecto(crmId){
   ensureDemos();
   if(_demoDeProspecto(crmId)){ showStatus('Este prospecto ya tiene un demo'); return; }
@@ -23104,7 +23162,9 @@ function dedupCobros(){
 // tras pintar. Se cubren etiquetas fijas, botones, textos de aprobación,
 // duraciones y nombres de meses/días.
 // ════════════════════════════════════════════════════════════════════════
-window._portalLang = (function(){ try{ return localStorage.getItem('polen-portal-lang')||'es'; }catch(e){ return 'es'; } })();
+// El portal SIEMPRE arranca en español. El toggle EN aplica solo para la vista actual;
+// al recargar/abrir de nuevo vuelve a español por defecto.
+window._portalLang = 'es';
 
 const PORTAL_I18N = {
   // Tabs y encabezados
