@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260626-v385-DEDICATED-TABLES-VERSION-CHECK -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260707-v386-TIMESTAMP-MERGE-BRANDS-TEMPLATE -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3974,7 +3974,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 385;
+const APP_VERSION = 386;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -7187,12 +7187,21 @@ function markLocalChange(...keys){
   keys.forEach(k=>{
     _localChangedKeys.add(k);
     if(k === 'brands') _unattributedBrandChange = true;
+    // 🔒 Timestamp para el template: sobrevive al borrado de la bandera tras guardar,
+    // así un eco viejo del servidor (otro dispositivo/realtime tardío) no puede revertir
+    // una edición más nueva. Mismo patrón que playground.
+    if(k === 'template'){ try{ if(appData && appData.template) appData.template.updatedAt = Date.now(); }catch(e){} }
   });
 }
 // Call this when user mutates a SPECIFIC brand's scalar fields (name/stage/etc).
 // Marca también la key 'brands' pero SIN activar el flag de "no atribuido".
 function markBrandChange(brandId){
-  if(brandId){ _localChangedBrandIds.add(brandId); }
+  if(brandId){
+    _localChangedBrandIds.add(brandId);
+    // 🔒 Timestamp por marca: protege la edición (p.ej. nombre) aun después de que la
+    // bandera se limpie tras guardar. El merge preferirá local si updatedAt es más nuevo.
+    try{ const _b = (appData && appData.brands || []).find(x=>x.id===brandId); if(_b) _b.updatedAt = Date.now(); }catch(e){}
+  }
   _localChangedKeys.add('brands');
 }
 window.markBrandChange = markBrandChange;
@@ -7314,9 +7323,13 @@ function deepMergeAppData(server, local){
   localBrands.forEach(b=>{
     if(!b?.id || allDeletedBrandIds.has(b.id)) return;
     const sv = brandMap[b.id];
-    const thisBrandChangedLocally = useGranularBrands
+    // 🔒 Timestamp por marca: si mi copia de ESTA marca es más nueva que la del server,
+    // gana local aunque la bandera ya se haya limpiado tras guardar. Protege el nombre
+    // (y demás escalares) contra ecos viejos de otros dispositivos. Mismo patrón que playground.
+    const _bLocalNewer = (Number(b.updatedAt)||0) > (Number(sv && sv.updatedAt)||0);
+    const thisBrandChangedLocally = (useGranularBrands
       ? _localChangedBrandIds.has(b.id)
-      : localChangedBrandsAny;
+      : localChangedBrandsAny) || _bLocalNewer;
     if(sv){
       // Existe en ambos → merge por campo
       const bp = _mergeBrandingPointsSafe(sv.brandingPoints, b.brandingPoints);
@@ -7500,8 +7513,12 @@ function deepMergeAppData(server, local){
   // revertía al recibir nuestro merge (y se propagaba la versión vieja al guardar).
   // En ambos casos preservamos brandingPoints.categories (que vive en polen_template_bp).
   const _tplChangedLocally = _localChangedKeys.has('template');
-  merged.template = _tplChangedLocally ? (local.template ?? server.template)
-                                       : (server.template ?? local.template);
+  // El timestamp protege contra ecos viejos que llegan DESPUÉS de que la bandera local
+  // ya se limpió tras guardar (otro dispositivo con versión vieja reescribe el JSON, o
+  // un evento realtime en vuelo llega tarde). Si mi template es más nuevo, gana local.
+  const _tplLocalNewer = (Number(local.template && local.template.updatedAt)||0) > (Number(server.template && server.template.updatedAt)||0);
+  merged.template = (_tplChangedLocally || _tplLocalNewer) ? (local.template ?? server.template)
+                                                           : (server.template ?? local.template);
   if(merged.template && local.template?.brandingPoints?.categories?.length){
     merged.template = {
       ...merged.template,
