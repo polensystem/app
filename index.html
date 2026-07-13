@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260707-v386-TIMESTAMP-MERGE-BRANDS-TEMPLATE -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260713-v388-PORTAL-DEMO-HANDLERS-FIX -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3974,7 +3974,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 386;
+const APP_VERSION = 388;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -4265,7 +4265,8 @@ window.addEventListener('beforeunload', (e) => {
         clearTimeout(timeoutId);
         const [brandId, ciStr, iiStr] = key.split(':');
         const ci = parseInt(ciStr), ii = parseInt(iiStr);
-        const brand = (appData.brands||[]).find(b=>b.id===brandId);
+        const brand = (typeof _portalFindBrand==='function') ? _portalFindBrand(brandId)
+          : ((appData.brands||[]).find(b=>b.id===brandId) || (appData.demos||[]).find(b=>b.id===brandId));
         if(!brand?.brandingPoints) return;
         const cat = brand.brandingPoints.categories[ci];
         const item = cat?.items?.[ii];
@@ -4281,7 +4282,8 @@ window.addEventListener('beforeunload', (e) => {
       _portalApprovalNotesDebounce.forEach((timeoutId, key)=>{
         clearTimeout(timeoutId);
         const [brandId, stage, fieldKey] = key.split(':');
-        const brand = (appData.brands||[]).find(b=>b.id===brandId);
+        const brand = (typeof _portalFindBrand==='function') ? _portalFindBrand(brandId)
+          : ((appData.brands||[]).find(b=>b.id===brandId) || (appData.demos||[]).find(b=>b.id===brandId));
         if(!brand?.portalApprovals?.[stage]) return;
         const value = brand.portalApprovals[stage][fieldKey];
         if(value !== undefined && window.PortalApprovalsDB){
@@ -5312,7 +5314,7 @@ window.BrandBpDB = (function(){
             return; // eco propio — ignorar en silencio
           }
 
-          const brand = (appData.brands||[]).find(b=>b.id === bid);
+          const brand = ((appData.brands||[]).find(b=>b.id === bid) || (appData.demos||[]).find(b=>b.id === bid));
           if(!brand) return;
           if(!brand.brandingPoints) brand.brandingPoints = { categories: [], total: 0 };
           if(!Array.isArray(brand.brandingPoints.categories)) brand.brandingPoints.categories = [];
@@ -5594,14 +5596,61 @@ window.PortalApprovalsDB = (function(){
   const TABLE = 'polen_portal_approvals';
 
   const _recentOps = new Map();
+  // 🔒 Ventana MÁS LARGA solo para proteger la hidratación (renderPortal.loadAll)
+  // de pisar un check recién marcado/desmarcado que aún no commiteó en la tabla.
+  // Separado de _recentOps (que suprime ecos de realtime a 2500ms) para no afectar
+  // la aplicación de cambios legítimos de otros usuarios.
+  const _recentWrites = new Map();
+  const RECENT_WRITE_MS = 12000;
   function opKey(brandId, stage, fieldKey){ return `${brandId}:${stage}:${fieldKey}`; }
   function markOwnOp(brandId, stage, fieldKey){
     _recentOps.set(opKey(brandId, stage, fieldKey), Date.now());
     setTimeout(()=>_recentOps.delete(opKey(brandId, stage, fieldKey)), 2500);
+    _recentWrites.set(opKey(brandId, stage, fieldKey), Date.now());
+    setTimeout(()=>_recentWrites.delete(opKey(brandId, stage, fieldKey)), RECENT_WRITE_MS);
   }
   function isOwnEcho(brandId, stage, fieldKey){
     const ts = _recentOps.get(opKey(brandId, stage, fieldKey));
     return ts && (Date.now() - ts) < 2500;
+  }
+  // ¿Este campo fue escrito localmente hace poco (set o delete)? Si sí, la hidratación
+  // por reload completo NO debe pisar la memoria local con la foto (posiblemente stale) de la tabla.
+  function wasRecentLocalWrite(brandId, stage, fieldKey){
+    const ts = _recentWrites.get(opKey(brandId, stage, fieldKey));
+    return !!(ts && (Date.now() - ts) < RECENT_WRITE_MS);
+  }
+  // ¿Hubo CUALQUIER escritura local reciente para esta marca? (para decidir si merge-protegemos)
+  function hasAnyRecentLocalWrite(brandId){
+    const now = Date.now();
+    for(const [k, ts] of _recentWrites){
+      if(k.startsWith(brandId+':') && (now - ts) < RECENT_WRITE_MS) return true;
+    }
+    return false;
+  }
+  // Fusiona la foto de la tabla con la memoria local PROTEGIENDO los campos que el
+  // usuario tocó hace poco (set o delete). El resto toma la verdad de la tabla.
+  function mergeHydration(localPA, tablePA, brandId){
+    const local = (localPA && typeof localPA==='object') ? localPA : {};
+    const table = (tablePA && typeof tablePA==='object') ? tablePA : {};
+    const out = {};
+    const stages = new Set([...Object.keys(local), ...Object.keys(table)]);
+    stages.forEach(stage=>{
+      const lst = (local[stage] && typeof local[stage]==='object') ? local[stage] : {};
+      const tst = (table[stage] && typeof table[stage]==='object') ? table[stage] : {};
+      const merged = {};
+      const fields = new Set([...Object.keys(lst), ...Object.keys(tst)]);
+      fields.forEach(fk=>{
+        if(wasRecentLocalWrite(brandId, stage, fk)){
+          // Protegido: respetar memoria local (presente = set reciente; ausente = delete reciente)
+          if(fk in lst) merged[fk] = lst[fk];
+        } else {
+          // Verdad de la tabla
+          if(fk in tst) merged[fk] = tst[fk];
+        }
+      });
+      out[stage] = merged;
+    });
+    return out;
   }
 
   // Convertir valor de memoria → formato DB
@@ -5748,7 +5797,7 @@ window.PortalApprovalsDB = (function(){
           const fieldKey = newRow?.field_key || oldRow?.field_key;
           if(bid && stage && fieldKey && isOwnEcho(bid, stage, fieldKey)) return;
 
-          const brand = (appData.brands||[]).find(b=>b.id === bid);
+          const brand = ((appData.brands||[]).find(b=>b.id === bid) || (appData.demos||[]).find(b=>b.id === bid));
           if(!brand) return;
           if(!brand.portalApprovals) brand.portalApprovals = {};
 
@@ -5767,7 +5816,7 @@ window.PortalApprovalsDB = (function(){
     console.log('[PortalApprovalsDB] ✓ Realtime suscrito a', TABLE);
   }
 
-  return { loadAll, saveField, saveFieldsBatch, deleteField, migrateFromJson, subscribeRealtime, valueToRow, rowToValue };
+  return { loadAll, saveField, saveFieldsBatch, deleteField, migrateFromJson, subscribeRealtime, valueToRow, rowToValue, wasRecentLocalWrite, hasAnyRecentLocalWrite, mergeHydration };
 })();
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -5948,7 +5997,7 @@ window.CronoDB = (function(){
           if(actId && isOwnEcho(actId)) return;
 
           const bid = newRow?.brand_id || oldRow?.brand_id;
-          const brand = (appData.brands||[]).find(b=>b.id === bid);
+          const brand = ((appData.brands||[]).find(b=>b.id === bid) || (appData.demos||[]).find(b=>b.id === bid));
           if(!brand) return;
           if(!brand.cronograma) brand.cronograma = { aire:[], agua:[], tierra:[], fuego:[] };
 
@@ -22912,7 +22961,7 @@ async function boot(){
     try {
       const bid = payload?.new?.brand_id || payload?.old?.brand_id;
       if(currentPage==='brand' && currentBrandId === bid){
-        const brand = (appData.brands||[]).find(b=>b.id===bid);
+        const brand = ((appData.brands||[]).find(b=>b.id === bid) || (appData.demos||[]).find(b=>b.id === bid));
         if(brand) renderBrandBp(brand);
       }
     } catch(e){}
@@ -22930,14 +22979,14 @@ async function boot(){
       const bid = payload?.new?.brand_id || payload?.old?.brand_id;
       // Si estamos viendo el brand detail de esta marca, re-render sus aprobaciones
       if(currentPage==='brand' && currentBrandId === bid){
-        const brand = (appData.brands||[]).find(b=>b.id===bid);
+        const brand = ((appData.brands||[]).find(b=>b.id === bid) || (appData.demos||[]).find(b=>b.id === bid));
         if(brand){
           try { renderRondas(brand); } catch(e){}
         }
       }
       // Si estamos en el portal del cliente (portal-mode), actualizar el panel
       if(document.body.classList.contains('portal-mode') && window._portalBrandId === bid){
-        const brand = (appData.brands||[]).find(b=>b.id===bid);
+        const brand = ((appData.brands||[]).find(b=>b.id === bid) || (appData.demos||[]).find(b=>b.id === bid));
         if(brand){
           const panel = document.getElementById('portal-content-area');
           if(panel && typeof portalRenderAprobaciones === 'function'){
@@ -22954,7 +23003,7 @@ async function boot(){
     try {
       const bid = payload?.new?.brand_id || payload?.old?.brand_id;
       if(currentPage==='brand' && currentBrandId === bid){
-        const brand = (appData.brands||[]).find(b=>b.id===bid);
+        const brand = ((appData.brands||[]).find(b=>b.id === bid) || (appData.demos||[]).find(b=>b.id === bid));
         if(brand){
           try { renderBrandCrono(brand); } catch(e){}
           try { renderSegmentedProgress(brand); } catch(e){}
@@ -23372,6 +23421,16 @@ function portalSetLang(lang){
   try{ portalSwitchTab(window._portalActiveTab||'crono'); }catch(e){}
 }
 
+// 🔒 Buscar la marca del portal: puede ser una marca REAL (appData.brands) o un DEMO
+// (appData.demos, creado desde CRM o desde el template). renderPortal ya hacía este
+// fallback, pero los handlers NO — por eso en un demo los clics no hacían nada:
+// no sumaban puntos, no abrían las notas y no guardaban aprobaciones.
+function _portalFindBrand(brandId){
+  return (appData.brands||[]).find(b=>b.id===brandId)
+      || (appData.demos||[]).find(b=>b.id===brandId)
+      || null;
+}
+
 function renderPortal(brandId){
   const brand = (appData.brands||[]).find(b=>b.id===brandId) || (appData.demos||[]).find(b=>b.id===brandId);
   const main = document.querySelector('.main');
@@ -23432,7 +23491,17 @@ function renderPortal(brandId){
           console.warn('[Polen] Portal: la tabla NO devolvió categorías para', brandId, '— bpAll?', !!bpAll, 'entry?', !!(bpAll&&bpAll[brandId]));
         }
         if(cronoAll && cronoAll[brandId]) brand.cronograma = cronoAll[brandId];
-        if(paAll && paAll[brandId]) brand.portalApprovals = paAll[brandId];
+        // 🔒 FIX carrera "el check se quita solo": NO pisar aprobaciones locales recién
+        // marcadas/desmarcadas que aún no commitearon en la tabla. Fusionamos por campo
+        // protegiendo escrituras locales recientes; el resto toma la verdad de la tabla.
+        if(paAll && paAll[brandId]){
+          brand.portalApprovals = (window.PortalApprovalsDB && PortalApprovalsDB.mergeHydration)
+            ? PortalApprovalsDB.mergeHydration(brand.portalApprovals, paAll[brandId], brandId)
+            : paAll[brandId];
+        } else if(brand.portalApprovals && window.PortalApprovalsDB && PortalApprovalsDB.hasAnyRecentLocalWrite && PortalApprovalsDB.hasAnyRecentLocalWrite(brandId)){
+          // La tabla no devolvió nada para esta marca (p.ej. loadAll corrió antes del commit)
+          // pero hay escrituras locales recientes → conservar memoria, no vaciar.
+        }
       }catch(e){ console.warn('[Polen] Portal: hidratación falló:', e); }
       // Pintar la pestaña inicial DESPUÉS de hidratar
       if(window._portalBrandId === brandId){
@@ -24460,7 +24529,7 @@ function toggleAprobStage(stage){
 // Con debounce de 600ms + reintento + flush en beforeunload (igual que las notas de BP).
 const _portalApprovalNotesDebounce = new Map();
 async function portalSaveApprovalNote(brandId, stage, questionId, value){
-  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const brand = _portalFindBrand(brandId);
   if(!brand) return;
   // Si ya está firmado, el cliente no puede editar
   if(brand.portalApprovals?.[stage]?._signed?.by) return;
@@ -24504,7 +24573,7 @@ async function portalSaveApprovalNote(brandId, stage, questionId, value){
 async function portalSaveApproval(brandId, stage, questionId, value, isCurrentlySelected=false){
   // Decode HTML entities from onclick attribute
   const decoded = value.replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,'&');
-  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const brand = _portalFindBrand(brandId);
   if(!brand) return;
   // Si ya está firmado, bloquear cualquier cambio
   if(brand.portalApprovals?.[stage]?._signed?.by) return;
@@ -24597,7 +24666,7 @@ async function portalSaveApproval(brandId, stage, questionId, value, isCurrently
 // Cliente firma una etapa. Guarda nombre + timestamp + status en portalApprovals[stage]._signed
 // Si hay observaciones, crea rondas automáticas para el equipo.
 async function portalSignStage(brandId, stage){
-  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const brand = _portalFindBrand(brandId);
   if(!brand) return;
   const input = document.getElementById('portal-sign-input-'+stage);
   const name = (input?.value || '').trim();
@@ -24866,7 +24935,7 @@ function portalRenderBp(brand){
 }
 
 async function portalToggleBpItem(brandId, ci, ii, val){
-  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const brand = _portalFindBrand(brandId);
   if(!brand?.brandingPoints) return;
   const cat = brand.brandingPoints.categories[ci];
   const item = cat?.items?.[ii];
@@ -24881,7 +24950,7 @@ async function portalToggleBpItem(brandId, ci, ii, val){
 }
 
 async function portalChangeQty(brandId, ci, ii, delta){
-  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const brand = _portalFindBrand(brandId);
   if(!brand?.brandingPoints) return;
   const cat = brand.brandingPoints.categories[ci];
   const item = cat?.items?.[ii];
@@ -24911,7 +24980,7 @@ async function portalSaveAll(brandId){
 }
 
 function portalToggleNotes(brandId, ci, ii){
-  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const brand = _portalFindBrand(brandId);
   if(!brand?.brandingPoints) return;
   const item = brand.brandingPoints.categories[ci].items[ii];
   item.notesPortalOpen = !item.notesPortalOpen;
@@ -24924,7 +24993,7 @@ function portalToggleNotes(brandId, ci, ii){
 // en cada keystroke). En el onblur (onchange) se hace flush inmediato.
 const _portalNotesDebounce = new Map(); // key: brandId+ci+ii → timeout
 async function portalSaveNotes(brandId, ci, ii, val){
-  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const brand = _portalFindBrand(brandId);
   if(!brand?.brandingPoints) return;
   const cat = brand.brandingPoints.categories[ci];
   const item = cat?.items?.[ii];
@@ -24950,7 +25019,7 @@ async function portalSaveNotes(brandId, ci, ii, val){
 }
 
 async function portalAddBpItem(brandId, ci){
-  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const brand = _portalFindBrand(brandId);
   if(!brand?.brandingPoints) return;
   const name = await askModal({label:'Nombre del entregable', placeholder:'Ej: Fotobooth para evento'});
   if(!name||!name.trim()) return;
