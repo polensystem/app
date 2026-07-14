@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260714-v389-BP-ITEM-DRAG-REORDER -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260714-v390-DEMO-CRONO-SINGLE-SOURCE-FIX -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3974,7 +3974,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 389;
+const APP_VERSION = 390;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -6863,6 +6863,16 @@ async function loadData(){
               if(!Array.isArray(b.brandingPoints.categories)) b.brandingPoints.categories = [];
             }
           });
+          // 🔒 Los DEMOS también leen sus BP de la tabla (fuente de verdad), igual que el crono.
+          (appData.demos||[]).forEach(d=>{
+            const nuevo = bpDeLaTabla[d.id];
+            if(nuevo && Array.isArray(nuevo.categories) && nuevo.categories.length){
+              d.brandingPoints = {
+                total: d.brandingPoints?.total || 15,
+                categories: nuevo.categories,
+              };
+            }
+          });
           console.log('[Polen] ✓ BP de marca cargados de tabla nueva');
         } else {
           console.warn('[Polen] No se pudo cargar tabla de BP — usando JSON viejo como fallback');
@@ -6958,6 +6968,22 @@ async function loadData(){
             } else {
               // Marca sin cronograma en tabla — mantener lo del JSON si hay
               if(!b.cronograma) b.cronograma = { aire:[], agua:[], tierra:[], fuego:[] };
+            }
+          });
+          // 🔒 Los DEMOS también leen su crono de la tabla (fuente de verdad). Sin esto,
+          // el demo quedaba con el crono del JSON (que podía tener actividades ya borradas)
+          // y al abrirlo se re-subían a la tabla, resucitándolas.
+          (appData.demos||[]).forEach(d=>{
+            const nuevo = cronoFromTable[d.id];
+            if(nuevo){
+              const tieneFilas = ['aire','agua','tierra','fuego','_sinUbicar']
+                .some(st=>Array.isArray(nuevo[st]) && nuevo[st].length);
+              if(tieneFilas){
+                if(!d.cronograma) d.cronograma = {};
+                ['aire','agua','tierra','fuego','_sinUbicar'].forEach(stage=>{
+                  d.cronograma[stage] = Array.isArray(nuevo[stage]) ? nuevo[stage] : [];
+                });
+              }
             }
           });
           console.log('[Polen] ✓ Cronogramas cargados de tabla nueva');
@@ -7527,8 +7553,24 @@ function deepMergeAppData(server, local){
     const lArr = Array.isArray(local.demos)  ? local.demos  : [];
     const delDemo = new Set([...(local._deletedDemoIds||[]), ...(server._deletedDemoIds||[])]);
     const demosChangedLocally = _localChangedKeys.has('demos');
+    // 🔒 crono/BP de los demos viven en las TABLAS, no en el JSON. Un dispositivo con
+    // versión vieja puede seguir mandando esos campos dentro del demo del servidor;
+    // si los dejáramos ganar, resucitarían actividades borradas. Local (hidratado de
+    // la tabla) siempre gana para estos dos campos.
+    const _localById = {};
+    lArr.forEach(d=>{ if(d && d.id) _localById[d.id] = d; });
+    const _keepTableBacked = (winner)=>{
+      if(!winner || !winner.id) return winner;
+      const mine = _localById[winner.id];
+      if(!mine) return winner;
+      const out = {...winner};
+      if(mine.cronograma !== undefined) out.cronograma = mine.cronograma;
+      if(mine.brandingPoints !== undefined && mine.brandingPoints.categories) out.brandingPoints = mine.brandingPoints;
+      if(mine.portalApprovals !== undefined) out.portalApprovals = mine.portalApprovals;
+      return out;
+    };
     const map = {};
-    sArr.forEach(d=>{ if(d && d.id && !delDemo.has(d.id)) map[d.id] = d; });
+    sArr.forEach(d=>{ if(d && d.id && !delDemo.has(d.id)) map[d.id] = _keepTableBacked(d); });
     lArr.forEach(d=>{ if(!d || !d.id || delDemo.has(d.id)) return; if(!map[d.id] || demosChangedLocally) map[d.id] = d; });
     merged.demos = Object.values(map);
     merged._deletedDemoIds = [...delDemo];
@@ -7954,12 +7996,28 @@ async function _doUpsert(){
         });
       }
 
+      // 🔒 FIX: los DEMOS también guardaban cronograma/brandingPoints DENTRO del JSON,
+      // mientras que la tabla (polen_crono / polen_brand_bp) era la otra fuente.
+      // Esa doble fuente hacía que al abrir un demo se re-subiera el crono VIEJO del JSON
+      // a la tabla, resucitando actividades ya borradas. Ahora la tabla es la ÚNICA verdad,
+      // igual que para las marcas reales.
+      if(Array.isArray(toWriteSafe.demos)){
+        toWriteSafe.demos = toWriteSafe.demos.map(d=>{
+          if(!d) return d;
+          const { cronograma, brandingPoints, portalApprovals, ...rest } = d;
+          // Conservamos solo el total de BP (metadato liviano); las categorías viven en la tabla.
+          if(brandingPoints && typeof brandingPoints === 'object'){
+            rest.brandingPoints = { total: brandingPoints.total || 0 };
+          }
+          return rest;
+        });
+      }
+
       // 🔒 REFACTOR FASE A: clientNotes vive en polen_client_notes.
       // Stripped del JSON para evitar race conditions multi-usuario.
       if(toWriteSafe.clientNotes !== undefined){
         delete toWriteSafe.clientNotes;
       }
-
       // 🔒 REFACTOR FASE A: banners viven en polen_banners.
       if(toWriteSafe.banners !== undefined){
         delete toWriteSafe.banners;
@@ -15668,7 +15726,7 @@ async function abrirDemoPortalPlantilla(){
   if(demo){ Object.assign(demo, built); } else { demo = built; appData.demos.push(demo); }
   _ensurePortalSlug(demo);
   markLocalChange('demos');
-  await _persistDemoToTables(demo);   // crono/BP a sus tablas (el portal los lee de ahí)
+  await _persistDemoToTables(demo, {force:true});   // crono/BP a sus tablas (el portal los lee de ahí)
   await upsert(true);                 // guardado INMEDIATO (sin debounce) para que la pestaña nueva ya lo encuentre
   const url = window.location.origin + window.location.pathname + '?portal=' + demo.id;
   if(win){ win.location = url; } else { window.open(url, '_blank'); }
@@ -15716,32 +15774,73 @@ async function crearDemoProspecto(crmId){
   // 🔒 Persistir cronograma y branding points del demo en sus tablas (polen_crono,
   // polen_brand_bp). El portal y la página de marca LEEN de esas tablas, no del JSON,
   // así que sin esto el portal mostraría las secciones vacías o incompletas.
-  await _persistDemoToTables(demo);
+  // force:true → demo recién creado, la tabla está vacía por definición.
+  await _persistDemoToTables(demo, {force:true});
 
   showStatus('Demo creado ✓');
   if(currentPage==='crm' && typeof closeTrayModal==='function'){ closeTrayModal(); }
   abrirDemo(demo.id);
 }
 
-// Sube el cronograma y BP embebidos del demo a las tablas (idempotente, por id).
-// Repara también demos viejos cuyos datos no llegaron a la tabla.
-async function _persistDemoToTables(demo){
+// Siembra el cronograma y BP del demo en sus tablas SOLO SI la tabla está vacía.
+// ⚠️ ANTES esto re-subía SIEMPRE demo.cronograma (que venía del JSON) a la tabla, así que
+// cada vez que se abría el demo RESUCITABAN las actividades borradas. La tabla es la
+// fuente de verdad: si ya tiene filas, no la pisamos. Solo sembramos demos nuevos o
+// demos viejos que nunca llegaron a la tabla.
+// `force:true` se usa al CREAR el demo (la tabla está vacía por definición).
+async function _persistDemoToTables(demo, opts){
+  const force = !!(opts && opts.force);
   try{
     if(window.CronoDB){
-      const cronoRows = [];
-      ['aire','agua','tierra','fuego'].forEach(st=>{
-        (demo.cronograma?.[st]||[]).forEach((a,i)=>{ cronoRows.push(CronoDB.actToRow(demo.id, st, a, i)); });
-      });
-      if(cronoRows.length) await CronoDB.saveActsBatch(cronoRows);
+      let tablaTieneCrono = false;
+      if(!force){
+        try{
+          const all = await CronoDB.loadAll();
+          const mine = all && all[demo.id];
+          tablaTieneCrono = !!(mine && ['aire','agua','tierra','fuego','_sinUbicar']
+            .some(st=>Array.isArray(mine[st]) && mine[st].length));
+          // La tabla manda: hidratamos memoria desde ella (puede tener borrados que el JSON no)
+          if(tablaTieneCrono){
+            if(!demo.cronograma) demo.cronograma = {};
+            ['aire','agua','tierra','fuego','_sinUbicar'].forEach(st=>{
+              demo.cronograma[st] = Array.isArray(mine[st]) ? mine[st] : [];
+            });
+          }
+        }catch(e){ /* si falla la lectura, no sembramos a ciegas */ tablaTieneCrono = true; }
+      }
+      if(!tablaTieneCrono){
+        const cronoRows = [];
+        ['aire','agua','tierra','fuego'].forEach(st=>{
+          (demo.cronograma?.[st]||[]).forEach((a,i)=>{ cronoRows.push(CronoDB.actToRow(demo.id, st, a, i)); });
+        });
+        if(cronoRows.length) await CronoDB.saveActsBatch(cronoRows);
+      }
     }
-    if(window.BrandBpDB && demo.brandingPoints?.categories?.length){
-      const bpRows = [];
-      demo.brandingPoints.categories.forEach((cat,ci)=>{
-        (cat.items||[]).forEach((item,ii)=>{ if(cat.id && item.id) bpRows.push(BrandBpDB.itemToRow(demo.id, cat, item, ci, ii)); });
-      });
-      if(bpRows.length){
-        let ok = await BrandBpDB.saveItemsBatch(bpRows);
-        if(!ok) ok = await BrandBpDB.saveItemsBatch(bpRows);
+    if(window.BrandBpDB){
+      let tablaTieneBp = false;
+      if(!force){
+        try{
+          const allBp = await BrandBpDB.loadAll();
+          const mineBp = allBp && allBp[demo.id];
+          tablaTieneBp = !!(mineBp && Array.isArray(mineBp.categories) && mineBp.categories.length);
+          // La tabla manda: hidratamos memoria desde ella
+          if(tablaTieneBp){
+            demo.brandingPoints = {
+              total: demo.brandingPoints?.total || 15,
+              categories: mineBp.categories,
+            };
+          }
+        }catch(e){ tablaTieneBp = true; }
+      }
+      if(!tablaTieneBp && demo.brandingPoints?.categories?.length){
+        const bpRows = [];
+        demo.brandingPoints.categories.forEach((cat,ci)=>{
+          (cat.items||[]).forEach((item,ii)=>{ if(cat.id && item.id) bpRows.push(BrandBpDB.itemToRow(demo.id, cat, item, ci, ii)); });
+        });
+        if(bpRows.length){
+          let ok = await BrandBpDB.saveItemsBatch(bpRows);
+          if(!ok) ok = await BrandBpDB.saveItemsBatch(bpRows);
+        }
       }
     }
   }catch(e){ console.warn('[Polen] No se pudieron persistir crono/BP del demo:', e); }
@@ -15774,10 +15873,19 @@ function abrirDemo(demoId){
     window._demoViewIds.add(demo.id);
   }
   showStatus('🎬 Demo (no cuenta en el dashboard ni en los totales)');
-  // Reparar/asegurar que el crono y BP del demo estén en sus tablas (para demos viejos)
-  _persistDemoToTables(demo);
   currentBrandId = demo.id;
   goTo('brand');
+  // 🔒 Hidratar crono/BP del demo desde las TABLAS (fuente de verdad). Si la tabla está
+  // vacía (demo viejo que nunca llegó a la tabla), la siembra desde el JSON.
+  // Es async: al terminar re-renderizamos para mostrar los datos reales de la tabla,
+  // no el crono viejo del JSON (que podía tener actividades ya borradas).
+  _persistDemoToTables(demo).then(()=>{
+    if(currentPage==='brand' && currentBrandId === demo.id){
+      try{ renderBrandCrono(demo); }catch(e){}
+      try{ renderBrandBp(demo); }catch(e){}
+      try{ renderSegmentedProgress(demo); }catch(e){}
+    }
+  }).catch(()=>{});
 }
 
 // Al salir de la página de marca: sincronizar el demo de vuelta a appData.demos y quitarlo de brands
