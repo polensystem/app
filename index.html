@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260713-v388-PORTAL-DEMO-HANDLERS-FIX -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260714-v389-BP-ITEM-DRAG-REORDER -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3974,7 +3974,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 388;
+const APP_VERSION = 389;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -17861,8 +17861,18 @@ function renderBrandBp(brand){
       </div>
       <div class="bp-cat-body ${cat._uiCollapsed?'hidden':''}">
         ${cat.items.map((item,ii)=>`
-          <div style="border-bottom:1px solid var(--border2)">
+          <div style="border-bottom:1px solid var(--border2)" data-bp-item
+            ondragover="bpItemDragOver(event,${ci},${ii},'brand:${brand.id}')"
+            ondragleave="bpItemDragLeave(event)"
+            ondrop="bpItemDrop(event,${ci},${ii},'brand:${brand.id}')">
             <div class="bp-item" style="padding:0.7rem 1rem;gap:0.8rem">
+              <span draggable="true"
+                ondragstart="bpItemDragStart(event,${ci},${ii},'brand:${brand.id}')"
+                ondragend="bpItemDragEnd(event)"
+                onclick="event.stopPropagation()"
+                title="Arrastrar para reordenar"
+                style="color:var(--text3);font-size:0.8rem;cursor:grab;opacity:0.35;flex-shrink:0;padding:0 0.1rem;user-select:none;transition:opacity 0.15s"
+                onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.35'">⠿</span>
               <input type="checkbox" ${item.selected?'checked':''} style="width:15px;height:15px;accent-color:var(--agua);cursor:pointer;flex-shrink:0"
                 onchange="toggleBrandBpItem('${brand.id}',${ci},${ii},this.checked)">
               <input class="bp-item-name-input" value="${item.name}"
@@ -19179,9 +19189,18 @@ function renderTplBpCats(){
       </div>
       <div class="bp-cat-body ${cat._uiCollapsed?'hidden':''}">
         ${cat.items.map((item,ii)=>`
-          <div class="tpl-bp-item-wrap">
+          <div class="tpl-bp-item-wrap" data-bp-item
+            ondragover="bpItemDragOver(event,${ci},${ii},'tpl')"
+            ondragleave="bpItemDragLeave(event)"
+            ondrop="bpItemDrop(event,${ci},${ii},'tpl')">
             <div class="tpl-bp-item">
-              <span style="color:var(--text3);font-size:0.78rem;cursor:grab;opacity:0.4;flex-shrink:0">⠿</span>
+              <span draggable="true"
+                ondragstart="bpItemDragStart(event,${ci},${ii},'tpl')"
+                ondragend="bpItemDragEnd(event)"
+                onclick="event.stopPropagation()"
+                title="Arrastrar para reordenar"
+                style="color:var(--text3);font-size:0.78rem;cursor:grab;opacity:0.4;flex-shrink:0;user-select:none;transition:opacity 0.15s"
+                onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.4'">⠿</span>
               <input type="checkbox" ${item.selected?'checked':''} style="width:15px;height:15px;accent-color:var(--agua);cursor:pointer;flex-shrink:0"
                 onchange="tplToggleBpItem(${ci},${ii},this.checked)">
               <input class="bp-item-name-input" value="${item.name}"
@@ -19331,6 +19350,8 @@ let _bpDragCi = null;
 let _bpDragCtx = null; // 'tpl' or 'brand:id'
 
 function bpCatDragStart(event, ci, ctx){
+  // Si se está arrastrando un ENTREGABLE, no arrastrar la categoría
+  if(_bpItemDragCi !== null){ event.preventDefault(); return; }
   _bpDragCi = ci;
   _bpDragCtx = ctx;
   event.dataTransfer.effectAllowed = 'move';
@@ -19338,6 +19359,7 @@ function bpCatDragStart(event, ci, ctx){
 }
 
 function bpCatDragOver(event, ci, ctx){
+  if(_bpItemDragCi !== null) return; // drag de item en curso → no marcar categoría
   if(ctx !== _bpDragCtx || ci === _bpDragCi) return;
   event.preventDefault();
   event.currentTarget.style.borderTop = '2px solid var(--aire)';
@@ -19348,6 +19370,7 @@ function bpCatDragLeave(event){
 }
 
 function bpCatDrop(event, targetCi, ctx){
+  if(_bpItemDragCi !== null) return; // el drop lo maneja bpItemDrop
   event.preventDefault();
   event.currentTarget.style.borderTop = '';
   if(_bpDragCi === null || ctx !== _bpDragCtx || _bpDragCi === targetCi) return;
@@ -19391,6 +19414,101 @@ function bpCatDragEnd(event){
   event.currentTarget.style.borderTop = '';
   _bpDragCi = null;
   _bpDragCtx = null;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   DRAG & DROP DE ENTREGABLES (items) DENTRO DE UNA CATEGORÍA
+   ──────────────────────────────────────────────────────────────────────────────
+   ⚠️ `draggable="true"` va SOLO en el handle (⠿), NUNCA en la fila contenedora:
+   si se pone en el contenedor, intercepta los eventos del mouse de los hijos y
+   rompe el checkbox, el nombre editable y los inputs de PTS/CANT.
+   Los eventos de drag BURBUJEAN, así que hacemos stopPropagation() para no
+   disparar el drag de la CATEGORÍA (que sí tiene draggable en su contenedor).
+   El orden se persiste en orden_item (la tabla ya lo guarda y loadAll ordena por él).
+   ══════════════════════════════════════════════════════════════════════════════ */
+let _bpItemDragCi = null, _bpItemDragIi = null, _bpItemDragCtx = null;
+
+function _bpItemRow(el){ return el && el.closest ? el.closest('[data-bp-item]') : null; }
+
+function _bpClearItemMarks(){
+  try{ document.querySelectorAll('[data-bp-item]').forEach(el=>{ el.style.borderTop=''; el.style.opacity=''; }); }catch(e){}
+}
+
+function bpItemDragStart(event, ci, ii, ctx){
+  event.stopPropagation(); // no arrastrar la categoría entera
+  _bpItemDragCi = ci; _bpItemDragIi = ii; _bpItemDragCtx = ctx;
+  try{
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(ii));
+  }catch(e){}
+  const row = _bpItemRow(event.currentTarget);
+  if(row){
+    row.style.opacity = '0.4';
+    try{ event.dataTransfer.setDragImage(row, 20, 20); }catch(e){}
+  }
+}
+
+function bpItemDragOver(event, ci, ii, ctx){
+  if(_bpItemDragCi === null) return;
+  // Solo permitimos reordenar DENTRO de la misma categoría y el mismo contexto
+  if(ctx !== _bpItemDragCtx || ci !== _bpItemDragCi) return;
+  if(ii === _bpItemDragIi) return;
+  event.preventDefault();
+  event.stopPropagation();
+  try{ event.dataTransfer.dropEffect = 'move'; }catch(e){}
+  event.currentTarget.style.borderTop = '2px solid var(--aire)';
+}
+
+function bpItemDragLeave(event){
+  event.currentTarget.style.borderTop = '';
+}
+
+function bpItemDrop(event, ci, targetIi, ctx){
+  if(_bpItemDragCi === null) return;
+  event.preventDefault();
+  event.stopPropagation();
+  event.currentTarget.style.borderTop = '';
+  const srcCi = _bpItemDragCi, srcIi = _bpItemDragIi, srcCtx = _bpItemDragCtx;
+  _bpItemDragCi = null; _bpItemDragIi = null; _bpItemDragCtx = null;
+  if(ctx !== srcCtx || ci !== srcCi || srcIi === targetIi) return;
+  _bpReorderItems(ctx, ci, srcIi, targetIi);
+}
+
+function bpItemDragEnd(event){
+  _bpClearItemMarks();
+  _bpItemDragCi = null; _bpItemDragIi = null; _bpItemDragCtx = null;
+}
+
+// Mueve el item de srcIi a targetIi dentro de la categoría ci y re-guarda el
+// orden de TODOS los items de esa categoría (orden_item) en la tabla dedicada.
+function _bpReorderItems(ctx, ci, srcIi, targetIi){
+  if(ctx === 'tpl'){
+    const cat = appData.template?.brandingPoints?.categories?.[ci];
+    if(!cat || !Array.isArray(cat.items)) return;
+    if(srcIi<0 || srcIi>=cat.items.length || targetIi<0 || targetIi>=cat.items.length) return;
+    const [moved] = cat.items.splice(srcIi, 1);
+    cat.items.splice(targetIi, 0, moved);
+    markLocalChange('template');
+    renderTplBpCats();
+    try{
+      const rows = cat.items.map((item,ii)=>TemplateBpDB.itemToRow(cat, item, ci, ii));
+      if(rows.length) TemplateBpDB.saveItemsBatch(rows);
+    }catch(e){ console.error('[Polen] Error guardando orden de items (tpl):', e); }
+    if(typeof scheduleTplSave === 'function') scheduleTplSave();
+  } else if(typeof ctx === 'string' && ctx.startsWith('brand:')){
+    const brandId = ctx.slice(6);
+    const brand = (typeof _portalFindBrand === 'function') ? _portalFindBrand(brandId) : (appData.brands||[]).find(b=>b.id===brandId);
+    const cat = brand?.brandingPoints?.categories?.[ci];
+    if(!cat || !Array.isArray(cat.items)) return;
+    if(srcIi<0 || srcIi>=cat.items.length || targetIi<0 || targetIi>=cat.items.length) return;
+    const [moved] = cat.items.splice(srcIi, 1);
+    cat.items.splice(targetIi, 0, moved);
+    renderBrandBp(brand);
+    try{
+      const rows = cat.items.map((item,ii)=>BrandBpDB.itemToRow(brandId, cat, item, ci, ii));
+      if(rows.length) BrandBpDB.saveItemsBatch(rows);
+    }catch(e){ console.error('[Polen] Error guardando orden de items (brand):', e); }
+  }
 }
 async function tplAddBpItem(ci){
   const cat = appData.template.brandingPoints.categories[ci];
