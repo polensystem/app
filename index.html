@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260714-v390-DEMO-CRONO-SINGLE-SOURCE-FIX -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260714-v393-CUMPLES-3-SIGUIENTES -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1390,6 +1390,13 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
 
 /* Grids de "Próximos" (cumpleaños / pausa activa) — responsive */
 .cumple-prox-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.4rem;}
+/* Split en 2 columnas cuando SÍ hay cumpleañero del mes: izquierda el próximo inmediato
+   (tarjeta completa), derecha los 2 siguientes en formato compacto. Evita que la caja
+   crezca a lo alto y desbalancee la fila con Pausa Activa. */
+.cumple-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0.7rem;align-items:start;}
+.cumple-split-col{display:flex;flex-direction:column;min-width:0;}
+.cumple-sig-list{display:flex;flex-direction:column;gap:0.4rem;}
+@media (max-width: 900px){ .cumple-split{grid-template-columns:1fr;gap:0.5rem;} }
 .pa-prox-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0.4rem;}
 .domo-grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0.6rem;align-items:start;}
 @media (max-width: 900px){ .domo-grid-3{grid-template-columns:repeat(2,minmax(0,1fr));} }
@@ -3974,7 +3981,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 390;
+const APP_VERSION = 393;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -15103,7 +15110,10 @@ function renderCumples(){
   }).filter(Boolean);
 
   const delMes = conCumple.filter(x=>x.esMes).sort((a,b)=>a.dia-b.dia);
-  const proximos = conCumple.filter(x=>!x.esMes).sort((a,b)=>a.next-b.next).slice(0,4);
+  // Lista completa de meses siguientes (sin cortar): la columna derecha del split
+  // toma de acá lo que necesite. El layout clásico sigue usando solo los primeros 4.
+  const proximosAll = conCumple.filter(x=>!x.esMes).sort((a,b)=>a.next-b.next);
+  const proximos = proximosAll.slice(0,4);
 
   // Tarjeta full-width para cumpleañeros del mes: foto·nombre·fecha + sabor de torta + deseos
   const tarjetaMes = ({m,mes,dia,esHoy})=>{
@@ -15148,14 +15158,38 @@ function renderCumples(){
 
   let inner = '';
   if(delMes.length){
-    inner += `<div style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#f472b6;padding:0.2rem 0.2rem 0.4rem">🎂 Este mes</div>`;
-    inner += delMes.map(tarjetaMes).join('');
+    // ── HAY CUMPLEAÑERO DEL MES → dos columnas ──────────────────────────────
+    // Izquierda: el próximo cumpleañero inmediato con su tarjeta completa
+    // (sabor de torta + deseos). Derecha: los 3 siguientes, compactos.
+    // Así la caja no se estira a lo alto y no desbalancea la fila con Pausa Activa.
+    const idxProx = delMes.findIndex(x=>x.dia >= hoyDia);
+    const principal = idxProx >= 0 ? delMes[idxProx] : delMes[0];
+    // Los demás del mes pasan a "siguientes" (junto con los de meses posteriores)
+    const restoMes = delMes.filter(x=>x !== principal);
+    const siguientes = [...restoMes, ...proximosAll].slice(0,3);
+
+    const colIzq = `<div class="cumple-split-col">
+        <div style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#f472b6;padding:0.2rem 0.2rem 0.4rem">🎂 Este mes</div>
+        ${tarjetaMes(principal)}
+      </div>`;
+
+    if(siguientes.length){
+      inner = `<div class="cumple-split">${colIzq}
+        <div class="cumple-split-col">
+          <div style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0.2rem 0.2rem 0.4rem">Próximos</div>
+          <div class="cumple-sig-list">${siguientes.map(celdaProx).join('')}</div>
+        </div>
+      </div>`;
+    } else {
+      inner = colIzq;
+    }
   } else {
+    // ── SIN CUMPLEAÑEROS DEL MES → diagramación de siempre ──────────────────
     inner += `<div style="padding:0.6rem 0.2rem 0.5rem;color:var(--text3);font-size:0.85rem">🎈 Nadie del equipo cumple años en ${MESES_CAP[mesIdx]}.</div>`;
-  }
-  if(proximos.length){
-    inner += `<div style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0.6rem 0.2rem 0.4rem;margin-top:0.3rem;border-top:1px solid var(--border2)">Próximos</div>`;
-    inner += `<div class="cumple-prox-grid">${proximos.map(celdaProx).join('')}</div>`;
+    if(proximos.length){
+      inner += `<div style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0.6rem 0.2rem 0.4rem;margin-top:0.3rem;border-top:1px solid var(--border2)">Próximos</div>`;
+      inner += `<div class="cumple-prox-grid">${proximos.map(celdaProx).join('')}</div>`;
+    }
   }
 
   grid.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:0.5rem 0.6rem;height:100%;display:flex;flex-direction:column;box-sizing:border-box">
