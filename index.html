@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260714-v393-CUMPLES-3-SIGUIENTES -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260720-v396-STOP-PURGA-ARCHIVADAS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3115,11 +3115,13 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
             </div>
 
             <!-- Divider analytics -->
-            <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:1.2rem">
+            <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.9rem">
               <div style="flex:1;height:1px;background:var(--border)"></div>
               <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3)">Analytics del estudio</span>
               <div style="flex:1;height:1px;background:var(--border)"></div>
             </div>
+            <!-- Selector de período (incluye marcas archivadas) -->
+            <div id="pm-periodo-bar" style="display:flex;align-items:center;justify-content:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.2rem"></div>
 
             <!-- Fila: Tiempo + Ritmo -->
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.6rem">
@@ -3138,6 +3140,18 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
               <div style="flex:1;height:1px;background:var(--border)"></div>
               <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3)">Productividad</span>
               <div style="flex:1;height:1px;background:var(--border)"></div>
+            </div>
+
+            <!-- Fila: Marcas entregadas (histórico, sigue el período de arriba) -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.3rem">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.8rem">🏆 Marcas entregadas por miembro</div>
+                <div id="pm-entregas-miembro"></div>
+              </div>
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.3rem">
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.8rem">🏠 Marcas entregadas por domo</div>
+                <div id="pm-entregas-domo"></div>
+              </div>
             </div>
 
             <!-- Fila: Domo + Miembro -->
@@ -3981,7 +3995,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 393;
+const APP_VERSION = 396;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -7409,9 +7423,19 @@ function deepMergeAppData(server, local){
     // gana local aunque la bandera ya se haya limpiado tras guardar. Protege el nombre
     // (y demás escalares) contra ecos viejos de otros dispositivos. Mismo patrón que playground.
     const _bLocalNewer = (Number(b.updatedAt)||0) > (Number(sv && sv.updatedAt)||0);
-    const thisBrandChangedLocally = (useGranularBrands
-      ? _localChangedBrandIds.has(b.id)
+    // 🔒 FIX (nombre de marca que se revierte): había 52 llamadas a markLocalChange('brands')
+    // SIN id de marca. Cualquiera de ellas activa _unattributedBrandChange → el merge cae en
+    // "modo clásico" y MI copia local gana para TODAS las marcas, incluidas las que yo nunca
+    // toqué. Si mi copia de otra marca estaba stale (no recibí el rename de otro dispositivo),
+    // yo pisaba el nombre nuevo con el viejo y lo subía al servidor → el rename se perdía.
+    // Ahora: si el servidor tiene ESTA marca más nueva y yo NO la edité explícitamente
+    // (markBrandChange con id), gana el servidor. Las ediciones propias nunca se pierden.
+    const _explicitlyEdited = _localChangedBrandIds.has(b.id);
+    const _svNewer = (Number(sv && sv.updatedAt)||0) > (Number(b.updatedAt)||0);
+    let thisBrandChangedLocally = (useGranularBrands
+      ? _explicitlyEdited
       : localChangedBrandsAny) || _bLocalNewer;
+    if(thisBrandChangedLocally && !_explicitlyEdited && _svNewer) thisBrandChangedLocally = false;
     if(sv){
       // Existe en ambos → merge por campo
       const bp = _mergeBrandingPointsSafe(sv.brandingPoints, b.brandingPoints);
@@ -11033,8 +11057,15 @@ async function crmProbDrop(event, probId){
   if(!id) return;
   const it = _crmData.items.find(x=>x.id===id);
   if(!it || (it.probabilidad||'media')===probId) return;
+  const _prev = it.probabilidad;
   it.probabilidad = probId;
-  await CrmDB.saveItem(it);
+  // 🔒 Verificar que el servidor aceptó el cambio (mismo criterio que crmDrop)
+  let ok = await CrmDB.saveItem(it);
+  if(!ok) ok = await CrmDB.saveItem(it);
+  if(!ok){
+    it.probabilidad = _prev;
+    showStatus('⚠️ No se pudo guardar la probabilidad. Revisa tu conexión e inténtalo de nuevo.', true);
+  }
   renderCRM();
   showStatus('Probabilidad actualizada ✓');
 }
@@ -11305,13 +11336,38 @@ async function crmDrop(ev, etapaId){
   if(!id) return;
   const it = _crmData.items.find(x=>x.id===id);
   if(!it || it.etapa===etapaId) return;
+  const _etapaPrevia = it.etapa;
+  const _abandPrevio = it.abandonadoAt;
+  const _reactPrevio = it.reactivadoAt;
   it.etapa = etapaId;
   // Marca de tiempo de entrada a etapa final (para archivar cerrados/perdidos al mes)
   if(_crmEtapaEsGanada(etapaId) || _crmEtapaEsPerdida(etapaId)) it.etapaFinalAt = new Date().toISOString();
   else it.etapaFinalAt = null;
+  // 🔒 FIX (el prospecto volvía a su columna anterior): mover una tarjeta en el kanban es
+  // una acción HUMANA deliberada, pero _crmUltimaActividad() no la contaba como actividad.
+  // Resultado: un prospecto con +45 días sin seguimiento se movía a otra etapa y, al recargar,
+  // _crmAutoMantenimiento lo devolvía a "Abandonado". Ahora el movimiento cuenta como
+  // actividad y reinicia el reloj de abandono.
+  if(!_crmEtapaEsAbandonado(etapaId)){
+    it.reactivadoAt = new Date().toISOString();
+    it.abandonadoAt = null;
+  }
   const enDestino = _crmData.items.filter(x=>x.etapa===etapaId && x.id!==id);
   it.orden = enDestino.length;
-  await CrmDB.saveItem(it);
+  // 🔒 Verificar que el servidor ACEPTÓ el cambio. Antes no se comprobaba: si el guardado
+  // fallaba (sin señal, RLS), la tarjeta se veía movida pero el servidor nunca se enteró
+  // y al recargar volvía a su columna anterior, sin ningún aviso.
+  let ok = await CrmDB.saveItem(it);
+  if(!ok) ok = await CrmDB.saveItem(it); // un reintento
+  if(!ok){
+    // Revertir en memoria para no mostrar un estado que el servidor no tiene
+    it.etapa = _etapaPrevia;
+    it.abandonadoAt = _abandPrevio;
+    it.reactivadoAt = _reactPrevio;
+    showStatus('⚠️ No se pudo guardar el cambio de etapa. Revisa tu conexión e inténtalo de nuevo.', true);
+    renderCRM();
+    return;
+  }
   // 🎯 Si pasó a una etapa GANADA, ocupa un cupo en la quincena en curso.
   if(_crmEtapaEsGanada(etapaId)) await metasAsignarDesdeCrm(it);
   renderCRM();
@@ -14371,10 +14427,17 @@ function switchArchivoTab(tab){
 function ensurePapelera(){
   if(!appData.papelera) appData.papelera = [];
   // Auto-purge items older than 30 days
+  // 🔒 FIX CRÍTICO (pérdida de histórico): la purga borraba TODO lo que tuviera más de
+  // 30 días, incluidas las marcas ARCHIVADAS (type='brand-archived') — y además las
+  // eliminaba de la tabla polen_papelera. Archivar no es borrar: el archivo es el
+  // historial permanente del estudio y es la fuente de las analytics históricas.
+  // Por eso 'brand-archived' queda EXCLUIDO de la purga; solo se elimina si el usuario
+  // lo borra manualmente desde el archivo.
   const now = Date.now();
-  const before = appData.papelera.length;
   const toPurge = [];
   appData.papelera = appData.papelera.filter(item=>{
+    if(!item) return false;
+    if(item.type === 'brand-archived') return true; // nunca se auto-purga
     const age = (now - (item.deletedAt||0)) / (1000*60*60*24);
     if(age >= PAPELERA_DIAS){
       toPurge.push(item);
@@ -14664,13 +14727,18 @@ function renderPapelera(){
 
   const now = Date.now();
   list.innerHTML = items.map(item=>{
-    const nombre = item.type==='brand' ? item.data.name : (item.data.apodo||item.data.nombre);
-    const sub = item.type==='brand' ? (item.data.industria||'Marca') : (item.data.cargo||'Miembro');
+    // 🔒 'brand-archived' es una MARCA (histórico permanente), no un miembro: antes caía
+    // en la rama de miembro y mostraba el nombre vacío + un contador de borrado que ya
+    // no aplica (las archivadas no se auto-purgan).
+    const esMarca = (item.type==='brand' || item.type==='brand-archived');
+    const esArchivada = item.type==='brand-archived';
+    const nombre = esMarca ? (item.data.name||'Marca') : (item.data.apodo||item.data.nombre);
+    const sub = esMarca ? (item.data.industria||(esArchivada?'Marca archivada':'Marca')) : (item.data.cargo||'Miembro');
     const daysLeft = Math.max(0, PAPELERA_DIAS - Math.floor((now - item.deletedAt)/(1000*60*60*24)));
-    const icon = item.type==='brand' ? '🏷️' : '👤';
-    const urgency = daysLeft <= 3 ? 'var(--fuego)' : daysLeft <= 7 ? '#d4a800' : 'var(--text3)';
-    const col = item.type==='brand' ? getBrandColor(item.data) : (item.data.color||'var(--text3)');
-    const logo = item.type==='brand'
+    const icon = esMarca ? '🏷️' : '👤';
+    const urgency = esArchivada ? 'var(--tierra)' : (daysLeft <= 3 ? 'var(--fuego)' : daysLeft <= 7 ? '#d4a800' : 'var(--text3)');
+    const col = esMarca ? getBrandColor(item.data) : (item.data.color||'var(--text3)');
+    const logo = esMarca
       ? (item.data.image ? `<img src="${item.data.image}" style="width:100%;height:100%;object-fit:cover;border-radius:9px">` : `<span style="font-weight:800;color:${col}">${nombre.charAt(0)}</span>`)
       : (item.data.photo ? `<img src="${item.data.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : (item.data.emoji||'👤'));
 
@@ -14681,7 +14749,7 @@ function renderPapelera(){
         <div style="font-size:0.72rem;color:var(--text3)">${icon} ${item.type==='brand'?'Marca':'Miembro'} · ${sub}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;margin-right:0.5rem">
-        <div style="font-size:0.68rem;font-weight:700;color:${urgency}">${daysLeft}d restantes</div>
+        <div style="font-size:0.68rem;font-weight:700;color:${urgency}">${esArchivada ? 'Permanente' : daysLeft+'d restantes'}</div>
         <div style="font-size:0.62rem;color:var(--text3)">eliminado hace ${Math.floor((now-item.deletedAt)/(1000*60*60*24))}d</div>
       </div>
       <button onclick="restoreFromPapelera('${item.id}')"
@@ -20988,6 +21056,112 @@ function renderPmTab(){
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   📊 BASE HISTÓRICA DE ANALYTICS
+   ──────────────────────────────────────────────────────────────────────────────
+   Las analytics leían solo `appData.brands`, que NO incluye las marcas archivadas
+   (al archivar, la marca sale de brands y queda como snapshot en papelera con
+   type='brand-archived'). Resultado: el estudio medía su productividad con una
+   fracción mínima de su historia.
+   La data NUNCA se perdió: el snapshot de papelera guarda el cronograma completo
+   con fechas e hitos, y las filas siguen en polen_crono (solo se borran al
+   eliminar PERMANENTEMENTE). Estos helpers la vuelven a poner a disposición.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+// Todas las marcas del estudio: activas + archivadas (con su cronograma).
+// Excluye las borradas de verdad (type='brand' en papelera) porque no son entregas.
+function _marcasHistoricas(){
+  const out = [];
+  const seen = new Set();
+  (appData.brands||[]).forEach(b=>{
+    if(!b || !b.id || seen.has(b.id) || b.deletedAt) return;
+    seen.add(b.id);
+    out.push(Object.assign({}, b, { _archivada:false }));
+  });
+  (appData.papelera||[]).forEach(p=>{
+    if(!p || p.type !== 'brand-archived') return;
+    const d = p.data;
+    if(!d || !d.id || seen.has(d.id)) return;
+    seen.add(d.id);
+    out.push(Object.assign({}, d, {
+      _archivada: true,
+      _archivadaAt: d.archivedAt || (p.deletedAt ? new Date(p.deletedAt).toISOString() : null),
+    }));
+  });
+  return out;
+}
+
+// ¿Cuándo se entregó esta marca y cuánto tardó?
+// Entrega = Fuego completo (todas sus actividades completadas). Para marcas
+// archivadas sin Fuego cerrado, se usa la fecha de archivado como entrega efectiva
+// (el estudio archiva al terminar), pero se marca como estimada.
+function _marcaEntrega(b){
+  const cr = b.cronograma || {};
+  const fuego = cr.fuego || [];
+  const compl = fuego.filter(a=>a && a.status==='completada' && a.endDate);
+  let fecha = null, estimada = false;
+  if(fuego.length && compl.length === fuego.length){
+    fecha = compl.slice().sort((x,y)=>y.endDate.localeCompare(x.endDate))[0].endDate;
+  } else if(b._archivada && b._archivadaAt){
+    fecha = String(b._archivadaAt).slice(0,10);
+    estimada = true;
+  }
+  if(!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return null;
+  // Inicio real = primera actividad con fecha de arranque
+  const todas = ['aire','agua','tierra','fuego'].flatMap(st=>cr[st]||[]);
+  const conInicio = todas.filter(a=>a && a.startDate).sort((x,y)=>x.startDate.localeCompare(y.startDate));
+  const inicio = conInicio.length ? conInicio[0].startDate : null;
+  let dias = null;
+  if(inicio){
+    const d = Math.round((new Date(fecha) - new Date(inicio)) / 86400000);
+    if(d > 0 && d < 2000) dias = d; // descarta datos corruptos
+  }
+  return { fecha, inicio, dias, estimada, mes: fecha.slice(0,7), anio: fecha.slice(0,4) };
+}
+
+// Estado del filtro de período de analytics. 'todo' | 'anio' | 'mes'
+window._pmPeriodo = window._pmPeriodo || { tipo:'anio', anio:String(new Date().getFullYear()), mes:null };
+
+// ¿La entrega cae dentro del período seleccionado?
+function _pmEnPeriodo(ent){
+  const p = window._pmPeriodo || { tipo:'todo' };
+  if(!ent) return false;
+  if(p.tipo === 'todo') return true;
+  if(p.tipo === 'anio') return ent.anio === String(p.anio);
+  if(p.tipo === 'mes')  return ent.mes  === String(p.mes);
+  return true;
+}
+
+// Etiqueta legible del período actual (para títulos)
+function _pmPeriodoLabel(){
+  const p = window._pmPeriodo || { tipo:'todo' };
+  const MS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  if(p.tipo === 'todo') return 'Histórico completo';
+  if(p.tipo === 'anio') return 'Año ' + p.anio;
+  if(p.tipo === 'mes' && p.mes){
+    const [y,m] = String(p.mes).split('-');
+    return (MS[parseInt(m,10)-1]||'') + ' ' + y;
+  }
+  return '';
+}
+
+// Años con entregas registradas (para poblar el selector)
+function _pmAniosDisponibles(){
+  const set = new Set();
+  _marcasHistoricas().forEach(b=>{ const e=_marcaEntrega(b); if(e) set.add(e.anio); });
+  set.add(String(new Date().getFullYear()));
+  return [...set].sort((a,b)=>b.localeCompare(a));
+}
+
+function setPmPeriodo(tipo, valor){
+  if(!window._pmPeriodo) window._pmPeriodo = {};
+  window._pmPeriodo.tipo = tipo;
+  if(tipo === 'anio') window._pmPeriodo.anio = valor;
+  if(tipo === 'mes')  window._pmPeriodo.mes  = valor;
+  try{ renderPmContent(); }catch(e){ console.error('[Polen] renderPmContent:', e); }
+}
+window.setPmPeriodo = setPmPeriodo;
+
 function renderPmContent(){
   const brands=appData.brands||[];
   const members=appData.members||[];
@@ -21117,48 +21291,68 @@ function renderPmContent(){
     }).join('');
   }
 
-  // ── Tiempo promedio por proyecto + etapas vs template (unificado) ──
+  // ── Selector de período (analytics históricas) ──
+  const pbEl=document.getElementById('pm-periodo-bar');
+  if(pbEl){
+    const p=window._pmPeriodo||{tipo:'anio'};
+    const anios=_pmAniosDisponibles();
+    const MSC=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const anioSel=p.tipo==='mes'&&p.mes?String(p.mes).slice(0,4):String(p.anio||new Date().getFullYear());
+    const btn=(activo,label,onclick)=>`<button onclick="${onclick}" style="padding:0.3rem 0.7rem;border-radius:7px;border:1px solid ${activo?'var(--aire)':'var(--border)'};background:${activo?'var(--aire)':'var(--bg-card)'};color:${activo?'#fff':'var(--text2)'};font-size:0.7rem;font-weight:700;cursor:pointer;font-family:var(--font)">${label}</button>`;
+    let h='';
+    h+=btn(p.tipo==='todo','Histórico',"setPmPeriodo('todo')");
+    h+=`<select onchange="setPmPeriodo('anio',this.value)" style="padding:0.3rem 0.5rem;border-radius:7px;border:1px solid ${p.tipo==='anio'?'var(--aire)':'var(--border)'};background:var(--bg-card);color:var(--text);font-size:0.7rem;font-weight:700;cursor:pointer;font-family:var(--font)">
+      ${anios.map(a=>`<option value="${a}" ${p.tipo==='anio'&&String(p.anio)===a?'selected':''}>Año ${a}</option>`).join('')}
+    </select>`;
+    h+=`<select onchange="setPmPeriodo('mes',this.value)" style="padding:0.3rem 0.5rem;border-radius:7px;border:1px solid ${p.tipo==='mes'?'var(--aire)':'var(--border)'};background:var(--bg-card);color:var(--text);font-size:0.7rem;font-weight:700;cursor:pointer;font-family:var(--font)">
+      <option value="">Por mes…</option>
+      ${MSC.map((nm,i)=>{const v=anioSel+'-'+String(i+1).padStart(2,'0');return `<option value="${v}" ${p.tipo==='mes'&&String(p.mes)===v?'selected':''}>${nm} ${anioSel}</option>`;}).join('')}
+    </select>`;
+    h+=`<span style="font-size:0.65rem;color:var(--text3);margin-left:0.3rem">Incluye marcas archivadas</span>`;
+    pbEl.innerHTML=h;
+  }
+
+  // ── Tiempo promedio por proyecto + etapas vs template (HISTÓRICO) ──
   const tpEl=document.getElementById('pm-tiempo-proyecto');
   if(tpEl){
-    const completados=brands.filter(b=>{
-      const pct=brandProgress(b);
-      const fuegoActs=b.cronograma?.fuego||[];
-      const fuegoCompleto=fuegoActs.length>0&&fuegoActs.every(a=>a.status==='completada');
-      return pct>=95||fuegoCompleto;
-    }).map(b=>{
-      const all=Object.values(b.cronograma||{}).flat();
-      const primero=all.filter(a=>a.startDate).sort((x,y)=>x.startDate.localeCompare(y.startDate))[0];
-      const ultimo=all.filter(a=>a.status==='completada'&&a.endDate).sort((x,y)=>y.endDate.localeCompare(x.endDate))[0];
-      if(!primero||!ultimo) return null;
-      return {b,dias:diffDays(primero.startDate,ultimo.endDate),pct:brandProgress(b)};
-    }).filter(Boolean).filter(x=>x.dias>0);
-    if(!completados.length){
-      tpEl.innerHTML='<div style="font-size:0.78rem;color:var(--text3);padding:0.5rem 0">Sin proyectos cerrados aún — aparecerá cuando una marca tenga ≥95% o Fuego completo.</div>';
-      return;
-    }
-    const avg=Math.round(completados.reduce((s,x)=>s+x.dias,0)/completados.length);
-    const semanas=Math.round(avg/7*10)/10;
+    // 🔒 Ahora sobre TODAS las marcas (activas + archivadas), filtradas por período.
+    const historicas=_marcasHistoricas();
+    const entregas=historicas.map(b=>({b,ent:_marcaEntrega(b)}))
+      .filter(x=>x.ent && _pmEnPeriodo(x.ent));
+    const conDias=entregas.filter(x=>x.ent.dias!==null);
+    const avg=conDias.length?Math.round(conDias.reduce((s,x)=>s+x.ent.dias,0)/conDias.length):null;
+    const semanas=avg!==null?Math.round(avg/7*10)/10:null;
+    const estimadas=entregas.filter(x=>x.ent.estimada).length;
 
-    // Etapa vs template
+    if(!entregas.length){
+      tpEl.innerHTML=`<div style="font-size:0.78rem;color:var(--text3);padding:0.5rem 0">Sin marcas entregadas en ${_pmPeriodoLabel().toLowerCase()}. Prueba con “Histórico” o con otro año.</div>`;
+    } else {
+
+    // Etapa vs template — también sobre el histórico del período
     const tpl=appData.template?.cronograma;
     const etapas2=['aire','agua','tierra','fuego'];
     const templateDias={};
     etapas2.forEach(e=>{ templateDias[e]=(tpl?.[e]||[]).reduce((s,a)=>s+(a.days||0),0); });
     const realDias={aire:[],agua:[],tierra:[],fuego:[]};
-    brands.forEach(b=>{
+    entregas.forEach(({b})=>{
       etapas2.forEach(e=>{
         const acts=b.cronograma?.[e]||[];
         if(!acts.length) return;
         const completadas=acts.filter(a=>a.status==='completada'&&a.startDate&&a.endDate);
         if(completadas.length===acts.length&&acts.length>0){
-          const start=completadas.sort((x,y)=>x.startDate.localeCompare(y.startDate))[0].startDate;
-          const end=completadas.sort((x,y)=>y.endDate.localeCompare(x.endDate))[0].endDate;
+          const start=completadas.slice().sort((x,y)=>x.startDate.localeCompare(y.startDate))[0].startDate;
+          const end=completadas.slice().sort((x,y)=>y.endDate.localeCompare(x.endDate))[0].endDate;
           realDias[e].push(diffDays(start,end));
         }
       });
     });
 
-    let html=`<div style="display:flex;gap:0.8rem;margin-bottom:1rem">
+    let html=`<div style="font-size:0.62rem;color:var(--text3);margin-bottom:0.6rem">${_pmPeriodoLabel()}</div>`;
+    html+=`<div style="display:flex;gap:0.8rem;margin-bottom:1rem">
+      <div style="flex:1;text-align:center;padding:0.7rem 0.5rem;background:var(--bg-card2);border-radius:10px;border:1px solid var(--border)">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--tierra)">${entregas.length}</div>
+        <div style="font-size:0.65rem;color:var(--text3)">marcas entregadas</div>
+      </div>
       <div style="flex:1;text-align:center;padding:0.7rem 0.5rem;background:var(--bg-card2);border-radius:10px;border:1px solid var(--border)">
         <div style="font-size:1.8rem;font-weight:800;color:var(--aire)">${avg??'—'}</div>
         <div style="font-size:0.65rem;color:var(--text3)">días prom.</div>
@@ -21167,11 +21361,10 @@ function renderPmContent(){
         <div style="font-size:1.8rem;font-weight:800;color:var(--agua)">${semanas??'—'}</div>
         <div style="font-size:0.65rem;color:var(--text3)">semanas prom.</div>
       </div>
-      <div style="flex:1;text-align:center;padding:0.7rem 0.5rem;background:var(--bg-card2);border-radius:10px;border:1px solid var(--border)">
-        <div style="font-size:1.8rem;font-weight:800;color:var(--tierra)">${completados.length}</div>
-        <div style="font-size:0.65rem;color:var(--text3)">proyectos</div>
-      </div>
     </div>`;
+    if(estimadas){
+      html+=`<div style="font-size:0.6rem;color:var(--text3);margin-bottom:0.6rem">⚠️ ${estimadas} entrega(s) usan la fecha de archivado porque Fuego no quedó cerrado en el sistema.</div>`;
+    }
 
     html+='<div style="font-size:0.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:0.4rem">Etapa real vs template</div>';
     html+=etapas2.map(e=>{
@@ -21181,41 +21374,46 @@ function renderPmContent(){
       const et={aire:'🌬️',agua:'💧',tierra:'🌱',fuego:'🔥'}[e];
       const col=diff===null?'var(--text3)':diff>3?'#dc2626':diff<-3?'var(--tierra)':'var(--agua)';
       const diffStr=diff===null?'—':diff>0?`+${diff}d`:`${diff}d`;
+      const n=realDias[e].length;
       return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--border2)">
         <span style="font-size:0.75rem;width:70px;flex-shrink:0">${et} ${e.charAt(0).toUpperCase()+e.slice(1)}</span>
-        <span style="font-size:0.7rem;color:var(--text3);flex:1">tpl: ${tplD}d → real: ${avg2!==null?avg2+'d':'—'}</span>
+        <span style="font-size:0.7rem;color:var(--text3);flex:1">tpl: ${tplD}d → real: ${avg2!==null?avg2+'d':'—'}${n?` <span style="opacity:0.6">(${n})</span>`:''}</span>
         <span style="font-size:0.75rem;font-weight:800;color:${col}">${diffStr}</span>
       </div>`;
     }).join('');
-    html+='<div style="font-size:0.6rem;color:var(--text3);margin-top:0.4rem">Negativo = más rápido que el template</div>';
+    html+='<div style="font-size:0.6rem;color:var(--text3);margin-top:0.4rem">Negativo = más rápido que el template · (n) = marcas medidas</div>';
     tpEl.innerHTML=html;
+    }
   }
 
-  // ── Ritmo de producción ──
+  // ── Ritmo de producción (HISTÓRICO, 12 meses) ──
   const rEl=document.getElementById('pm-ritmo');
   if(rEl){
     const meses={};
-    brands.forEach(b=>{
-      const fuegoActs=b.cronograma?.fuego||[];
-      const lastCompleted=fuegoActs.filter(a=>a.status==='completada'&&a.endDate).sort((x,y)=>y.endDate.localeCompare(x.endDate))[0];
-      if(lastCompleted&&brandProgress(b)>=80){
-        const mes=lastCompleted.endDate.slice(0,7);
-        meses[mes]=(meses[mes]||0)+1;
-      }
+    _marcasHistoricas().forEach(b=>{
+      const ent=_marcaEntrega(b);
+      if(!ent) return;
+      const p=window._pmPeriodo||{tipo:'anio'};
+      // En vista "mes" mostramos igual el año completo para dar contexto de tendencia
+      if(p.tipo==='anio' && ent.anio!==String(p.anio)) return;
+      if(p.tipo==='mes' && ent.anio!==String(p.mes).slice(0,4)) return;
+      meses[ent.mes]=(meses[ent.mes]||0)+1;
     });
-    const sorted=Object.entries(meses).sort(([a],[b])=>a.localeCompare(b)).slice(-6);
-    if(!sorted.length){rEl.innerHTML='<div style="font-size:0.78rem;color:var(--text3)">Sin datos suficientes aún</div>';}
+    const sorted=Object.entries(meses).sort(([a],[b])=>a.localeCompare(b)).slice(-12);
+    if(!sorted.length){rEl.innerHTML='<div style="font-size:0.78rem;color:var(--text3)">Sin entregas registradas en este período.</div>';}
     else{
       const maxV=Math.max(...sorted.map(([,v])=>v),1);
+      const total=sorted.reduce((s,[,v])=>s+v,0);
       const ms2=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-      rEl.innerHTML=`<div style="display:flex;align-items:flex-end;gap:0.5rem;height:80px;padding-bottom:0.3rem">
+      rEl.innerHTML=`<div style="font-size:0.62rem;color:var(--text3);margin-bottom:0.5rem">${total} marca(s) entregada(s) · prom. ${Math.round(total/sorted.length*10)/10}/mes</div>
+      <div style="display:flex;align-items:flex-end;gap:0.4rem;height:90px;padding-bottom:0.3rem">
         ${sorted.map(([mes,count])=>{
           const pct=Math.round(count/maxV*100);
-          const [,m]=mes.split('-');
-          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:0.3rem">
+          const [yy,m]=mes.split('-');
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:0.3rem" title="${count} entregada(s) en ${ms2[parseInt(m)-1]} ${yy}">
             <span style="font-size:0.65rem;font-weight:700;color:var(--aire)">${count}</span>
             <div style="width:100%;background:var(--aire);border-radius:4px 4px 0 0;height:${pct}%;min-height:4px;transition:height 0.4s"></div>
-            <span style="font-size:0.6rem;color:var(--text3)">${ms2[parseInt(m)-1]}</span>
+            <span style="font-size:0.58rem;color:var(--text3)">${ms2[parseInt(m)-1]}</span>
           </div>`;
         }).join('')}
       </div>`;
@@ -21263,7 +21461,82 @@ function renderPmContent(){
   window._pmProdPeriod={domo:'mes',miem:'mes'};
   renderPmProdDomo();
   renderPmProdMiem();
+  try{ renderPmEntregas(); }catch(e){ console.error('[Polen] renderPmEntregas:', e); }
 }
+
+/* ── Marcas entregadas por miembro y por domo (histórico + período) ────────────
+   Mide VOLUMEN de entrega: cuántas marcas completas acompañó cada persona/domo.
+   Usa el equipo asignado (domo) de cada marca entregada, incluidas las archivadas. */
+function renderPmEntregas(){
+  const elM=document.getElementById('pm-entregas-miembro');
+  const elD=document.getElementById('pm-entregas-domo');
+  if(!elM && !elD) return;
+  const members=appData.members||[];
+  const entregas=_marcasHistoricas()
+    .map(b=>({b,ent:_marcaEntrega(b)}))
+    .filter(x=>x.ent && _pmEnPeriodo(x.ent));
+
+  const vacio=`<div style="font-size:0.78rem;color:var(--text3)">Sin entregas en ${_pmPeriodoLabel().toLowerCase()}.</div>`;
+
+  // ── Por miembro ──
+  if(elM){
+    const conteo={};
+    entregas.forEach(({b})=>{
+      const ids=[...new Set(_domoAllIds(b.domo))];
+      ids.forEach(id=>{ if(id) conteo[id]=(conteo[id]||0)+1; });
+    });
+    const filas=Object.entries(conteo)
+      .map(([id,n])=>({m:members.find(x=>x.id===id),n}))
+      .filter(x=>x.m)
+      .sort((a,b)=>b.n-a.n);
+    if(!filas.length) elM.innerHTML=vacio;
+    else{
+      const max=filas[0].n||1;
+      elM.innerHTML=filas.map(({m,n})=>{
+        const col=m.color||'var(--aire)';
+        const pct=Math.round(n/max*100);
+        return `<div style="display:flex;align-items:center;gap:0.7rem;margin-bottom:0.5rem">
+          <span style="font-size:0.72rem;font-weight:700;color:var(--text);width:75px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.apodo||m.nombre}</span>
+          <div style="flex:1;height:7px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
+          </div>
+          <span style="font-size:0.75rem;font-weight:800;color:${col};min-width:20px;text-align:right">${n}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // ── Por domo (combinación de principales) ──
+  if(elD){
+    const conteo={};
+    entregas.forEach(({b})=>{
+      const ids=_domoPrincipalIds(b.domo).filter(Boolean).slice().sort();
+      if(!ids.length) return;
+      const key=ids.join('|');
+      if(!conteo[key]) conteo[key]={ids,n:0};
+      conteo[key].n++;
+    });
+    const filas=Object.values(conteo).sort((a,b)=>b.n-a.n);
+    if(!filas.length) elD.innerHTML=vacio;
+    else{
+      const max=filas[0].n||1;
+      elD.innerHTML=filas.map(({ids,n})=>{
+        const ms=ids.map(id=>members.find(x=>x.id===id)).filter(Boolean);
+        const name=ms.map(m=>m.apodo||m.nombre).join(' + ')||'Sin domo';
+        const col=ms[0]?.color||'var(--aire)';
+        const pct=Math.round(n/max*100);
+        return `<div style="display:flex;align-items:center;gap:0.7rem;margin-bottom:0.5rem">
+          <span style="font-size:0.72rem;font-weight:700;color:var(--text);width:100px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${name}">${name}</span>
+          <div style="flex:1;height:7px;background:var(--bg-card2);border-radius:99px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
+          </div>
+          <span style="font-size:0.75rem;font-weight:800;color:${col};min-width:20px;text-align:right">${n}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+window.renderPmEntregas = renderPmEntregas;
 
 function setPmProdPeriod(tipo, periodo){
   if(!window._pmProdPeriod) return;
