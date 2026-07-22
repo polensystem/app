@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260720-v396-STOP-PURGA-ARCHIVADAS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260722-v397-RECUPERAR-HISTORICO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3573,6 +3573,12 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         <button class="tab-btn" id="arch-tab-cobros-btn" onclick="switchArchivoTab('cobros')">💰 Cobranzas</button>
         <button class="tab-btn" id="arch-tab-prospectos-btn" onclick="switchArchivoTab('prospectos')">💼 Prospectos</button>
         <button class="tab-btn" id="arch-tab-abandonados-btn" onclick="switchArchivoTab('abandonados')">📦 Archivados <span id="abandonados-count-badge" style="display:none;background:var(--text3);color:#fff;border-radius:99px;font-size:0.6rem;padding:0.1rem 0.45rem;margin-left:0.3rem;font-weight:700"></span></button>
+        <button class="tab-btn" id="arch-tab-recuperar-btn" onclick="switchArchivoTab('recuperar')">🛟 Recuperar histórico <span id="recuperar-count-badge" style="display:none;background:var(--tierra);color:#fff;border-radius:99px;font-size:0.6rem;padding:0.1rem 0.45rem;margin-left:0.3rem;font-weight:700"></span></button>
+      </div>
+
+      <!-- Tab: Recuperar histórico (cronogramas huérfanos) -->
+      <div id="arch-tab-recuperar" style="display:none">
+        <div id="recuperar-content"><div style="text-align:center;padding:2rem;color:var(--text3)">Cargando…</div></div>
       </div>
 
       <!-- Tab: Proyectos archivados -->
@@ -3995,7 +4001,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 396;
+const APP_VERSION = 397;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -14409,7 +14415,7 @@ const PAPELERA_DIAS = 30;
 
 function switchArchivoTab(tab){
   _archivoActiveTab = tab;
-  ['proyectos','notas','cobros','prospectos','abandonados','papelera'].forEach(t=>{
+  ['proyectos','notas','cobros','prospectos','abandonados','papelera','recuperar'].forEach(t=>{
     const panel = document.getElementById('arch-tab-'+t);
     const btn   = document.getElementById('arch-tab-'+t+'-btn');
     if(panel) panel.style.display = t===tab ? 'block' : 'none';
@@ -14420,6 +14426,7 @@ function switchArchivoTab(tab){
   else if(tab==='cobros') renderArchCobros();
   else if(tab==='prospectos') renderArchivoProspectos();
   else if(tab==='abandonados') renderArchivoAbandonados();
+  else if(tab==='recuperar') renderRecuperarHistorico();
   else renderArchivo();
 }
 
@@ -14901,6 +14908,218 @@ function isArchivedBrand(brand){
   if(!cob || !cob.pagos || !cob.pagos.length) return false;
   const todoCobrado = cob.pagos.every(p=>p.cobrado);
   return todoCobrado;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   🛟 RECUPERACIÓN DE HISTÓRICO
+   ──────────────────────────────────────────────────────────────────────────────
+   Cuando la purga de 30 días borraba una marca archivada, eliminaba su registro
+   (nombre, domo, industria) de polen_papelera PERO NO su cronograma en polen_crono.
+   Quedan "cronogramas huérfanos": proyectos completos con fechas, hitos y estados
+   sin marca dueña. Esta herramienta:
+     1. Los detecta (crono cuyo brand_id no está ni en brands activas ni archivadas).
+     2. Da analítica AGREGADA de inmediato (no requiere identificarlos uno por uno).
+     3. Permite reconstruir los que importen: ponerle nombre + domo → vuelve al archivo.
+   El domo original NO sobrevivió en ninguna tabla, así que se asigna a mano.
+   ══════════════════════════════════════════════════════════════════════════════ */
+window._recuperarState = { loading:false, orphans:null, cronoAll:null };
+
+// IDs de marcas que YA existen (activas o archivadas) — no son huérfanas.
+function _idsConocidos(){
+  const set = new Set();
+  (appData.brands||[]).forEach(b=>{ if(b?.id) set.add(b.id); });
+  (appData.papelera||[]).forEach(p=>{ if(p?.type==='brand-archived' && p.data?.id) set.add(p.data.id); });
+  (appData.demos||[]).forEach(d=>{ if(d?.id) set.add(d.id); });
+  return set;
+}
+
+// Deriva métricas de un cronograma (objeto {aire:[],agua:[],...}) 
+function _cronoMetrics(crono){
+  const stages = ['aire','agua','tierra','fuego'];
+  const todas = stages.flatMap(st=>crono[st]||[]);
+  const conInicio = todas.filter(a=>a.startDate).sort((x,y)=>x.startDate.localeCompare(y.startDate));
+  const conFin = todas.filter(a=>a.endDate).sort((x,y)=>y.endDate.localeCompare(x.endDate));
+  const inicio = conInicio.length ? conInicio[0].startDate : null;
+  const fin = conFin.length ? conFin[0].endDate : null;
+  const hitos = todas.filter(a=>a.isHito).length;
+  const completas = todas.filter(a=>a.status==='completada').length;
+  let dias = null;
+  if(inicio && fin){ const d = Math.round((new Date(fin)-new Date(inicio))/86400000); if(d>0 && d<2000) dias = d; }
+  // Nombres de actividades como pistas para identificar la marca
+  const pistas = todas.filter(a=>a.name).map(a=>a.name).slice(0,6);
+  return { total: todas.length, hitos, completas, inicio, fin, dias, pistas };
+}
+
+async function renderRecuperarHistorico(){
+  const cont = document.getElementById('recuperar-content');
+  if(!cont) return;
+  if(window._recuperarState.loading){ return; }
+
+  // Cargar cronogramas de la tabla si no están en cache de esta sesión de vista
+  if(!window._recuperarState.cronoAll){
+    window._recuperarState.loading = true;
+    cont.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text3)">🛟 Escaneando cronogramas huérfanos…</div>';
+    try{
+      window._recuperarState.cronoAll = (window.CronoDB ? await CronoDB.loadAll() : {}) || {};
+    }catch(e){
+      cont.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--fuego)">No se pudo leer la tabla de cronogramas. Revisa la conexión.</div>';
+      window._recuperarState.loading = false;
+      return;
+    }
+    window._recuperarState.loading = false;
+  }
+
+  const cronoAll = window._recuperarState.cronoAll;
+  const conocidos = _idsConocidos();
+  // Huérfanos = crono cuyo brand_id no es una marca conocida
+  const orphanIds = Object.keys(cronoAll).filter(bid=>!conocidos.has(bid));
+  const orphans = orphanIds.map(bid=>({ id:bid, crono:cronoAll[bid], m:_cronoMetrics(cronoAll[bid]) }))
+    .filter(o=>o.m.total>0)
+    .sort((a,b)=> (a.m.inicio||'').localeCompare(b.m.inicio||''));
+  window._recuperarState.orphans = orphans;
+
+  // Badge
+  const badge = document.getElementById('recuperar-count-badge');
+  if(badge){ if(orphans.length){ badge.style.display='inline-block'; badge.textContent=orphans.length; } else badge.style.display='none'; }
+
+  if(!orphans.length){
+    cont.innerHTML = `<div style="text-align:center;padding:2.5rem 1rem">
+      <div style="font-size:2.5rem;opacity:0.3;margin-bottom:0.8rem">✅</div>
+      <div style="font-size:0.9rem;font-weight:700;color:var(--text)">No hay cronogramas huérfanos</div>
+      <div style="font-size:0.8rem;color:var(--text3);margin-top:0.4rem">Todo el histórico está asociado a una marca activa o archivada.</div>
+    </div>`;
+    return;
+  }
+
+  // ── Métricas agregadas (lo que pediste primero: los números, sin identificar) ──
+  const totalMarcas = orphans.length;
+  const totalActs = orphans.reduce((s,o)=>s+o.m.total,0);
+  const totalHitos = orphans.reduce((s,o)=>s+o.m.hitos,0);
+  const conDias = orphans.filter(o=>o.m.dias!==null);
+  const avgDias = conDias.length ? Math.round(conDias.reduce((s,o)=>s+o.m.dias,0)/conDias.length) : null;
+  const avgSem = avgDias!==null ? Math.round(avgDias/7*10)/10 : null;
+  // Entregas por mes (usa fin del cronograma)
+  const porMes = {};
+  orphans.forEach(o=>{ if(o.m.fin){ const mes=o.m.fin.slice(0,7); porMes[mes]=(porMes[mes]||0)+1; } });
+  const meses = Object.entries(porMes).sort(([a],[b])=>a.localeCompare(b));
+  const maxMes = Math.max(...meses.map(([,v])=>v), 1);
+  const MS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+  let h = `<div style="background:var(--glass);border:1px solid var(--border);border-radius:12px;padding:1rem 1.2rem;margin-bottom:1.2rem">
+    <div style="font-size:0.8rem;color:var(--text2);line-height:1.5">
+      🛟 Se encontraron <strong>${totalMarcas} cronogramas huérfanos</strong>: proyectos completos cuyo registro (nombre/domo) se perdió en la purga, pero cuya data de cronograma sobrevivió. Abajo tienes la analítica agregada de inmediato, y más abajo puedes reconstruir los que importen.
+    </div>
+  </div>`;
+
+  // Tarjetas de métricas
+  h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.8rem;margin-bottom:1.2rem">
+    ${[['Proyectos',totalMarcas,'var(--tierra)'],['Actividades',totalActs,'var(--aire)'],['Hitos',totalHitos,'var(--agua)'],['Días prom.',avgDias??'—','var(--fuego)'],['Semanas prom.',avgSem??'—','var(--text)']]
+      .map(([lbl,val,col])=>`<div style="text-align:center;padding:0.9rem 0.5rem;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+        <div style="font-size:1.7rem;font-weight:800;color:${col}">${val}</div>
+        <div style="font-size:0.65rem;color:var(--text3)">${lbl}</div>
+      </div>`).join('')}
+  </div>`;
+
+  // Ritmo mensual
+  if(meses.length){
+    h += `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1rem 1.2rem;margin-bottom:1.5rem">
+      <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.8rem">📈 Entregas por mes (histórico huérfano)</div>
+      <div style="display:flex;align-items:flex-end;gap:0.35rem;height:80px">
+        ${meses.map(([mes,c])=>{const pct=Math.round(c/maxMes*100);const[y,m]=mes.split('-');return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:0.25rem" title="${c} en ${MS[+m-1]} ${y}">
+          <span style="font-size:0.6rem;font-weight:700;color:var(--tierra)">${c}</span>
+          <div style="width:100%;background:var(--tierra);border-radius:3px 3px 0 0;height:${pct}%;min-height:3px"></div>
+          <span style="font-size:0.55rem;color:var(--text3)">${MS[+m-1]}</span>
+        </div>`;}).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ── Lista para reconstruir uno por uno ──
+  h += `<div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.4rem">Reconstruir marcas</div>
+    <div style="font-size:0.72rem;color:var(--text3);margin-bottom:1rem">Usa las pistas (nombres de actividades y fechas) para identificar cada marca. Al ponerle nombre y guardarla, vuelve al archivo y entra en las analytics. Las que no reconozcas o sean pruebas, déjalas o descártalas.</div>`;
+
+  h += orphans.map((o,i)=>{
+    const m=o.m;
+    const pistasHtml = m.pistas.length ? m.pistas.map(p=>`<span style="display:inline-block;background:var(--bg-card2);border-radius:5px;padding:0.1rem 0.4rem;font-size:0.62rem;color:var(--text2);margin:0.1rem">${_esc(p)}</span>`).join('') : '<span style="font-size:0.62rem;color:var(--text3)">sin nombres de actividad</span>';
+    return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1rem 1.2rem;margin-bottom:0.7rem" id="orphan-${o.id}">
+      <div style="display:flex;align-items:center;gap:0.8rem;flex-wrap:wrap;margin-bottom:0.6rem">
+        <span style="font-size:0.62rem;color:var(--text3);font-family:monospace">#${i+1} · ${o.id}</span>
+        <span style="font-size:0.65rem;color:var(--text2)">📅 ${m.inicio||'?'} → ${m.fin||'?'}</span>
+        <span style="font-size:0.65rem;color:var(--text2)">📋 ${m.total} act · ⭐ ${m.hitos} hitos${m.dias!==null?` · ⏱️ ${m.dias}d`:''}</span>
+      </div>
+      <div style="margin-bottom:0.7rem;line-height:1.7">${pistasHtml}</div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+        <input type="text" id="orphan-name-${o.id}" placeholder="Nombre de la marca…" style="flex:1;min-width:160px;padding:0.45rem 0.7rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-size:0.78rem;font-family:var(--font)">
+        <select id="orphan-domo-${o.id}" style="padding:0.45rem 0.6rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-size:0.75rem;font-family:var(--font)">
+          <option value="">Domo (opcional)…</option>
+          ${(appData.domos||[]).map((d,di)=>{const ms=_domoPrincipalIds(d).map(id=>(appData.members||[]).find(x=>x.id===id)).filter(Boolean).map(x=>x.apodo||x.nombre).join(' + ');return `<option value="${di}">${_esc(ms||'Domo '+(di+1))}</option>`;}).join('')}
+        </select>
+        <button onclick="recuperarMarca('${o.id}')" style="padding:0.45rem 0.9rem;background:var(--tierra);color:#fff;border:none;border-radius:8px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:var(--font)">Recuperar</button>
+        <button onclick="descartarOrphan('${o.id}')" title="Descartar: borra este cronograma huérfano permanentemente (úsalo solo para demos/pruebas)" style="padding:0.45rem 0.7rem;background:none;color:var(--text3);border:1px solid var(--border);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:var(--font)">Descartar</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  cont.innerHTML = h;
+}
+
+function _esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Reconstruye una marca huérfana como marca ARCHIVADA a partir de su cronograma.
+async function recuperarMarca(orphanId){
+  const o = (window._recuperarState.orphans||[]).find(x=>x.id===orphanId);
+  if(!o){ showStatus('No se encontró el cronograma.', true); return; }
+  const nombre = (document.getElementById('orphan-name-'+orphanId)?.value||'').trim();
+  if(!nombre){ showStatus('Ponle un nombre a la marca primero.', true); return; }
+  const domoIdx = document.getElementById('orphan-domo-'+orphanId)?.value;
+  const domo = (domoIdx!=='' && appData.domos && appData.domos[domoIdx]) ? JSON.parse(JSON.stringify(appData.domos[domoIdx])) : null;
+
+  // Construir el objeto marca reconstruida
+  const marca = {
+    id: orphanId,
+    name: nombre,
+    cronograma: o.crono,
+    domo: domo,
+    industria: '',
+    archivedAt: o.m.fin ? new Date(o.m.fin).toISOString() : new Date().toISOString(),
+    _recuperada: true,
+  };
+  // Guardar como item de papelera type='brand-archived' (permanente, no se purga)
+  ensurePapelera();
+  const papItem = { type:'brand-archived', id:orphanId, data:marca, deletedAt:Date.now() };
+  // Evitar duplicado
+  appData.papelera = (appData.papelera||[]).filter(p=>!(p.type==='brand-archived' && p.id===orphanId));
+  appData.papelera.push(papItem);
+  markLocalChange('papelera');
+  if(window.PapeleraDB){
+    try{ await PapeleraDB.saveItem(papItem); }catch(e){ console.error('[Polen] recuperarMarca guardar:', e); }
+  }
+  upsert(true);
+  showStatus('✓ "'+nombre+'" recuperada al archivo');
+  // Refrescar la vista (ya no será huérfana)
+  window._recuperarState.orphans = (window._recuperarState.orphans||[]).filter(x=>x.id!==orphanId);
+  const el = document.getElementById('orphan-'+orphanId);
+  if(el){ el.style.opacity='0.4'; el.innerHTML='<div style="padding:0.5rem;color:var(--tierra);font-weight:700;font-size:0.8rem">✓ Recuperada: '+_esc(nombre)+'</div>'; }
+}
+
+async function descartarOrphan(orphanId){
+  const ok = await confirmModal('¿Descartar este cronograma huérfano? Se borrará permanentemente de la base de datos. Úsalo solo para demos o pruebas — no para proyectos reales.');
+  if(!ok) return;
+  // Borrar todas las actividades del cronograma de la tabla
+  const o = (window._recuperarState.orphans||[]).find(x=>x.id===orphanId);
+  if(o && window.CronoDB){
+    const stages=['aire','agua','tierra','fuego','_sinUbicar'];
+    for(const st of stages){
+      for(const act of (o.crono[st]||[])){
+        if(act.id){ try{ await CronoDB.deleteAct(act.id); }catch(e){} }
+      }
+    }
+  }
+  if(window._recuperarState.cronoAll) delete window._recuperarState.cronoAll[orphanId];
+  window._recuperarState.orphans = (window._recuperarState.orphans||[]).filter(x=>x.id!==orphanId);
+  const el = document.getElementById('orphan-'+orphanId);
+  if(el){ el.style.opacity='0.4'; el.innerHTML='<div style="padding:0.5rem;color:var(--text3);font-size:0.8rem">Descartado</div>'; }
+  showStatus('Cronograma descartado');
 }
 
 function renderArchivo(){
