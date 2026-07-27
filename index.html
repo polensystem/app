@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260722-v397-RECUPERAR-HISTORICO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260723-v398-FERIADOS-EC-GYE -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2031,6 +2031,9 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
     <button class="nav-item" id="nav-template" onclick="goTo('template')">
       <span class="nav-icon">📋</span><span class="nav-text">Template</span>
     </button>
+    <button class="nav-item" id="nav-feriados" onclick="abrirFeriados()">
+      <span class="nav-icon">🇪🇨</span><span class="nav-text">Feriados</span>
+    </button>
     <button class="nav-item" id="nav-archivo" onclick="goTo('archivo')">
       <span class="nav-icon">🗄️</span><span class="nav-text">Archivo</span>
     </button>
@@ -4001,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 397;
+const APP_VERSION = 398;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -7293,6 +7296,7 @@ function markLocalChange(...keys){
     // así un eco viejo del servidor (otro dispositivo/realtime tardío) no puede revertir
     // una edición más nueva. Mismo patrón que playground.
     if(k === 'template'){ try{ if(appData && appData.template) appData.template.updatedAt = Date.now(); }catch(e){} }
+    if(k === 'feriados'){ try{ if(appData && appData.feriados) appData.feriados.updatedAt = Date.now(); }catch(e){} }
   });
 }
 // Call this when user mutates a SPECIFIC brand's scalar fields (name/stage/etc).
@@ -7647,6 +7651,16 @@ function deepMergeAppData(server, local){
   const _tplLocalNewer = (Number(local.template && local.template.updatedAt)||0) > (Number(server.template && server.template.updatedAt)||0);
   merged.template = (_tplChangedLocally || _tplLocalNewer) ? (local.template ?? server.template)
                                                            : (server.template ?? local.template);
+
+  // ── feriados (lista de Ecuador/Guayaquil + ajustes manuales del equipo) ──
+  // Misma protección por timestamp que el template: un eco viejo no puede revertir
+  // un feriado que alguien acaba de agregar (afecta el cálculo de TODOS los cronogramas).
+  {
+    const _ferLocal = _localChangedKeys.has('feriados');
+    const _ferNewer = (Number(local.feriados && local.feriados.updatedAt)||0) > (Number(server.feriados && server.feriados.updatedAt)||0);
+    merged.feriados = (_ferLocal || _ferNewer) ? (local.feriados ?? server.feriados)
+                                              : (server.feriados ?? local.feriados);
+  }
   if(merged.template && local.template?.brandingPoints?.categories?.length){
     merged.template = {
       ...merged.template,
@@ -8312,6 +8326,100 @@ async function reloadData(){
 /* ═══ DATE HELPERS ═══ */
 function isWeekend(d){const day=d.getDay();return day===0||day===6;}
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   🇪🇨 FERIADOS — Ecuador (obligatorios no recuperables) + Guayaquil
+   ──────────────────────────────────────────────────────────────────────────────
+   El cronograma calculaba días hábiles saltando SOLO sábados y domingos, así que
+   las fechas caían encima de feriados y las entregas quedaban corridas.
+   Ahora un feriado NO consume día hábil: la actividad se corre al siguiente día
+   laborable real.
+
+   Fuente de las fechas base (Código del Trabajo, Art. 65):
+     1 ene · Carnaval (lun y mar) · Viernes Santo · 1 may · 24 may ·
+     10 ago · 9 oct · 2 nov · 3 nov · 25 dic
+   Guayaquil (cantonal): 25 jul — Fundación de Guayaquil.
+   (9 oct, Independencia de Guayaquil, ya es nacional.)
+
+   ⚠️ Los TRASLADOS de feriado (los "puentes" que el Gobierno anuncia cada año
+   cuando cae martes/miércoles/jueves/fin de semana) NO se calculan solos a
+   propósito: la regla cambia y un cálculo equivocado correría todos los
+   cronogramas. Se agregan a mano desde Configuración → Feriados.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+// Domingo de Pascua (algoritmo gregoriano anónimo) — base de Carnaval y Viernes Santo
+function _pascua(year){
+  const a=year%19, b=Math.floor(year/100), c=year%100;
+  const d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25), g=Math.floor((b-f+1)/3);
+  const h=(19*a+b-d-g+15)%30, i=Math.floor(c/4), k=c%4;
+  const l=(32+2*e+2*i-h-k)%7, m=Math.floor((a+11*h+22*l)/451);
+  const mes=Math.floor((h+l-7*m+114)/31), dia=((h+l-7*m+114)%31)+1;
+  return new Date(year, mes-1, dia);
+}
+
+// Feriados automáticos de un año → { 'YYYY-MM-DD': 'Nombre' }
+function _feriadosDelAnio(year){
+  const out = {};
+  const put = (d, nombre)=>{ out[fmtLocalDate(d)] = nombre; };
+  const fijo = (m, dd, nombre)=> put(new Date(year, m-1, dd), nombre);
+
+  fijo(1, 1,  'Año Nuevo');
+  fijo(5, 1,  'Día del Trabajo');
+  fijo(5, 24, 'Batalla de Pichincha');
+  fijo(8, 10, 'Primer Grito de Independencia');
+  fijo(10, 9, 'Independencia de Guayaquil');
+  fijo(11, 2, 'Día de los Difuntos');
+  fijo(11, 3, 'Independencia de Cuenca');
+  fijo(12, 25,'Navidad');
+  // Guayaquil (cantonal)
+  fijo(7, 25, 'Fundación de Guayaquil');
+
+  // Movibles (según Pascua)
+  const p = _pascua(year);
+  const off = (n, nombre)=>{ const d=new Date(p); d.setDate(p.getDate()+n); put(d, nombre); };
+  off(-48, 'Carnaval (lunes)');
+  off(-47, 'Carnaval (martes)');
+  off(-2,  'Viernes Santo');
+  return out;
+}
+
+// Cache por año para no recalcular en cada iteración de los bucles de fechas
+window._feriadosCache = window._feriadosCache || {};
+function _feriadosAnio(year){
+  if(!window._feriadosCache[year]) window._feriadosCache[year] = _feriadosDelAnio(year);
+  return window._feriadosCache[year];
+}
+// Invalida el cache cuando el equipo edita la lista manual
+function _invalidarFeriados(){ window._feriadosCache = {}; }
+
+// Ajustes manuales del equipo: puentes/traslados que se agregan y feriados que se quitan.
+const _FERIADOS_VACIO = { extra:[], excluidos:[] };
+function _feriadosCfg(){
+  // esFeriado() corre dentro de bucles de cálculo de fechas y puede llamarse
+  // antes de que appData esté cargado → devolver config vacía en vez de romper.
+  if(typeof appData === 'undefined' || !appData) return _FERIADOS_VACIO;
+  if(!appData.feriados || typeof appData.feriados !== 'object') appData.feriados = {};
+  if(!Array.isArray(appData.feriados.extra))     appData.feriados.extra = [];
+  if(!Array.isArray(appData.feriados.excluidos)) appData.feriados.excluidos = [];
+  return appData.feriados;
+}
+
+// ¿Esta fecha (Date o 'YYYY-MM-DD') es feriado? Devuelve el nombre o null.
+function esFeriado(dOrStr){
+  let str, year;
+  if(typeof dOrStr === 'string'){ str = dOrStr.slice(0,10); year = parseInt(str.slice(0,4),10); }
+  else { str = fmtLocalDate(dOrStr); year = dOrStr.getFullYear(); }
+  if(!str || isNaN(year)) return null;
+  const cfg = _feriadosCfg();
+  if(cfg.excluidos.includes(str)) return null;           // el equipo lo desactivó
+  const extra = (cfg.extra||[]).find(x=> (typeof x==='string'? x : x && x.fecha) === str);
+  if(extra) return (typeof extra==='string') ? 'Feriado' : (extra.nombre || 'Feriado');
+  return _feriadosAnio(year)[str] || null;
+}
+
+// Día NO laborable = fin de semana O feriado. Es la base de todo el cálculo
+// de cronograma (antes solo miraba fin de semana).
+function esDiaNoHabil(d){ return isWeekend(d) || !!esFeriado(d); }
+
 // Timezone-safe: parse YYYY-MM-DD as LOCAL date, never UTC
 function parseLocalDate(str){ if(!str||typeof str!=='string') return new Date(); const [y,m,d]=str.split('-').map(Number); return new Date(y,m-1,d); }
 function fmtLocalDate(d){ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
@@ -8324,7 +8432,7 @@ function shiftWD(dateStr, n){
   let moved = 0;
   while(moved < Math.abs(n)){
     d.setDate(d.getDate()+step);
-    if(!isWeekend(d)) moved++;
+    if(!esDiaNoHabil(d)) moved++;
   }
   return fmtLocalDate(d);
 }
@@ -8337,7 +8445,7 @@ function addWorkdays(startDate,days){
   let safety = 0;
   while(added < days && safety < 1000){
     d.setDate(d.getDate()+1);
-    if(!isWeekend(d)) added++;
+    if(!esDiaNoHabil(d)) added++;
     safety++;
   }
   return fmtLocalDate(d);
@@ -8405,7 +8513,7 @@ function fmtDuracionTotal(firstDate, lastDate, workdays){
 function nextWorkday(dateStr){
   let d=parseLocalDate(dateStr);
   d.setDate(d.getDate()+1);
-  while(isWeekend(d))d.setDate(d.getDate()+1);
+  while(esDiaNoHabil(d))d.setDate(d.getDate()+1);
   return fmtLocalDate(d);
 }
 
@@ -8417,7 +8525,7 @@ function buildCronoFromTemplate(tpl,startDateStr){
   let cursorStr = (startDateStr||_nowStr).slice(0,10);
   // Skip weekends at start
   let cursorD = new Date(cursorStr);
-  while(isWeekend(cursorD)){cursorD.setDate(cursorD.getDate()+1);}
+  while(esDiaNoHabil(cursorD)){cursorD.setDate(cursorD.getDate()+1);}
   cursorStr = fmtDate(cursorD);
 
   if(!tpl.cronograma){tpl.cronograma={aire:[],agua:[],tierra:[],fuego:[]};}
@@ -8457,7 +8565,7 @@ function addWorkdaysStr(dateStr, days){
   let safety = 0;
   while(added < days && safety < 1000){
     d.setDate(d.getDate()+1);
-    if(!isWeekend(d)) added++;
+    if(!esDiaNoHabil(d)) added++;
     safety++;
   }
   return fmtLocalDate(d);
@@ -10109,6 +10217,105 @@ async function saveTrayIndustriasEdits(){
 }
 
 // ── Modal genérico simple (reutilizable) ──
+/* ── 🇪🇨 Gestión de feriados ─────────────────────────────────────────────────
+   Muestra los feriados automáticos del año y permite:
+   · agregar puentes/traslados que anuncia el Gobierno (o días propios del estudio)
+   · desactivar un feriado puntual si el estudio sí trabaja ese día
+   Cualquier cambio recalcula el cache y afecta a los cronogramas NUEVOS. */
+window._feriadosAnioVista = null;
+
+function abrirFeriados(anio){
+  const y = anio || (window._feriadosAnioVista || new Date().getFullYear());
+  window._feriadosAnioVista = y;
+  const cfg = _feriadosCfg();
+  const auto = _feriadosDelAnio(y);
+  const MS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const DS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const fmt=(s)=>{ const d=parseLocalDate(s); return `${DS[d.getDay()]} ${d.getDate()} ${MS[d.getMonth()]}`; };
+
+  // Automáticos del año
+  const autoRows = Object.entries(auto).sort(([a],[b])=>a.localeCompare(b)).map(([fecha,nombre])=>{
+    const off = cfg.excluidos.includes(fecha);
+    return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0;border-bottom:1px solid var(--border2);${off?'opacity:0.4':''}">
+      <span style="font-size:0.7rem;color:var(--text3);width:78px;flex-shrink:0">${fmt(fecha)}</span>
+      <span style="font-size:0.78rem;color:var(--text);flex:1;${off?'text-decoration:line-through':''}">${nombre}</span>
+      <button onclick="_feriadoToggle('${fecha}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:0.15rem 0.5rem;font-size:0.66rem;color:var(--text2);cursor:pointer;font-family:var(--font)">${off?'Activar':'Desactivar'}</button>
+    </div>`;
+  }).join('');
+
+  // Manuales (puentes / traslados / días del estudio)
+  const extras = (cfg.extra||[]).map(x=> typeof x==='string' ? {fecha:x,nombre:'Feriado'} : x)
+    .filter(x=>x && x.fecha && x.fecha.slice(0,4)===String(y))
+    .sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const extraRows = extras.length ? extras.map(x=>`
+    <div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0;border-bottom:1px solid var(--border2)">
+      <span style="font-size:0.7rem;color:var(--text3);width:78px;flex-shrink:0">${fmt(x.fecha)}</span>
+      <span style="font-size:0.78rem;color:var(--text);flex:1">${_esc(x.nombre||'Feriado')}</span>
+      <button onclick="_feriadoQuitarExtra('${x.fecha}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:0.15rem 0.5rem;font-size:0.66rem;color:var(--fuego);cursor:pointer;font-family:var(--font)">Quitar</button>
+    </div>`).join('')
+    : '<div style="font-size:0.74rem;color:var(--text3);padding:0.5rem 0">Sin días agregados a mano para este año.</div>';
+
+  openGenericModal('🇪🇨 Feriados', `
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.9rem">
+      <button onclick="abrirFeriados(${y-1})" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.25rem 0.6rem;cursor:pointer;color:var(--text2);font-family:var(--font)">◀</button>
+      <span style="font-size:1rem;font-weight:800;color:var(--text)">${y}</span>
+      <button onclick="abrirFeriados(${y+1})" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.25rem 0.6rem;cursor:pointer;color:var(--text2);font-family:var(--font)">▶</button>
+    </div>
+    <div style="background:var(--glass);border:1px solid var(--border);border-radius:10px;padding:0.7rem 0.9rem;margin-bottom:1rem;font-size:0.73rem;color:var(--text2);line-height:1.5">
+      Los cronogramas nuevos ya no cuentan estos días como hábiles. Los <strong>puentes o traslados</strong> que anuncia el Gobierno cada año se agregan a mano aquí abajo.
+    </div>
+
+    <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.3rem">Nacionales y de Guayaquil</div>
+    ${autoRows}
+
+    <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin:1rem 0 0.3rem">Agregados por el equipo</div>
+    ${extraRows}
+
+    <div style="display:flex;gap:0.5rem;margin-top:0.9rem;flex-wrap:wrap">
+      <input type="date" id="feriado-nueva-fecha" style="padding:0.4rem 0.6rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-size:0.78rem;font-family:var(--font)">
+      <input type="text" id="feriado-nuevo-nombre" placeholder="Motivo (ej. Puente 10 ago)" style="flex:1;min-width:150px;padding:0.4rem 0.6rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-size:0.78rem;font-family:var(--font)">
+      <button onclick="_feriadoAgregar()" style="padding:0.4rem 0.9rem;background:var(--tierra);color:#fff;border:none;border-radius:8px;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:var(--font)">Agregar</button>
+    </div>
+  `);
+}
+
+function _feriadoGuardar(){
+  markLocalChange('feriados');
+  _invalidarFeriados();
+  upsert(true);
+}
+
+function _feriadoToggle(fecha){
+  const cfg = _feriadosCfg();
+  const i = cfg.excluidos.indexOf(fecha);
+  if(i>=0) cfg.excluidos.splice(i,1); else cfg.excluidos.push(fecha);
+  _feriadoGuardar();
+  abrirFeriados(window._feriadosAnioVista);
+  showStatus('Feriados actualizados ✓');
+}
+
+function _feriadoAgregar(){
+  const f = (document.getElementById('feriado-nueva-fecha')?.value||'').slice(0,10);
+  const n = (document.getElementById('feriado-nuevo-nombre')?.value||'').trim();
+  if(!f){ showStatus('Elige una fecha.', true); return; }
+  const cfg = _feriadosCfg();
+  cfg.extra = (cfg.extra||[]).map(x=> typeof x==='string' ? {fecha:x,nombre:'Feriado'} : x)
+                             .filter(x=>x.fecha!==f);
+  cfg.extra.push({ fecha:f, nombre: n || 'Feriado' });
+  _feriadoGuardar();
+  abrirFeriados(parseInt(f.slice(0,4),10));
+  showStatus('Feriado agregado ✓');
+}
+
+function _feriadoQuitarExtra(fecha){
+  const cfg = _feriadosCfg();
+  cfg.extra = (cfg.extra||[]).map(x=> typeof x==='string' ? {fecha:x,nombre:'Feriado'} : x)
+                             .filter(x=>x.fecha!==fecha);
+  _feriadoGuardar();
+  abrirFeriados(window._feriadosAnioVista);
+  showStatus('Feriado quitado ✓');
+}
+
 function openGenericModal(titulo, innerHTML){
   let modal = document.getElementById('tray-generic-modal');
   if(!modal){
@@ -11944,7 +12151,7 @@ async function activarMarca(brandId){
     // Asignar fechas al cronograma existente, en orden, comenzando hoy (saltando fines de semana)
     let cursorStr = todayStr();
     let cursorD = parseLocalDate(cursorStr);
-    while(isWeekend(cursorD)){ cursorD.setDate(cursorD.getDate()+1); }
+    while(esDiaNoHabil(cursorD)){ cursorD.setDate(cursorD.getDate()+1); }
     cursorStr = fmtLocalDate(cursorD);
 
     ['aire','agua','tierra','fuego'].forEach(stage=>{
@@ -17875,7 +18082,7 @@ function wdDeltaBetween(oldDateStr, newDateStr){
   const maxIter = Math.abs(calDays) + 10;
   for(let i=0; i<maxIter; i++){
     cursor.setDate(cursor.getDate()+sign);
-    if(!isWeekend(cursor)) delta += sign;
+    if(!esDiaNoHabil(cursor)) delta += sign;
     if(fmtLocalDate(cursor) === newDateStr) break;
   }
   return delta;
@@ -20563,9 +20770,11 @@ function renderMemberMonth(){
     const d = new Date(displayYear,displayMonth,day);
     const ds = fmtDate(d);
     const isWknd = isWeekend(d);
+    const fer = (typeof esFeriado==='function') ? esFeriado(d) : null;
     const dayHitos = hitos.filter(h=>h.date===ds);
-    html+=`<div class="month-day ${ds===todayStr?'today':''} ${isWknd?'weekend':''}">
+    html+=`<div class="month-day ${ds===todayStr?'today':''} ${isWknd||fer?'weekend':''}"${fer?` title="Feriado: ${fer}"`:''}>
       <div class="month-day-num">${day}</div>
+      ${fer?`<div style="font-size:0.55rem;font-weight:700;color:var(--fuego);line-height:1.2;margin-bottom:0.1rem">🇪🇨 ${fer.slice(0,16)}</div>`:''}
       ${dayHitos.map(h=>`<div class="month-event ${h.type}">${h.type==='revision'?'📝':h.type==='dc_review'?'🎯':'⭐'} ${h.name.slice(0,18)}</div>`).join('')}
     </div>`;
   }
