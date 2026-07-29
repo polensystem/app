@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260723-v398-FERIADOS-EC-GYE -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260729-v402-FIX-BORRADO-FANTASMA-MARCAS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4004,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 398;
+const APP_VERSION = 402;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -4016,6 +4016,40 @@ function _showUpdateBanner(){
 }
 function _checkAppVersion(){
   if((Number(appData._appVer)||0) > APP_VERSION) _showUpdateBanner();
+}
+
+// 🇪🇨 Recordatorio anual: en diciembre, avisa que hay que actualizar los feriados
+// (traslados/puentes) del próximo año, que dependen del decreto del Gobierno.
+// El sistema NO baja los datos solo (es un HTML en el navegador); solo recuerda
+// pedirle a Claude la actualización una vez al año. Se puede posponer por año.
+function _checkFeriadosReminder(){
+  try{
+    const now = new Date();
+    if(now.getMonth() !== 11) return; // solo en diciembre
+    const proximo = now.getFullYear() + 1;
+    const cfg = _feriadosCfg();
+    // Si ya se confirmó la revisión del próximo año, no molestar.
+    if(cfg.revisadoAnio && Number(cfg.revisadoAnio) >= proximo) return;
+    if(document.getElementById('polen-feriados-reminder')) return;
+    const bar = document.createElement('div');
+    bar.id = 'polen-feriados-reminder';
+    bar.style.cssText = 'position:fixed;bottom:1rem;right:1rem;max-width:340px;z-index:99998;background:var(--bg-card,#fff);border:1px solid var(--border,#ddd);border-left:4px solid #e8622a;color:var(--text,#222);border-radius:12px;padding:0.9rem 1rem;font-family:var(--font,sans-serif);font-size:0.8rem;box-shadow:0 6px 24px rgba(0,0,0,0.18);line-height:1.5';
+    bar.innerHTML = '🇪🇨 <strong>Feriados '+proximo+'</strong><br>Ya casi es '+proximo+'. Pídele a Claude "actualiza los feriados de '+proximo+'" para cargar los traslados y puentes oficiales.' +
+      '<div style="display:flex;gap:0.5rem;margin-top:0.7rem">' +
+      '<button onclick="_feriadosReminderPosponer('+proximo+')" style="background:#e8622a;color:#fff;border:none;border-radius:8px;padding:0.35rem 0.8rem;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:inherit">Ya lo hice</button>' +
+      '<button onclick="document.getElementById(\'polen-feriados-reminder\').remove()" style="background:none;color:var(--text3,#888);border:1px solid var(--border,#ddd);border-radius:8px;padding:0.35rem 0.8rem;font-size:0.75rem;cursor:pointer;font-family:inherit">Después</button>' +
+      '</div>';
+    document.body.appendChild(bar);
+  }catch(e){}
+}
+function _feriadosReminderPosponer(anio){
+  const cfg = _feriadosCfg();
+  cfg.revisadoAnio = anio;
+  markLocalChange('feriados');
+  upsert(true);
+  const el = document.getElementById('polen-feriados-reminder');
+  if(el) el.remove();
+  showStatus('Recordatorio de feriados pospuesto ✓');
 }
 let currentPage='dashboard';
 let currentBrandId=null;
@@ -6859,6 +6893,7 @@ async function loadData(){
         appData._appVer = Math.max(Number(appData._appVer)||0, APP_VERSION);
         _checkAppVersion();
         setInterval(_checkAppVersion, 60000);
+        try{ _checkFeriadosReminder(); }catch(e){}
         setTimeout(()=>{ try{ upsert(); }catch(e){} }, 6000); // propaga la versión aunque el usuario esté inactivo
       }catch(e){ console.warn('[version] check falló:', e); }
 
@@ -7409,7 +7444,20 @@ function deepMergeAppData(server, local){
   const localBrands  = Array.isArray(local.brands)  ? local.brands  : [];
   const deletedBrandIds = _localDeletedIds.brands;
   const persistedDeletedBrandIds = new Set([...(local._deletedBrandIds||[]), ...(server._deletedBrandIds||[])]);
-  const allDeletedBrandIds = new Set([...deletedBrandIds, ...persistedDeletedBrandIds]);
+  // 🔒 FIX CRÍTICO (marcas que desaparecen con el equipo trabajando):
+  // _deletedBrandIds se acumula para SIEMPRE entre dispositivos. Si una marca PRESENTE
+  // en el servidor comparte id con un borrado viejo (o la lista creció con ids reciclados),
+  // el merge la eliminaba sin verificar que sigue viva → borrado fantasma multi-usuario.
+  // Regla: una marca que EXISTE en el servidor es real y NUNCA se borra por la lista
+  // persistida. Solo respetamos un borrado si:
+  //   (a) este dispositivo lo borró en ESTA sesión (intención explícita: _localDeletedIds), o
+  //   (b) el id está en la lista persistida Y la marca NO existe en el servidor.
+  const serverBrandIds = new Set(serverBrands.map(b=>b && b.id).filter(Boolean));
+  const allDeletedBrandIds = new Set();
+  deletedBrandIds.forEach(id=>allDeletedBrandIds.add(id)); // borrado explícito de esta sesión
+  persistedDeletedBrandIds.forEach(id=>{ if(!serverBrandIds.has(id)) allDeletedBrandIds.add(id); });
+  // Limpiar de la lista persistida los ids de marcas que el servidor SÍ tiene (auto-reparación)
+  const _deletedLimpia = [...persistedDeletedBrandIds].filter(id=>!serverBrandIds.has(id) || deletedBrandIds.has(id));
 
   // Map por ID, partiendo del server. Brands que solo están en server NUNCA se pierden.
   const brandMap = {};
@@ -7477,7 +7525,7 @@ function deepMergeAppData(server, local){
   });
 
   merged.brands = Object.values(brandMap);
-  merged._deletedBrandIds = [...persistedDeletedBrandIds];
+  merged._deletedBrandIds = _deletedLimpia;
 
   // ── members: viven en polen_members. Local siempre gana (sincronizado con tabla). ──
   merged.members = Array.isArray(local.members) ? local.members : [];
@@ -8360,20 +8408,37 @@ function _pascua(year){
 function _feriadosDelAnio(year){
   const out = {};
   const put = (d, nombre)=>{ out[fmtLocalDate(d)] = nombre; };
-  const fijo = (m, dd, nombre)=> put(new Date(year, m-1, dd), nombre);
 
-  fijo(1, 1,  'Año Nuevo');
-  fijo(5, 1,  'Día del Trabajo');
-  fijo(5, 24, 'Batalla de Pichincha');
-  fijo(8, 10, 'Primer Grito de Independencia');
-  fijo(10, 9, 'Independencia de Guayaquil');
-  fijo(11, 2, 'Día de los Difuntos');
-  fijo(11, 3, 'Independencia de Cuenca');
-  fijo(12, 25,'Navidad');
-  // Guayaquil (cantonal)
-  fijo(7, 25, 'Fundación de Guayaquil');
+  // Feriado que NO se traslada nunca (se celebra en su fecha exacta).
+  const fijoExacto = (m, dd, nombre)=> put(new Date(year, m-1, dd), nombre);
 
-  // Movibles (según Pascua)
+  // Feriado TRASLADABLE por fin de semana (regla estable de la Ley 906):
+  //   cae sábado → se descansa el viernes anterior
+  //   cae domingo → se descansa el lunes siguiente
+  // Los puentes de martes/miércoles/jueves dependen de decreto anual y NO se
+  // calculan solos (se agregan a mano). Aquí solo el traslado de fin de semana,
+  // que sí está garantizado por ley y no cambia año a año.
+  const trasladable = (m, dd, nombre)=>{
+    const d = new Date(year, m-1, dd);
+    const wd = d.getDay();
+    if(wd===6) d.setDate(dd-1);       // sábado → viernes
+    else if(wd===0) d.setDate(dd+1);  // domingo → lunes
+    put(d, nombre);
+  };
+
+  // No trasladables (fecha exacta siempre)
+  fijoExacto(1, 1,  'Año Nuevo');
+  fijoExacto(11, 2, 'Día de los Difuntos');
+  fijoExacto(11, 3, 'Independencia de Cuenca');
+  fijoExacto(12, 25,'Navidad');
+  // Trasladables por fin de semana
+  trasladable(5, 1,  'Día del Trabajo');
+  trasladable(5, 24, 'Batalla de Pichincha');
+  trasladable(8, 10, 'Primer Grito de Independencia');
+  trasladable(10, 9, 'Independencia de Guayaquil');
+  trasladable(7, 25, 'Fundación de Guayaquil'); // Guayaquil (cantonal)
+
+  // Movibles (según Pascua) — nunca se trasladan (ya caen lun/mar/vie)
   const p = _pascua(year);
   const off = (n, nombre)=>{ const d=new Date(p); d.setDate(p.getDate()+n); put(d, nombre); };
   off(-48, 'Carnaval (lunes)');
@@ -15162,12 +15227,36 @@ async function renderRecuperarHistorico(){
   if(!cont) return;
   if(window._recuperarState.loading){ return; }
 
-  // Cargar cronogramas de la tabla si no están en cache de esta sesión de vista
+  // Cargar cronogramas + catálogo de trayectoria + firmas si no están en cache
   if(!window._recuperarState.cronoAll){
     window._recuperarState.loading = true;
-    cont.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text3)">🛟 Escaneando cronogramas huérfanos…</div>';
+    cont.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text3)">🛟 Escaneando cronogramas, catálogo de marcas y firmas…</div>';
     try{
       window._recuperarState.cronoAll = (window.CronoDB ? await CronoDB.loadAll() : {}) || {};
+      // 📖 Catálogo histórico de marcas (nombre + industria + año) — 239 marcas reales
+      let cat = { marcas:[], config:{industrias:[]} };
+      try{ if(window.TrayectoriaDB) cat = await TrayectoriaDB.loadAll() || cat; }catch(e){}
+      window._recuperarState.catalogo = cat.marcas || [];
+      window._recuperarState.industrias = (cat.config && cat.config.industrias) || [];
+      // ✍️ Firmas por marca (nombre del contacto que aprobó, versión más larga)
+      const firmas = {};
+      try{
+        if(window.PortalApprovalsDB){
+          const pa = await PortalApprovalsDB.loadAll();
+          if(pa){
+            Object.entries(pa).forEach(([bid, stages])=>{
+              let best = '';
+              Object.values(stages||{}).forEach(fields=>{
+                const s = fields && fields._signed;
+                const by = s && (typeof s==='object' ? s.by : s);
+                if(by && String(by).trim().length > best.length) best = String(by).trim();
+              });
+              if(best) firmas[bid] = best;
+            });
+          }
+        }
+      }catch(e){}
+      window._recuperarState.firmas = firmas;
     }catch(e){
       cont.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--fuego)">No se pudo leer la tabla de cronogramas. Revisa la conexión.</div>';
       window._recuperarState.loading = false;
@@ -15242,32 +15331,87 @@ async function renderRecuperarHistorico(){
   }
 
   // ── Lista para reconstruir uno por uno ──
-  h += `<div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:0.4rem">Reconstruir marcas</div>
-    <div style="font-size:0.72rem;color:var(--text3);margin-bottom:1rem">Usa las pistas (nombres de actividades y fechas) para identificar cada marca. Al ponerle nombre y guardarla, vuelve al archivo y entra en las analytics. Las que no reconozcas o sean pruebas, déjalas o descártalas.</div>`;
+  // Ordenada por fecha de FIN descendente (lo más reciente primero, que es lo que
+  // el usuario recuerda mejor y puede cruzar con Slack). Con filtro por mes.
+  const recuperados = orphans; // todos los que siguen huérfanos
+  const porFin = recuperados.slice().sort((a,b)=> (b.m.fin||'').localeCompare(a.m.fin||''));
 
-  h += orphans.map((o,i)=>{
+  // Meses disponibles (por fecha de fin) para el filtro
+  const mesesFin = [...new Set(porFin.map(o=>o.m.fin?o.m.fin.slice(0,7):null).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+  const filtroMes = window._recuperarState.filtroMes || '';
+  const lista = filtroMes ? porFin.filter(o=>o.m.fin && o.m.fin.slice(0,7)===filtroMes) : porFin;
+
+  h += `<div style="display:flex;align-items:center;justify-content:space-between;gap:0.8rem;flex-wrap:wrap;margin-bottom:0.5rem">
+    <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Reconstruir marcas · ${recuperados.length} pendientes</div>
+    <select onchange="_recuperarSetFiltro(this.value)" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font)">
+      <option value="">Todos los meses (${recuperados.length})</option>
+      ${mesesFin.map(mk=>{const[y,m]=mk.split('-');const n=porFin.filter(o=>o.m.fin&&o.m.fin.slice(0,7)===mk).length;return `<option value="${mk}" ${filtroMes===mk?'selected':''}>${MS[+m-1]} ${y} (${n})</option>`;}).join('')}
+    </select>
+  </div>
+  <div style="font-size:0.72rem;color:var(--text3);margin-bottom:1rem;line-height:1.5">
+    Cada cronograma tiene su <strong>fecha de fin</strong> y, cuando existe, la <strong>firma del cliente</strong> como pista. Elige la marca de tu <strong>catálogo de ${(window._recuperarState.catalogo||[]).length} marcas</strong> y el <strong>domo que la trabajó</strong> (necesario para la productividad por perfil). Empezamos por las más recientes.
+  </div>`;
+
+  // Nombres de marcas ya usadas (para no ofrecer duplicados) — de brands + archivadas
+  const nombresUsados = new Set();
+  (appData.brands||[]).forEach(b=>{ if(b?.name) nombresUsados.add(b.name.toLowerCase().trim()); });
+  (appData.papelera||[]).forEach(p=>{ if(p?.type==='brand-archived' && p.data?.name) nombresUsados.add(p.data.name.toLowerCase().trim()); });
+  // Catálogo ordenado por nombre, marcando cuáles ya están tomadas
+  const catalogo = (window._recuperarState.catalogo||[]).slice().sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+  const industriasCat = window._recuperarState.industrias||[];
+  const indNombre = (id)=>{ const i=industriasCat.find(x=>x.id===id); return i?i.nombre:id; };
+  const firmas = window._recuperarState.firmas||{};
+
+  const catOptions = catalogo.map(m=>{
+    const usada = nombresUsados.has((m.nombre||'').toLowerCase().trim());
+    const ind = (m.industrias&&m.industrias[0])?' · '+indNombre(m.industrias[0]):'';
+    return `<option value="${_esc(m.id)}" ${usada?'disabled':''}>${_esc(m.nombre)}${m.anio?' ('+m.anio+')':''}${ind}${usada?' ✓ ya recuperada':''}</option>`;
+  }).join('');
+
+  h += lista.map((o)=>{
     const m=o.m;
-    const pistasHtml = m.pistas.length ? m.pistas.map(p=>`<span style="display:inline-block;background:var(--bg-card2);border-radius:5px;padding:0.1rem 0.4rem;font-size:0.62rem;color:var(--text2);margin:0.1rem">${_esc(p)}</span>`).join('') : '<span style="font-size:0.62rem;color:var(--text3)">sin nombres de actividad</span>';
+    const i = porFin.indexOf(o);
+    const firma = firmas[o.id];
     return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1rem 1.2rem;margin-bottom:0.7rem" id="orphan-${o.id}">
       <div style="display:flex;align-items:center;gap:0.8rem;flex-wrap:wrap;margin-bottom:0.6rem">
-        <span style="font-size:0.62rem;color:var(--text3);font-family:monospace">#${i+1} · ${o.id}</span>
-        <span style="font-size:0.65rem;color:var(--text2)">📅 ${m.inicio||'?'} → ${m.fin||'?'}</span>
+        <span style="font-size:0.72rem;font-weight:800;color:var(--tierra);background:var(--glass);border-radius:6px;padding:0.15rem 0.5rem">📅 Terminó: ${m.fin||'?'}</span>
+        <span style="font-size:0.65rem;color:var(--text2)">Inició: ${m.inicio||'?'}</span>
         <span style="font-size:0.65rem;color:var(--text2)">📋 ${m.total} act · ⭐ ${m.hitos} hitos${m.dias!==null?` · ⏱️ ${m.dias}d`:''}</span>
+        <span style="font-size:0.58rem;color:var(--text3);font-family:monospace;margin-left:auto">#${i+1}/${porFin.length}</span>
       </div>
-      <div style="margin-bottom:0.7rem;line-height:1.7">${pistasHtml}</div>
+      ${firma?`<div style="font-size:0.72rem;color:var(--agua);margin-bottom:0.6rem">✍️ Firmó la aprobación: <strong>${_esc(firma)}</strong> <span style="color:var(--text3)">(pista del cliente)</span></div>`:''}
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
-        <input type="text" id="orphan-name-${o.id}" placeholder="Nombre de la marca…" style="flex:1;min-width:160px;padding:0.45rem 0.7rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-size:0.78rem;font-family:var(--font)">
-        <select id="orphan-domo-${o.id}" style="padding:0.45rem 0.6rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-size:0.75rem;font-family:var(--font)">
-          <option value="">Domo (opcional)…</option>
+        <select id="orphan-cat-${o.id}" style="flex:1;min-width:180px;padding:0.5rem 0.6rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-size:0.78rem;font-family:var(--font)">
+          <option value="">Elige la marca del catálogo…</option>
+          <option value="__manual__">✏️ Escribir nombre a mano…</option>
+          ${catOptions}
+        </select>
+        <input type="text" id="orphan-name-${o.id}" placeholder="Nombre a mano" style="display:none;flex:1;min-width:140px;padding:0.5rem 0.7rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-size:0.8rem;font-family:var(--font)">
+        <select id="orphan-domo-${o.id}" style="padding:0.5rem 0.6rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-size:0.75rem;font-family:var(--font)">
+          <option value="">Domo que la trabajó…</option>
           ${(appData.domos||[]).map((d,di)=>{const ms=_domoPrincipalIds(d).map(id=>(appData.members||[]).find(x=>x.id===id)).filter(Boolean).map(x=>x.apodo||x.nombre).join(' + ');return `<option value="${di}">${_esc(ms||'Domo '+(di+1))}</option>`;}).join('')}
         </select>
-        <button onclick="recuperarMarca('${o.id}')" style="padding:0.45rem 0.9rem;background:var(--tierra);color:#fff;border:none;border-radius:8px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:var(--font)">Recuperar</button>
-        <button onclick="descartarOrphan('${o.id}')" title="Descartar: borra este cronograma huérfano permanentemente (úsalo solo para demos/pruebas)" style="padding:0.45rem 0.7rem;background:none;color:var(--text3);border:1px solid var(--border);border-radius:8px;font-size:0.75rem;cursor:pointer;font-family:var(--font)">Descartar</button>
+        <button onclick="recuperarMarca('${o.id}')" style="padding:0.5rem 1rem;background:var(--tierra);color:#fff;border:none;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font)">Recuperar</button>
+        <button onclick="descartarOrphan('${o.id}')" title="Descartar: borra este cronograma permanentemente (solo para demos/pruebas)" style="padding:0.5rem 0.6rem;background:none;color:var(--text3);border:1px solid var(--border);border-radius:8px;font-size:0.72rem;cursor:pointer;font-family:var(--font)">🗑️</button>
       </div>
+      ${m.pistas.length?`<details style="margin-top:0.5rem"><summary style="font-size:0.62rem;color:var(--text3);cursor:pointer">ver actividades del cronograma</summary><div style="margin-top:0.4rem;line-height:1.7">${m.pistas.map(p=>`<span style="display:inline-block;background:var(--bg-card2);border-radius:5px;padding:0.1rem 0.4rem;font-size:0.6rem;color:var(--text2);margin:0.1rem">${_esc(p)}</span>`).join('')}</div></details>`:''}
     </div>`;
   }).join('');
 
   cont.innerHTML = h;
+  // Toggle: mostrar campo manual si elige "escribir a mano"
+  lista.forEach(o=>{
+    const sel=document.getElementById('orphan-cat-'+o.id);
+    if(sel) sel.addEventListener('change',()=>{
+      const inp=document.getElementById('orphan-name-'+o.id);
+      if(inp) inp.style.display = sel.value==='__manual__' ? 'block' : 'none';
+    });
+  });
+}
+
+function _recuperarSetFiltro(mes){
+  window._recuperarState.filtroMes = mes || '';
+  renderRecuperarHistorico();
 }
 
 function _esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -15276,10 +15420,28 @@ function _esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g
 async function recuperarMarca(orphanId){
   const o = (window._recuperarState.orphans||[]).find(x=>x.id===orphanId);
   if(!o){ showStatus('No se encontró el cronograma.', true); return; }
-  const nombre = (document.getElementById('orphan-name-'+orphanId)?.value||'').trim();
-  if(!nombre){ showStatus('Ponle un nombre a la marca primero.', true); return; }
+  // Nombre e industria: del catálogo de trayectoria o escrito a mano
+  let nombre = '', industria = '';
+  const catSel = document.getElementById('orphan-cat-'+orphanId);
+  const catVal = catSel ? catSel.value : '';
+  if(catVal === '__manual__' || (!catVal && document.getElementById('orphan-name-'+orphanId)?.style.display!=='none')){
+    nombre = (document.getElementById('orphan-name-'+orphanId)?.value||'').trim();
+  } else if(catVal){
+    const marcaCat = (window._recuperarState.catalogo||[]).find(x=>x.id===catVal);
+    if(marcaCat){
+      nombre = marcaCat.nombre||'';
+      industria = (marcaCat.industrias&&marcaCat.industrias[0])||'';
+    }
+  }
+  if(!nombre){ showStatus('Elige la marca del catálogo o escribe un nombre.', true); return; }
   const domoIdx = document.getElementById('orphan-domo-'+orphanId)?.value;
   const domo = (domoIdx!=='' && appData.domos && appData.domos[domoIdx]) ? JSON.parse(JSON.stringify(appData.domos[domoIdx])) : null;
+  // El domo es lo que alimenta la productividad por perfil. Si falta, confirmar,
+  // porque sin él la marca cuenta en volumen/velocidad pero no se atribuye a nadie.
+  if(!domo){
+    const seguir = await confirmModal('No elegiste el domo que trabajó "'+nombre+'". Sin domo, esta marca contará en los totales pero NO en la productividad por miembro/domo. ¿Recuperar igual?');
+    if(!seguir) return;
+  }
 
   // Construir el objeto marca reconstruida
   const marca = {
@@ -15287,7 +15449,7 @@ async function recuperarMarca(orphanId){
     name: nombre,
     cronograma: o.crono,
     domo: domo,
-    industria: '',
+    industria: industria,
     archivedAt: o.m.fin ? new Date(o.m.fin).toISOString() : new Date().toISOString(),
     _recuperada: true,
   };
@@ -15302,11 +15464,12 @@ async function recuperarMarca(orphanId){
     try{ await PapeleraDB.saveItem(papItem); }catch(e){ console.error('[Polen] recuperarMarca guardar:', e); }
   }
   upsert(true);
-  showStatus('✓ "'+nombre+'" recuperada al archivo');
-  // Refrescar la vista (ya no será huérfana)
+  showStatus('✓ "'+nombre+'" recuperada'+(domo?' con domo':'')+' — '+((window._recuperarState.orphans||[]).length-1)+' pendientes');
+  // Quitarla de huérfanos y del cache de cronogramas para que no reaparezca al re-render
   window._recuperarState.orphans = (window._recuperarState.orphans||[]).filter(x=>x.id!==orphanId);
+  if(window._recuperarState.cronoAll) delete window._recuperarState.cronoAll[orphanId];
   const el = document.getElementById('orphan-'+orphanId);
-  if(el){ el.style.opacity='0.4'; el.innerHTML='<div style="padding:0.5rem;color:var(--tierra);font-weight:700;font-size:0.8rem">✓ Recuperada: '+_esc(nombre)+'</div>'; }
+  if(el){ el.style.opacity='0.4'; el.innerHTML='<div style="padding:0.5rem;color:var(--tierra);font-weight:700;font-size:0.8rem">✓ Recuperada: '+_esc(nombre)+(domo?' · domo asignado':'')+'</div>'; }
 }
 
 async function descartarOrphan(orphanId){
