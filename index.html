@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260729-v402-FIX-BORRADO-FANTASMA-MARCAS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260729-v403-REVERT-402-RESTAURA-ARCHIVADO-DEMOS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4004,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 402;
+const APP_VERSION = 403;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -7444,20 +7444,7 @@ function deepMergeAppData(server, local){
   const localBrands  = Array.isArray(local.brands)  ? local.brands  : [];
   const deletedBrandIds = _localDeletedIds.brands;
   const persistedDeletedBrandIds = new Set([...(local._deletedBrandIds||[]), ...(server._deletedBrandIds||[])]);
-  // 🔒 FIX CRÍTICO (marcas que desaparecen con el equipo trabajando):
-  // _deletedBrandIds se acumula para SIEMPRE entre dispositivos. Si una marca PRESENTE
-  // en el servidor comparte id con un borrado viejo (o la lista creció con ids reciclados),
-  // el merge la eliminaba sin verificar que sigue viva → borrado fantasma multi-usuario.
-  // Regla: una marca que EXISTE en el servidor es real y NUNCA se borra por la lista
-  // persistida. Solo respetamos un borrado si:
-  //   (a) este dispositivo lo borró en ESTA sesión (intención explícita: _localDeletedIds), o
-  //   (b) el id está en la lista persistida Y la marca NO existe en el servidor.
-  const serverBrandIds = new Set(serverBrands.map(b=>b && b.id).filter(Boolean));
-  const allDeletedBrandIds = new Set();
-  deletedBrandIds.forEach(id=>allDeletedBrandIds.add(id)); // borrado explícito de esta sesión
-  persistedDeletedBrandIds.forEach(id=>{ if(!serverBrandIds.has(id)) allDeletedBrandIds.add(id); });
-  // Limpiar de la lista persistida los ids de marcas que el servidor SÍ tiene (auto-reparación)
-  const _deletedLimpia = [...persistedDeletedBrandIds].filter(id=>!serverBrandIds.has(id) || deletedBrandIds.has(id));
+  const allDeletedBrandIds = new Set([...deletedBrandIds, ...persistedDeletedBrandIds]);
 
   // Map por ID, partiendo del server. Brands que solo están en server NUNCA se pierden.
   const brandMap = {};
@@ -7525,7 +7512,7 @@ function deepMergeAppData(server, local){
   });
 
   merged.brands = Object.values(brandMap);
-  merged._deletedBrandIds = _deletedLimpia;
+  merged._deletedBrandIds = [...persistedDeletedBrandIds];
 
   // ── members: viven en polen_members. Local siempre gana (sincronizado con tabla). ──
   merged.members = Array.isArray(local.members) ? local.members : [];
