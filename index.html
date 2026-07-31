@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260729-v403-REVERT-402-RESTAURA-ARCHIVADO-DEMOS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260729-v404-FIX-DEMOS-CRM-MERGE -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4004,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 403;
+const APP_VERSION = 404;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -7647,7 +7647,14 @@ function deepMergeAppData(server, local){
     };
     const map = {};
     sArr.forEach(d=>{ if(d && d.id && !delDemo.has(d.id)) map[d.id] = _keepTableBacked(d); });
-    lArr.forEach(d=>{ if(!d || !d.id || delDemo.has(d.id)) return; if(!map[d.id] || demosChangedLocally) map[d.id] = d; });
+    // 🔒 FIX (demos que desaparecen del CRM): un demo local se CONSERVA siempre, salvo
+    // que esté explícitamente en _deletedDemoIds (borrado a propósito). Antes se perdía
+    // si otra pestaña —que no conocía el demo recién creado— corría el merge sin la
+    // bandera demosChangedLocally, y al guardar pisaba el servidor sin ese demo.
+    // Esto rompía links de portal ya enviados a clientes.
+    // NOTA: los demos no tienen estado "archivado" (a diferencia de las marcas), así que
+    // este fix no puede tener el efecto secundario que tuvo el de marcas en v402.
+    lArr.forEach(d=>{ if(!d || !d.id || delDemo.has(d.id)) return; map[d.id] = d; });
     merged.demos = Object.values(map);
     merged._deletedDemoIds = [...delDemo];
   }
