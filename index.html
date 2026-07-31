@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260729-v404-FIX-DEMOS-CRM-MERGE -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260730-v408-FILTRO-PISTAS-FUERTES -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4004,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 404;
+const APP_VERSION = 408;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -15202,7 +15202,7 @@ function _idsConocidos(){
 // Deriva métricas de un cronograma (objeto {aire:[],agua:[],...}) 
 function _cronoMetrics(crono){
   const stages = ['aire','agua','tierra','fuego'];
-  const todas = stages.flatMap(st=>crono[st]||[]);
+  const todas = stages.flatMap(st=>(crono[st]||[]).map(a=>({...a, _stage:st})));
   const conInicio = todas.filter(a=>a.startDate).sort((x,y)=>x.startDate.localeCompare(y.startDate));
   const conFin = todas.filter(a=>a.endDate).sort((x,y)=>y.endDate.localeCompare(x.endDate));
   const inicio = conInicio.length ? conInicio[0].startDate : null;
@@ -15213,7 +15213,53 @@ function _cronoMetrics(crono){
   if(inicio && fin){ const d = Math.round((new Date(fin)-new Date(inicio))/86400000); if(d>0 && d<2000) dias = d; }
   // Nombres de actividades como pistas para identificar la marca
   const pistas = todas.filter(a=>a.name).map(a=>a.name).slice(0,6);
-  return { total: todas.length, hitos, completas, inicio, fin, dias, pistas };
+  // 🔎 Hitos con fecha (reuniones cliente, presentaciones, pagos, entregas): lo más
+  // útil para reconocer la marca. Ordenados por fecha, con la etapa a la que pertenecen.
+  const STAGE_LBL = { aire:'Aire', agua:'Agua', tierra:'Tierra', fuego:'Fuego' };
+  const hitosDetalle = todas
+    .filter(a=>a.isHito && a.name)
+    .map(a=>({ name:a.name, fecha:a.startDate||a.endDate||null, stage:STAGE_LBL[a._stage]||a._stage, done:a.status==='completada' }))
+    .sort((x,y)=> (x.fecha||'').localeCompare(y.fecha||''));
+  return { total: todas.length, hitos, completas, inicio, fin, dias, pistas, hitosDetalle };
+}
+
+// Branding Points SELECCIONADOS de una marca (para reconocerla por lo que se le entregó)
+function _bpSeleccionados(brandId){
+  const bp = (window._recuperarState && window._recuperarState.bpAll) ? window._recuperarState.bpAll[brandId] : null;
+  if(!bp || !Array.isArray(bp.categories)) return [];
+  const out = [];
+  bp.categories.forEach(cat=>{
+    (cat.items||[]).forEach(it=>{ if(it.selected && it.name) out.push(it.name); });
+  });
+  return out;
+}
+
+// Resumen de cobros de una marca: valor total + notas de pago con texto útil.
+// Ignora las notas genéricas de plantilla ("Primer pago", "Pago 1", "Ronda", etc.)
+// que no ayudan a identificar la marca.
+function _cobrosResumen(brandId){
+  const pagos = (window._recuperarState && window._recuperarState.cobrosAll) ? window._recuperarState.cobrosAll[brandId] : null;
+  if(!Array.isArray(pagos) || !pagos.length) return null;
+  const GENERICO = /^\s*(primer|segundo|tercer|cuarto|quinto)?\s*(pago|ronda|abono|cuota)\s*(extra)?\s*\d*\s*$/i;
+  let total = 0;
+  const notas = [];
+  pagos.forEach(p=>{
+    total += Number(p.monto)||Number(p.valor)||0;
+    [p.nota, p.nombre].forEach(t=>{
+      const s = (t==null?'':String(t)).trim();
+      if(s && !GENERICO.test(s)) notas.push(s);
+    });
+  });
+  const notasUtiles = [...new Set(notas)];
+  // Solo devolver si hay algo que aporte: monto real o una nota no genérica
+  if(total<=0 && !notasUtiles.length) return null;
+  return { total, notas: notasUtiles };
+}
+
+// Notas del equipo sobre el cliente (texto libre, la mejor pista)
+function _notasCliente(brandId){
+  const n = (window._recuperarState && window._recuperarState.notasAll) ? window._recuperarState.notasAll[brandId] : null;
+  return Array.isArray(n) ? n : [];
 }
 
 async function renderRecuperarHistorico(){
@@ -15251,6 +15297,53 @@ async function renderRecuperarHistorico(){
         }
       }catch(e){}
       window._recuperarState.firmas = firmas;
+      // 🎨 Branding Points por marca (para mostrar los entregables seleccionados)
+      let bpAll = {};
+      try{ if(window.BrandBpDB) bpAll = await BrandBpDB.loadAll() || {}; }catch(e){}
+      window._recuperarState.bpAll = bpAll;
+      // 💰 Cobros por marca (valor del proyecto + notas de pago como pista)
+      let cobrosAll = {};
+      try{ if(window.CobrosDB) cobrosAll = await CobrosDB.loadAll() || {}; }catch(e){}
+      window._recuperarState.cobrosAll = cobrosAll;
+      // 📝 Notas del equipo sobre el cliente (texto humano, la mejor pista posible)
+      let notasAll = {};
+      try{
+        if(window.ClientNotesDB){
+          const raw = await ClientNotesDB.loadAll(); // devuelve LISTA plana de notas
+          if(Array.isArray(raw)){
+            raw.forEach(n=>{
+              const bid = n && n.brandId;
+              const txt = n && n.text;
+              if(bid && txt && String(txt).trim()){
+                if(!notasAll[bid]) notasAll[bid] = [];
+                notasAll[bid].push(String(txt).trim());
+              }
+            });
+          }
+        }
+      }catch(e){}
+      window._recuperarState.notasAll = notasAll;
+      // ✍️ Firmas con fecha (además del nombre): quién firmó y cuándo, por etapa
+      const firmasDetalle = {};
+      try{
+        if(window.PortalApprovalsDB){
+          const pa2 = window._recuperarState._paRaw || await PortalApprovalsDB.loadAll();
+          if(pa2){
+            Object.entries(pa2).forEach(([bid, stages])=>{
+              const arr = [];
+              Object.entries(stages||{}).forEach(([stage, fields])=>{
+                const s = fields && fields._signed;
+                if(!s) return;
+                const by = typeof s==='object' ? s.by : s;
+                const at = typeof s==='object' ? s.at : null;
+                if(by) arr.push({ by:String(by).trim(), stage, at });
+              });
+              if(arr.length) firmasDetalle[bid] = arr;
+            });
+          }
+        }
+      }catch(e){}
+      window._recuperarState.firmasDetalle = firmasDetalle;
     }catch(e){
       cont.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--fuego)">No se pudo leer la tabla de cronogramas. Revisa la conexión.</div>';
       window._recuperarState.loading = false;
@@ -15328,22 +15421,49 @@ async function renderRecuperarHistorico(){
   // Ordenada por fecha de FIN descendente (lo más reciente primero, que es lo que
   // el usuario recuerda mejor y puede cruzar con Slack). Con filtro por mes.
   const recuperados = orphans; // todos los que siguen huérfanos
-  const porFin = recuperados.slice().sort((a,b)=> (b.m.fin||'').localeCompare(a.m.fin||''));
+
+  // 🔎 "Pista fuerte" = tiene firma, BP seleccionados o cobro con monto. Son las más
+  // fáciles de identificar. Marcamos cada huérfano para poder filtrar y priorizar.
+  recuperados.forEach(o=>{
+    const tieneFirma = !!(firmas[o.id]);
+    const tieneBp = _bpSeleccionados(o.id).length > 0;
+    const cob = _cobrosResumen(o.id);
+    const tieneMonto = !!(cob && cob.total > 0);
+    o._pistaFuerte = tieneFirma || tieneBp || tieneMonto;
+    o._pistas = { firma:tieneFirma, bp:tieneBp, monto:tieneMonto };
+  });
+  const nFuertes = recuperados.filter(o=>o._pistaFuerte).length;
+
+  const porFin = recuperados.slice().sort((a,b)=>{
+    // Con el filtro de pistas activo, ordenar por fin desc; sin filtro, priorizar
+    // las de pista fuerte arriba y luego por fecha.
+    if(window._recuperarState.soloFuertes) return (b.m.fin||'').localeCompare(a.m.fin||'');
+    if(a._pistaFuerte !== b._pistaFuerte) return a._pistaFuerte ? -1 : 1;
+    return (b.m.fin||'').localeCompare(a.m.fin||'');
+  });
 
   // Meses disponibles (por fecha de fin) para el filtro
   const mesesFin = [...new Set(porFin.map(o=>o.m.fin?o.m.fin.slice(0,7):null).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
   const filtroMes = window._recuperarState.filtroMes || '';
-  const lista = filtroMes ? porFin.filter(o=>o.m.fin && o.m.fin.slice(0,7)===filtroMes) : porFin;
+  const soloFuertes = !!window._recuperarState.soloFuertes;
+  let lista = porFin;
+  if(soloFuertes) lista = lista.filter(o=>o._pistaFuerte);
+  if(filtroMes) lista = lista.filter(o=>o.m.fin && o.m.fin.slice(0,7)===filtroMes);
 
   h += `<div style="display:flex;align-items:center;justify-content:space-between;gap:0.8rem;flex-wrap:wrap;margin-bottom:0.5rem">
     <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Reconstruir marcas · ${recuperados.length} pendientes</div>
-    <select onchange="_recuperarSetFiltro(this.value)" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font)">
-      <option value="">Todos los meses (${recuperados.length})</option>
-      ${mesesFin.map(mk=>{const[y,m]=mk.split('-');const n=porFin.filter(o=>o.m.fin&&o.m.fin.slice(0,7)===mk).length;return `<option value="${mk}" ${filtroMes===mk?'selected':''}>${MS[+m-1]} ${y} (${n})</option>`;}).join('')}
-    </select>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+      <button onclick="_recuperarToggleFuertes()" style="padding:0.35rem 0.7rem;border-radius:8px;border:1px solid ${soloFuertes?'var(--tierra)':'var(--border)'};background:${soloFuertes?'var(--tierra)':'var(--bg-card)'};color:${soloFuertes?'#fff':'var(--text2)'};font-size:0.72rem;font-weight:700;cursor:pointer;font-family:var(--font)">⭐ Con pista fuerte (${nFuertes})</button>
+      <select onchange="_recuperarSetFiltro(this.value)" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font)">
+        <option value="">Todos los meses</option>
+        ${mesesFin.map(mk=>{const[y,m]=mk.split('-');const n=porFin.filter(o=>o.m.fin&&o.m.fin.slice(0,7)===mk).length;return `<option value="${mk}" ${filtroMes===mk?'selected':''}>${MS[+m-1]} ${y} (${n})</option>`;}).join('')}
+      </select>
+    </div>
   </div>
   <div style="font-size:0.72rem;color:var(--text3);margin-bottom:1rem;line-height:1.5">
-    Cada cronograma tiene su <strong>fecha de fin</strong> y, cuando existe, la <strong>firma del cliente</strong> como pista. Elige la marca de tu <strong>catálogo de ${(window._recuperarState.catalogo||[]).length} marcas</strong> y el <strong>domo que la trabajó</strong> (necesario para la productividad por perfil). Empezamos por las más recientes.
+    ${soloFuertes
+      ? `Mostrando las <strong>${nFuertes} marcas con pista fuerte</strong> (firma, entregables o cobro con monto). Son las más fáciles de reconocer. Elige la marca del catálogo y el domo, y recupérala.`
+      : `Las <strong>${nFuertes} con pista fuerte</strong> aparecen primero. Usa el botón ⭐ para ver solo esas. Cada tarjeta muestra fechas, hitos, firma, entregables y cobros según lo que sobrevivió.`}
   </div>`;
 
   // Nombres de marcas ya usadas (para no ofrecer duplicados) — de brands + archivadas
@@ -15366,14 +15486,63 @@ async function renderRecuperarHistorico(){
     const m=o.m;
     const i = porFin.indexOf(o);
     const firma = firmas[o.id];
+    const firmaDet = (window._recuperarState.firmasDetalle||{})[o.id]||[];
+    const bpSel = _bpSeleccionados(o.id);
+    const MSC=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const fmtF=(s)=>{ if(!s) return '?'; const p=String(s).slice(0,10).split('-'); return p.length===3?`${+p[2]} ${MSC[+p[1]-1]} ${p[0]}`:s; };
+
+    // Bloque de contexto para identificar (todo lo que sobrevivió)
+    let ctx = `<div style="background:var(--bg-card2);border-radius:8px;padding:0.6rem 0.8rem;margin-bottom:0.7rem;font-size:0.7rem;line-height:1.6">`;
+    ctx += `<div style="color:var(--text2)"><strong>Inicio:</strong> ${fmtF(m.inicio)} &nbsp;·&nbsp; <strong>Fin:</strong> ${fmtF(m.fin)}${m.dias!==null?` &nbsp;·&nbsp; ${m.dias} días`:''}</div>`;
+    // Firmas con quién y cuándo
+    if(firmaDet.length){
+      ctx += `<div style="color:var(--agua);margin-top:0.35rem"><strong>✍️ Aprobaciones firmadas:</strong><br>`;
+      ctx += firmaDet.sort((a,b)=>(a.at||'').localeCompare(b.at||'')).map(f=>
+        `&nbsp;&nbsp;${_esc(f.by)} <span style="color:var(--text3)">— ${f.stage}${f.at?', '+fmtF(f.at):''}</span>`
+      ).join('<br>');
+      ctx += `</div>`;
+    } else if(firma){
+      ctx += `<div style="color:var(--agua);margin-top:0.35rem"><strong>✍️ Firmó:</strong> ${_esc(firma)}</div>`;
+    }
+    // Hitos con fecha (reuniones, presentaciones, pagos, entregas)
+    if(m.hitosDetalle && m.hitosDetalle.length){
+      ctx += `<div style="color:var(--text2);margin-top:0.35rem"><strong>⭐ Hitos:</strong><br>`;
+      ctx += m.hitosDetalle.slice(0,8).map(hh=>
+        `&nbsp;&nbsp;${hh.done?'✓':'·'} ${_esc(hh.name)} <span style="color:var(--text3)">— ${fmtF(hh.fecha)}</span>`
+      ).join('<br>');
+      if(m.hitosDetalle.length>8) ctx += `<br>&nbsp;&nbsp;<span style="color:var(--text3)">…y ${m.hitosDetalle.length-8} más</span>`;
+      ctx += `</div>`;
+    }
+    // Branding Points seleccionados
+    if(bpSel.length){
+      ctx += `<div style="color:var(--tierra);margin-top:0.35rem"><strong>🎨 Entregables elegidos:</strong> ${bpSel.slice(0,10).map(x=>_esc(x)).join(', ')}${bpSel.length>10?` +${bpSel.length-10}`:''}</div>`;
+    }
+    // 📝 Notas del equipo sobre el cliente (la pista más humana)
+    const notasCli = _notasCliente(o.id);
+    if(notasCli.length){
+      ctx += `<div style="color:var(--text);margin-top:0.35rem;background:rgba(255,220,120,0.12);border-radius:6px;padding:0.3rem 0.5rem"><strong>📝 Notas del equipo:</strong><br>`;
+      ctx += notasCli.slice(0,4).map(t=>`&nbsp;&nbsp;“${_esc(t.slice(0,140))}${t.length>140?'…':''}”`).join('<br>');
+      ctx += `</div>`;
+    }
+    // 💰 Cobros: solo si hay monto real o una nota que aporte (ya filtrado en _cobrosResumen)
+    const cob = _cobrosResumen(o.id);
+    if(cob){
+      const partes = [];
+      if(cob.total>0) partes.push('$'+cob.total.toLocaleString());
+      if(cob.notas.length) partes.push(`<span style="color:var(--text3)">${cob.notas.slice(0,3).map(x=>_esc(x)).join(' · ')}</span>`);
+      if(partes.length) ctx += `<div style="color:var(--agua);margin-top:0.35rem"><strong>💰 Cobros:</strong> ${partes.join(' · ')}</div>`;
+    }
+    ctx += `</div>`;
+
     return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1rem 1.2rem;margin-bottom:0.7rem" id="orphan-${o.id}">
       <div style="display:flex;align-items:center;gap:0.8rem;flex-wrap:wrap;margin-bottom:0.6rem">
-        <span style="font-size:0.72rem;font-weight:800;color:var(--tierra);background:var(--glass);border-radius:6px;padding:0.15rem 0.5rem">📅 Terminó: ${m.fin||'?'}</span>
-        <span style="font-size:0.65rem;color:var(--text2)">Inició: ${m.inicio||'?'}</span>
-        <span style="font-size:0.65rem;color:var(--text2)">📋 ${m.total} act · ⭐ ${m.hitos} hitos${m.dias!==null?` · ⏱️ ${m.dias}d`:''}</span>
+        <span style="font-size:0.72rem;font-weight:800;color:var(--tierra);background:var(--glass);border-radius:6px;padding:0.15rem 0.5rem">📅 Terminó: ${fmtF(m.fin)}</span>
+        ${o._pistaFuerte?`<span style="font-size:0.6rem;font-weight:700;color:#fff;background:var(--tierra);border-radius:6px;padding:0.15rem 0.45rem">⭐ ${[o._pistas.firma?'firma':'',o._pistas.bp?'entregables':'',o._pistas.monto?'cobro':''].filter(Boolean).join(' · ')}</span>`:''}
+        <span style="font-size:0.65rem;color:var(--text2)">📋 ${m.total} act · ⭐ ${m.hitos} hitos</span>
+        ${firma?`<span style="font-size:0.65rem;color:var(--agua)">✍️ ${_esc(firma)}</span>`:''}
         <span style="font-size:0.58rem;color:var(--text3);font-family:monospace;margin-left:auto">#${i+1}/${porFin.length}</span>
       </div>
-      ${firma?`<div style="font-size:0.72rem;color:var(--agua);margin-bottom:0.6rem">✍️ Firmó la aprobación: <strong>${_esc(firma)}</strong> <span style="color:var(--text3)">(pista del cliente)</span></div>`:''}
+      ${ctx}
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
         <select id="orphan-cat-${o.id}" style="flex:1;min-width:180px;padding:0.5rem 0.6rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-size:0.78rem;font-family:var(--font)">
           <option value="">Elige la marca del catálogo…</option>
@@ -15388,7 +15557,6 @@ async function renderRecuperarHistorico(){
         <button onclick="recuperarMarca('${o.id}')" style="padding:0.5rem 1rem;background:var(--tierra);color:#fff;border:none;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font)">Recuperar</button>
         <button onclick="descartarOrphan('${o.id}')" title="Descartar: borra este cronograma permanentemente (solo para demos/pruebas)" style="padding:0.5rem 0.6rem;background:none;color:var(--text3);border:1px solid var(--border);border-radius:8px;font-size:0.72rem;cursor:pointer;font-family:var(--font)">🗑️</button>
       </div>
-      ${m.pistas.length?`<details style="margin-top:0.5rem"><summary style="font-size:0.62rem;color:var(--text3);cursor:pointer">ver actividades del cronograma</summary><div style="margin-top:0.4rem;line-height:1.7">${m.pistas.map(p=>`<span style="display:inline-block;background:var(--bg-card2);border-radius:5px;padding:0.1rem 0.4rem;font-size:0.6rem;color:var(--text2);margin:0.1rem">${_esc(p)}</span>`).join('')}</div></details>`:''}
     </div>`;
   }).join('');
 
@@ -15405,6 +15573,10 @@ async function renderRecuperarHistorico(){
 
 function _recuperarSetFiltro(mes){
   window._recuperarState.filtroMes = mes || '';
+  renderRecuperarHistorico();
+}
+function _recuperarToggleFuertes(){
+  window._recuperarState.soloFuertes = !window._recuperarState.soloFuertes;
   renderRecuperarHistorico();
 }
 
