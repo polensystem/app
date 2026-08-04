@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260804-v387-OPTIMISTIC-LOCKING -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260804-v388-BRANDS-MIRROR-FASE-A -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4057,7 +4057,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 387;
+const APP_VERSION = 388;
 
 // 🔒 Solo el dominio de producción debe "propagar" su APP_VERSION al JSON compartido.
 // Sin esto, con solo ABRIR un build nuevo (probarlo local, preview de Vercel, etc.) ya
@@ -6325,6 +6325,98 @@ window.ClientNotesDB = (function(){
 })();
 
 /* ══════════════════════════════════════════════════════════════════════════════
+   🔒 MÓDULO BRANDS-DB — Paso 3, FASE A: espejo de solo escritura de appData.brands.
+   ══════════════════════════════════════════════════════════════════════════════
+   ⚠️ FASE A únicamente: esta tabla se escribe en paralelo a cada guardado exitoso,
+   pero NADA lee de ella todavía — appData.brands (dentro del JSON de polen_shared)
+   sigue siendo la ÚNICA fuente de verdad. El objetivo de esta fase es acumular
+   confianza en que el espejo siempre coincide con el JSON, antes de que una fase
+   futura (B) empiece a leer de aquí, y una fase posterior (C) la vuelva la fuente
+   de verdad real (la migración completa es más grande y se hace después, por fases).
+
+   Una fila por marca ACTIVA. PK: id. Guarda el objeto brand completo tal cual está
+   en memoria (columna jsonb 'data') — sin normalizar a columnas todavía; eso es
+   trabajo de una fase posterior, cuando ya se lea de aquí y convenga indexar/filtrar.
+   Cuando una marca se borra (papelera) o se archiva, se borra también de esta tabla
+   (para que nunca queden marcas "fantasma" que ya no están activas en el JSON).
+
+   API:
+     await BrandsDB.saveBrandsBatch(brands)   — espeja appData.brands completo
+     await BrandsDB.deleteBrand(brandId)      — al soft-delete / archivar / borrar
+     await BrandsDB.migrateFromJson()         — una sola vez, si la tabla está vacía
+     await BrandsDB.verificarEspejo()         — diagnóstico: compara tabla vs JSON
+     BrandsDB.isAvailable()
+   ══════════════════════════════════════════════════════════════════════════════ */
+window.BrandsDB = (function(){
+  const TABLE = 'polen_brands';
+  let _available = null;
+
+  async function saveBrandsBatch(brands){
+    if(_available===false) return false;
+    const list = Array.isArray(brands) ? brands.filter(b=>b && b.id) : [];
+    if(!list.length) return true;
+    try{
+      const rows = list.map(b=>({ id:b.id, data:b, updated_at:new Date().toISOString() }));
+      // Chunks de 100 para evitar payloads muy grandes
+      for(let i=0; i<rows.length; i+=100){
+        const chunk = rows.slice(i, i+100);
+        const { error } = await sb.from(TABLE).upsert(chunk, { onConflict:'id' });
+        if(error){ _available=false; console.warn('[BrandsDB] tabla no disponible o error:', error.message); return false; }
+      }
+      _available = true;
+      return true;
+    }catch(e){ _available=false; console.warn('[BrandsDB] saveBrandsBatch falló:', e); return false; }
+  }
+
+  async function deleteBrand(brandId){
+    if(!brandId || _available===false) return false;
+    try{
+      const { error } = await sb.from(TABLE).delete().eq('id', brandId);
+      if(error){ console.warn('[BrandsDB] deleteBrand error:', error.message); return false; }
+      return true;
+    }catch(e){ console.warn('[BrandsDB] deleteBrand falló:', e); return false; }
+  }
+
+  async function migrateFromJson(){
+    try{
+      const { count, error: countErr } = await sb.from(TABLE).select('*', { count:'exact', head:true });
+      if(countErr){ _available=false; console.warn('[BrandsDB] migración: tabla no disponible:', countErr.message); return false; }
+      _available = true;
+      if((count||0) > 0){
+        console.log('[BrandsDB] Tabla ya tiene', count, 'filas — no migramos');
+        return true;
+      }
+      const brands = appData?.brands || [];
+      if(!brands.length){
+        console.log('[BrandsDB] No hay marcas para migrar todavía');
+        return true;
+      }
+      console.log('[BrandsDB] Migrando', brands.length, 'marcas (una sola vez)');
+      const ok = await saveBrandsBatch(brands);
+      if(ok) console.log('[BrandsDB] ✅ Migración inicial completa');
+      return ok;
+    }catch(e){ console.warn('[BrandsDB] migrateFromJson falló:', e); return false; }
+  }
+
+  // 🩺 Diagnóstico manual — compara la tabla contra appData.brands (el JSON, fuente de
+  // verdad en Fase A). Uso desde consola: await BrandsDB.verificarEspejo()
+  async function verificarEspejo(){
+    try{
+      const { data, error } = await sb.from(TABLE).select('id,updated_at');
+      if(error) return { ok:false, error:error.message };
+      const tablaIds = new Set((data||[]).map(r=>r.id));
+      const jsonIds = new Set((appData.brands||[]).map(b=>b.id));
+      const soloEnTabla = [...tablaIds].filter(id=>!jsonIds.has(id));
+      const soloEnJson = [...jsonIds].filter(id=>!tablaIds.has(id));
+      const ok = soloEnTabla.length===0 && soloEnJson.length===0;
+      return { ok, marcasEnTabla:tablaIds.size, marcasEnJson:jsonIds.size, soloEnTabla, soloEnJson };
+    }catch(e){ return { ok:false, error:String(e) }; }
+  }
+
+  return { saveBrandsBatch, deleteBrand, migrateFromJson, verificarEspejo, isAvailable:()=>_available };
+})();
+
+/* ══════════════════════════════════════════════════════════════════════════════
    🔒 MÓDULO BANNERS-DB — Banners del dashboard
    ══════════════════════════════════════════════════════════════════════════════
    Una fila por banner. PK: id.
@@ -6914,6 +7006,13 @@ async function loadData(){
       // Suscripción en tiempo real a las tablas nuevas (sincroniza entre dispositivos)
       try{ if(CrmTareasDB.isAvailable()) CrmTareasDB.subscribe(); }catch(e){}
       try{ if(MetasDB.isAvailable()) MetasDB.subscribe(); }catch(e){}
+
+      // ══════════════════════════════════════════════════════════════════════
+      // 🪞 Paso 3 — FASE A: migración inicial (una sola vez, si la tabla está vacía) del
+      // espejo polen_brands. Solo escritura — appData.brands sigue siendo la fuente de
+      // verdad; esto no cambia nada de lo que el usuario ve ni de cómo se lee la marca.
+      // ══════════════════════════════════════════════════════════════════════
+      try{ if(window.BrandsDB) BrandsDB.migrateFromJson(); }catch(e){ console.warn('[Polen] migración polen_brands falló:', e); }
 
       // 🔄 Versión de app: SOLO en producción este dispositivo propaga su número (para que
       // los viejos avisen). En cualquier host, chequea si el JSON ya trae un número mayor.
@@ -8132,6 +8231,9 @@ async function _doUpsert(){
       console.log('[polen] Upsert successful');
       // 🛟 Backup automático (throttled a 1 cada 10 min) tras un guardado exitoso
       try{ if(window.BackupsDB) BackupsDB.maybeSnapshot('auto'); }catch(e){}
+      // 🪞 Paso 3 — FASE A: espejo de solo escritura en polen_brands (no bloquea el guardado,
+      // no afecta la UI si falla — es un mirror en paralelo mientras se valida la fase).
+      try{ if(window.BrandsDB) BrandsDB.saveBrandsBatch(appData.brands); }catch(e){}
       // 5. Clear local change tracking after successful save
       _localChangedKeys.clear();
       window._localChangedKeys = _localChangedKeys; // Sync con window
@@ -14483,6 +14585,8 @@ function softDeleteBrand(brand){
   if(appData.cobros && appData.cobros[brand.id]) delete appData.cobros[brand.id];
   // 🔒 Persistir en tabla papelera
   if(window.PapeleraDB){ PapeleraDB.saveItem(papItem); }
+  // 🪞 Paso 3 — FASE A: sacar la marca del espejo polen_brands (ya no está activa)
+  if(window.BrandsDB){ BrandsDB.deleteBrand(brand.id); }
   // 🔒 Borrar de tabla brand_bp (BP no se restauran automáticamente porque la marca ya no existe)
   // Las filas siguen en polen_brand_bp con brand_id huérfano — si se restaura, se reconstruirá.
   // Para borrado permanente lo limpiamos en permanentDelete.
@@ -14697,6 +14801,8 @@ async function permanentDelete(itemId){ markLocalChange("papelera");
         await sb.from('polen_portal_approvals').delete().eq('brand_id', brandId);
         console.log('[Polen] Borradas filas polen_portal_approvals para brand', brandId);
       } catch(e){ console.warn('[Polen] Error borrando polen_portal_approvals:', e); }
+      // 🪞 Paso 3 — FASE A: red de seguridad — asegurar que no quede en el espejo polen_brands
+      if(window.BrandsDB){ try{ await BrandsDB.deleteBrand(brandId); }catch(e){} }
     } catch(e) { console.warn('[Polen] Error borrando datos de tabla de marca:', e); }
   }
 
@@ -29111,6 +29217,8 @@ async function executeBrandArchive(brandId){
   appData.papelera.push(papItem);
   // 🔒 Persistir en tabla papelera
   if(window.PapeleraDB){ await PapeleraDB.saveItem(papItem); }
+  // 🪞 Paso 3 — FASE A: sacar la marca del espejo polen_brands (ya no está activa)
+  if(window.BrandsDB){ BrandsDB.deleteBrand(brandId); }
   markLocalChange('brands','clientNotes','papelera');
   await upsert();
   showStatus('📦 Proyecto archivado correctamente');
