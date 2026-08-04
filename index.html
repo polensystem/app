@@ -4059,6 +4059,16 @@ window.appData = appData; // Para diagnóstico
 // ════════════════════════════════════════════════════════════════════════
 const APP_VERSION = 387;
 
+// 🔒 Solo el dominio de producción debe "propagar" su APP_VERSION al JSON compartido.
+// Sin esto, con solo ABRIR un build nuevo (probarlo local, preview de Vercel, etc.) ya
+// se escribe un _appVer más alto en polen_shared — y entonces TODOS los usuarios de
+// producción (que siguen en el build real, más viejo) ven "hay una versión nueva" para
+// siempre, aunque nadie haya desplegado nada todavía. Comparar sigue funcionando en
+// cualquier host; lo que se restringe es EMPUJAR el número al server.
+function _isProdHost(){
+  try{ return /(^|\.)polensystem\.com$/i.test(location.hostname); }catch(e){ return false; }
+}
+
 // 🔒 Reload con cache-busting real: agrega ?_v=timestamp (URL nueva = no hay forma de que
 // ningún caché — navegador, CDN de Vercel, etc. — la sirva vieja). location.reload(true)
 // NO sirve: los navegadores modernos ignoran ese parámetro hace años, así que si algo cachea
@@ -6905,13 +6915,15 @@ async function loadData(){
       try{ if(CrmTareasDB.isAvailable()) CrmTareasDB.subscribe(); }catch(e){}
       try{ if(MetasDB.isAvailable()) MetasDB.subscribe(); }catch(e){}
 
-      // 🔄 Versión de app: este dispositivo propaga su número (para que los viejos avisen),
-      // y chequea periódicamente si alguien corre una versión más nueva.
+      // 🔄 Versión de app: SOLO en producción este dispositivo propaga su número (para que
+      // los viejos avisen). En cualquier host, chequea si el JSON ya trae un número mayor.
       try{
-        appData._appVer = Math.max(Number(appData._appVer)||0, APP_VERSION);
+        if(_isProdHost()){
+          appData._appVer = Math.max(Number(appData._appVer)||0, APP_VERSION);
+          setTimeout(()=>{ try{ upsert(); }catch(e){} }, 6000); // propaga la versión aunque el usuario esté inactivo
+        }
         _checkAppVersion();
         setInterval(_checkAppVersion, 60000);
-        setTimeout(()=>{ try{ upsert(); }catch(e){} }, 6000); // propaga la versión aunque el usuario esté inactivo
       }catch(e){ console.warn('[version] check falló:', e); }
 
       // ══════════════════════════════════════════════════════════════════════
@@ -7549,8 +7561,10 @@ function deepMergeAppData(server, local){
   merged._deletedCrmTareaIds = [...persistedDeletedCrmTareaIds];
   }
 
-  // 🔄 Versión de app: gana el número más alto visto (incluye el de este dispositivo).
-  merged._appVer = Math.max(Number(local._appVer)||0, Number(server._appVer)||0, APP_VERSION);
+  // 🔄 Versión de app: gana el número más alto visto entre local y server. El propio
+  // APP_VERSION de este dispositivo solo entra al cálculo si es producción (ver _isProdHost) —
+  // así, abrir/probar un build nuevo fuera de prod no infla el _appVer que ven todos.
+  merged._appVer = Math.max(Number(local._appVer)||0, Number(server._appVer)||0, (typeof _isProdHost==='function' && _isProdHost()) ? APP_VERSION : 0);
   if(merged._appVer > APP_VERSION && typeof _showUpdateBanner==='function') _showUpdateBanner();
 
   // ── papelera: vive en polen_papelera. Local siempre gana. ──
