@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260803-v386-BRAND-LOSS-FIX-FORCE-RELOAD -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260804-v387-OPTIMISTIC-LOCKING -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4034,7 +4034,14 @@ window.polenRestoreBackup = async function(id){
   if(!okConfirm) return;
   // Backup del estado ACTUAL antes de sobrescribir (por si acaso)
   try{ await BackupsDB.force('pre-restore'); }catch(e){}
-  const { error } = await sb.from('polen_shared').upsert({ id: REC_ID, data: bak.data, updated_at: new Date().toISOString() }, { onConflict:'id' });
+  // 🔒 Restaurar es una sobreescritura DELIBERADA (el usuario confirmó) — no usa CAS,
+  // pero sí debe subir 'rev' para que los guardados normales posteriores sigan funcionando.
+  let _restoreRev = 1;
+  try{
+    const { data: cur } = await sb.from('polen_shared').select('rev').eq('id', REC_ID).single();
+    _restoreRev = (Number(cur?.rev)||0) + 1;
+  }catch(e){}
+  const { error } = await sb.from('polen_shared').upsert({ id: REC_ID, data: bak.data, updated_at: new Date().toISOString(), rev: _restoreRev }, { onConflict:'id' });
   if(error){ console.error('Error al restaurar:', error); alert('Error al restaurar: '+error.message); return; }
   alert('Backup restaurado ✓ — la página se va a recargar.');
   location.reload();
@@ -4050,7 +4057,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 386;
+const APP_VERSION = 387;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -7819,7 +7826,11 @@ window.upsert = upsert; // Para diagnóstico
 
 async function _doUpsert(){
   console.log('[polen] Starting _doUpsert at', new Date().toISOString());
+  const MAX_CAS_RETRIES = 4; // 🔒 Paso 2 — optimistic locking sobre polen_shared (columna rev)
   try{
+    for(let _casAttempt = 0; _casAttempt < MAX_CAS_RETRIES; _casAttempt++){
+      let _casConflict = false;
+      let _expectedRev = 0, _serverRowExists = false, _serverDataSnapshot = null;
       // 🛡️ PRE-UPSERT MERGE para campos portal-owned (BP + portalApprovals):
       // Supabase upsert con onConflict:'id' REEMPLAZA el JSON entero — no hace merge.
       // Eso significa que si otro usuario acabó de cambiar brandingPoints de una marca
@@ -7832,8 +7843,11 @@ async function _doUpsert(){
       //
       // Esto agrega ~200-500ms al upsert pero previene pérdida de BP y firmas del portal.
       try {
-        const {data: serverRow} = await sb.from('polen_shared').select('data').eq('id', REC_ID).single();
+        const {data: serverRow} = await sb.from('polen_shared').select('data,rev').eq('id', REC_ID).single();
         const serverData = serverRow?.data;
+        _expectedRev = Number(serverRow?.rev) || 0;
+        _serverRowExists = !!serverRow;
+        _serverDataSnapshot = serverData || null;
         if(serverData && Array.isArray(serverData.brands)){
           const serverBrandMap = {};
           serverData.brands.forEach(sb_ => { if(sb_?.id) serverBrandMap[sb_.id] = sb_; });
@@ -8047,17 +8061,49 @@ async function _doUpsert(){
 
       console.log('[Polen] Payload después de strip:', Math.round(JSON.stringify(toWriteSafe).length/1024) + 'KB');
 
-      // 5. Write merged result
+      // 5. Write merged result — CAS (compare-and-set) sobre la columna rev de polen_shared.
+      // Si la rev que leímos ya no coincide con la del server, alguien más guardó primero:
+      // re-mergeamos contra la data fresca del server y reintentamos (hasta MAX_CAS_RETRIES veces).
       console.log('[polen] Sending upsert to Supabase, payload size:', Math.round(JSON.stringify(toWriteSafe).length/1000)+'KB');
-      const {error: writeErr} = await sb.from('polen_shared').upsert(
-        {id: REC_ID, data: toWriteSafe, updated_at: new Date().toISOString()},
-        {onConflict: 'id'}
-      );
+      let writeErr = null;
+      if(!_serverRowExists){
+        // Fila 'polen-team-data' aún no existe (primera vez) — no hay rev que comparar.
+        const { error } = await sb.from('polen_shared').insert(
+          {id: REC_ID, data: toWriteSafe, updated_at: new Date().toISOString(), rev: 1}
+        );
+        writeErr = error;
+      } else {
+        const { data: updRows, error } = await sb.from('polen_shared')
+          .update({ data: toWriteSafe, updated_at: new Date().toISOString(), rev: _expectedRev + 1 })
+          .eq('id', REC_ID)
+          .eq('rev', _expectedRev)
+          .select('rev');
+        writeErr = error;
+        if(!error && (!updRows || updRows.length === 0)) _casConflict = true;
+      }
 
       if(writeErr){
         console.error('[polen] Upsert failed:', writeErr);
         showStatus('Error al guardar: '+writeErr.message, true);
         console.error(writeErr);
+        return false;
+      }
+
+      if(_casConflict){
+        if(_serverDataSnapshot){
+          try{
+            const _reMerged = deepMergeAppData(_serverDataSnapshot, appData);
+            Object.assign(appData, _reMerged);
+          }catch(mergeErr){
+            console.error('[polen] Re-merge tras conflicto de guardado falló:', mergeErr);
+          }
+        }
+        if(_casAttempt < MAX_CAS_RETRIES - 1){
+          console.warn('[polen] Conflicto de guardado (rev cambió) — reintentando ('+(_casAttempt+1)+'/'+MAX_CAS_RETRIES+')');
+          continue; // vuelve al inicio del for: relee server (data+rev) y reconstruye el payload
+        }
+        console.error('[polen] Conflicto de guardado persistente tras '+MAX_CAS_RETRIES+' intentos');
+        showStatus('⚠️ Conflicto al guardar — otro dispositivo guardó al mismo tiempo. Reintenta en unos segundos.', true);
         return false;
       }
 
@@ -8140,6 +8186,9 @@ async function _doUpsert(){
       }
       
       return true;
+
+    } // cierra for(_casAttempt...) — Paso 2: optimistic locking
+    return false; // fallback defensivo (no debería llegar aquí: cada rama retorna o continúa)
 
     } catch(e){
       console.error('[polen] _doUpsert exception:', e);
