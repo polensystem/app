@@ -4058,13 +4058,28 @@ window.appData = appData; // Para diagnóstico
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
 const APP_VERSION = 387;
+
+// 🔒 Reload con cache-busting real: agrega ?_v=timestamp (URL nueva = no hay forma de que
+// ningún caché — navegador, CDN de Vercel, etc. — la sirva vieja). location.reload(true)
+// NO sirve: los navegadores modernos ignoran ese parámetro hace años, así que si algo cachea
+// el documento, "Recargar ahora" podía devolver la misma versión vieja para siempre (bucle).
+function _cacheBustedReload(){
+  try{ sessionStorage.setItem('polen-update-reload-at', String(Date.now())); }catch(e){}
+  try{
+    const u = new URL(window.location.href);
+    u.searchParams.set('_v', String(Date.now())); // preserva ?portal=
+    window.location.replace(u.toString());
+  }catch(e){ location.reload(); }
+}
+window._cacheBustedReload = _cacheBustedReload;
+
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
   bar.id = 'polen-update-banner';
   bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#e8622a;color:#fff;display:flex;align-items:center;justify-content:center;gap:0.8rem;padding:0.6rem 1rem;font-family:var(--font,sans-serif);font-size:0.85rem;font-weight:600;box-shadow:0 2px 12px rgba(0,0,0,0.25);flex-wrap:wrap;text-align:center';
   bar.innerHTML = '🔄 Hay una versión nueva de Polen System. Recarga para actualizar y evitar problemas de datos.' +
-    '<button onclick="location.reload(true)" style="background:#fff;color:#e8622a;border:none;border-radius:8px;padding:0.35rem 0.9rem;font-size:0.8rem;font-weight:800;cursor:pointer;font-family:inherit">Recargar ahora</button>';
+    '<button onclick="window._cacheBustedReload()" style="background:#fff;color:#e8622a;border:none;border-radius:8px;padding:0.35rem 0.9rem;font-size:0.8rem;font-weight:800;cursor:pointer;font-family:inherit">Recargar ahora</button>';
   document.body.appendChild(bar);
 }
 
@@ -4078,14 +4093,7 @@ function _forceReloadForUpdate(){
   try{ lastReload = Number(sessionStorage.getItem('polen-update-reload-at'))||0; }catch(e){}
   if(Date.now() - lastReload < 90000){ _showUpdateBanner(); return; }
 
-  const doReload = ()=>{
-    try{ sessionStorage.setItem('polen-update-reload-at', String(Date.now())); }catch(e){}
-    try{
-      const u = new URL(window.location.href);
-      u.searchParams.set('_v', String(Date.now())); // cache-busting, preserva ?portal=
-      window.location.replace(u.toString());
-    }catch(e){ location.reload(true); }
-  };
+  const doReload = _cacheBustedReload;
 
   const ov = document.createElement('div');
   ov.id = 'polen-update-overlay';
