@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260626-v385-DEDICATED-TABLES-VERSION-CHECK -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260803-v386-BRAND-LOSS-FIX-FORCE-RELOAD -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3964,6 +3964,82 @@ window.MetasDB = (function(){
   return { loadAll, saveSlot, deleteSlot, migrateFromJson, isAvailable, subscribe };
 })();
 
+// ════════════════════════════════════════════════════════════════════════
+// 🛟 BACKUPS AUTOMÁTICOS — red de seguridad ante pérdida/borrado de datos.
+// Guarda snapshots completos del JSON en la tabla dedicada polen_backups:
+//   • automático (throttled) tras cada guardado exitoso
+//   • forzado antes de acciones destructivas (borrar/archivar marca, vaciar papelera)
+// Conserva los últimos KEEP snapshots. Si la tabla no existe, no hace nada (fallback).
+// Recuperación: window.polenBackups.list() y window.polenRestoreBackup(id).
+// ════════════════════════════════════════════════════════════════════════
+window.BackupsDB = (function(){
+  const TABLE = 'polen_backups';
+  const AUTO_INTERVAL_MS = 10*60*1000; // máximo un backup automático cada 10 min
+  const KEEP = 60;                     // conservar los últimos 60 snapshots
+  let _available = null;
+  let _lastAuto = 0;
+  let _pruneBusy = false;
+
+  async function snapshot(note){
+    if(_available===false) return false;
+    try{
+      const payload = { note: (note||'auto').slice(0,80), created_at: new Date().toISOString(), data: appData };
+      const { error } = await sb.from(TABLE).insert(payload);
+      if(error){ _available=false; console.warn('[BackupsDB] tabla no disponible:', error.message); return false; }
+      _available=true;
+      prune();
+      return true;
+    }catch(e){ _available=false; console.warn('[BackupsDB] snapshot falló:', e); return false; }
+  }
+  async function maybeSnapshot(note){
+    if(_available===false) return;
+    const now = Date.now();
+    if(now - _lastAuto < AUTO_INTERVAL_MS) return;
+    _lastAuto = now;
+    await snapshot(note||'auto');
+  }
+  async function force(note){ _lastAuto = Date.now(); return snapshot(note||'manual'); }
+  async function prune(){
+    if(_pruneBusy) return; _pruneBusy = true;
+    try{
+      const { data } = await sb.from(TABLE).select('id,created_at').order('created_at',{ascending:false});
+      if(Array.isArray(data) && data.length > KEEP){
+        const toDelete = data.slice(KEEP).map(r=>r.id);
+        if(toDelete.length) await sb.from(TABLE).delete().in('id', toDelete);
+      }
+    }catch(e){}
+    finally{ _pruneBusy = false; }
+  }
+  async function list(n=30){
+    try{ const { data } = await sb.from(TABLE).select('id,created_at,note').order('created_at',{ascending:false}).limit(n); return data||[]; }
+    catch(e){ return []; }
+  }
+  async function get(id){
+    try{ const { data } = await sb.from(TABLE).select('data,created_at,note').eq('id', id).single(); return data; }
+    catch(e){ return null; }
+  }
+  return { snapshot, maybeSnapshot, force, prune, list, get, isAvailable:()=>_available };
+})();
+window.polenBackups = window.BackupsDB;
+
+// Restaurar un backup completo (emergencia). Uso: await polenRestoreBackup('<id>')
+// Muestra la fecha, pide confirmación, escribe el snapshot en polen_shared y recarga.
+window.polenRestoreBackup = async function(id){
+  if(!id){ const l = await BackupsDB.list(15); console.table(l); console.log('Usa: await polenRestoreBackup("<id>")'); return; }
+  const bak = await BackupsDB.get(id);
+  if(!bak || !bak.data){ console.error('Backup no encontrado'); return; }
+  const cuando = new Date(bak.created_at).toLocaleString();
+  const nBrands = (bak.data.brands||[]).length;
+  const okConfirm = confirm(`Restaurar backup del ${cuando}\nMarcas en ese backup: ${nBrands}\nNota: ${bak.note||'—'}\n\nEsto SOBREESCRIBIRÁ el estado actual con ese snapshot. ¿Continuar?`);
+  if(!okConfirm) return;
+  // Backup del estado ACTUAL antes de sobrescribir (por si acaso)
+  try{ await BackupsDB.force('pre-restore'); }catch(e){}
+  const { error } = await sb.from('polen_shared').upsert({ id: REC_ID, data: bak.data, updated_at: new Date().toISOString() }, { onConflict:'id' });
+  if(error){ console.error('Error al restaurar:', error); alert('Error al restaurar: '+error.message); return; }
+  alert('Backup restaurado ✓ — la página se va a recargar.');
+  location.reload();
+};
+
 /* ═══ STATE ═══ */
 let appData={brands:[],template:null,members:[]};
 window.appData = appData; // Para diagnóstico
@@ -3974,7 +4050,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 385;
+const APP_VERSION = 386;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -3984,8 +4060,48 @@ function _showUpdateBanner(){
     '<button onclick="location.reload(true)" style="background:#fff;color:#e8622a;border:none;border-radius:8px;padding:0.35rem 0.9rem;font-size:0.8rem;font-weight:800;cursor:pointer;font-family:inherit">Recargar ahora</button>';
   document.body.appendChild(bar);
 }
+
+// 🔄 RECARGA OBLIGATORIA cuando hay una versión más nueva corriendo en el equipo.
+// Overlay con cuenta regresiva + auto-recarga. Anti-bucle: si el caché sirviera código
+// viejo, no recarga en loop (tras 1 intento reciente, solo muestra el banner).
+function _forceReloadForUpdate(){
+  if(window._updateOverlayShown) return;
+  window._updateOverlayShown = true;
+  let lastReload = 0;
+  try{ lastReload = Number(sessionStorage.getItem('polen-update-reload-at'))||0; }catch(e){}
+  if(Date.now() - lastReload < 90000){ _showUpdateBanner(); return; }
+
+  const doReload = ()=>{
+    try{ sessionStorage.setItem('polen-update-reload-at', String(Date.now())); }catch(e){}
+    try{
+      const u = new URL(window.location.href);
+      u.searchParams.set('_v', String(Date.now())); // cache-busting, preserva ?portal=
+      window.location.replace(u.toString());
+    }catch(e){ location.reload(true); }
+  };
+
+  const ov = document.createElement('div');
+  ov.id = 'polen-update-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(20,18,16,0.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;font-family:var(--font,sans-serif);padding:1.2rem';
+  ov.innerHTML =
+    '<div style="background:#fff;color:#1a1a1a;border-radius:18px;max-width:420px;width:100%;padding:1.6rem 1.5rem;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4)">' +
+      '<div style="font-size:2.2rem;margin-bottom:0.6rem">🔄</div>' +
+      '<div style="font-size:1.1rem;font-weight:800;margin-bottom:0.4rem">Nueva versión de Polen System</div>' +
+      '<div style="font-size:0.86rem;color:#555;line-height:1.5;margin-bottom:1.1rem">Para evitar problemas de datos, la página se actualizará automáticamente en <b id="polen-update-count">8</b> s.</div>' +
+      '<button id="polen-update-now" style="background:#e8622a;color:#fff;border:none;border-radius:10px;padding:0.7rem 1.4rem;font-size:0.9rem;font-weight:800;cursor:pointer;font-family:inherit">Recargar ahora</button>' +
+    '</div>';
+  document.body.appendChild(ov);
+  const btn = document.getElementById('polen-update-now'); if(btn) btn.onclick = doReload;
+
+  let n = 8;
+  const el = document.getElementById('polen-update-count');
+  const timer = setInterval(()=>{
+    n--; if(el) el.textContent = String(n);
+    if(n<=0){ clearInterval(timer); doReload(); }
+  }, 1000);
+}
 function _checkAppVersion(){
-  if((Number(appData._appVer)||0) > APP_VERSION) _showUpdateBanner();
+  if((Number(appData._appVer)||0) > APP_VERSION) _forceReloadForUpdate();
 }
 let currentPage='dashboard';
 let currentBrandId=null;
@@ -7946,6 +8062,8 @@ async function _doUpsert(){
       }
 
       console.log('[polen] Upsert successful');
+      // 🛟 Backup automático (throttled a 1 cada 10 min) tras un guardado exitoso
+      try{ if(window.BackupsDB) BackupsDB.maybeSnapshot('auto'); }catch(e){}
       // 5. Clear local change tracking after successful save
       _localChangedKeys.clear();
       window._localChangedKeys = _localChangedKeys; // Sync con window
@@ -15768,6 +15886,7 @@ async function deleteBrand(id){
   if(!brand) return;
   const ok = await confirmModal(`¿Mover "${brand.name}" a la papelera?`, 'Mover a papelera');
   if(!ok) return;
+  try{ if(window.BackupsDB) await BackupsDB.force('pre-delete-brand:'+(brand.name||'')); }catch(e){}
   softDeleteBrand(brand);
   markLocalChange('brands');
   markLocalChange('papelera');
@@ -28899,6 +29018,7 @@ function hasArchiveNote(brand){
 async function executeBrandArchive(brandId){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand) return;
+  try{ if(window.BackupsDB) await BackupsDB.force('pre-archive-brand:'+(brand.name||'')); }catch(e){}
   // Mark archive-request note as done
   const modifiedNotes = [];
   (appData.clientNotes||[]).forEach(n=>{
