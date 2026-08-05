@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260805-v389-BRANDS-FASE-B -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260805-v390-COMPARACION-CANONICA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4057,7 +4057,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 389;
+const APP_VERSION = 390;
 
 // 🔒 Solo el dominio de producción debe "propagar" su APP_VERSION al JSON compartido.
 // Sin esto, con solo ABRIR un build nuevo (probarlo local, preview de Vercel, etc.) ya
@@ -6477,11 +6477,25 @@ window.getBrand = getBrand;
 
 // 🩺 Diagnóstico Fase B — compara lo que devolvería getBrand() leyendo de la tabla
 // vs. leyendo del JSON, SIN cambiar el flag. Uso: await compararGetBrand('<brandId>')
+// JSON "canónico": ordena las llaves de los objetos recursivamente antes de comparar.
+// Necesario porque Postgres reordena las llaves de una columna jsonb al guardarla y
+// devolverla — dos objetos con EXACTAMENTE el mismo contenido pueden salir con distinto
+// orden de llaves, y un JSON.stringify() normal los vería como "distintos" sin serlo.
+function _canonicalJSON(value){
+  if(Array.isArray(value)) return '[' + value.map(_canonicalJSON).join(',') + ']';
+  if(value && typeof value === 'object'){
+    const keys = Object.keys(value).sort();
+    return '{' + keys.map(k=>JSON.stringify(k)+':'+_canonicalJSON(value[k])).join(',') + '}';
+  }
+  return JSON.stringify(value);
+}
+
 window.compararGetBrand = async function(brandId){
   if(!window._brandsTableCache || !window._brandsTableCache.size){ await BrandsDB.loadAll(); }
   const desdeJson = (appData.brands||[]).find(b=>b.id===brandId) || (appData.demos||[]).find(b=>b.id===brandId) || null;
   const desdeTabla = window._brandsTableCache.get(brandId) || null;
-  const igual = JSON.stringify(desdeJson) === JSON.stringify(desdeTabla);
+  // 🔒 Comparación por CONTENIDO (orden de llaves no importa) — ver _canonicalJSON arriba.
+  const igual = _canonicalJSON(desdeJson) === _canonicalJSON(desdeTabla);
   return { igual, desdeJson, desdeTabla };
 };
 
