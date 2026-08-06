@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260806-v391-TANDA1-DASHBOARD -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260806-v392-TANDA2-PORTAL-ARCHIVO-CRM -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4057,7 +4057,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 391;
+const APP_VERSION = 392;
 
 // 🔒 Solo el dominio de producción debe "propagar" su APP_VERSION al JSON compartido.
 // Sin esto, con solo ABRIR un build nuevo (probarlo local, preview de Vercel, etc.) ya
@@ -8354,7 +8354,7 @@ async function _doUpsert(){
         // En portal, refrescamos SOLO el portal y nada del panel interno.
         if(window._portalBrandId){
           try{
-            const pb = (appData.brands||[]).find(b=>b.id===window._portalBrandId) || (appData.demos||[]).find(b=>b.id===window._portalBrandId);
+            const pb = getBrand(window._portalBrandId);
             if(pb && typeof renderPortal === 'function'){
               // Re-render del contenido del portal sin tocar el dashboard
               const wrap = document.getElementById('portal-bp-wrap');
@@ -14575,7 +14575,7 @@ function renderCurrentPage(){
   // Refrescar solo el portal evita el crash de renderDashboard (innerHTML de null).
   if(window._portalBrandId){
     try {
-      const pb = (appData.brands||[]).find(b=>b.id===window._portalBrandId) || (appData.demos||[]).find(b=>b.id===window._portalBrandId);
+      const pb = getBrand(window._portalBrandId);
       const wrap = document.getElementById('portal-bp-wrap');
       if(pb && wrap && typeof portalRenderBp === 'function'){
         wrap.innerHTML = portalRenderBp(pb);
@@ -23309,7 +23309,7 @@ async function boot(){
     try {
       const bid = payload?.new?.brand_id || payload?.old?.brand_id;
       if(currentPage==='brand' && currentBrandId === bid){
-        const brand = (appData.brands||[]).find(b=>b.id===bid);
+        const brand = getBrand(bid);
         if(brand) renderBrandBp(brand);
       }
     } catch(e){}
@@ -23327,14 +23327,14 @@ async function boot(){
       const bid = payload?.new?.brand_id || payload?.old?.brand_id;
       // Si estamos viendo el brand detail de esta marca, re-render sus aprobaciones
       if(currentPage==='brand' && currentBrandId === bid){
-        const brand = (appData.brands||[]).find(b=>b.id===bid);
+        const brand = getBrand(bid);
         if(brand){
           try { renderRondas(brand); } catch(e){}
         }
       }
       // Si estamos en el portal del cliente (portal-mode), actualizar el panel
       if(document.body.classList.contains('portal-mode') && window._portalBrandId === bid){
-        const brand = (appData.brands||[]).find(b=>b.id===bid);
+        const brand = getBrand(bid);
         if(brand){
           const panel = document.getElementById('portal-content-area');
           if(panel && typeof portalRenderAprobaciones === 'function'){
@@ -23351,7 +23351,7 @@ async function boot(){
     try {
       const bid = payload?.new?.brand_id || payload?.old?.brand_id;
       if(currentPage==='brand' && currentBrandId === bid){
-        const brand = (appData.brands||[]).find(b=>b.id===bid);
+        const brand = getBrand(bid);
         if(brand){
           try { renderBrandCrono(brand); } catch(e){}
           try { renderSegmentedProgress(brand); } catch(e){}
@@ -27927,7 +27927,7 @@ function renderClientHub(){
   const notesHTML = notes.map(note=>{
     const urg    = HUB_URGENCY[note.urgency] || HUB_URGENCY.moderada;
     const isGeneral = note.brandId === '__general__';
-    const brand  = isGeneral ? null : (appData.brands||[]).find(b=>b.id===note.brandId);
+    const brand  = isGeneral ? null : getBrand(note.brandId);
     const brandCol = brand ? getBrandColor(brand) : 'var(--text3)';
     const logoHTML = isGeneral
       ? `<span style="font-size:0.75rem">🌐</span>`
@@ -28001,7 +28001,7 @@ function renderClientHub(){
 
   // ── Tarjetas de tareas sueltas (mismo grid que las notas) ──
   const tareasHTML = tareasPend.map(t=>{
-    const brand = t.brandId ? (appData.brands||[]).find(b=>b.id===t.brandId) : null;
+    const brand = t.brandId ? getBrand(t.brandId) : null;
     const brandCol = brand ? getBrandColor(brand) : 'var(--text3)';
     const isInterna = t.tipo==='interna';
     const d = _tareaDiasAtraso(t);
@@ -28235,7 +28235,7 @@ function openHubComments(noteId){
   const note = appData.clientNotes.find(n=>n.id===noteId);
   if(!note) return;
 
-  const brand = (appData.brands||[]).find(b=>b.id===note.brandId);
+  const brand = getBrand(note.brandId);
   const urg = HUB_URGENCY[note.urgency]||HUB_URGENCY.moderada;
 
   // Set brand label
@@ -28338,7 +28338,7 @@ function openHubModal(noteId=null){
     // Set search input display
     if(searchEl && note.brandId){
       if(note.brandId==='__general__'){ searchEl.value='🌐 General'; }
-      else { const b=(appData.brands||[]).find(x=>x.id===note.brandId); if(b) searchEl.value=b.name; }
+      else { const b=getBrand(note.brandId); if(b) searchEl.value=b.name; }
     }
     selectHubUrgency(note.urgency || 'moderada');
     const noteEl = document.getElementById('hub-input-note');
@@ -28399,7 +28399,7 @@ function _archTareaCardHTML(t, origen){
   const esCrm = origen==='crmtarea';
   const titulo = _tareaTitulo(t);
   const desc = _tareaDesc(t);
-  const brand = t.brandId ? (appData.brands||[]).find(b=>b.id===t.brandId) : null;
+  const brand = t.brandId ? getBrand(t.brandId) : null;
   const brandCol = brand ? getBrandColor(brand) : 'var(--tierra)';
   const doneDate = t.doneAt ? new Date(t.doneAt).toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'2-digit'}) : '';
   const resp = [t.r1, t.r2].map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean);
@@ -28464,7 +28464,7 @@ function renderArchivoNotas(){
     if(item._kind==='crmtarea'){ return _archTareaCardHTML(item.t, 'crmtarea'); }
     const note = item.n;
     const urg    = HUB_URGENCY[note.urgency]||HUB_URGENCY.moderada;
-    const brand  = (appData.brands||[]).find(b=>b.id===note.brandId);
+    const brand  = getBrand(note.brandId);
     const brandCol = brand ? getBrandColor(brand) : 'var(--text3)';
     const logoHTML = brand?.image
       ? `<img src="${brand.image}" style="width:100%;height:100%;object-fit:cover;border-radius:5px">`
@@ -29110,7 +29110,7 @@ function renderTareaDetalle(){
   const titleEl = document.getElementById('tarea-det-title');
   const body = document.getElementById('tarea-det-body');
   if(titleEl) titleEl.innerHTML = `${t.tipo==='interna'?'🔍':'📌'} ${_tareaTitulo(t)}`;
-  const brand = t.brandId ? (appData.brands||[]).find(b=>b.id===t.brandId) : null;
+  const brand = t.brandId ? getBrand(t.brandId) : null;
   const brandCol = brand ? getBrandColor(brand) : 'var(--text3)';
   const dlLabel = _tareaDeadlineLabel(t);
   const fechaTxt = t.date ? fmtDateDisplay(t.date) : '—';
@@ -29189,7 +29189,7 @@ async function saveTareaComment(){
 
 // Build a tarea event card HTML (same style as cal events)
 function buildTareaEventHTML(t, memberId){
-  const brand = t.brandId ? (appData.brands||[]).find(b=>b.id===t.brandId) : null;
+  const brand = t.brandId ? getBrand(t.brandId) : null;
   const col = brand ? getBrandColor(brand) : '#8b5cf6';
   let r=128,g=90,bv=200;
   try{ const c=col.startsWith('#')?col:'#8b5cf6'; r=parseInt(c.slice(1,3),16);g=parseInt(c.slice(3,5),16);bv=parseInt(c.slice(5,7),16); }catch(e){}
@@ -29231,7 +29231,7 @@ function buildTareaEventHTML(t, memberId){
 
 // Card in tasks (grid) view
 function buildTareaCardHTML(t, memberId){
-  const brand = t.brandId ? (appData.brands||[]).find(b=>b.id===t.brandId) : null;
+  const brand = t.brandId ? getBrand(t.brandId) : null;
   const col = brand ? getBrandColor(brand) : '#8b5cf6';
   let r=128,g=90,bv=200;
   try{ const c=col.startsWith('#')?col:'#8b5cf6'; r=parseInt(c.slice(1,3),16);g=parseInt(c.slice(3,5),16);bv=parseInt(c.slice(5,7),16); }catch(e){}
