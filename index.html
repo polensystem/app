@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260806-v392-TANDA2-PORTAL-ARCHIVO-CRM -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260806-v393-TANDA3-DISPERSOS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4057,7 +4057,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 392;
+const APP_VERSION = 393;
 
 // 🔒 Solo el dominio de producción debe "propagar" su APP_VERSION al JSON compartido.
 // Sin esto, con solo ABRIR un build nuevo (probarlo local, preview de Vercel, etc.) ya
@@ -4406,7 +4406,7 @@ window.addEventListener('beforeunload', (e) => {
         clearTimeout(timeoutId);
         const [brandId, ciStr, iiStr] = key.split(':');
         const ci = parseInt(ciStr), ii = parseInt(iiStr);
-        const brand = (appData.brands||[]).find(b=>b.id===brandId);
+        const brand = getBrand(brandId);
         if(!brand?.brandingPoints) return;
         const cat = brand.brandingPoints.categories[ci];
         const item = cat?.items?.[ii];
@@ -4422,7 +4422,7 @@ window.addEventListener('beforeunload', (e) => {
       _portalApprovalNotesDebounce.forEach((timeoutId, key)=>{
         clearTimeout(timeoutId);
         const [brandId, stage, fieldKey] = key.split(':');
-        const brand = (appData.brands||[]).find(b=>b.id===brandId);
+        const brand = getBrand(brandId);
         if(!brand?.portalApprovals?.[stage]) return;
         const value = brand.portalApprovals[stage][fieldKey];
         if(value !== undefined && window.PortalApprovalsDB){
@@ -4536,7 +4536,7 @@ window.addEventListener('beforeunload', (e) => {
       const curC = cur.cobros[brandId];
       if(!prev) return;
       if(curC.cobrados < prev.cobrados){
-        const brandName = (appData.brands||[]).find(b=>b.id===brandId)?.name || brandId;
+        const brandName = getBrand(brandId)?.name || brandId;
         const event = {
           type: 'COBROS_LOSS',
           brandId,
@@ -13167,7 +13167,7 @@ function getBrandActivities(brand){
 }
 
 async function openTriggerModal(brandId, pagoId){
-  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const brand = getBrand(brandId);
   const cob = appData.cobros?.[brandId];
   if(!brand||!cob) return;
   const pago = cob.pagos.find(p=>p.id===pagoId);
@@ -13706,7 +13706,7 @@ function toggleCobCard(event, brandId){
 function renderCobCard(brandId){
   // Re-renders just one brand's cobros card body
   ensureCobrosData();
-  const b = (appData.brands||[]).find(b=>b.id===brandId);
+  const b = getBrand(brandId);
   const card = document.getElementById('cob-card-'+brandId);
   if(!b || !card) return;
   const cob = appData.cobros[brandId];
@@ -22918,7 +22918,7 @@ let _domoModalBrandId = null;
 
 function openBrandDomoModal(brandId){
   _domoModalBrandId = brandId;
-  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const brand = getBrand(brandId);
   if(!brand) return;
   const members = appData.members||[];
   const domo = brand.domo||{};
@@ -25507,7 +25507,7 @@ function setTimelineFilter(v){ window._tlFilter=v; try{ localStorage.setItem('po
 
 // ── Editor de tramos de pausa (vista de tiempo) ──
 function _renderPausasModalBody(brandId){
-  const b = (appData.brands||[]).find(x=>x.id===brandId);
+  const b = getBrand(brandId);
   if(!b) return '';
   const tramos = b.pausasHistorial || [];
   const filas = tramos.map((t,i)=>`
@@ -25794,7 +25794,7 @@ document.addEventListener('click', (e)=>{
 function renderBrandTiempo(){
   const cont = document.getElementById('brand-tiempo-content');
   if(!cont) return;
-  const b = (appData.brands||[]).find(x=>x.id===currentBrandId);
+  const b = getBrand(currentBrandId);
   if(!b){ cont.innerHTML=''; return; }
 
   const hoy = new Date(); hoy.setHours(0,0,0,0);
@@ -25873,7 +25873,7 @@ function renderBrandTiempo(){
 }
 
 async function timelineArchivar(brandId){
-  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const brand = getBrand(brandId);
   if(!brand) return;
   const ok = await confirmModal(`¿Dar por terminada la marca "${brand.name}" y archivarla?\n\nSe moverá al Archivo (proyectos terminados).`,'Archivar');
   if(!ok) return;
@@ -27346,7 +27346,7 @@ function exportEquipoXLSX(){
   const tasks = [];
   members.forEach(m=>{
     getMemberHitos(m.id).filter(h=>new Date(h.date+'T00:00:00')>=today).forEach(h=>{
-      const brand = (appData.brands||[]).find(b=>b.id===h.brandId);
+      const brand = getBrand(h.brandId);
       tasks.push({ Miembro:m.apodo||m.nombre, Marca:brand?.name||'—', Actividad:h.name, Fecha:h.date, Tipo:h.isHito?'Hito':'Tarea' });
     });
   });
@@ -29402,7 +29402,7 @@ El proyecto se moverá al archivo. Podrás consultarlo pero no editarlo.`,
 }
 
 function checkAutoArchive(brandId){
-  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const brand = getBrand(brandId);
   if(!brand) return;
   if(!allActivitiesCompleted(brand)) return;
   if(!allPaymentsCobrados(brand)) return;
