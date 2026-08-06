@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260805-v390-COMPARACION-CANONICA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260806-v391-TANDA1-DASHBOARD -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4057,7 +4057,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 390;
+const APP_VERSION = 391;
 
 // 🔒 Solo el dominio de producción debe "propagar" su APP_VERSION al JSON compartido.
 // Sin esto, con solo ABRIR un build nuevo (probarlo local, preview de Vercel, etc.) ya
@@ -21480,10 +21480,10 @@ function renderEqGrid(){
     el.innerHTML = allItems.map(item=>{
       if(item.type==='tarea') return buildTareaCardHTML(item.t, currentMemberId);
       const h=item.h;
-      const brand = (appData.brands||[]).find(b=>b.id===h.brandId);
+      const brand = getBrand(h.brandId);
       const logoHTML = brand?.image ? `<img src="${brand.image}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">` : (brand?.name?.charAt(0)||'?');
       const partnerPill = domoPartnerPill(h.brandId, currentMemberId);
-      const hAct = (appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
+      const hAct = getBrand(h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
       const smartSt = hAct ? getActivitySmartStatus(hAct) : null;
       const statusPill = (smartSt && smartSt.key==='atrasado') ? `<span class="act-smart-status atrasado" style="font-size:0.58rem">Atrasado</span>` : '';
       const isRevision = h.type === 'revision';
@@ -21679,7 +21679,7 @@ function renderMembersGrid(){
         <div class="${_eqCardMode==='marcas'?'member-hitos-preview':'member-hitos-preview collapsed'}" id="tasks-body-${m.id}" style="${_eqCardMode==='marcas'?'height:auto':''}">
           ${_eqCardMode==='marcas' ? _renderMemberBrands(m) : (upcoming.length?upcoming.map(h=>`
             ${(()=>{
-              const _br=(appData.brands||[]).find(b=>b.id===h.brandId);
+              const _br=getBrand(h.brandId);
               const _col=getBrandColor(_br);
               const _r=parseInt(_col.slice(1,3),16),_g=parseInt(_col.slice(3,5),16),_bv=parseInt(_col.slice(5,7),16);
               const _isRev=h.type==='revision'||h.type==='dc_review';
@@ -21828,7 +21828,7 @@ function renderEqWeekByMember(){
         display:flex;flex-direction:column;gap:0.2rem;
         min-height:52px;">
         ${dayEvs.map(h=>{
-          const brand=(appData.brands||[]).find(b=>b.id===h.brandId);
+          const brand=getBrand(h.brandId);
           const bc=getBrandColor(brand);
           const r=parseInt(bc.slice(1,3),16),g=parseInt(bc.slice(3,5),16),bv=parseInt(bc.slice(5,7),16);
           const isRev = h.type==='revision';
@@ -22010,7 +22010,7 @@ function renderEqWeekPM(){
       const dayActs = allActs.filter(a=>a.startDate===ds);
       return `<div style="padding:0.35rem;background:${tod?'rgba(59,158,221,0.04)':'transparent'};border-right:1px solid var(--border);display:flex;flex-direction:column;gap:0.2rem;min-height:80px;">
         ${dayActs.map(a=>{
-          const brand=(appData.brands||[]).find(b=>b.id===a.brandId);
+          const brand=getBrand(a.brandId);
           const bc=getBrandColor(brand);
           const r=parseInt(bc.slice(1,3),16),g=parseInt(bc.slice(3,5),16),bv=parseInt(bc.slice(5,7),16);
           const isEnd = a.endDate===ds;
@@ -22101,7 +22101,7 @@ function renderEqWeek(){
       <div class="eq-week-day-label">${dayNames[i]}</div>
       <div class="eq-week-day-num">${fmt(day)}${isToday?'<span class="today-pill">HOY</span>':''}</div>
       ${[...dayEvs.map(h=>{
-        const brand=(appData.brands||[]).find(b=>b.id===h.brandId);
+        const brand=getBrand(h.brandId);
         const col=getBrandColor(brand);
         const r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),bv=parseInt(col.slice(5,7),16);
         if(h.type==='revision'){
@@ -22127,7 +22127,7 @@ function renderEqWeek(){
             <div class="eq-event-act" style="color:var(--text2)">Revisión de: ${h.name}</div>
           </div>`;
         } else {
-          const _wActData = (appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
+          const _wActData = getBrand(h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
           const _wFree = !!_wActData?.revDateOverride;
           const partnerPillW2 = domoPartnerPill(h.brandId, currentMemberId||null);
           const _dcMark = _wActData?.isDCReview ? '<span style="font-size:0.58rem;color:var(--aire);font-weight:600">🎯 DC</span>' : '';
@@ -22143,7 +22143,7 @@ function renderEqWeek(){
               <span class="eq-free-toggle" onclick="event.stopPropagation();toggleHitoFreeMode('${h.brandId}','${h.stage}','${h.actId}')" style="font-size:0.6rem;cursor:pointer;opacity:0.7">${_wFree?'🔓':'🔗'}</span>
             </div>
             <div class="eq-event-act" style="color:var(--text3)">${h.name}</div>
-            ${(()=>{ const _wa=(appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId); const _ws=_wa?getActivitySmartStatus(_wa):null; return (_ws&&_ws.key==='atrasado')?'<span class="act-smart-status atrasado" style="margin-top:0.15rem;font-size:0.57rem">Atrasado</span>':''; })()}
+            ${(()=>{ const _wa=getBrand(h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId); const _ws=_wa?getActivitySmartStatus(_wa):null; return (_ws&&_ws.key==='atrasado')?'<span class="act-smart-status atrasado" style="margin-top:0.15rem;font-size:0.57rem">Atrasado</span>':''; })()}
             ${partnerPillW2 ? `<div style="margin-top:0.2rem">${partnerPillW2}</div>` : ''}
           </div>`;
         }
@@ -22210,7 +22210,7 @@ function renderEqMonth(){
         <div class="eq-month-events-scroll">
         ${dayHitos.map(h=>{
           const isRev = h.revDate===dayStr && h.date!==dayStr;
-          const brand = (appData.brands||[]).find(b=>b.id===h.brandId);
+          const brand = getBrand(h.brandId);
           const evColor2 = getBrandColor(brand);
           const r2=parseInt(evColor2.slice(1,3),16), g2=parseInt(evColor2.slice(3,5),16), b2=parseInt(evColor2.slice(5,7),16);
           if(h.type==='dc_review'){
@@ -22221,7 +22221,7 @@ function renderEqMonth(){
               <div class="eq-event-act" style="color:var(--text2)">Revisión de: ${h.name}</div>
             </div>`;
           } else if(h.type==='revision'){
-            const _actFree = (appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
+            const _actFree = getBrand(h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
             const _revFree = !!_actFree?.revDateOverride;
             const partnerPillM = domoPartnerPill(h.brandId, currentMemberId||null);
             return `<div class="eq-event cal-draggable"
@@ -22235,7 +22235,7 @@ function renderEqMonth(){
               ${partnerPillM ? `<div style="margin-top:0.2rem">${partnerPillM}</div>` : ''}
             </div>`;
           } else {
-            const _actData = (appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
+            const _actData = getBrand(h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId);
             const _isFree = !!_actData?.revDateOverride;
             const partnerPillM2 = domoPartnerPill(h.brandId, currentMemberId||null);
             return `<div class="eq-event cal-draggable" 
@@ -22252,7 +22252,7 @@ function renderEqMonth(){
                   style="font-size:0.6rem;cursor:pointer;opacity:0.7;flex-shrink:0;padding:0 2px">${_isFree?'🔓':'🔗'}</span>
               </div>
               <div class="eq-event-act" style="color:var(--text3)">${h.name}</div>
-              ${(()=>{ const _ma=(appData.brands||[]).find(b=>b.id===h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId); const _ms=_ma?getActivitySmartStatus(_ma):null; return (_ms&&_ms.key==='atrasado')?'<span class="act-smart-status atrasado" style="margin-top:0.15rem;font-size:0.57rem">Atrasado</span>':''; })()}
+              ${(()=>{ const _ma=getBrand(h.brandId)?.cronograma?.[h.stage]?.find(a=>a.id===h.actId); const _ms=_ma?getActivitySmartStatus(_ma):null; return (_ms&&_ms.key==='atrasado')?'<span class="act-smart-status atrasado" style="margin-top:0.15rem;font-size:0.57rem">Atrasado</span>':''; })()}
               ${partnerPillM2 ? `<div style="margin-top:0.2rem">${partnerPillM2}</div>` : ''}
             </div>`;
           }
@@ -27317,7 +27317,7 @@ function exportEquipoPDF(){
 
   const rows = members.map(m=>{
     const hitos = getMemberHitos(m.id).filter(h=>new Date(h.date+'T00:00:00')>=today).sort((a,b)=>a.date.localeCompare(b.date));
-    const proxima = hitos[0] ? `${(appData.brands||[]).find(b=>b.id===hitos[0].brandId)?.name||'—'} · ${hitos[0].date}` : 'Sin tareas';
+    const proxima = hitos[0] ? `${getBrand(hitos[0].brandId)?.name||'—'} · ${hitos[0].date}` : 'Sin tareas';
     const myBrands = (appData.brands||[]).filter(b=>b.domo && _domoPrincipalIds(b.domo).includes(m.id)).map(b=>b.name).join(', ')||'—';
     return [m.apodo||m.nombre, m.cargo||'—', (m.areas&&m.areas.length?m.areas:m.area?[m.area]:[]).join(', ')||'—', String(hitos.length), proxima, myBrands];
   });
