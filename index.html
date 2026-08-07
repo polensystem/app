@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260806-v393-TANDA3-DISPERSOS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260807-v394-APPVER-AUTOCORRECCION -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4057,7 +4057,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 393;
+const APP_VERSION = 394;
 
 // 🔒 Solo el dominio de producción debe "propagar" su APP_VERSION al JSON compartido.
 // Sin esto, con solo ABRIR un build nuevo (probarlo local, preview de Vercel, etc.) ya
@@ -7753,10 +7753,14 @@ function deepMergeAppData(server, local){
   merged._deletedCrmTareaIds = [...persistedDeletedCrmTareaIds];
   }
 
-  // 🔄 Versión de app: gana el número más alto visto entre local y server. El propio
-  // APP_VERSION de este dispositivo solo entra al cálculo si es producción (ver _isProdHost) —
-  // así, abrir/probar un build nuevo fuera de prod no infla el _appVer que ven todos.
-  merged._appVer = Math.max(Number(local._appVer)||0, Number(server._appVer)||0, (typeof _isProdHost==='function' && _isProdHost()) ? APP_VERSION : 0);
+  // 🔄 Versión de app: NUNCA se usa local._appVer (memoria de esta pestaña) como fuente —
+  // una pestaña vieja abierta por días puede tener guardado en memoria un número inflado o
+  // incorrecto, y si compite en este Math.max lo reinyecta para siempre en cada guardado, sin
+  // importar qué tan vieja o rota esté su copia del código. Solo confiamos en (a) lo que el
+  // servidor tiene AHORA (server._appVer) y (b) el propio APP_VERSION de este dispositivo, y
+  // esto último solo si es producción real (ver _isProdHost). Así, cualquier valor viejo mal
+  // guardado en la base se autocorrige apenas CUALQUIER pestaña actualizada vuelva a guardar.
+  merged._appVer = Math.max(Number(server._appVer)||0, (typeof _isProdHost==='function' && _isProdHost()) ? APP_VERSION : 0);
   if(merged._appVer > APP_VERSION && typeof _showUpdateBanner==='function') _showUpdateBanner();
 
   // ── papelera: vive en polen_papelera. Local siempre gana. ──
