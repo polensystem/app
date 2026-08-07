@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260807-v394-APPVER-AUTOCORRECCION -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260807-v395-FASEC-PASO1-FLAG-ON -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4057,7 +4057,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 394;
+const APP_VERSION = 395;
 
 // 🔒 Solo el dominio de producción debe "propagar" su APP_VERSION al JSON compartido.
 // Sin esto, con solo ABRIR un build nuevo (probarlo local, preview de Vercel, etc.) ya
@@ -7103,6 +7103,15 @@ async function loadData(){
         if(window.BrandsDB){
           await BrandsDB.migrateFromJson();
           await BrandsDB.loadAll();
+          // 🚀 FASE C (paso 1 de 3) — activar la lectura desde polen_brands para los
+          // ~39 puntos ya migrados a getBrand(). Solo se prende si la caché quedó
+          // poblada; getBrand() igual tiene su propio fallback al JSON si un id no
+          // está en caché (ver getBrand más arriba), así que esto es seguro de prender
+          // por defecto. Si algo falla arriba (loadAll no corrió), el flag se queda
+          // apagado y todo sigue leyendo del JSON exactamente como antes.
+          if(window._brandsTableCache && window._brandsTableCache.size > 0){
+            window._brandsReadFromTable = true;
+          }
           BrandsDB.subscribeRealtime();
         }
       }catch(e){ console.warn('[Polen] setup polen_brands (Fase A/B) falló:', e); }
