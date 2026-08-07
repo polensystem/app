@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260807-v396-FASEC-PASO2-GETBRANDFOREDIT -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260807-v397-APPVER-ANTIFANTASMA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4057,7 +4057,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 396;
+const APP_VERSION = 397;
 
 // 🔒 Solo el dominio de producción debe "propagar" su APP_VERSION al JSON compartido.
 // Sin esto, con solo ABRIR un build nuevo (probarlo local, preview de Vercel, etc.) ya
@@ -4067,6 +4067,21 @@ const APP_VERSION = 396;
 // cualquier host; lo que se restringe es EMPUJAR el número al server.
 function _isProdHost(){
   try{ return /(^|\.)polensystem\.com$/i.test(location.hostname); }catch(e){ return false; }
+}
+
+// 🔒 Blindaje anti-número-fantasma: un valor de _appVer que quedó grabado en el servidor
+// de ALGÚN deploy pasado (aunque ya no exista, aunque nadie lo tenga abierto ahora mismo)
+// se queda ahí para siempre si simplemente confiamos en "el número más alto que veamos".
+// Por eso: si lo que hay en el servidor está MUY por delante del build real que tiene
+// compilado este dispositivo, no lo tratamos como válido — lo ignoramos por completo.
+// Esto se usa en los DOS lugares que leen _appVer del servidor (el merge en cada guardado
+// Y la carga inicial al abrir la app), porque un solo punto blindado no basta: cualquiera
+// de los dos que quede sin este filtro vuelve a perpetuar el número fantasma.
+const APPVER_MAX_DRIFT = 10;
+function _sanitizeAppVer(serverVal){
+  const srv = Number(serverVal) || 0;
+  if(srv - APP_VERSION > APPVER_MAX_DRIFT) return 0;
+  return srv;
 }
 
 // 🔒 Reload con cache-busting real: agrega ?_v=timestamp (URL nueva = no hay forma de que
@@ -7132,7 +7147,7 @@ async function loadData(){
       // los viejos avisen). En cualquier host, chequea si el JSON ya trae un número mayor.
       try{
         if(_isProdHost()){
-          appData._appVer = Math.max(Number(appData._appVer)||0, APP_VERSION);
+          appData._appVer = Math.max(_sanitizeAppVer(appData._appVer), APP_VERSION);
           setTimeout(()=>{ try{ upsert(); }catch(e){} }, 6000); // propaga la versión aunque el usuario esté inactivo
         }
         _checkAppVersion();
@@ -7781,7 +7796,7 @@ function deepMergeAppData(server, local){
   // servidor tiene AHORA (server._appVer) y (b) el propio APP_VERSION de este dispositivo, y
   // esto último solo si es producción real (ver _isProdHost). Así, cualquier valor viejo mal
   // guardado en la base se autocorrige apenas CUALQUIER pestaña actualizada vuelva a guardar.
-  merged._appVer = Math.max(Number(server._appVer)||0, (typeof _isProdHost==='function' && _isProdHost()) ? APP_VERSION : 0);
+  merged._appVer = Math.max((typeof _sanitizeAppVer==='function' ? _sanitizeAppVer(server._appVer) : (Number(server._appVer)||0)), (typeof _isProdHost==='function' && _isProdHost()) ? APP_VERSION : 0);
   if(merged._appVer > APP_VERSION && typeof _showUpdateBanner==='function') _showUpdateBanner();
 
   // ── papelera: vive en polen_papelera. Local siempre gana. ──
