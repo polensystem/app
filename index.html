@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260807-v397-APPVER-ANTIFANTASMA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260807-v398-AGREGAR-NAMING -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4057,7 +4057,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 397;
+const APP_VERSION = 398;
 
 // 🔒 Solo el dominio de producción debe "propagar" su APP_VERSION al JSON compartido.
 // Sin esto, con solo ABRIR un build nuevo (probarlo local, preview de Vercel, etc.) ya
@@ -17276,6 +17276,10 @@ function renderBrandCrono(brand){
         <button onclick="addCronoActivity('${brand.id}','${stage}')" id="add-act-btn-${stage}-${brand.id}" style="display:flex;align-items:center;gap:0.4rem;background:none;border:1px dashed var(--border);border-radius:8px;padding:0.3rem 0.8rem;font-size:0.75rem;color:var(--text3);cursor:pointer;width:100%;justify-content:center;font-family:var(--font);transition:all 0.15s" onmouseover="this.style.borderColor='var(--aire)';this.style.color='var(--aire)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
           + Agregar actividad
         </button>
+        ${(stage==='aire' && !acts.some(a=>a.isNaming)) ? `
+        <button onclick="addNamingToProject('${brand.id}')" id="add-naming-btn-${brand.id}" style="margin-top:0.4rem;display:flex;align-items:center;gap:0.4rem;background:rgba(245,197,66,0.08);border:1px dashed rgba(245,197,66,0.5);border-radius:8px;padding:0.3rem 0.8rem;font-size:0.75rem;color:#b8860b;cursor:pointer;width:100%;justify-content:center;font-family:var(--font);transition:all 0.15s" onmouseover="this.style.borderColor='#b8860b'" onmouseout="this.style.borderColor='rgba(245,197,66,0.5)'">
+          🏷️ Agregar proceso de Naming
+        </button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -17592,6 +17596,109 @@ async function toggleStageAll(brandId, stage){
   renderBrandCrono(brand);
   await upsert();
   showStatus(allDone ? 'Etapa desmarcada' : 'Etapa completada ✓');
+}
+
+// 🏷️ Recalcula fechas en cadena para todo lo que viene DESPUÉS de un punto de inserción,
+// cruzando las 4 etapas (aire→agua→tierra→fuego son una sola línea de tiempo continua,
+// igual que en buildCronoFromTemplate). fromIdx es el índice DENTRO de fromStage a partir
+// del cual (inclusive) se recalculan fechas; las etapas siguientes se recalculan completas.
+function rechainCronoFrom(brand, fromStage, fromIdx){
+  const stages = ['aire','agua','tierra','fuego'];
+  const si = stages.indexOf(fromStage);
+  if(si === -1) return;
+
+  // cursor = próxima fecha disponible (arranque de la próxima actividad a recalcular)
+  let cursorStr = null;
+  const stageActs = brand.cronograma[fromStage]||[];
+  if(fromIdx > 0 && stageActs[fromIdx-1]?.endDate){
+    cursorStr = addWorkdaysStr(stageActs[fromIdx-1].endDate, 1);
+  } else {
+    for(let k=si-1; k>=0; k--){
+      const arr = brand.cronograma[stages[k]]||[];
+      if(arr.length && arr[arr.length-1]?.endDate){
+        cursorStr = addWorkdaysStr(arr[arr.length-1].endDate, 1);
+        break;
+      }
+    }
+  }
+  if(!cursorStr) cursorStr = todayStr();
+
+  for(let s=si; s<stages.length; s++){
+    const stName = stages[s];
+    const acts = brand.cronograma[stName]||[];
+    const startIdx = (s===si) ? fromIdx : 0;
+    for(let i=startIdx; i<acts.length; i++){
+      const startStr = cursorStr;
+      const endStr = addWorkdaysStr(startStr, Math.max((acts[i].days||1)-1, 0));
+      acts[i].startDate = startStr;
+      acts[i].endDate = endStr;
+      cursorStr = addWorkdaysStr(endStr, 1);
+    }
+    brand.cronograma[stName] = acts;
+  }
+}
+
+// 🏷️ Agregar el proceso de Naming a un proyecto que ya existe. Inserta las actividades
+// de Naming del template (o defaultTemplate() como respaldo) en la etapa Aire, en la
+// posición que elija el usuario, y recorre TODAS las fechas posteriores (resto de Aire +
+// Agua + Tierra + Fuego) para que el cronograma quede consistente, sin tocar nada de lo
+// que ya pasó antes del punto de inserción.
+async function addNamingToProject(brandId){
+  const brand = getBrandForEdit(brandId);
+  if(!brand || !brand.cronograma){ showStatus('No se pudo cargar el cronograma de esta marca'); return; }
+
+  const aireActs = brand.cronograma.aire || [];
+  if(aireActs.some(a=>a.isNaming)){
+    showStatus('Este proyecto ya tiene Naming en su cronograma');
+    return;
+  }
+  if(!aireActs.length){
+    showStatus('La etapa Aire no tiene actividades todavía — agrega al menos una antes de insertar Naming');
+    return;
+  }
+
+  const idxSel = await askModal({
+    label: '¿Después de qué actividad de la etapa Aire quieres insertar el proceso de Naming?',
+    type: 'select',
+    options: aireActs.map(a=>a.name)
+  });
+  if(idxSel===null || idxSel===undefined) return;
+
+  const tpl = appData.template || defaultTemplate();
+  let namingTplActs = (tpl.cronograma?.aire||[]).filter(a=>a.isNaming);
+  if(!namingTplActs.length) namingTplActs = defaultTemplate().cronograma.aire.filter(a=>a.isNaming);
+
+  const totalDiasNaming = namingTplActs.reduce((s,a)=>s+(Number(a.days)||1),0);
+  const confirmado = await confirmModal(
+    `Se agregarán ${namingTplActs.length} actividades de Naming (${totalDiasNaming} días hábiles en total) después de "${aireActs[idxSel].name}", y todas las fechas posteriores del cronograma se recorrerán ese mismo tiempo. ¿Continuar?`,
+    'Agregar Naming'
+  );
+  if(!confirmado) return;
+
+  const insertAt = idxSel + 1;
+  const nuevasActs = namingTplActs.map(a=>({
+    id: uid(), name: a.name, days: a.days, isHito: !!a.isHito, isNaming: true,
+    status: 'pendiente', startDate: '', endDate: ''
+  }));
+  aireActs.splice(insertAt, 0, ...nuevasActs);
+  brand.cronograma.aire = aireActs;
+
+  rechainCronoFrom(brand, 'aire', insertAt);
+  brand.includeNaming = true;
+
+  // 🔒 Guardar TODO el cronograma reencadenado en la tabla (no solo lo nuevo, también
+  // lo que se recorrió) para que quede consistente con appData.brands.
+  const allRows = [];
+  ['aire','agua','tierra','fuego'].forEach(st=>{
+    (brand.cronograma[st]||[]).forEach((a,i)=> allRows.push(CronoDB.actToRow(brandId, st, a, i)));
+  });
+  if(allRows.length && window.CronoDB) await CronoDB.saveActsBatch(allRows);
+
+  markBrandChange(brandId);
+  markLocalChange('brands');
+  renderBrandCrono(brand);
+  await upsert();
+  showStatus('Naming agregado al cronograma ✓');
 }
 
 async function addCronoActivity(brandId, stage){
