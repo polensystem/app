@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260812-v409-BRANDS-MIGRACION-FASE1-PARALELO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260813-v410-BRANDS-FASE3A-LECTURA-TABLA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4004,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 409;
+const APP_VERSION = 410;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -7191,6 +7191,63 @@ async function loadData(){
         }
       } catch(cronoErr) {
         console.error('[Polen] Error cargando cronograma:', cronoErr);
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // 🗂️ FASE 3a — CARGAR LA LISTA DE MARCAS DESDE polen_brands (tabla dedicada)
+      // ──────────────────────────────────────────────────────────────────────
+      // Aquí muere el bug de Peigo: hasta ahora las marcas venían del array
+      // compartido (raw.brands), que un dispositivo viejo podía sobrescribir y
+      // borrar. Ahora la tabla polen_brands (una fila por marca) es la fuente,
+      // así que guardar una marca no puede borrar otra.
+      //
+      // 🔒 DOBLE RED DE SEGURIDAD (para no repetir el error de v402):
+      //   1. Interruptor de emergencia: si appData._brandsTableOff === true,
+      //      se ignora la tabla y se usa solo el array (rollback en 1 flag).
+      //   2. Unión, nunca reemplazo ciego: el resultado es la UNIÓN de la tabla
+      //      y el array. Si una marca está en el array pero (aún) no en la tabla,
+      //      se conserva. Es IMPOSIBLE perder una marca por leer de la tabla.
+      //   3. El cronograma de cada marca ya se hidrató arriba desde polen_crono,
+      //      así que aquí solo tocamos la FICHA (nombre, color, stage, archivedAt…).
+      // ══════════════════════════════════════════════════════════════════════
+      try {
+        if(!appData._brandsTableOff && window.BrandsDB){
+          if(lsub) lsub.textContent = 'Cargando marcas…';
+          const brandsFromTable = await BrandsDB.loadAll(); // {id: ficha} o null
+          if(brandsFromTable && Object.keys(brandsFromTable).length){
+            const arr = Array.isArray(appData.brands) ? appData.brands : [];
+            const porId = {};
+            // Base: lo que hay en el array (conserva cronograma ya hidratado + marcas
+            // que quizá no estén en la tabla todavía).
+            arr.forEach(b=>{ if(b && b.id) porId[b.id] = b; });
+            // Overlay: la ficha de la tabla es la verdad para los campos de ficha,
+            // pero PRESERVAMOS el cronograma/BP que ya se hidrataron en el objeto local.
+            Object.entries(brandsFromTable).forEach(([id, ficha])=>{
+              if(!ficha || !id) return;
+              const existente = porId[id] || {};
+              porId[id] = {
+                ...ficha,
+                id,
+                // conservar datos pesados ya hidratados desde sus tablas
+                cronograma: existente.cronograma || ficha.cronograma || { aire:[], agua:[], tierra:[], fuego:[] },
+                brandingPoints: existente.brandingPoints || ficha.brandingPoints,
+                portalApprovals: existente.portalApprovals || ficha.portalApprovals,
+              };
+            });
+            // Respetar borrados explícitos: una marca en _deletedBrandIds no revive
+            const del = new Set(appData._deletedBrandIds || []);
+            appData.brands = Object.values(porId).filter(b=>b && b.id && !del.has(b.id));
+            console.log('[Polen] ✓ Marcas cargadas de tabla nueva (polen_brands):', appData.brands.length,
+              '| en array previo:', arr.length, '| en tabla:', Object.keys(brandsFromTable).length);
+          } else {
+            console.log('[Polen] polen_brands vacía o no disponible — usando array (respaldo).');
+          }
+        } else if(appData._brandsTableOff){
+          console.warn('[Polen] ⚠️ Lectura de polen_brands DESACTIVADA por interruptor (_brandsTableOff). Usando array.');
+        }
+      } catch(brandsErr) {
+        // Ante CUALQUIER error, el array ya está en appData.brands: no se pierde nada.
+        console.error('[Polen] Error cargando marcas de tabla (se mantiene el array):', brandsErr);
       }
 
       // ══════════════════════════════════════════════════════════════════════
@@ -20959,6 +21016,42 @@ function subscribeRealtime(onUpdate){
           return;
         }
         Object.assign(appData, merged);
+
+        // ══════════════════════════════════════════════════════════════════════
+        // 🗂️ FASE 3a — Proteger el merge EN VIVO con polen_brands.
+        // El realtime trae el array de otro dispositivo, que puede venir SIN una
+        // marca reciente (el bug de Peigo). Tras el merge, re-aplicamos la tabla
+        // polen_brands (fuente de verdad) para reponer cualquier marca que el eco
+        // viejo haya quitado. No bloquea el resto del handler (async suelto).
+        // Doble red: respeta el interruptor _brandsTableOff y solo AÑADE marcas
+        // que falten (nunca borra), preservando cronograma ya cargado.
+        // ══════════════════════════════════════════════════════════════════════
+        if(!appData._brandsTableOff && window.BrandsDB){
+          (async ()=>{
+            try{
+              const tabla = await BrandsDB.loadAll();
+              if(!tabla) return;
+              const del = new Set(appData._deletedBrandIds || []);
+              const actuales = {};
+              (appData.brands||[]).forEach(b=>{ if(b && b.id) actuales[b.id] = b; });
+              let repuestas = 0;
+              Object.entries(tabla).forEach(([id, ficha])=>{
+                if(!ficha || !id || del.has(id)) return;
+                if(!actuales[id]){
+                  // Marca que el merge en vivo quitó pero sigue viva en la tabla → reponer
+                  actuales[id] = { ...ficha, id, cronograma: ficha.cronograma || { aire:[], agua:[], tierra:[], fuego:[] } };
+                  repuestas++;
+                }
+              });
+              if(repuestas){
+                appData.brands = Object.values(actuales);
+                console.warn('[Polen] 🗂️ Realtime: repuestas', repuestas, 'marca(s) desde polen_brands (evitado borrado fantasma)');
+                try{ if(typeof renderCurrentPage==='function') renderCurrentPage(); }catch(e){}
+                try{ if(typeof renderDashboard==='function') renderDashboard(); }catch(e){}
+              }
+            }catch(e){ /* nunca romper el realtime por esto */ }
+          })();
+        }
 
         // Safety net: si cobros quedó corrupto (array en vez de objeto, o vacío cuando había datos), restaurar snapshot
         try {
