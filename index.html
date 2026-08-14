@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260813-v410-BRANDS-FASE3A-LECTURA-TABLA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260814-v411-FIX-BORRADO-REVIVE-TABLA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4004,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 410;
+const APP_VERSION = 411;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -6015,6 +6015,20 @@ window.BrandsDB = (function(){
 
   function isDisponible(){ return _disponible; }
 
+  // Borra la fila de una marca de la tabla. CLAVE para que un borrado/archivado no
+  // pueda ser revertido por la hidratación (que revive marcas presentes en la tabla).
+  async function deleteBrand(id){
+    if(!id || _disponible === false) return false;
+    try{
+      const { error } = await sb.from(TABLE).delete().eq('id', id);
+      if(error){
+        if(error.code === '42P01'){ _disponible = false; return false; }
+        console.error('[BrandsDB] deleteBrand error:', error); return false;
+      }
+      return true;
+    }catch(e){ console.error('[BrandsDB] deleteBrand crashed:', e); return false; }
+  }
+
   // 🔍 FASE 2 — Verificación: compara el array de marcas (fuente actual) con lo que
   // hay en la tabla polen_brands. Se corre desde consola: await BrandsDB.verificar()
   async function verificar(){
@@ -6035,7 +6049,7 @@ window.BrandsDB = (function(){
     return { enArray: idsArray.size, enTabla: idsTabla.size, faltan: enArrayNoTabla };
   }
 
-  return { saveBrand, saveBrandsBatch, loadAll, brandToRow, isDisponible, verificar };
+  return { saveBrand, saveBrandsBatch, loadAll, brandToRow, isDisponible, verificar, deleteBrand };
 })();
 
 window.CronoDB = (function(){
@@ -7391,7 +7405,10 @@ async function loadData(){
       // restaurada → limpiamos su id de la lista de borrados (auto-reparación). Así una
       // marca real jamás desaparece por un "borrado" viejo que quedó sin limpiar.
       if(appData._deletedBrandIds?.length){
-        const idsPresentes = new Set((appData.brands||[]).map(b=>b.id));
+        // Una marca presente en brands que quedó por error en _deletedBrandIds se limpia,
+        // PERO nunca si está en la papelera (esa fue borrada a propósito y no debe revivir).
+        const idsPapelera = new Set((appData.papelera||[]).filter(p=>p && (p.type==='brand'||p.type==='brand-archived')).map(p=>p.data?.id).filter(Boolean));
+        const idsPresentes = new Set((appData.brands||[]).map(b=>b.id).filter(id=>!idsPapelera.has(id)));
         const antes = appData._deletedBrandIds.length;
         appData._deletedBrandIds = appData._deletedBrandIds.filter(id=>!idsPresentes.has(id));
         if(appData._deletedBrandIds.length !== antes){
@@ -14941,6 +14958,11 @@ function softDeleteBrand(brand){
   if(appData.cobros && appData.cobros[brand.id]) delete appData.cobros[brand.id];
   // 🔒 Persistir en tabla papelera
   if(window.PapeleraDB){ PapeleraDB.saveItem(papItem); }
+  // 🗂️ FASE 3a: borrar la fila de polen_brands. CRÍTICO — si no se borra, la
+  // hidratación desde la tabla revive la marca (bug "borré y volvió al dashboard").
+  // Si el usuario restaura desde papelera, restoreFromPapelera la re-crea con
+  // markLocalChange('brands'), así que no se pierde nada.
+  if(window.BrandsDB){ BrandsDB.deleteBrand(brand.id).catch(()=>{}); }
   // 🔒 Borrar de tabla brand_bp (BP no se restauran automáticamente porque la marca ya no existe)
   // Las filas siguen en polen_brand_bp con brand_id huérfano — si se restaura, se reconstruirá.
   // Para borrado permanente lo limpiamos en permanentDelete.
@@ -15155,6 +15177,11 @@ async function permanentDelete(itemId){ markLocalChange("papelera");
         await sb.from('polen_portal_approvals').delete().eq('brand_id', brandId);
         console.log('[Polen] Borradas filas polen_portal_approvals para brand', brandId);
       } catch(e){ console.warn('[Polen] Error borrando polen_portal_approvals:', e); }
+      // 🗂️ FASE 3a: borrar la fila de polen_brands (si no, la hidratación la revive)
+      try {
+        if(window.BrandsDB) await BrandsDB.deleteBrand(brandId);
+        console.log('[Polen] Borrada fila polen_brands para brand', brandId);
+      } catch(e){ console.warn('[Polen] Error borrando polen_brands:', e); }
     } catch(e) { console.warn('[Polen] Error borrando datos de tabla de marca:', e); }
   }
 
