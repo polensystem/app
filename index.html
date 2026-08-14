@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260814-v411-FIX-BORRADO-REVIVE-TABLA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260814-v412-REVERT-AUTOFIX-AGRESIVO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4004,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 411;
+const APP_VERSION = 412;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -7405,10 +7405,7 @@ async function loadData(){
       // restaurada → limpiamos su id de la lista de borrados (auto-reparación). Así una
       // marca real jamás desaparece por un "borrado" viejo que quedó sin limpiar.
       if(appData._deletedBrandIds?.length){
-        // Una marca presente en brands que quedó por error en _deletedBrandIds se limpia,
-        // PERO nunca si está en la papelera (esa fue borrada a propósito y no debe revivir).
-        const idsPapelera = new Set((appData.papelera||[]).filter(p=>p && (p.type==='brand'||p.type==='brand-archived')).map(p=>p.data?.id).filter(Boolean));
-        const idsPresentes = new Set((appData.brands||[]).map(b=>b.id).filter(id=>!idsPapelera.has(id)));
+        const idsPresentes = new Set((appData.brands||[]).map(b=>b.id));
         const antes = appData._deletedBrandIds.length;
         appData._deletedBrandIds = appData._deletedBrandIds.filter(id=>!idsPresentes.has(id));
         if(appData._deletedBrandIds.length !== antes){
