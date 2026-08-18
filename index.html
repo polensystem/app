@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260814-v412-REVERT-AUTOFIX-AGRESIVO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260814-v415-FIX-MERGE-ARCHIVADA-RAIZ -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4004,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 412;
+const APP_VERSION = 415;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -7653,10 +7653,28 @@ function deepMergeAppData(server, local){
   const persistedDeletedBrandIds = new Set([...(local._deletedBrandIds||[]), ...(server._deletedBrandIds||[])]);
   const allDeletedBrandIds = new Set([...deletedBrandIds, ...persistedDeletedBrandIds]);
 
+  // 🔒 FIX RAÍZ (marca archivada que vuelve al dashboard — bug anterior a Fase 3a):
+  // Archivar saca la marca de brands y la pone en la papelera como 'brand-archived',
+  // PERO no la mete en _deletedBrandIds. Si otro dispositivo aún la tenía en su brands,
+  // el merge la reincorporaba (no estaba "borrada") y reaparecía para todos.
+  // La papelera SÍ se sincroniza, así que es la fuente confiable de "qué está archivado".
+  // Unimos la papelera de server + local y excluimos esos ids de brands en el merge.
+  const _papeleraUnida = [...(Array.isArray(server.papelera)?server.papelera:[]), ...(Array.isArray(local.papelera)?local.papelera:[])];
+  const archivadasEnPapelera = new Set(
+    _papeleraUnida
+      .filter(p=>p && (p.type==='brand-archived' || p.type==='brand') && (p.data?.id || p.id))
+      .map(p=>p.data?.id || p.id)
+  );
+  // Una marca cuenta como "fuera de activas" si está borrada O archivada en papelera,
+  // salvo que el usuario la haya restaurado explícitamente en esta sesión (restore
+  // limpia su id de _deletedBrandIds y hace markBrandChange, así que _localChangedBrandIds
+  // la protege abajo).
+  const fueraDeActivas = (id)=> allDeletedBrandIds.has(id) || (archivadasEnPapelera.has(id) && !_localChangedBrandIds.has(id));
+
   // Map por ID, partiendo del server. Brands que solo están en server NUNCA se pierden.
   const brandMap = {};
   serverBrands.forEach(b=>{
-    if(b?.id && !allDeletedBrandIds.has(b.id)) brandMap[b.id] = {...b};
+    if(b?.id && !fueraDeActivas(b.id)) brandMap[b.id] = {...b};
   });
 
   // Aplicar local encima — si local tiene una versión más nueva o tiene cambios locales,
@@ -7669,7 +7687,7 @@ function deepMergeAppData(server, local){
   // Si algo quedó sin atribuir, modo clásico (local gana para todas) para no perder ediciones propias.
   const useGranularBrands = _localChangedBrandIds.size > 0 && !_unattributedBrandChange;
   localBrands.forEach(b=>{
-    if(!b?.id || allDeletedBrandIds.has(b.id)) return;
+    if(!b?.id || fueraDeActivas(b.id)) return;
     const sv = brandMap[b.id];
     // 🔒 Timestamp por marca: si mi copia de ESTA marca es más nueva que la del server,
     // gana local aunque la bandera ya se haya limpiado tras guardar. Protege el nombre
@@ -17817,17 +17835,18 @@ function getPortalSlug(brandId){
 
 function _ensurePortalSlug(brand){
   if(brand.portalSlug) return;
-  // Generar slug: NOMBRE-NN (número de cliente basado en índice)
+  // Generar slug: NOMBRE-NN-<id>. El id inmutable al final garantiza que el link
+  // sobreviva a cambios de nombre (la resolución puede extraer el id del final).
   const allBrands = appData.brands||[];
   const idx = allBrands.findIndex(b=>b.id===brand.id);
   const num = String(idx+1).padStart(2,'0');
   const nombre = (brand.name||'cliente')
     .toUpperCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g,'') // quitar acentos
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // quitar acentos
     .replace(/[^A-Z0-9]+/g,'-')
     .replace(/^-|-$/g,'')
     .slice(0,20);
-  brand.portalSlug = nombre + '-' + num;
+  brand.portalSlug = nombre + '-' + num + '-' + brand.id;
 }
 
 function getPortalUrl(brandId){
@@ -19462,6 +19481,19 @@ async function saveBrand(){
     // Edit existing
     const brand=appData.brands.find(b=>b.id===editingBrandId);
     if(brand){
+      // 🔒 Antes de cambiar el nombre, preservar el slug dinámico que el nombre VIEJO
+      // habría generado, para que cualquier link ya enviado con ese slug siga resolviendo.
+      try{
+        const nombreViejo = (brand.name||'cliente')
+          .toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+          .replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,20);
+        const idx = (appData.brands||[]).findIndex(b=>b.id===brand.id);
+        const slugViejoSinId = nombreViejo + '-' + String(idx+1).padStart(2,'0');
+        if(!Array.isArray(brand.portalSlugsPrevios)) brand.portalSlugsPrevios = [];
+        [brand.portalSlug, slugViejoSinId].forEach(s=>{
+          if(s && !brand.portalSlugsPrevios.includes(s)) brand.portalSlugsPrevios.push(s);
+        });
+      }catch(e){}
       brand.name=name;
       brand.industria=document.getElementById('input-industria').value.trim();
       brand.stage=document.getElementById('input-stage').value;
@@ -24359,6 +24391,10 @@ async function boot(){
     const bySlug = allBrands.find(b=>b.portalSlug===portalParam);
     if(bySlug) resolvedId = bySlug.id;
     else {
+      // Buscar en el historial de slugs previos (links viejos ya enviados al cliente)
+      const byPrevSlug = allBrands.find(b=>Array.isArray(b.portalSlugsPrevios) && b.portalSlugsPrevios.includes(portalParam));
+      if(byPrevSlug){ resolvedId = byPrevSlug.id; }
+      else {
       const byId = allBrands.find(b=>b.id===portalParam);
       if(!byId){
         const byDynSlug = allBrands.find(b=>{
@@ -24366,6 +24402,17 @@ async function boot(){
           return b.portalSlug===portalParam;
         });
         if(byDynSlug) resolvedId = byDynSlug.id;
+        else {
+          // 🔒 ÚLTIMA RED (arregla "marca no encontrada" tras cambio de nombre):
+          // Los slugs nuevos terminan en el id inmutable de la marca (…-<id>).
+          // Si el nombre cambió y el slug viejo ya no coincide, intentamos extraer
+          // el id del final del slug y resolver por ahí. El id NUNCA cambia, así que
+          // el link sobrevive a cualquier renombrado.
+          const posibleId = String(portalParam).split('-').pop();
+          const byTailId = allBrands.find(b=>b.id===posibleId);
+          if(byTailId) resolvedId = byTailId.id;
+        }
+      }
       }
     }
 
@@ -30533,6 +30580,11 @@ async function executeBrandArchive(brandId){
   appData.papelera.push(papItem);
   // 🔒 Persistir en tabla papelera
   if(window.PapeleraDB){ await PapeleraDB.saveItem(papItem); }
+  // 🗂️ FASE 3a: borrar la fila de polen_brands. CRÍTICO — al archivar, la marca sale
+  // de appData.brands y vive en la papelera. Si su fila queda en polen_brands, la
+  // hidratación la revive en el dashboard cada vez (bug "archivé y volvió").
+  // Al restaurar/desarchivar, la marca vuelve a brands con markLocalChange y se re-crea.
+  if(window.BrandsDB){ await BrandsDB.deleteBrand(brandId); }
   markLocalChange('brands','clientNotes','papelera');
   await upsert();
   showStatus('📦 Proyecto archivado correctamente');
