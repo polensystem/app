@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260814-v415-FIX-MERGE-ARCHIVADA-RAIZ -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260819-v416-FIX-REALTIME-REPONE-ARCHIVADA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4004,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 415;
+const APP_VERSION = 416;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -7248,9 +7248,17 @@ async function loadData(){
                 portalApprovals: existente.portalApprovals || ficha.portalApprovals,
               };
             });
-            // Respetar borrados explícitos: una marca en _deletedBrandIds no revive
+            // Respetar borrados explícitos Y archivados: una marca en _deletedBrandIds
+            // o en la papelera (archivada/borrada) NO debe revivir desde la tabla.
             const del = new Set(appData._deletedBrandIds || []);
-            appData.brands = Object.values(porId).filter(b=>b && b.id && !del.has(b.id));
+            const enPapelera = new Set(
+              (appData.papelera||[])
+                .filter(p=>p && (p.type==='brand-archived'||p.type==='brand') && (p.data?.id||p.id))
+                .map(p=>p.data?.id||p.id)
+            );
+            appData.brands = Object.values(porId).filter(b=>
+              b && b.id && !del.has(b.id) && !enPapelera.has(b.id) && !b.archivedAt
+            );
             console.log('[Polen] ✓ Marcas cargadas de tabla nueva (polen_brands):', appData.brands.length,
               '| en array previo:', arr.length, '| en tabla:', Object.keys(brandsFromTable).length);
           } else {
@@ -21088,11 +21096,24 @@ function subscribeRealtime(onUpdate){
               const tabla = await BrandsDB.loadAll();
               if(!tabla) return;
               const del = new Set(appData._deletedBrandIds || []);
+              // 🔒 FIX RAÍZ (marca archivada/borrada que REVIVE por realtime):
+              // Este bloque repone marcas desde polen_brands. Antes solo excluía las de
+              // _deletedBrandIds, pero ARCHIVAR no usa esa lista — usa la papelera. Si otro
+              // dispositivo re-creó la fila en polen_brands (porque él aún la tenía), este
+              // código la reponía en el dashboard. Ahora también excluimos lo que está en la
+              // papelera (archivadas Y borradas), que es la fuente real de "esto no es activo".
+              const enPapelera = new Set(
+                (appData.papelera||[])
+                  .filter(p=>p && (p.type==='brand-archived'||p.type==='brand') && (p.data?.id||p.id))
+                  .map(p=>p.data?.id||p.id)
+              );
               const actuales = {};
               (appData.brands||[]).forEach(b=>{ if(b && b.id) actuales[b.id] = b; });
               let repuestas = 0;
               Object.entries(tabla).forEach(([id, ficha])=>{
-                if(!ficha || !id || del.has(id)) return;
+                if(!ficha || !id || del.has(id) || enPapelera.has(id)) return;
+                // No reponer si la ficha en sí está marcada como archivada
+                if(ficha.archivedAt) return;
                 if(!actuales[id]){
                   // Marca que el merge en vivo quitó pero sigue viva en la tabla → reponer
                   actuales[id] = { ...ficha, id, cronograma: ficha.cronograma || { aire:[], agua:[], tierra:[], fuego:[] } };
