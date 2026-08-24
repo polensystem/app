@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260819-v416-FIX-REALTIME-REPONE-ARCHIVADA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260824-v417-RECONCILIACION-PRE-GUARDADO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4004,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 416;
+const APP_VERSION = 417;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -8154,6 +8154,42 @@ async function _doUpsert(){
 
       // Escribir desde appData local (ya mergeado arriba para portal-owned fields).
       const toWrite = {...appData};
+
+      // 🗂️ RECONCILIACIÓN PRE-GUARDADO (fix definitivo del borrado fantasma de marcas):
+      // El bug de fondo: este dispositivo puede tener una copia STALE del array de marcas
+      // (sin una marca que otro creó hace segundos, ej. Morogrill). Al guardar, subía ese
+      // array incompleto y BORRABA la marca nueva para todos. La Fase 3a arregló la LECTURA
+      // (boot/realtime), pero la ESCRITURA seguía pisando. Aquí cerramos el círculo:
+      // ANTES de escribir, traemos de polen_brands (la fuente de verdad, una fila por marca)
+      // cualquier marca ACTIVA que falte en nuestro array local, y la incluimos en el guardado.
+      // Así es IMPOSIBLE subir un array al que le falte una marca que está viva en la tabla.
+      // Excluimos archivadas/borradas (papelera) y las de _deletedBrandIds.
+      try{
+        if(!appData._brandsTableOff && window.BrandsDB && BrandsDB.isDisponible() !== false){
+          const tablaBrands = await BrandsDB.loadAll();
+          if(tablaBrands && Object.keys(tablaBrands).length){
+            const enArray = new Set((appData.brands||[]).map(b=>b && b.id).filter(Boolean));
+            const delIds = new Set([...(_localDeletedIds.brands||[]), ...(appData._deletedBrandIds||[])]);
+            const enPapelera = new Set(
+              (appData.papelera||[])
+                .filter(p=>p && (p.type==='brand-archived'||p.type==='brand') && (p.data?.id||p.id))
+                .map(p=>p.data?.id||p.id)
+            );
+            let reincorporadas = [];
+            Object.entries(tablaBrands).forEach(([id, ficha])=>{
+              if(!ficha || !id) return;
+              if(enArray.has(id) || delIds.has(id) || enPapelera.has(id) || ficha.archivedAt) return;
+              // Marca activa que existe en la tabla pero falta en nuestro array stale → reincorporar
+              appData.brands.push({ ...ficha, id, cronograma: ficha.cronograma || { aire:[], agua:[], tierra:[], fuego:[] } });
+              reincorporadas.push(ficha.name || id);
+            });
+            if(reincorporadas.length){
+              console.warn('[Polen] 🗂️ Pre-guardado: reincorporadas', reincorporadas.length, 'marca(s) desde polen_brands para no pisarlas:', reincorporadas.join(', '));
+              toWrite.brands = appData.brands;
+            }
+          }
+        }
+      }catch(e){ console.error('[Polen] Reconciliación pre-guardado falló (continúa el guardado):', e); }
 
       // Re-apply local deletes como safety net
       if(_localDeletedIds.brands.size){
