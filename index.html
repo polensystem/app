@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260824-v417-RECONCILIACION-PRE-GUARDADO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260825-v419-METAS-MOVER-3ATRAS-5ADELANTE -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4004,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 417;
+const APP_VERSION = 419;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -4123,6 +4123,25 @@ function askModal({ label='', placeholder='', defaultValue='', type='text', opti
       if(e.key==='Escape') cancelBtn.onclick();
     };
   });
+}
+
+/* confirmarBorradoMarca — protección contra borrados accidentales:
+   exige escribir el nombre EXACTO de la marca para poder borrarla.
+   Devuelve true solo si el usuario escribió el nombre correcto. */
+async function confirmarBorradoMarca(brand){
+  if(!brand || !brand.name) return false;
+  const escrito = await askModal({
+    label: '⚠️ Vas a borrar "' + brand.name + '". Esto la mueve a la papelera. Para confirmar, escribe el nombre exacto de la marca:',
+    placeholder: brand.name,
+    type: 'text'
+  });
+  if(escrito == null) return false; // canceló
+  const normaliza = (s)=> String(s||'').trim().toLowerCase().replace(/\s+/g,' ');
+  if(normaliza(escrito) !== normaliza(brand.name)){
+    showStatus('El nombre no coincide — no se borró nada ✋', true);
+    return false;
+  }
+  return true;
 }
 
 /* confirmModal — simple yes/no, returns true if confirmed */
@@ -12109,19 +12128,54 @@ function metasMover(key, slotId){
   const arr = appData.metas[key]||[];
   const s = arr.find(x=>x.id===slotId);
   if(!s) return;
-  const v = _metasView();
-  // Opciones: las 2 quincenas del mes en vista, el mes anterior y el siguiente
-  const opts = [];
-  [[-1,2],[0,1],[0,2],[1,1]].forEach(([dm,q])=>{
-    let m=v.month+dm, y=v.year; if(m<0){m=11;y--;} if(m>11){m=0;y++;}
-    const k=_quincenaKey(y,m,q);
-    if(k!==key) opts.push(k);
-  });
-  // siempre incluir la otra quincena del mismo mes
+  // Anclar el rango en la posición REAL de la marca (no en el mes en vista),
+  // para que "adelante" y "atrás" sean relativos a dónde está la marca.
+  const base = _quincenaParts(key);
+  if(!base) return;
+
+  // Genera una key desplazada N quincenas desde la base (cada mes tiene 2 quincenas)
+  const desplazar = (n)=>{
+    // índice global de quincena: mes*2 + (q-1)
+    let idx = (base.year*24) + (base.month*2) + (base.q-1) + n;
+    const year = Math.floor(idx/24); idx -= year*24;
+    const month = Math.floor(idx/2);
+    const q = (idx%2)+1;
+    return _quincenaKey(year, month, q);
+  };
+
+  // 3 quincenas hacia atrás, 5 hacia adelante
+  const atras = [];
+  for(let n=-3; n<=-1; n++) atras.push(desplazar(n));
+  const adelante = [];
+  for(let n=1; n<=5; n++) adelante.push(desplazar(n));
+
+  const btn = (k, dir)=>{
+    const p = _quincenaParts(k);
+    const flecha = dir==='adelante' ? '↓' : '↑';
+    const colFlecha = dir==='adelante' ? 'var(--tierra)' : 'var(--text3)';
+    return `<button onclick="metasConfirmarMover('${key}','${slotId}','${k}')"
+      style="display:flex;align-items:center;gap:0.6rem;text-align:left;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.8rem;color:var(--text);cursor:pointer;font-family:var(--font);font-size:0.85rem;font-weight:600;width:100%;transition:border-color 0.12s,transform 0.12s"
+      onmouseover="this.style.borderColor='var(--aire)';this.style.transform='translateX(2px)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
+      <span style="color:${colFlecha};font-weight:800;flex-shrink:0">${flecha}</span>
+      <span style="flex:1">${_quincenaLabel(k)}</span>
+      <span style="color:var(--text3);font-weight:400;font-size:0.78rem">${p.year}</span>
+    </button>`;
+  };
+
   const body = `
-    <div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.8rem">Mover <b>${escapeHtml(s.nombre)}</b> a:</div>
-    <div style="display:flex;flex-direction:column;gap:0.4rem">
-      ${opts.map(k=>`<button onclick="metasConfirmarMover('${key}','${slotId}','${k}')" style="text-align:left;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:0.6rem 0.8rem;color:var(--text);cursor:pointer;font-family:var(--font);font-size:0.85rem;font-weight:600">${_quincenaLabel(k)} <span style="color:var(--text3);font-weight:400">· ${_quincenaParts(k).year}</span></button>`).join('')}
+    <div style="font-size:0.82rem;color:var(--text2);margin-bottom:0.3rem">Mover <b style="color:var(--text)">${escapeHtml(s.nombre)}</b></div>
+    <div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.9rem">Ahora en: ${_quincenaLabel(key)} · ${base.year}</div>
+
+    <div style="display:flex;flex-direction:column;gap:0.9rem;max-height:360px;overflow-y:auto;scrollbar-width:thin;padding-right:0.2rem">
+      <div>
+        <div style="font-size:0.66rem;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.45rem">Antes</div>
+        <div style="display:flex;flex-direction:column;gap:0.35rem">${atras.map(k=>btn(k,'atras')).join('')}</div>
+      </div>
+      <div>
+        <div style="font-size:0.66rem;font-weight:800;color:var(--tierra);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.45rem">Después</div>
+        <div style="display:flex;flex-direction:column;gap:0.35rem">${adelante.map(k=>btn(k,'adelante')).join('')}</div>
+      </div>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:1rem">
       <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:0.82rem">Cancelar</button>
@@ -17063,7 +17117,7 @@ function copiarLinkDemo(crmId){
 async function deleteBrand(id){
   const brand = appData.brands.find(b=>b.id===id);
   if(!brand) return;
-  const ok = await confirmModal(`¿Mover "${brand.name}" a la papelera?`, 'Mover a papelera');
+  const ok = await confirmarBorradoMarca(brand);
   if(!ok) return;
   softDeleteBrand(brand);
   markLocalChange('brands');
@@ -19708,7 +19762,7 @@ async function deleteBrandCurrent(){
   if(!currentBrandId) return;
   const brand = appData.brands.find(b=>b.id===currentBrandId);
   if(!brand) return;
-  const ok = await confirmModal(`¿Mover "${brand.name}" a la papelera?`, 'Mover a papelera');
+  const ok = await confirmarBorradoMarca(brand);
   if(!ok) return;
 
   // Save backup in case upsert fails
