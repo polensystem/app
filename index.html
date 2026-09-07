@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260825-v419-METAS-MOVER-3ATRAS-5ADELANTE -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260904-v420-TIEMPO-DESDE-ONBOARDING -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4004,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 419;
+const APP_VERSION = 420;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -18209,7 +18209,10 @@ function renderBrandCrono(brand){
   const safeDays = a => { const n = Math.floor(Number(a && a.days)); return (isNaN(n) || n < 0) ? 0 : n; };
   let totalDays=0;
   const allActs=stages.flatMap(s=>brand.cronograma[s]||[]);
-  const firstDate=allActs.map(a=>a.startDate).filter(Boolean).sort()[0];
+  // El tiempo del proyecto se cuenta desde la Reunión de onboarding (no desde el
+  // primer pago ni la primera actividad, que dejan un "inbetween" de tiempo muerto).
+  const _onbStart = (typeof _cronoStartDate==='function') ? _cronoStartDate(brand) : null;
+  const firstDate = _onbStart ? fmtLocalDate(_onbStart) : allActs.map(a=>a.startDate).filter(Boolean).sort()[0];
   const lastDate=allActs.map(a=>a.endDate).filter(Boolean).sort().pop();
   const chips=stages.map(s=>{
     const acts=(brand.cronograma[s]||[]);
@@ -22269,10 +22272,15 @@ function _marcaEntrega(b){
     estimada = true;
   }
   if(!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return null;
-  // Inicio real = primera actividad con fecha de arranque
+  // Inicio real = Reunión de onboarding (no el primer pago/actividad, que deja tiempo muerto).
   const todas = ['aire','agua','tierra','fuego'].flatMap(st=>cr[st]||[]);
-  const conInicio = todas.filter(a=>a && a.startDate).sort((x,y)=>x.startDate.localeCompare(y.startDate));
-  const inicio = conInicio.length ? conInicio[0].startDate : null;
+  let inicio = null;
+  const _onb = (typeof _cronoStartDate==='function') ? _cronoStartDate(b) : null;
+  if(_onb){ inicio = fmtLocalDate(_onb); }
+  else {
+    const conInicio = todas.filter(a=>a && a.startDate).sort((x,y)=>x.startDate.localeCompare(y.startDate));
+    inicio = conInicio.length ? conInicio[0].startDate : null;
+  }
   let dias = null;
   if(inicio){
     const d = Math.round((new Date(fecha) - new Date(inicio)) / 86400000);
@@ -25407,7 +25415,9 @@ function _portalCronoHTML(brand){
   let summaryHTML = '';
   if(allActs.length){
     const totalDays = allActs.reduce((s,a)=>s+safeDays(a),0);
-    const firstDate = allActs.map(a=>a.startDate).filter(Boolean).sort()[0];
+    // Contar desde la Reunión de onboarding (consistente con la vista interna).
+    const _onbP = (typeof _cronoStartDate==='function') ? _cronoStartDate(brand) : null;
+    const firstDate = _onbP ? fmtLocalDate(_onbP) : allActs.map(a=>a.startDate).filter(Boolean).sort()[0];
     const lastDate  = allActs.map(a=>a.endDate).filter(Boolean).sort().pop();
     const rangeLabel = (firstDate&&lastDate)
       ? `<div style="font-size:0.74rem;color:var(--text3);margin-top:0.25rem">${fmtDateDisplay(firstDate)} → ${fmtDateDisplay(lastDate)}</div>`
@@ -28105,7 +28115,8 @@ function exportBrandCronoPDF(){
   const totalActs = allActs.length;
   const doneActs  = allActs.filter(a=>a.status==='completada').length;
   const pct = totalActs ? Math.round(doneActs/totalActs*100) : 0;
-  const firstDate = allActs.map(a=>a.startDate).filter(Boolean).sort()[0];
+  const _onbPdf = (typeof _cronoStartDate==='function') ? _cronoStartDate(brand) : null;
+  const firstDate = _onbPdf ? fmtLocalDate(_onbPdf) : allActs.map(a=>a.startDate).filter(Boolean).sort()[0];
   const lastDate  = allActs.map(a=>a.endDate).filter(Boolean).sort().pop();
   const totalDays = allActs.reduce((s,a)=>s+(a.days||0),0);
 
