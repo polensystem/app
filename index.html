@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260904-v420-TIEMPO-DESDE-ONBOARDING -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260904-v421-DEMOS-FUERA-DASHBOARD -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4004,7 +4004,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 420;
+const APP_VERSION = 421;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -16661,7 +16661,11 @@ async function guardarPausaActiva(){
 }
 
 function renderDashboard(){
-  const brands=appData.brands||[];
+  // Red de seguridad: los demos (portales de ejemplo del CRM) nunca deben contar
+  // ni aparecer en el dashboard, aunque estén inyectados temporalmente en appData.brands
+  // (ver abrirDemo/_clearDemoView). Filtramos por isDemo, por _demoViewIds y por id 'demo_'.
+  const _esDemo = b => b && (b.isDemo || (typeof b.id==='string' && b.id.startsWith('demo_')) || (window._demoViewIds && window._demoViewIds.has(b.id)));
+  const brands=(appData.brands||[]).filter(b=>!_esDemo(b));
   renderBanners();
   renderDigitalTools();
   renderClientHub();
@@ -27784,7 +27788,7 @@ function renderBrandsTable(){
   const today   = new Date(); today.setHours(0,0,0,0);
   const in5days = new Date(today); in5days.setDate(today.getDate()+5);
 
-  let brands = [...(appData.brands || [])];
+  let brands = [...(appData.brands || [])].filter(b=>!(b && (b.isDemo || (typeof b.id==='string' && b.id.startsWith('demo_')) || (window._demoViewIds && window._demoViewIds.has(b.id)))));
 
   // ── Search ──
   const searchVal = (document.getElementById('table-search')?.value || '').trim().toLowerCase();
