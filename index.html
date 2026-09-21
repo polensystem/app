@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260921-v430-FECHA-ANIO-TRAYECTORIA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260921-v431-ANIO-INDUSTRIA-PERSISTEN -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4009,7 +4009,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 430;
+const APP_VERSION = 431;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -5101,6 +5101,7 @@ window.ContactosDB = (function(){
   function isOwnEcho(id){ const t=_recent.get(id); return t && (Date.now()-t)<2500; }
 
   function rowToItem(row){
+    const ex = row.extra || {};
     return {
       id: row.id,
       nombre: row.nombre || '',
@@ -5113,6 +5114,8 @@ window.ContactosDB = (function(){
       notas: row.notas || '',
       origen: row.origen || 'manual',
       crmId: row.crm_id || '',
+      anio: ex.anio || null,
+      industria: ex.industria || '',
       createdAt: row.created_at || null,
       updatedAt: row.updated_at || null,
     };
@@ -5130,6 +5133,7 @@ window.ContactosDB = (function(){
       notas: it.notas || '',
       origen: it.origen || 'manual',
       crm_id: it.crmId || null,
+      extra: { anio: it.anio || null, industria: it.industria || '' },
       updated_at: new Date().toISOString(),
     };
   }
@@ -12923,18 +12927,15 @@ function renderContactos(){
   const estadoOpts = etapas.map(e=>e.nombre);
 
   // Formato de fecha:
-  //  - Históricos de trayectoria (tienen 'anio' y sin día/mes real) → solo el AÑO del proyecto.
-  //  - Recientes (fecha de creación real) → día mes año.
+  //  - Si el contacto tiene 'anio' (proyecto histórico) → mostrar SOLO el año.
+  //  - Si no → la fecha de creación real (día mes año).
   const MSC=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   const fmtFecha = (c)=>{
-    // Si viene de la trayectoria / tiene año propio del proyecto, mostrar solo el año
-    if(c.origen==='trayectoria' && c.anio) return String(c.anio);
+    if(c.anio) return String(c.anio);           // año del proyecto manda
     const raw = _contactoFecha(c);
-    if(!raw) return c.anio ? String(c.anio) : '';
+    if(!raw) return '';
     const d = new Date(raw);
-    if(isNaN(d)) return c.anio ? String(c.anio) : '';
-    // Si la fecha es un 1-ene (marcador de "solo año"), mostrar solo el año
-    if(c.anio && d.getMonth()===0 && d.getDate()===1) return String(c.anio);
+    if(isNaN(d)) return '';
     return `${d.getDate()} ${MSC[d.getMonth()]} ${d.getFullYear()}`;
   };
 
@@ -13363,8 +13364,15 @@ function _contactosFiltrados(){
   // Orden
   const s = window._contactosSort;
   items = [...items].sort((a,b)=>{
-    let va=a[s.col]||'', vb=b[s.col]||'';
-    va=(''+va).toLowerCase(); vb=(''+vb).toLowerCase();
+    let va, vb;
+    if(s.col==='createdAt'){
+      // Clave de fecha: año del proyecto si existe, si no la fecha de creación
+      va = a.anio ? `${a.anio}-01-01` : String(a.createdAt||'').slice(0,10);
+      vb = b.anio ? `${b.anio}-01-01` : String(b.createdAt||'').slice(0,10);
+    } else {
+      va = a[s.col]||''; vb = b[s.col]||'';
+      va=(''+va).toLowerCase(); vb=(''+vb).toLowerCase();
+    }
     if(va<vb) return s.dir==='asc'?-1:1;
     if(va>vb) return s.dir==='asc'?1:-1;
     return 0;
@@ -13376,11 +13384,8 @@ function exportContactosXLSX(){
   try{
     const items = _contactosFiltrados();
     const _fechaExport = (c)=>{
-      if(c.origen==='trayectoria' && c.anio) return String(c.anio);
-      const raw = (_contactoFecha(c)||'');
-      const d = new Date(raw);
-      if(c.anio && !isNaN(d) && d.getMonth()===0 && d.getDate()===1) return String(c.anio);
-      return raw.slice(0,10);
+      if(c.anio) return String(c.anio);
+      return (_contactoFecha(c)||'').slice(0,10);
     };
     const rows = items.map(c=>({ Marca:c.nombre, Empresa:c.empresa, Industria:c.industria||'', Contacto:c.persona, Email:c.email, Teléfono:c.telefono, Estado:c.estado, Fecha:_fechaExport(c), Notas:c.notas, Origen:c.origen }));
     const ws = XLSX.utils.json_to_sheet(rows);
