@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260921-v426-FIX-ARCHIVO-VACIO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260921-v430-FECHA-ANIO-TRAYECTORIA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3544,7 +3544,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         <div style="font-size:1rem;font-weight:600;margin-bottom:0.4rem">Sin contactos aún</div>
         <div style="font-size:0.8rem">Se irán agregando solos desde el CRM, o créalos/importa un Excel.</div>
       </div>
-      <div id="contactos-table-wrap" style="overflow-x:auto"></div>
+      <div id="contactos-table-wrap" style="overflow:auto;max-height:calc(100vh - 320px);border:1px solid var(--border);border-radius:12px"></div>
     </div>
   </div>
 
@@ -4009,7 +4009,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 426;
+const APP_VERSION = 430;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -11994,7 +11994,67 @@ async function metasAsignarDesdeCrm(it){
   if(window.MetasDB) MetasDB.saveSlot(key, slot);
   markLocalChange('metas');
   await upsert();
+  // Al cerrar (ganar) un cliente: agregarlo automáticamente a la Base de datos y a la Trayectoria
+  try{ await _clienteCerradoAutoRegistro(it); }catch(e){ console.warn('auto-registro cliente cerrado:', e); }
   if(currentPage==='metas') renderMetas();
+}
+
+// Registra un cliente recién cerrado en la Base de datos de contactos y en la Trayectoria.
+// Idempotente: no duplica si ya existe (por crmId en contactos, por nombre en trayectoria).
+async function _clienteCerradoAutoRegistro(it){
+  if(!it) return;
+  const norm = s => (s||'').trim().toLowerCase();
+
+  // ── 1) BASE DE DATOS DE CONTACTOS ──
+  try{
+    if(window.ContactosDB){
+      if(!_contactosData.loaded){ await loadContactos(); }
+      const yaPorCrm = _contactosData.items.some(c=>c.crmId===it.id);
+      const yaPorNombre = _contactosData.items.some(c=>norm(c.nombre)===norm(it.nombre) && norm(it.nombre));
+      if(!yaPorCrm && !yaPorNombre){
+        const c = {
+          id: uid(),
+          nombre: it.nombre||'',
+          empresa: it.empresa||'',
+          persona: it.contacto||'',
+          email: it.email||'',
+          telefono: it.telefono||'',
+          estado: 'Cerrado ✓',
+          prioridad: it.prioridad||'',
+          notas: it.info||'',
+          industria: '',
+          origen: 'crm',
+          crmId: it.id,
+          createdAt: new Date().toISOString(),
+        };
+        _contactosData.items.unshift(c);
+        await ContactosDB.saveItem(c);
+        if(currentPage==='contactos') renderContactos();
+      }
+    }
+  }catch(e){ console.warn('auto-registro BD:', e); }
+
+  // ── 2) TRAYECTORIA ──
+  try{
+    if(window.TrayectoriaDB){
+      if(!_trayData.loaded && typeof loadTrayectoria==='function'){ await loadTrayectoria(); }
+      const yaEnTray = (_trayData.marcas||[]).some(m=>norm(m.nombre)===norm(it.nombre) && norm(it.nombre));
+      if(!yaEnTray && norm(it.nombre)){
+        const m = {
+          id: uid(),
+          nombre: it.nombre||'',
+          anio: new Date().getFullYear(),
+          logoUrl: '',
+          descripcion: it.info||'',
+          industrias: [],
+          orden: (_trayData.marcas||[]).length,
+        };
+        _trayData.marcas.push(m);
+        await TrayectoriaDB.saveMarca(m);
+        if(currentPage==='trayectoria' && typeof renderTrayectoria==='function') renderTrayectoria();
+      }
+    }
+  }catch(e){ console.warn('auto-registro Trayectoria:', e); }
 }
 
 async function goToMetas(){
@@ -12814,6 +12874,8 @@ async function goToContactos(){
   await loadContactos();
   // Cargar CRM en segundo plano para que el modo "Proyectos" y la sincronización tengan datos
   try{ if(!_crmData.loaded && typeof loadCRM==='function'){ loadCRM().then(()=>renderContactos()); } }catch(e){}
+  // Cargar Trayectoria en segundo plano y rellenar la industria de los históricos importados
+  try{ if(!_trayData.loaded && typeof loadTrayectoria==='function'){ loadTrayectoria().then(()=>_rellenarIndustriaDesdeTrayectoria()); } else { _rellenarIndustriaDesdeTrayectoria(); } }catch(e){}
   renderContactos();
 }
 
@@ -12852,7 +12914,7 @@ function renderContactos(){
   const s = window._contactosSort;
   const fl = col => s.col===col ? (s.dir==='asc'?' ↑':' ↓') : '';
   const origenChip = (o)=>{
-    const map = { crm:{l:'CRM',c:'#3d9edd'}, manual:{l:'Manual',c:'#94a3b8'}, import:{l:'Excel',c:'#5aaa35'} };
+    const map = { crm:{l:'CRM',c:'#3d9edd'}, manual:{l:'Manual',c:'#94a3b8'}, import:{l:'Excel',c:'#5aaa35'}, trayectoria:{l:'Trayectoria',c:'#e6a817'} };
     const m = map[o]||map.manual;
     return `<span style="font-size:0.6rem;font-weight:700;color:${m.c};background:${m.c}1a;border:1px solid ${m.c}44;border-radius:99px;padding:0.05rem 0.4rem">${m.l}</span>`;
   };
@@ -12860,10 +12922,24 @@ function renderContactos(){
   const etapas = (typeof _crmEtapas==='function') ? _crmEtapas() : [];
   const estadoOpts = etapas.map(e=>e.nombre);
 
+  // Formato de fecha:
+  //  - Históricos de trayectoria (tienen 'anio' y sin día/mes real) → solo el AÑO del proyecto.
+  //  - Recientes (fecha de creación real) → día mes año.
+  const MSC=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const fmtFecha = (c)=>{
+    // Si viene de la trayectoria / tiene año propio del proyecto, mostrar solo el año
+    if(c.origen==='trayectoria' && c.anio) return String(c.anio);
+    const raw = _contactoFecha(c);
+    if(!raw) return c.anio ? String(c.anio) : '';
+    const d = new Date(raw);
+    if(isNaN(d)) return c.anio ? String(c.anio) : '';
+    // Si la fecha es un 1-ene (marcador de "solo año"), mostrar solo el año
+    if(c.anio && d.getMonth()===0 && d.getDate()===1) return String(c.anio);
+    return `${d.getDate()} ${MSC[d.getMonth()]} ${d.getFullYear()}`;
+  };
+
   const filas = items.map(c=>{
-    // Celda de texto editable en línea (Notion-style)
     const celdaTxt = (campo, val)=>`<td class="cdb-cell" data-id="${c.id}" data-campo="${campo}" ondblclick="cdbEditarCelda(this)" style="font-size:0.8rem;color:var(--text2);cursor:text">${val?escapeHtml(val):'<span style=\"color:var(--text3)\">—</span>'}</td>`;
-    // Celda de estado con dropdown
     const et = etapas.find(e=>e.nombre===c.estado);
     const estadoColor = et?et.color:'#94a3b8';
     const celdaEstado = `<td style="font-size:0.8rem" onclick="event.stopPropagation()">
@@ -12871,13 +12947,16 @@ function renderContactos(){
         <option value="">—</option>
         ${estadoOpts.map(o=>`<option value="${escapeHtml(o)}" ${o===c.estado?'selected':''}>${escapeHtml(o)}</option>`).join('')}
       </select></td>`;
+    const fechaTxt = fmtFecha(c);
     return `<tr class="crm-table-row">
       <td class="cdb-cell" data-id="${c.id}" data-campo="nombre" ondblclick="cdbEditarCelda(this)" style="cursor:text"><b style="font-size:0.85rem">${c.nombre?escapeHtml(c.nombre):'<span style=\"color:var(--text3);font-weight:400\">—</span>'}</b></td>
       ${celdaTxt('empresa', c.empresa)}
+      ${celdaTxt('industria', c.industria)}
       ${celdaTxt('persona', c.persona)}
       ${celdaTxt('email', c.email)}
       ${celdaTxt('telefono', c.telefono)}
       ${celdaEstado}
+      <td style="font-size:0.76rem;color:var(--text3);white-space:nowrap">${fechaTxt||'—'}</td>
       <td style="text-align:center">${origenChip(c.origen)}</td>
       <td style="text-align:center" onclick="event.stopPropagation()">
         <button onclick="openContactoModal('${c.id}')" title="Ver ficha" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.8rem;padding:0.2rem">👁</button>
@@ -12886,20 +12965,31 @@ function renderContactos(){
     </tr>`;
   }).join('');
 
-  wrap.innerHTML = `<table class="tray-table crm-table" style="min-width:820px">
+  const thSty = 'position:sticky;top:0;background:var(--bg-card);z-index:2';
+  wrap.innerHTML = `<table class="tray-table crm-table" style="min-width:920px">
     <thead><tr>
-      <th onclick="contactosTableSort('nombre')">Marca${fl('nombre')}</th>
-      <th onclick="contactosTableSort('empresa')">Empresa${fl('empresa')}</th>
-      <th onclick="contactosTableSort('persona')">Contacto${fl('persona')}</th>
-      <th onclick="contactosTableSort('email')">Email${fl('email')}</th>
-      <th onclick="contactosTableSort('telefono')">Teléfono${fl('telefono')}</th>
-      <th onclick="contactosTableSort('estado')">Estado${fl('estado')}</th>
-      <th style="text-align:center">Origen</th>
-      <th style="text-align:center"></th>
+      <th style="${thSty}" onclick="contactosTableSort('nombre')">Marca${fl('nombre')}</th>
+      <th style="${thSty}" onclick="contactosTableSort('empresa')">Empresa${fl('empresa')}</th>
+      <th style="${thSty}" onclick="contactosTableSort('industria')">Industria${fl('industria')}</th>
+      <th style="${thSty}" onclick="contactosTableSort('persona')">Contacto${fl('persona')}</th>
+      <th style="${thSty}" onclick="contactosTableSort('email')">Email${fl('email')}</th>
+      <th style="${thSty}" onclick="contactosTableSort('telefono')">Teléfono${fl('telefono')}</th>
+      <th style="${thSty}" onclick="contactosTableSort('estado')">Estado${fl('estado')}</th>
+      <th style="${thSty}" onclick="contactosTableSort('createdAt')">Fecha${fl('createdAt')}</th>
+      <th style="${thSty};text-align:center">Origen</th>
+      <th style="${thSty};text-align:center"></th>
     </tr></thead>
     <tbody>${filas}</tbody>
-  </table>
-  <div style="font-size:0.66rem;color:var(--text3);margin-top:0.6rem;padding-left:0.2rem">💡 Doble clic en una celda para editarla · el Estado se cambia con el desplegable</div>`;
+  </table>`;
+  // Hint fuera del área de scroll
+  let hint = document.getElementById('contactos-hint');
+  if(!hint){
+    hint = document.createElement('div');
+    hint.id = 'contactos-hint';
+    hint.style.cssText = 'font-size:0.66rem;color:var(--text3);margin-top:0.6rem;padding-left:0.2rem';
+    hint.innerHTML = '💡 Doble clic en una celda para editarla · el Estado se cambia con el desplegable · clic en el encabezado para ordenar';
+    if(wrap.parentNode) wrap.parentNode.insertBefore(hint, wrap.nextSibling);
+  }
 }
 
 // Controles: tabs de modo + filtros
@@ -12932,6 +13022,7 @@ function renderContactosControles(){
         <option value="crm" ${f.origen==='crm'?'selected':''}>CRM</option>
         <option value="manual" ${f.origen==='manual'?'selected':''}>Manual</option>
         <option value="import" ${f.origen==='import'?'selected':''}>Excel</option>
+        <option value="trayectoria" ${f.origen==='trayectoria'?'selected':''}>Trayectoria</option>
       </select>
       <select onchange="setContactoFiltro('prioridad', this.value)" style="${selSty}">
         <option value="">Prioridad: todas</option>
@@ -13082,6 +13173,87 @@ async function _sembrarContactoDesdeCrm(it){
 }
 
 // Volcado inicial: lleva TODOS los prospectos actuales del CRM a la base (sin duplicar)
+// Importar todas las marcas de la Trayectoria a la base de datos de contactos.
+// Solo las que aún no existan (por nombre). Entran como Cerrado ✓, origen 'trayectoria'.
+// Rellena la industria de los contactos que vinieron de la Trayectoria, emparejando
+// por nombre. Corre una vez al entrar (silencioso) para completar los ya importados.
+async function _rellenarIndustriaDesdeTrayectoria(){
+  try{
+    if(!_trayData.loaded && typeof loadTrayectoria==='function'){ await loadTrayectoria(); }
+    const marcas = (_trayData.marcas)||[];
+    if(!marcas.length) return;
+    const cat = (_trayData.config?.industrias)||[];
+    const indNombre = (id)=>{ const i=cat.find(x=>x.id===id); return i?i.nombre:''; };
+    const norm = s => (s||'').trim().toLowerCase();
+    // Mapa nombre-marca → industria(s) en texto
+    const mapa = {};
+    marcas.forEach(m=>{
+      const n = norm(m.nombre);
+      if(!n) return;
+      const inds = (m.industrias||[]).map(indNombre).filter(Boolean);
+      if(inds.length) mapa[n] = inds.join(', ');
+    });
+    const cambiados = [];
+    _contactosData.items.forEach(c=>{
+      if(c.origen==='trayectoria' && !c.industria){
+        const ind = mapa[norm(c.nombre)];
+        if(ind){ c.industria = ind; cambiados.push(c); }
+      }
+    });
+    if(cambiados.length && window.ContactosDB){
+      await ContactosDB.saveItemsBatch(cambiados);
+      renderContactos();
+    }
+  }catch(e){ console.warn('rellenar industria:', e); }
+}
+
+async function importarTrayectoriaAContactos(){
+  try{
+    if(!_contactosData.loaded){ await loadContactos(); }
+    // Cargar la trayectoria si hace falta
+    if(!_trayData.loaded && typeof loadTrayectoria==='function'){ await loadTrayectoria(); }
+    const marcas = (_trayData.marcas)||[];
+    if(!marcas.length){ showStatus('No hay marcas en la Trayectoria', true); return; }
+
+    // Nombres ya presentes en la base (normalizados) para no duplicar
+    const norm = s => (s||'').trim().toLowerCase();
+    const yaExisten = new Set(_contactosData.items.map(c=>norm(c.nombre)).filter(Boolean));
+
+    const nuevos = [];
+    marcas.forEach(m=>{
+      const n = norm(m.nombre);
+      if(!n || yaExisten.has(n)) return; // ya está o sin nombre
+      yaExisten.add(n); // evitar duplicados dentro de la misma trayectoria
+      // Fecha basada en el año de la trayectoria (para ordenar), 1 de enero de ese año
+      const fecha = m.anio ? `${m.anio}-01-01T00:00:00.000Z` : new Date().toISOString();
+      nuevos.push({
+        id: uid(),
+        nombre: m.nombre||'',
+        empresa: '',
+        persona: '',
+        email: '',
+        telefono: '',
+        estado: 'Cerrado ✓',
+        prioridad: '',
+        notas: m.descripcion||'',
+        origen: 'trayectoria',
+        crmId: '',
+        anio: m.anio||null,
+        createdAt: fecha,
+      });
+    });
+    if(!nuevos.length){ showStatus('La base ya tiene todas las marcas de la Trayectoria ✓'); return; }
+    nuevos.forEach(c=>_contactosData.items.unshift(c));
+    const ok = window.ContactosDB ? await ContactosDB.saveItemsBatch(nuevos) : false;
+    if(!ok){ showStatus('❌ Error al importar — ¿existe la tabla polen_contactos?', true); return; }
+    renderContactos();
+    showStatus(`${nuevos.length} marca${nuevos.length!==1?'s':''} de la Trayectoria agregada${nuevos.length!==1?'s':''} ✓`);
+  }catch(e){
+    console.error('[importarTrayectoriaAContactos] error:', e);
+    showStatus('❌ Error al importar: '+(e.message||e), true);
+  }
+}
+
 async function sincronizarContactosDesdeCrm(){
   try{
     if(!window.ContactosDB){ showStatus('❌ Base de datos no disponible', true); return; }
@@ -13203,7 +13375,14 @@ function _contactosFiltrados(){
 function exportContactosXLSX(){
   try{
     const items = _contactosFiltrados();
-    const rows = items.map(c=>({ Marca:c.nombre, Empresa:c.empresa, Contacto:c.persona, Email:c.email, Teléfono:c.telefono, Estado:c.estado, Notas:c.notas, Origen:c.origen }));
+    const _fechaExport = (c)=>{
+      if(c.origen==='trayectoria' && c.anio) return String(c.anio);
+      const raw = (_contactoFecha(c)||'');
+      const d = new Date(raw);
+      if(c.anio && !isNaN(d) && d.getMonth()===0 && d.getDate()===1) return String(c.anio);
+      return raw.slice(0,10);
+    };
+    const rows = items.map(c=>({ Marca:c.nombre, Empresa:c.empresa, Industria:c.industria||'', Contacto:c.persona, Email:c.email, Teléfono:c.telefono, Estado:c.estado, Fecha:_fechaExport(c), Notas:c.notas, Origen:c.origen }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Contactos');
