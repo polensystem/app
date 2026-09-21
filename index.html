@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260917-v424-COHERENCIA-DEMOS-BRANDS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260921-v426-FIX-ARCHIVO-VACIO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3520,6 +3520,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
         </div>
         <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
           <button onclick="openContactoModal()" class="btn-add" style="background:var(--tierra)">+ Nuevo contacto</button>
+          <button onclick="sincronizarContactosDesdeCrm()" style="padding:0.5rem 0.9rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);font-size:0.8rem;font-weight:600;cursor:pointer;font-family:var(--font)" title="Traer todos los prospectos del CRM a la base de datos">🔄 Sincronizar CRM</button>
           <button onclick="document.getElementById('contactos-import-file').click()" style="padding:0.5rem 0.9rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);font-size:0.8rem;font-weight:600;cursor:pointer;font-family:var(--font)">⬆ Importar Excel</button>
           <input type="file" id="contactos-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarContactosExcel(event)">
           <div class="export-wrap">
@@ -3536,6 +3537,8 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
           style="flex:1;min-width:200px;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.6rem 1rem;color:var(--text);font-family:var(--font);font-size:0.9rem;outline:none">
         <span style="font-size:0.74rem;color:var(--text3)" id="contactos-count"></span>
       </div>
+      <!-- Modos de visualización + filtros -->
+      <div id="contactos-controles"></div>
       <div id="contactos-empty" style="display:none;text-align:center;padding:4rem 2rem;color:var(--text3)">
         <div style="font-size:3rem;margin-bottom:1rem;opacity:0.3">🗂️</div>
         <div style="font-size:1rem;font-weight:600;margin-bottom:0.4rem">Sin contactos aún</div>
@@ -4006,7 +4009,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 424;
+const APP_VERSION = 426;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -12769,6 +12772,30 @@ async function borrarProspectoDef(papId){
 // ════════════════════════════════════════════════════════════
 window._contactosData = { items: [], loaded: false };
 window._contactosSort = { col:'createdAt', dir:'desc' };
+// Modo de visualización y filtros de la base de datos
+window._contactosModo = 'leads'; // 'leads' = todos | 'proyectos' = solo concretados
+window._contactosFiltros = { estado:'', origen:'', prioridad:'', desde:'', hasta:'' };
+function setContactosModo(m){ window._contactosModo = m; renderContactos(); }
+function setContactoFiltro(campo, val){ window._contactosFiltros[campo] = val; renderContactos(); }
+function limpiarFiltrosContactos(){ window._contactosFiltros = { estado:'', origen:'', prioridad:'', desde:'', hasta:'' }; const s=document.getElementById('contactos-search'); if(s) s.value=''; renderContactos(); }
+
+// ¿Este contacto es un PROYECTO concretado? = tiene una marca real creada con su nombre/empresa,
+// o su estado es "Cerrado". Se usa para el modo "Proyectos".
+function _contactoEsProyecto(c){
+  if(!c) return false;
+  const est = (c.estado||'').toLowerCase();
+  if(est.includes('cerrado') || est.includes('ganad')) return true;
+  const n = (c.nombre||'').trim().toLowerCase();
+  const e = (c.empresa||'').trim().toLowerCase();
+  if(!n && !e) return false;
+  return (appData.brands||[]).some(b=>{
+    if(!b || b.isDemo===true || b.archivedAt || b.deletedAt) return false;
+    const bn = (b.name||'').trim().toLowerCase();
+    return bn && (bn===n || (e && bn===e));
+  });
+}
+// Fecha de referencia del contacto para ordenar/filtrar (la más significativa disponible)
+function _contactoFecha(c){ return c.createdAt || c.fecha || ''; }
 
 async function goToContactos(){
   _navHistory.push({ page: currentPage, brandId: currentBrandId||null });
@@ -12785,6 +12812,8 @@ async function goToContactos(){
   const wrap=document.getElementById('contactos-table-wrap');
   if(wrap) wrap.innerHTML='<div style="color:var(--text3);font-size:0.85rem;padding:2rem;text-align:center">Cargando…</div>';
   await loadContactos();
+  // Cargar CRM en segundo plano para que el modo "Proyectos" y la sincronización tengan datos
+  try{ if(!_crmData.loaded && typeof loadCRM==='function'){ loadCRM().then(()=>renderContactos()); } }catch(e){}
   renderContactos();
 }
 
@@ -12805,26 +12834,13 @@ function renderContactos(){
   const wrap = document.getElementById('contactos-table-wrap');
   const empty = document.getElementById('contactos-empty');
   if(!wrap) return;
-  const q = (document.getElementById('contactos-search')?.value||'').trim().toLowerCase();
-  let items = _contactosData.items.filter(c=> !q ||
-    (c.nombre||'').toLowerCase().includes(q) ||
-    (c.empresa||'').toLowerCase().includes(q) ||
-    (c.persona||'').toLowerCase().includes(q) ||
-    (c.email||'').toLowerCase().includes(q) ||
-    (c.telefono||'').toLowerCase().includes(q));
-
-  // Orden
-  const s = window._contactosSort;
-  items = [...items].sort((a,b)=>{
-    let va=a[s.col]||'', vb=b[s.col]||'';
-    va=(''+va).toLowerCase(); vb=(''+vb).toLowerCase();
-    if(va<vb) return s.dir==='asc'?-1:1;
-    if(va>vb) return s.dir==='asc'?1:-1;
-    return 0;
-  });
+  const items = _contactosFiltrados();
 
   const countEl = document.getElementById('contactos-count');
-  if(countEl) countEl.textContent = `${items.length} contacto${items.length!==1?'s':''}`;
+  if(countEl) countEl.textContent = `${items.length} ${window._contactosModo==='proyectos'?'proyecto':'contacto'}${items.length!==1?'s':''}`;
+
+  // Barra de modos + filtros (se inyecta en su contenedor)
+  renderContactosControles();
 
   if(!_contactosData.items.length){
     wrap.innerHTML = '';
@@ -12833,26 +12849,44 @@ function renderContactos(){
   }
   if(empty) empty.style.display='none';
 
+  const s = window._contactosSort;
+  const fl = col => s.col===col ? (s.dir==='asc'?' ↑':' ↓') : '';
   const origenChip = (o)=>{
     const map = { crm:{l:'CRM',c:'#3d9edd'}, manual:{l:'Manual',c:'#94a3b8'}, import:{l:'Excel',c:'#5aaa35'} };
     const m = map[o]||map.manual;
     return `<span style="font-size:0.6rem;font-weight:700;color:${m.c};background:${m.c}1a;border:1px solid ${m.c}44;border-radius:99px;padding:0.05rem 0.4rem">${m.l}</span>`;
   };
-  const fl = col => s.col===col ? (s.dir==='asc'?' ↑':' ↓') : '';
-  const filas = items.map(c=>`<tr class="crm-table-row" onclick="openContactoModal('${c.id}')" style="cursor:pointer">
-      <td><b style="font-size:0.85rem">${escapeHtml(c.nombre||'—')}</b></td>
-      <td style="font-size:0.8rem;color:var(--text2)">${c.empresa?escapeHtml(c.empresa):'—'}</td>
-      <td style="font-size:0.8rem;color:var(--text2)">${c.persona?escapeHtml(c.persona):'—'}</td>
-      <td style="font-size:0.8rem;color:var(--text2)">${c.email?escapeHtml(c.email):'—'}</td>
-      <td style="font-size:0.8rem;color:var(--text2)">${c.telefono?escapeHtml(c.telefono):'—'}</td>
-      <td style="font-size:0.8rem;color:var(--text2)">${c.estado?escapeHtml(c.estado):'—'}</td>
+  // Opciones de estado (etapas del CRM) para el dropdown en celda
+  const etapas = (typeof _crmEtapas==='function') ? _crmEtapas() : [];
+  const estadoOpts = etapas.map(e=>e.nombre);
+
+  const filas = items.map(c=>{
+    // Celda de texto editable en línea (Notion-style)
+    const celdaTxt = (campo, val)=>`<td class="cdb-cell" data-id="${c.id}" data-campo="${campo}" ondblclick="cdbEditarCelda(this)" style="font-size:0.8rem;color:var(--text2);cursor:text">${val?escapeHtml(val):'<span style=\"color:var(--text3)\">—</span>'}</td>`;
+    // Celda de estado con dropdown
+    const et = etapas.find(e=>e.nombre===c.estado);
+    const estadoColor = et?et.color:'#94a3b8';
+    const celdaEstado = `<td style="font-size:0.8rem" onclick="event.stopPropagation()">
+      <select onchange="cdbCambiarEstado('${c.id}', this.value)" style="font-size:0.72rem;font-weight:700;color:${estadoColor};background:${estadoColor}14;border:1px solid ${estadoColor}44;border-radius:99px;padding:0.2rem 0.4rem;cursor:pointer;font-family:var(--font);max-width:150px">
+        <option value="">—</option>
+        ${estadoOpts.map(o=>`<option value="${escapeHtml(o)}" ${o===c.estado?'selected':''}>${escapeHtml(o)}</option>`).join('')}
+      </select></td>`;
+    return `<tr class="crm-table-row">
+      <td class="cdb-cell" data-id="${c.id}" data-campo="nombre" ondblclick="cdbEditarCelda(this)" style="cursor:text"><b style="font-size:0.85rem">${c.nombre?escapeHtml(c.nombre):'<span style=\"color:var(--text3);font-weight:400\">—</span>'}</b></td>
+      ${celdaTxt('empresa', c.empresa)}
+      ${celdaTxt('persona', c.persona)}
+      ${celdaTxt('email', c.email)}
+      ${celdaTxt('telefono', c.telefono)}
+      ${celdaEstado}
       <td style="text-align:center">${origenChip(c.origen)}</td>
       <td style="text-align:center" onclick="event.stopPropagation()">
+        <button onclick="openContactoModal('${c.id}')" title="Ver ficha" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.8rem;padding:0.2rem">👁</button>
         <button onclick="eliminarContacto('${c.id}')" title="Eliminar" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.85rem;padding:0.2rem">🗑</button>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
-  wrap.innerHTML = `<table class="tray-table crm-table" style="min-width:760px">
+  wrap.innerHTML = `<table class="tray-table crm-table" style="min-width:820px">
     <thead><tr>
       <th onclick="contactosTableSort('nombre')">Marca${fl('nombre')}</th>
       <th onclick="contactosTableSort('empresa')">Empresa${fl('empresa')}</th>
@@ -12864,7 +12898,95 @@ function renderContactos(){
       <th style="text-align:center"></th>
     </tr></thead>
     <tbody>${filas}</tbody>
-  </table>`;
+  </table>
+  <div style="font-size:0.66rem;color:var(--text3);margin-top:0.6rem;padding-left:0.2rem">💡 Doble clic en una celda para editarla · el Estado se cambia con el desplegable</div>`;
+}
+
+// Controles: tabs de modo + filtros
+function renderContactosControles(){
+  const cont = document.getElementById('contactos-controles');
+  if(!cont) return;
+  const modo = window._contactosModo;
+  const f = window._contactosFiltros || {};
+  const etapas = (typeof _crmEtapas==='function') ? _crmEtapas() : [];
+  const nLeads = _contactosData.items.length;
+  const nProy = _contactosData.items.filter(c=>_contactoEsProyecto(c)).length;
+  const tabBtn = (key,label,n)=>{
+    const on = modo===key;
+    return `<button onclick="setContactosModo('${key}')" style="padding:0.4rem 0.9rem;border-radius:8px;border:1px solid ${on?'var(--text)':'var(--border)'};background:${on?'var(--text)':'transparent'};color:${on?'var(--bg)':'var(--text2)'};font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--font)">${label} <span style="opacity:0.7">${n}</span></button>`;
+  };
+  const hayFiltros = f.estado||f.origen||f.prioridad||f.desde||f.hasta;
+  const selSty = 'font-size:0.74rem;padding:0.35rem 0.5rem;border-radius:7px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);font-family:var(--font);cursor:pointer';
+  cont.innerHTML = `
+    <div style="display:flex;gap:0.4rem;margin-bottom:0.7rem;flex-wrap:wrap">
+      ${tabBtn('leads','🗂️ Todos los leads', nLeads)}
+      ${tabBtn('proyectos','✅ Proyectos concretados', nProy)}
+    </div>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin-bottom:0.9rem">
+      <select onchange="setContactoFiltro('estado', this.value)" style="${selSty}">
+        <option value="">Estado: todos</option>
+        ${etapas.map(e=>`<option value="${escapeHtml(e.nombre)}" ${f.estado===e.nombre?'selected':''}>${escapeHtml(e.nombre)}</option>`).join('')}
+      </select>
+      <select onchange="setContactoFiltro('origen', this.value)" style="${selSty}">
+        <option value="">Origen: todos</option>
+        <option value="crm" ${f.origen==='crm'?'selected':''}>CRM</option>
+        <option value="manual" ${f.origen==='manual'?'selected':''}>Manual</option>
+        <option value="import" ${f.origen==='import'?'selected':''}>Excel</option>
+      </select>
+      <select onchange="setContactoFiltro('prioridad', this.value)" style="${selSty}">
+        <option value="">Prioridad: todas</option>
+        <option value="alta" ${f.prioridad==='alta'?'selected':''}>Alta</option>
+        <option value="media" ${f.prioridad==='media'?'selected':''}>Media</option>
+        <option value="baja" ${f.prioridad==='baja'?'selected':''}>Baja</option>
+      </select>
+      <label style="font-size:0.7rem;color:var(--text3)">Desde <input type="date" value="${f.desde||''}" onchange="setContactoFiltro('desde', this.value)" style="${selSty}"></label>
+      <label style="font-size:0.7rem;color:var(--text3)">Hasta <input type="date" value="${f.hasta||''}" onchange="setContactoFiltro('hasta', this.value)" style="${selSty}"></label>
+      ${hayFiltros?`<button onclick="limpiarFiltrosContactos()" style="font-size:0.72rem;color:var(--fuego);background:none;border:none;cursor:pointer;font-family:var(--font);font-weight:600">✕ Limpiar filtros</button>`:''}
+    </div>`;
+}
+
+// Edición en celda tipo Notion: doble clic convierte la celda en input
+function cdbEditarCelda(td){
+  if(td._editando) return;
+  const id = td.getAttribute('data-id');
+  const campo = td.getAttribute('data-campo');
+  const c = _contactosData.items.find(x=>x.id===id);
+  if(!c) return;
+  td._editando = true;
+  const valActual = c[campo]||'';
+  const input = document.createElement('input');
+  input.type = campo==='email' ? 'email' : (campo==='telefono' ? 'tel' : 'text');
+  input.value = valActual;
+  input.style.cssText = 'width:100%;box-sizing:border-box;font-size:0.8rem;padding:0.3rem 0.4rem;border:1.5px solid var(--aire);border-radius:6px;background:var(--bg-card);color:var(--text);font-family:var(--font);outline:none';
+  td.innerHTML = '';
+  td.appendChild(input);
+  input.focus();
+  input.select();
+  let guardado = false;
+  const commit = async()=>{
+    if(guardado) return; guardado = true;
+    const nuevo = input.value.trim();
+    td._editando = false;
+    if(nuevo !== valActual){
+      c[campo] = nuevo;
+      try{ if(window.ContactosDB) await ContactosDB.saveItem(c); }catch(e){ console.warn('guardar celda:', e); }
+    }
+    renderContactos();
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e=>{
+    if(e.key==='Enter'){ e.preventDefault(); input.blur(); }
+    else if(e.key==='Escape'){ guardado=true; td._editando=false; renderContactos(); }
+  });
+}
+
+// Cambiar el estado de un contacto desde el dropdown de la tabla
+async function cdbCambiarEstado(id, nuevoEstado){
+  const c = _contactosData.items.find(x=>x.id===id);
+  if(!c) return;
+  c.estado = nuevoEstado;
+  try{ if(window.ContactosDB) await ContactosDB.saveItem(c); }catch(e){ console.warn('cambiar estado:', e); }
+  renderContactos();
 }
 
 function openContactoModal(id){
@@ -13053,10 +13175,28 @@ function importarContactosExcel(event){
 
 function _contactosFiltrados(){
   const q = (document.getElementById('contactos-search')?.value||'').trim().toLowerCase();
+  const f = window._contactosFiltros || {};
   let items = _contactosData.items.filter(c=> !q ||
     (c.nombre||'').toLowerCase().includes(q) || (c.empresa||'').toLowerCase().includes(q) ||
     (c.persona||'').toLowerCase().includes(q) || (c.email||'').toLowerCase().includes(q) ||
     (c.telefono||'').toLowerCase().includes(q));
+  // Modo de visualización
+  if(window._contactosModo==='proyectos') items = items.filter(c=>_contactoEsProyecto(c));
+  // Filtros
+  if(f.estado)    items = items.filter(c=>(c.estado||'')===f.estado);
+  if(f.origen)    items = items.filter(c=>(c.origen||'manual')===f.origen);
+  if(f.prioridad) items = items.filter(c=>(c.prioridad||'')===f.prioridad);
+  if(f.desde)     items = items.filter(c=>_contactoFecha(c) && _contactoFecha(c).slice(0,10) >= f.desde);
+  if(f.hasta)     items = items.filter(c=>_contactoFecha(c) && _contactoFecha(c).slice(0,10) <= f.hasta);
+  // Orden
+  const s = window._contactosSort;
+  items = [...items].sort((a,b)=>{
+    let va=a[s.col]||'', vb=b[s.col]||'';
+    va=(''+va).toLowerCase(); vb=(''+vb).toLowerCase();
+    if(va<vb) return s.dir==='asc'?-1:1;
+    if(va>vb) return s.dir==='asc'?1:-1;
+    return 0;
+  });
   return items;
 }
 
@@ -16017,12 +16157,20 @@ function renderArchivo(){
   const archivedFromActive = (appData.brands||[]).filter(isArchivedBrand);
 
   const archived = [...archivedFromPapelera, ...archivedFromActive]
+    .filter(b=>b && b.id) // descartar entradas nulas o sin id
     .filter((b,i,arr)=>arr.findIndex(x=>x.id===b.id)===i); // dedupe
+
+  // Fecha de archivado de una marca (para ordenar de verdad por más reciente)
+  const _fechaArchivo = (b)=>{
+    let f = b.archivedAt;
+    if(!f){ const p=(appData.papelera||[]).find(x=>x.type==='brand-archived'&&x.data?.id===b.id); f=p?.data?.archivedAt || (p?.deletedAt?new Date(p.deletedAt).toISOString():''); }
+    return f||'';
+  };
 
   // Sort
   let sorted = [...archived];
   if(_archivoSort === 'nombre'){
-    sorted.sort((a,b)=>a.name.localeCompare(b.name));
+    sorted.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
   } else if(_archivoSort === 'monto'){
     sorted.sort((a,b)=>{
       const montoA = ((appData.cobros||{})[a.id]?.pagos||[]).reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
@@ -16030,8 +16178,8 @@ function renderArchivo(){
       return montoB - montoA;
     });
   } else {
-    // fecha — por orden en el array (más reciente al final = invertir)
-    sorted.reverse();
+    // fecha — ordenar por fecha de archivado real, más reciente primero
+    sorted.sort((a,b)=> String(_fechaArchivo(b)).localeCompare(String(_fechaArchivo(a))));
   }
 
   if(!sorted.length){
@@ -16042,7 +16190,24 @@ function renderArchivo(){
   grid.style.display = 'grid';
   empty.style.display = 'none';
 
+  // Blindaje: cada tarjeta se genera en su propio try/catch. Una marca con datos
+  // incompletos se salta con un aviso, en vez de romper TODO el archivo (bug del grid vacío).
   grid.innerHTML = sorted.map(brand=>{
+    try {
+      return _renderArchivoCard(brand);
+    } catch(e) {
+      console.warn('[archivo] no se pudo renderizar la marca', brand?.name||brand?.id, e);
+      const nombre = brand?.name || '(sin nombre)';
+      return `<div class="card" style="padding:1.2rem;opacity:0.7" onclick="openBrand('${brand?.id||''}')">
+        <div style="font-size:0.9rem;font-weight:700;color:var(--text)">${escapeHtml(nombre)}</div>
+        <div style="font-size:0.7rem;color:var(--text3);margin-top:0.3rem">📦 Archivada · datos incompletos, clic para abrir</div>
+      </div>`;
+    }
+  }).join('');
+}
+
+// Render de una tarjeta del archivo (extraída para poder blindarla con try/catch)
+function _renderArchivoCard(brand){
     const col = getBrandColor(brand);
     const cob = (appData.cobros||{})[brand.id]||{};
     const pagos = cob.pagos||[];
@@ -16060,7 +16225,6 @@ function renderArchivo(){
       allActs.forEach(a=>{ if(a.startDate){ const d=parseLocalDate(a.startDate); if(d&&(!tEnd||d>tEnd)) tEnd=d; } });
       if(archAt && (!tEnd || archAt>tEnd)) tEnd = archAt;
       if(!tEnd) tEnd = new Date();
-      // Descontar pausas (clampeadas al periodo)
       const tramos = [];
       (brand.pausasHistorial||[]).forEach(p=>{ if(p.start&&p.end) tramos.push({s:p.start,e:p.end}); });
       if(brand.paused && brand.pausedAt) tramos.push({s:brand.pausedAt, e:(archAtRaw?String(archAtRaw).slice(0,10):todayStr())});
@@ -16075,7 +16239,6 @@ function renderArchivo(){
       const semActivas = Math.max(0, semTotal - semPausa);
       tiempoTxt = semActivas.toFixed(1)+' sem';
     }
-    // Progreso REAL (no asumir 100%)
     const actsCompletadas = allActs.filter(a=>a.status==='completada').length;
     const progPct = totalActs ? Math.round(actsCompletadas/totalActs*100) : 0;
     const pagosCobrados = pagos.filter(p=>p.cobrado).length;
@@ -16084,7 +16247,7 @@ function renderArchivo(){
     const SC2 = {aire:{emoji:'🌬️',color:'var(--aire)'},agua:{emoji:'💧',color:'var(--agua)'},tierra:{emoji:'🌱',color:'var(--tierra)'},fuego:{emoji:'🔥',color:'var(--fuego)'}};
     const logo = brand.image
       ? `<img src="${brand.image}" style="width:100%;height:100%;object-fit:cover;border-radius:11px">`
-      : `<span style="font-size:1.6rem;font-weight:800;color:${col}">${brand.name.charAt(0)}</span>`;
+      : `<span style="font-size:1.6rem;font-weight:800;color:${col}">${(brand.name||"?").charAt(0)}</span>`;
 
     const stagesHTML = stages.map(s=>{
       const acts = brand.cronograma?.[s]||[];
@@ -16121,7 +16284,7 @@ function renderArchivo(){
       <div style="display:flex;align-items:center;gap:0.9rem;margin-bottom:1rem">
         <div style="width:48px;height:48px;border-radius:12px;background:var(--bg-card2);border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${logo}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:1rem;font-weight:800;letter-spacing:-0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${brand.name}</div>
+          <div style="font-size:1rem;font-weight:800;letter-spacing:-0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(brand.name||'(sin nombre)')}</div>
           <div style="font-size:0.72rem;color:var(--text3);margin-top:0.1rem">${brand.industria||''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
@@ -16151,7 +16314,6 @@ function renderArchivo(){
         <span>${cobrosPct>=100?'Cobros al 100% ✓':'Cobros '+cobrosPct+'%'}</span>
       </div>
     </div>`;
-  }).join('');
 }
 
 /* ═══ DASHBOARD ═══ */
@@ -25406,7 +25568,7 @@ function _portalHeaderHTML(brand){
   const color = getBrandColor(brand);
   const logoHTML = brand.image
     ? `<img src="${brand.image}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`
-    : `<span style="color:${color};font-weight:800;font-size:1.2rem">${brand.name.charAt(0)}</span>`;
+    : `<span style="color:${color};font-weight:800;font-size:1.2rem">${(brand.name||"?").charAt(0)}</span>`;
   return `<div class="portal-brand-header">
     <div class="portal-brand-logo" style="border-color:${color}">${logoHTML}</div>
     <div>
