@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260904-v421-DEMOS-FUERA-DASHBOARD -->
+<!DOCTYPE html><!-- POLEN-BUILD-20260917-v424-COHERENCIA-DEMOS-BRANDS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2479,6 +2479,8 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
       <div class="tab-panel active" id="tab-crono">
         <div id="brand-crono-stages"></div>
         <div class="crono-summary-row" id="brand-crono-summary"></div>
+        <!-- Log de cambios de cronograma (solo vista interna, NO portal cliente) -->
+        <div id="brand-crono-log" style="margin-top:1.2rem"></div>
       </div>
 
       <!-- Tab: Aprobaciones -->
@@ -4004,7 +4006,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 421;
+const APP_VERSION = 424;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -16660,11 +16662,36 @@ async function guardarPausaActiva(){
   showStatus('Pausa Activa guardada ✓');
 }
 
+// Mantiene coherentes las dos listas (appData.brands y appData.demos) para que una
+// misma marca no quede "fantasma" en ambas. Corre al renderizar el dashboard.
+// Regla: si una marca real (en brands, isDemo !== true) tiene su id también en demos,
+// se elimina de demos — es un proyecto real, no un demo de ejemplo. No toca los demos
+// legítimos (los que no existen como marca real) ni los inyectados para verse temporalmente.
+function _sanearDemosVsBrands(){
+  if(!Array.isArray(appData.demos) || !appData.demos.length) return;
+  const idsInyectados = (window._demoViewIds && window._demoViewIds.size) ? window._demoViewIds : new Set();
+  // ids de marcas REALES (en brands, no marcadas como demo, y no inyectadas ahora mismo)
+  const idsRealesBrands = new Set(
+    (appData.brands||[])
+      .filter(b => b && b.isDemo !== true && !idsInyectados.has(b.id))
+      .map(b => b.id)
+  );
+  const antes = appData.demos.length;
+  const limpio = appData.demos.filter(d => d && !idsRealesBrands.has(d.id));
+  if(limpio.length !== antes){
+    appData.demos = limpio;
+    try{ markLocalChange('demos'); if(typeof upsert==='function') upsert(); }catch(e){}
+    console.log('[Polen] Saneo demos: se quitaron', antes-limpio.length, 'fantasma(s) que ya son marcas reales.');
+  }
+}
+
 function renderDashboard(){
-  // Red de seguridad: los demos (portales de ejemplo del CRM) nunca deben contar
-  // ni aparecer en el dashboard, aunque estén inyectados temporalmente en appData.brands
-  // (ver abrirDemo/_clearDemoView). Filtramos por isDemo, por _demoViewIds y por id 'demo_'.
-  const _esDemo = b => b && (b.isDemo || (typeof b.id==='string' && b.id.startsWith('demo_')) || (window._demoViewIds && window._demoViewIds.has(b.id)));
+  // Limpieza de coherencia: mantener las dos listas (brands/demos) sin contradicciones.
+  try{ _sanearDemosVsBrands(); }catch(e){}
+  // Un demo real tiene isDemo:true, o está inyectado temporalmente para verlo (_demoViewIds).
+  // NO usamos appData.demos como criterio: puede tener ids "fantasma" de marcas ya convertidas
+  // en proyectos reales (isDemo:false), que SÍ deben verse en el dashboard.
+  const _esDemo = b => b && ( b.isDemo === true || (window._demoViewIds && window._demoViewIds.has(b.id)) );
   const brands=(appData.brands||[]).filter(b=>!_esDemo(b));
   renderBanners();
   renderDigitalTools();
@@ -18228,6 +18255,48 @@ function renderBrandCrono(brand){
   const durTxt = fmtDuracionTotal(firstDate, lastDate, totalDays);
   const rangeLabel=(firstDate&&lastDate)?` · <span style="color:var(--text2)">${fmtDateDisplay(firstDate)} → ${fmtDateDisplay(lastDate)}</span>`:'';
   (document.getElementById('brand-crono-summary')||{innerHTML:''}).innerHTML=`${chips}<span class="crono-total-label">⏱ ${durTxt}${rangeLabel}</span>`;
+  try{ renderCronoLog(brand); }catch(e){ console.warn('renderCronoLog:', e); }
+}
+
+// Renderiza el historial de cambios del cronograma (solo vista interna).
+function renderCronoLog(brand){
+  const cont = document.getElementById('brand-crono-log');
+  if(!cont) return;
+  const log = Array.isArray(brand.cronoLog) ? brand.cronoLog : [];
+  if(!log.length){ cont.innerHTML=''; return; }
+  // Más recientes primero
+  const items = [...log].sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+  const MSC=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const fmtTs = ts=>{ try{ const d=new Date(ts); return `${d.getDate()} ${MSC[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }catch(e){ return ts; } };
+
+  let h = `<div style="border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
+    <div style="padding:0.8rem 1.1rem;border-bottom:1px solid var(--border);background:var(--glass);display:flex;align-items:center;justify-content:space-between;gap:0.6rem">
+      <div>
+        <div style="font-size:0.9rem;font-weight:800;color:var(--text)">📋 Historial de cambios del cronograma</div>
+        <div style="font-size:0.68rem;color:var(--text3);margin-top:0.1rem">Registro interno de atrasos y ajustes · no visible para el cliente</div>
+      </div>
+      <span style="font-size:0.7rem;font-weight:700;color:var(--text3);background:var(--bg-card2);border-radius:99px;padding:0.15rem 0.6rem">${log.length}</span>
+    </div>
+    <div style="max-height:320px;overflow-y:auto;scrollbar-width:thin">`;
+
+  items.forEach(e=>{
+    const esAtraso = e.tipo==='atraso';
+    const esAdelanto = e.tipo==='adelanto';
+    const badge = esAtraso ? '🔴 Atraso' : esAdelanto ? '🟢 Adelanto' : '🔵 Ajuste';
+    const badgeCol = esAtraso ? 'var(--fuego)' : esAdelanto ? 'var(--tierra)' : 'var(--agua)';
+    const dws = Math.abs(e.deltaWD||0);
+    const deltaTxt = dws ? `${dws} día${dws!==1?'s':''} hábil${dws!==1?'es':''}` : '';
+    const movTxt = (e.movidas>1) ? ` · ${e.movidas} actividades` : '';
+    h += `<div style="padding:0.7rem 1.1rem;border-bottom:1px solid var(--border);display:flex;gap:0.8rem;align-items:flex-start">
+      <span style="font-size:0.62rem;font-weight:800;color:${badgeCol};background:${badgeCol}18;border-radius:99px;padding:0.2rem 0.55rem;white-space:nowrap;flex-shrink:0;margin-top:0.1rem">${badge}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.82rem;color:var(--text);line-height:1.35">${escapeHtml(e.razon||'(sin razón)')}</div>
+        <div style="font-size:0.64rem;color:var(--text3);margin-top:0.2rem">${fmtTs(e.ts)}${deltaTxt?' · '+deltaTxt:''}${movTxt}${e.quien?' · '+escapeHtml(e.quien):''}</div>
+      </div>
+    </div>`;
+  });
+  h += `</div></div>`;
+  cont.innerHTML = h;
 }
 
 
@@ -18262,6 +18331,7 @@ async function actDrop(event, brandId, targetStage, targetId){
   if(!_actDragId || _actDragId === targetId || _actDragBrand !== brandId) return;
   const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand?.cronograma) return;
+  const _cronoBefore = _cronoSnapshot(brand); // foto antes (para el log)
   const srcStage = _actDragStage;
 
   if(srcStage === targetStage){
@@ -18297,6 +18367,7 @@ async function actDrop(event, brandId, targetStage, targetId){
     await CronoDB.saveActsBatch(rows);
   }
   showStatus('Actividad movida ✓');
+  try{ await _registrarCambioCrono(brand, _cronoDiff(brand, _cronoBefore)); }catch(e){ console.warn('log crono:', e); }
 }
 
 // Soltar al FINAL de una etapa (zona debajo de las actividades)
@@ -18309,6 +18380,7 @@ async function actDropToStage(event, brandId, targetStage){
   if(_actDragStage === targetStage) return;
   const brand = appData.brands.find(b=>b.id===brandId);
   if(!brand?.cronograma) return;
+  const _cronoBefore = _cronoSnapshot(brand); // foto antes (para el log)
   const srcActs = brand.cronograma[_actDragStage];
   const dstActs = brand.cronograma[targetStage];
   const fromIdx = srcActs.findIndex(a=>a.id===_actDragId);
@@ -18326,6 +18398,7 @@ async function actDropToStage(event, brandId, targetStage){
   srcActs.forEach((a, i)=>rows.push(CronoDB.actToRow(brandId, srcStage, a, i)));
   await CronoDB.saveActsBatch(rows);
   showStatus('Actividad movida al final de la etapa ✓');
+  try{ await _registrarCambioCrono(brand, _cronoDiff(brand, _cronoBefore)); }catch(e){ console.warn('log crono:', e); }
 }
 
 function actStageDropZoneOver(event, stage){
@@ -18633,6 +18706,7 @@ function startInlineDays(e, brandId, stage, actId){
   const commit = async()=>{
     const v = parseInt(inp.value);
     if(!isNaN(v) && v > 0 && v !== act.days){
+      const _cronoBefore = _cronoSnapshot(brand); // foto antes del cambio (para el log)
       const oldEndDate = act.endDate;
       act.days = v;
       act.endDate = addWorkdays(act.startDate, act.days - 1);
@@ -18679,6 +18753,8 @@ function startInlineDays(e, brandId, stage, actId){
         await CronoDB.saveActsBatch(stageRows);
       }
       showStatus('Duración actualizada ✓');
+      // Registrar el cambio en el log (un solo batch, una sola razón)
+      try{ await _registrarCambioCrono(brand, _cronoDiff(brand, _cronoBefore)); }catch(e){ console.warn('log crono:', e); }
     } else {
       badge.classList.remove('editing');
       badge.innerHTML = act.days+'d';
@@ -18704,6 +18780,92 @@ function _cascadeFrom(brand, fromStage, fromIdx, wdDelta){
       if(a.revDateOverride) a.revDateOverride = shiftWD(a.revDateOverride, wdDelta);
     });
   });
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// LOG DE CAMBIOS DE CRONOGRAMA (solo vista interna, no portal del cliente)
+// Registra cualquier alteración de fechas como un "batch" con una sola razón.
+// Agrupa los movimientos en cascada (que se disparan juntos) como un solo cambio.
+// Cada entrada guarda: fecha del cambio, quién, razón, y si fue atraso o adelanto.
+// ══════════════════════════════════════════════════════════════════════════
+
+// Toma una foto de las fechas de inicio de todas las actividades (por id).
+function _cronoSnapshot(brand){
+  const snap = {};
+  ['aire','agua','tierra','fuego'].forEach(st=>{
+    (brand?.cronograma?.[st]||[]).forEach(a=>{
+      if(a && a.id) snap[a.id] = a.startDate || null;
+    });
+  });
+  return snap;
+}
+
+// Compara dos snapshots. Devuelve { movidas, netoWD } donde movidas = nº de actividades
+// que cambiaron de fecha, y netoWD = signo dominante (>0 atraso, <0 adelanto) según la
+// actividad que MÁS se movió (la que originó el batch).
+function _cronoDiff(brand, before){
+  const after = _cronoSnapshot(brand);
+  let movidas = 0, maxAbs = 0, neto = 0;
+  Object.keys(after).forEach(id=>{
+    const b = before[id], a = after[id];
+    if(b && a && b !== a){
+      movidas++;
+      const d = wdDeltaBetween(b, a); // días hábiles de diferencia (con signo)
+      if(Math.abs(d) > maxAbs){ maxAbs = Math.abs(d); neto = d; }
+    } else if((!b && a) || (b && !a)){
+      movidas++;
+    }
+  });
+  return { movidas, netoWD: neto };
+}
+
+// Pide UNA razón para el batch y registra la entrada en brand.cronoLog.
+// Obligatoria: si el usuario cancela o deja vacío, devuelve false (el llamador puede
+// decidir revertir; en la práctica dejamos el cambio pero re-pedimos hasta obtener razón).
+async function _registrarCambioCrono(brand, diff){
+  if(!brand || !diff || diff.movidas<=0) return true; // nada que registrar
+  const esAtraso = diff.netoWD > 0;
+  const esAdelanto = diff.netoWD < 0;
+  const tipoTxt = esAtraso ? '🔴 Atraso' : esAdelanto ? '🟢 Adelanto' : '🔵 Ajuste';
+  const deltaTxt = diff.netoWD!==0 ? ` de ${Math.abs(diff.netoWD)} día${Math.abs(diff.netoWD)!==1?'s':''} hábil${Math.abs(diff.netoWD)!==1?'es':''}` : '';
+  const nActs = diff.movidas>1 ? ` · ${diff.movidas} actividades afectadas` : '';
+
+  let razon = null;
+  // Obligatoria: re-preguntar hasta que haya texto (o se descarte explícitamente 2 veces)
+  razon = await askModal({
+    label: `${tipoTxt}${deltaTxt}${nActs}\n\n¿Por qué se movió el cronograma?`,
+    placeholder: 'Ej: el cliente pidió más tiempo para feedback…',
+    defaultValue: ''
+  });
+  if(razon===null || !String(razon).trim()){
+    // Segundo intento, dejando claro que es obligatorio
+    razon = await askModal({
+      label: `⚠️ La razón es obligatoria para dejar registro del cambio.\n\n¿Por qué se movió el cronograma?`,
+      placeholder: 'Escribe una razón breve…',
+      defaultValue: ''
+    });
+  }
+  const razonFinal = (razon && String(razon).trim()) ? String(razon).trim() : '(sin razón)';
+
+  if(!Array.isArray(brand.cronoLog)) brand.cronoLog = [];
+  brand.cronoLog.push({
+    id: uid(),
+    ts: new Date().toISOString(),
+    quien: (typeof _cronoLogQuien==='function' ? _cronoLogQuien() : ''), // usuario logueado cuando exista
+    razon: razonFinal,
+    tipo: esAtraso ? 'atraso' : esAdelanto ? 'adelanto' : 'ajuste',
+    deltaWD: diff.netoWD,
+    movidas: diff.movidas
+  });
+  try{ markBrandChange(brand.id); markLocalChange('brands'); await upsert(); }catch(e){ console.warn('cronoLog:', e); }
+  return true;
+}
+
+// Quién hizo el cambio. Hoy en producción no hay login; devuelve '' (campo listo para
+// cuando exista login). No rompe si no hay usuario.
+function _cronoLogQuien(){
+  try{ if(typeof _usuarioActual==='function'){ const u=_usuarioActual(); return u ? (u.apodo||u.nombre||'') : ''; } }catch(e){}
+  return '';
 }
 
 function cascadeAfterDate(brand, referenceDate, wdDelta, skipActId){
@@ -18789,6 +18951,7 @@ function editDate(e,brandId,stage,actId,field){
     _saved = true;
     const val = input.value;
     if(!val || val===current){ renderBrandCrono(brand); return; }
+    const _cronoBefore = _cronoSnapshot(brand); // foto antes del cambio (para el log)
     // Validar que el año sea razonable
     const yearEntered = parseInt(val.slice(0,4));
     if(yearEntered < 2020 || yearEntered > 2035){
@@ -18817,7 +18980,7 @@ function editDate(e,brandId,stage,actId,field){
     act.startDate = val;
     act.endDate = addWorkdays(val, Math.max((act.days||1)-1, 0));
 
-    if(!oldEndDate){ renderBrandCrono(brand); await saveJustThisStage(); showStatus('Fecha actualizada ✓'); return; }
+    if(!oldEndDate){ renderBrandCrono(brand); await saveJustThisStage(); showStatus('Fecha actualizada ✓'); try{ await _registrarCambioCrono(brand, _cronoDiff(brand, _cronoBefore)); }catch(e){} return; }
     const delta = wdDeltaBetween(oldEndDate, act.endDate);
 
     let didCascade = false;
@@ -18859,6 +19022,8 @@ function editDate(e,brandId,stage,actId,field){
     if(didCascade) await saveAllStages();
     else await saveJustThisStage();
     showStatus('Fecha actualizada ✓');
+    // Registrar el cambio en el log (un solo batch, una sola razón, aunque haya cascada)
+    try{ await _registrarCambioCrono(brand, _cronoDiff(brand, _cronoBefore)); }catch(e){ console.warn('log crono:', e); }
   };
 
   // Use 'change' event instead of blur — fires when user picks a date
@@ -27788,7 +27953,7 @@ function renderBrandsTable(){
   const today   = new Date(); today.setHours(0,0,0,0);
   const in5days = new Date(today); in5days.setDate(today.getDate()+5);
 
-  let brands = [...(appData.brands || [])].filter(b=>!(b && (b.isDemo || (typeof b.id==='string' && b.id.startsWith('demo_')) || (window._demoViewIds && window._demoViewIds.has(b.id)))));
+  let brands = [...(appData.brands || [])].filter(b=>!(b && (b.isDemo === true || (window._demoViewIds && window._demoViewIds.has(b.id)))));
 
   // ── Search ──
   const searchVal = (document.getElementById('table-search')?.value || '').trim().toLowerCase();
