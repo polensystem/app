@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20260921-v431-ANIO-INDUSTRIA-PERSISTEN -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261015-v432-CANTERA-RECLUTAMIENTO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2052,6 +2052,9 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
     <button class="nav-item" id="nav-trayectoria" onclick="goToTrayectoria()">
       <span class="nav-icon">🗺️</span><span class="nav-text">Trayectoria</span>
     </button>
+    <button class="nav-item" id="nav-cantera" onclick="goTo('cantera')">
+      <span class="nav-icon">⛏️</span><span class="nav-text">Reclutamiento</span>
+    </button>
     <button class="nav-item" id="nav-finanzas" onclick="goToFinanzas()" style="opacity:0.45;filter:blur(0.3px)">
       <span class="nav-icon">📊</span><span class="nav-text">Data</span>
     </button>
@@ -2395,6 +2398,15 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
   </div>
 
   <!-- PAGE: BRAND (individual) -->
+  <!-- PAGE: RECLUTAMIENTO / CANTERA -->
+  <div class="page" id="page-cantera">
+    <div class="content">
+      <div style="padding:1.2rem">
+        <div id="cantera-content"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="page" id="page-brand">
     <div class="content">
       <!-- Hero -->
@@ -4009,7 +4021,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 431;
+const APP_VERSION = 432;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -15325,6 +15337,7 @@ function renderCurrentPage(){
       if(!_contactosData.loaded){ loadContactos().then(()=>renderContactos()); }
       else { renderContactos(); }
     }
+    if(currentPage==='cantera') renderCantera();
   } catch(e) {
     console.error('renderCurrentPage error:', e);
   }
@@ -17030,6 +17043,1078 @@ function _sanearDemosVsBrands(){
     console.log('[Polen] Saneo demos: se quitaron', antes-limpio.length, 'fantasma(s) que ya son marcas reales.');
   }
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// MÓDULO RECLUTAMIENTO ("Cantera Polen") — solo Administrador
+// Los datos NO se consultan directo: todo pasa por la Edge Function "cantera",
+// que valida la clave de admin (x-cantera-key) y trabaja con service role.
+// La clave vive en sessionStorage solo como credencial de sesión.
+// ══════════════════════════════════════════════════════════════════════════
+
+const CANTERA_URL = SB_URL + '/functions/v1/cantera';
+const CANTERA_ESTADOS = ['Por verificar','Por contactar','Contactado','Entrevista','Prueba creativa','Contratado','Descartado'];
+const CANTERA_NIVELES = ['Pasante','Junior','Semi-senior','Senior'];
+const CANTERA_ETAPAS = ['Estudiante','Recién graduado 0–1 año','1–3 años','3+ años','Por confirmar'];
+const CANTERA_DEPTOS = ['Diseño','Redacción','Administrativo','Comercial'];
+const CANTERA_DEPTO_COLOR = { 'Diseño':'#e07a5f','Redacción':'#3d9edd','Administrativo':'#81b29a','Comercial':'#9b8bd4' };
+const CANTERA_ESTADO_COLOR = {
+  'Por verificar':'#94a3b8','Por contactar':'#9b8bd4','Contactado':'#3d9edd',
+  'Entrevista':'#f2cc8f','Prueba creativa':'#e29578','Contratado':'#22c55e','Descartado':'#cbd5e1'
+};
+
+// Estado en memoria del módulo
+window._cantera = window._cantera || {
+  loaded:false, candidatos:[], fuentes:[], criterios:'', convocatorias:[],
+  filtros:{ q:'', rol:'', nivel:'', etapa:'', depto:'' },
+  vista:'inicio',        // inicio | base | proyecto
+  proyectoId:null,       // convocatoria abierta cuando vista==='proyecto'
+  secColapsadas:{}       // qué secciones del proyecto están colapsadas
+};
+function _canteraToggleSeccion(key){
+  _cantera.secColapsadas[key] = !_cantera.secColapsadas[key];
+  renderCantera();
+}
+
+// Clave de admin (sessionStorage, credencial de sesión — no fuente de datos)
+function _canteraKey(){ try{ return sessionStorage.getItem('cantera_key')||''; }catch(e){ return ''; } }
+function _canteraSetKey(k){ try{ sessionStorage.setItem('cantera_key', k||''); }catch(e){} }
+function _canteraClearKey(){ try{ sessionStorage.removeItem('cantera_key'); }catch(e){} }
+
+// Llamada a la Edge Function. Devuelve datos o lanza { _status } para manejar 401.
+async function canteraAPI(action, payload){
+  const key = _canteraKey();
+  const res = await fetch(CANTERA_URL, {
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization':'Bearer '+SB_KEY,      // Supabase exige su anon key
+      'x-cantera-key': key                   // nuestra clave de admin
+    },
+    body: JSON.stringify({ action, ...(payload||{}) })
+  });
+  if(res.status===401){ _canteraClearKey(); const e=new Error('no_autorizado'); e._status=401; throw e; }
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok || data.error){ const e=new Error(data.error||('http_'+res.status)); e._data=data; throw e; }
+  return data;
+}
+
+// Punto de entrada del módulo
+function renderCantera(){
+  const cont = document.getElementById('cantera-content');
+  if(!cont) return;
+  // Camino B: la clave de admin es la barrera real (no el rol). El menú es visible para
+  // todos, pero sin la clave nadie entra a los datos.
+  // Sin clave → pedirla
+  if(!_canteraKey()){ _canteraPantallaClave(cont); return; }
+  // Con clave → cargar datos (si no están) y renderizar
+  if(!_cantera.loaded){
+    cont.innerHTML = `<div style="text-align:center;padding:3rem 0;color:var(--text3)">Cargando candidatos…</div>`;
+    canteraAPI('list').then(d=>{
+      _cantera.candidatos = d.candidatos||[]; _cantera.convocatorias = d.convocatorias||[];
+      _cantera.fuentes = d.fuentes||[];
+      _cantera.criterios = d.criterios||'';
+      _cantera.loaded = true;
+      renderCantera();
+    }).catch(err=>{
+      if(err._status===401){ renderCantera(); return; } // clave borrada → vuelve a pedir
+      cont.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--fuego)">Error al cargar: ${escapeHtml(err.message||'')}<br><button onclick="_cantera.loaded=false;renderCantera()" style="margin-top:1rem;padding:0.5rem 1rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);cursor:pointer;font-family:var(--font)">Reintentar</button></div>`;
+    });
+    return;
+  }
+  // Enrutar según la vista
+  if(_cantera.vista==='base') _canteraRenderLista(cont);
+  else if(_cantera.vista==='proyecto') _canteraRenderProyecto(cont);
+  else _canteraRenderInicio(cont);
+}
+
+// Pantalla de inicio: elegir base completa o un proyecto de reclutamiento
+function _canteraRenderInicio(cont){
+  const convs = _cantera.convocatorias||[];
+  const activas = convs.filter(c=>c.estado!=='cerrada');
+  const cerradas = convs.filter(c=>c.estado==='cerrada');
+  const MSC=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const fFecha = (d)=>{ if(!d) return ''; const p=String(d).slice(0,10).split('-'); return p.length===3?`${MSC[+p[1]-1]} ${p[0]}`:d; };
+
+  const cardConv = (c)=>{
+    const col = CANTERA_DEPTO_COLOR[c.departamento]||'#94a3b8';
+    const nAplic = (_cantera.candidatos||[]).filter(x=>(x.procesos||[]).includes(c.id)).length;
+    return `<div onclick="_canteraAbrirProyecto('${c.id}')" style="border:1px solid var(--border);border-left:3px solid ${col};border-radius:12px;padding:0.9rem 1rem;background:var(--bg-card2);cursor:pointer" onmouseover="this.style.background='var(--bg-card)'" onmouseout="this.style.background='var(--bg-card2)'">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem">
+        <div style="font-size:0.92rem;font-weight:800;color:var(--text)">${escapeHtml(c.cargo)}</div>
+        ${c.estado==='cerrada'?'<span style="font-size:0.6rem;color:var(--text3);background:var(--border);border-radius:99px;padding:0.1rem 0.5rem">Cerrada</span>':''}
+      </div>
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.35rem">
+        <span style="font-size:0.64rem;font-weight:700;color:${col};background:${col}1a;border:1px solid ${col}44;border-radius:99px;padding:0.1rem 0.45rem">${escapeHtml(c.departamento)}</span>
+        <span style="font-size:0.66rem;color:var(--text3)">${fFecha(c.creada)}</span>
+        <span style="font-size:0.66rem;color:var(--text3)">· ${nAplic} aplicaron</span>
+      </div>
+    </div>`;
+  };
+
+  let h = `<div style="width:100%">
+    <div style="margin-bottom:0.3rem;font-size:1.3rem;font-weight:800;color:var(--text)">⛏️ Cantera Polen</div>
+    <div style="font-size:0.8rem;color:var(--text3);margin-bottom:1.6rem">Elige dónde trabajar: la base completa de talento o un proyecto de reclutamiento.</div>
+
+    <div onclick="_canteraVerBase()" style="border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.2rem;background:var(--bg-card2);cursor:pointer;margin-bottom:1.6rem;display:flex;align-items:center;gap:0.9rem" onmouseover="this.style.background='var(--bg-card)'" onmouseout="this.style.background='var(--bg-card2)'">
+      <div style="font-size:1.8rem">🗂️</div>
+      <div style="flex:1">
+        <div style="font-size:1rem;font-weight:800;color:var(--text)">Base de datos completa</div>
+        <div style="font-size:0.74rem;color:var(--text3)">Los ${(_cantera.candidatos||[]).length} candidatos, con filtros por rol, nivel, etapa y departamento.</div>
+      </div>
+      <div style="font-size:1.2rem;color:var(--text3)">→</div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
+      <div style="font-size:0.72rem;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Proyectos de reclutamiento</div>
+      <button onclick="_canteraCrearProyecto()" style="font-size:0.76rem;font-weight:700;padding:0.4rem 0.9rem;border-radius:8px;border:none;background:var(--agua);color:#fff;cursor:pointer;font-family:var(--font)">+ Nuevo proyecto</button>
+    </div>`;
+
+  if(activas.length){
+    h += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.7rem;margin-bottom:1.2rem">${activas.map(cardConv).join('')}</div>`;
+  } else {
+    h += `<div style="text-align:center;padding:1.5rem;color:var(--text3);font-size:0.8rem;border:1px dashed var(--border);border-radius:12px;margin-bottom:1.2rem">Aún no hay proyectos de reclutamiento. Crea el primero con "+ Nuevo proyecto".</div>`;
+  }
+  if(cerradas.length){
+    h += `<div style="font-size:0.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.6rem">Cerradas</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.7rem;opacity:0.7">${cerradas.map(cardConv).join('')}</div>`;
+  }
+  h += `</div>`;
+  cont.innerHTML = h;
+}
+function _canteraVerBase(){ _cantera.vista='base'; renderCantera(); }
+function _canteraAbrirProyecto(id){ _cantera.vista='proyecto'; _cantera.proyectoId=id; renderCantera(); }
+function _canteraVolverInicio(){ _cantera.vista='inicio'; _cantera.proyectoId=null; renderCantera(); }
+
+// Pantalla para ingresar la clave de admin
+function _canteraPantallaClave(cont){
+  cont.innerHTML = `<div style="max-width:420px;margin:3rem auto;text-align:center">
+    <div style="font-size:2.5rem;margin-bottom:0.5rem">⛏️</div>
+    <div style="font-size:1.3rem;font-weight:800;color:var(--text);margin-bottom:0.4rem">Cantera Polen</div>
+    <div style="font-size:0.82rem;color:var(--text3);margin-bottom:1.5rem">Tracker de reclutamiento. Ingresa la clave de acceso de administradores para continuar.</div>
+    <input id="cantera-key-input" type="password" placeholder="Clave de acceso" style="width:100%;box-sizing:border-box;padding:0.7rem 0.9rem;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.9rem;font-family:var(--font);outline:none;margin-bottom:0.8rem" onkeydown="if(event.key==='Enter')_canteraGuardarClave()">
+    <div id="cantera-key-err" style="font-size:0.72rem;color:var(--fuego);margin-bottom:0.8rem;min-height:1rem"></div>
+    <button onclick="_canteraGuardarClave()" style="width:100%;padding:0.7rem;border-radius:10px;border:none;background:var(--agua);color:#fff;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:var(--font)">Entrar</button>
+  </div>`;
+  setTimeout(()=>{ const i=document.getElementById('cantera-key-input'); if(i) i.focus(); }, 50);
+}
+async function _canteraGuardarClave(){
+  const inp = document.getElementById('cantera-key-input');
+  const err = document.getElementById('cantera-key-err');
+  if(!inp) return;
+  const k = inp.value.trim();
+  if(!k){ if(err) err.textContent='Ingresa la clave.'; return; }
+  _canteraSetKey(k);
+  if(err) err.textContent='Verificando…';
+  try{
+    const d = await canteraAPI('list');
+    _cantera.candidatos=d.candidatos||[]; _cantera.fuentes=d.fuentes||[]; _cantera.criterios=d.criterios||''; _cantera.convocatorias=d.convocatorias||[]; _cantera.loaded=true;
+    renderCantera();
+  }catch(e){
+    _canteraClearKey();
+    if(err) err.textContent = e._status===401 ? 'Clave incorrecta.' : ('Error: '+(e.message||''));
+  }
+}
+
+// Filtros
+function setCanteraFiltro(campo, val){ _cantera.filtros[campo]=val; _canteraRenderLista(document.getElementById('cantera-content')); }
+function _canteraFiltrados(){
+  const f = _cantera.filtros;
+  const q = (f.q||'').toLowerCase();
+  return (_cantera.candidatos||[]).filter(c=>{
+    if(f.rol && (c.rol||'')!==f.rol) return false;
+    if(f.nivel && (c.nivel||'')!==f.nivel) return false;
+    if(f.etapa && (c.etapa||'')!==f.etapa) return false;
+    if(f.depto){
+      const deps = Array.isArray(c.departamento)?c.departamento:(c.departamento?[c.departamento]:[]);
+      if(f.depto==='(sin asignar)'){ if(deps.length) return false; }
+      else if(!deps.includes(f.depto)) return false;
+    }
+    if(q){
+      const blob = [c.nombre,c.rol,c.actual,c.ciudad,c.senales].join(' ').toLowerCase();
+      if(!blob.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+// Lista principal con pipeline + filtros + tabla
+function _canteraRenderLista(cont){
+  const items = _canteraFiltrados();
+  const f = _cantera.filtros;
+  // Conteo por estado para el pipeline
+  const porEstado = {};
+  CANTERA_ESTADOS.forEach(e=>porEstado[e]=0);
+  (_cantera.candidatos||[]).forEach(c=>{ if(porEstado[c.estado]!==undefined) porEstado[c.estado]++; });
+  // Roles únicos para el filtro
+  const roles = [...new Set((_cantera.candidatos||[]).map(c=>c.rol).filter(Boolean))].sort();
+
+  const selSty = 'font-size:0.74rem;padding:0.35rem 0.5rem;border-radius:7px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);font-family:var(--font);cursor:pointer';
+  const hayFiltros = f.q||f.rol||f.nivel||f.etapa||f.depto;
+
+  let h = `<div style="width:100%">
+    <button onclick="_canteraVolverInicio()" style="font-size:0.74rem;color:var(--text3);background:none;border:none;cursor:pointer;font-family:var(--font);margin-bottom:0.6rem">← Cantera</button>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
+      <div>
+        <div style="font-size:1.3rem;font-weight:800;color:var(--text)">🗂️ Base de datos completa</div>
+        <div style="font-size:0.8rem;color:var(--text3);margin-top:0.2rem">${(_cantera.candidatos||[]).length} candidatos en seguimiento</div>
+      </div>
+      <div style="display:flex;gap:0.4rem">
+        <button onclick="_canteraSubirCVInput()" style="font-size:0.74rem;padding:0.45rem 0.9rem;border-radius:8px;border:none;background:var(--agua);color:#fff;cursor:pointer;font-family:var(--font);font-weight:700">📄 Subir CV</button>
+        <button onclick="_canteraNuevoManual()" style="font-size:0.74rem;padding:0.45rem 0.8rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font);font-weight:600">+ Manual</button>
+        <button onclick="_canteraExportXLSX()" style="font-size:0.74rem;padding:0.45rem 0.8rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font);font-weight:600">⬇ Excel</button>
+        <button onclick="_canteraExportPDF()" style="font-size:0.74rem;padding:0.45rem 0.8rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font);font-weight:600">⬇ PDF</button>
+      </div>
+    </div>`;
+
+  // Pipeline
+  h += `<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem">`;
+  CANTERA_ESTADOS.forEach(e=>{
+    const col = CANTERA_ESTADO_COLOR[e];
+    h += `<div style="flex:1;min-width:110px;padding:0.6rem 0.7rem;border-radius:10px;background:${col}14;border:1px solid ${col}33">
+      <div style="font-size:1.3rem;font-weight:800;color:${col};line-height:1">${porEstado[e]}</div>
+      <div style="font-size:0.6rem;color:var(--text3);font-weight:700;text-transform:uppercase;margin-top:0.15rem">${e}</div>
+    </div>`;
+  });
+  h += `</div>`;
+
+  // Filtros
+  h += `<div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin-bottom:0.9rem">
+    <input value="${(f.q||'').replace(/"/g,'&quot;')}" oninput="setCanteraFiltro('q', this.value)" placeholder="Buscar nombre, rol, lugar…" style="${selSty};min-width:220px">
+    <select onchange="setCanteraFiltro('rol', this.value)" style="${selSty}">
+      <option value="">Rol: todos</option>
+      ${roles.map(r=>`<option value="${escapeHtml(r)}" ${f.rol===r?'selected':''}>${escapeHtml(r)}</option>`).join('')}
+    </select>
+    <select onchange="setCanteraFiltro('nivel', this.value)" style="${selSty}">
+      <option value="">Nivel: todos</option>
+      ${CANTERA_NIVELES.map(n=>`<option value="${n}" ${f.nivel===n?'selected':''}>${n}</option>`).join('')}
+    </select>
+    <select onchange="setCanteraFiltro('etapa', this.value)" style="${selSty}">
+      <option value="">Etapa: todas</option>
+      ${CANTERA_ETAPAS.map(et=>`<option value="${et}" ${f.etapa===et?'selected':''}>${et}</option>`).join('')}
+    </select>
+    <select onchange="setCanteraFiltro('depto', this.value)" style="${selSty}">
+      <option value="">Departamento: todos</option>
+      ${CANTERA_DEPTOS.map(dp=>`<option value="${dp}" ${f.depto===dp?'selected':''}>${dp}</option>`).join('')}
+      <option value="(sin asignar)" ${f.depto==='(sin asignar)'?'selected':''}>⚠️ Sin asignar</option>
+    </select>
+    ${hayFiltros?`<button onclick="_cantera.filtros={q:'',rol:'',nivel:'',etapa:'',depto:''};_canteraRenderLista(document.getElementById('cantera-content'))" style="font-size:0.72rem;color:var(--fuego);background:none;border:none;cursor:pointer;font-family:var(--font);font-weight:600">✕ Limpiar</button>`:''}
+    <div style="flex:1"></div>
+    <span style="font-size:0.72rem;color:var(--text3)">${items.length} resultado${items.length!==1?'s':''}</span>
+  </div>`;
+
+  // Tabla
+  h += `<div style="border:1px solid var(--border);border-radius:12px;overflow:auto;max-height:calc(100vh - 360px)">
+    <table class="tray-table" style="min-width:860px">
+      <thead><tr>
+        <th style="position:sticky;top:0;background:var(--bg-card);z-index:2">Candidato</th>
+        <th style="position:sticky;top:0;background:var(--bg-card);z-index:2">Rol</th>
+        <th style="position:sticky;top:0;background:var(--bg-card);z-index:2">Depto</th>
+        <th style="position:sticky;top:0;background:var(--bg-card);z-index:2">Nivel</th>
+        <th style="position:sticky;top:0;background:var(--bg-card);z-index:2">Etapa</th>
+        <th style="position:sticky;top:0;background:var(--bg-card);z-index:2">Fit</th>
+        <th style="position:sticky;top:0;background:var(--bg-card);z-index:2">Estado</th>
+        <th style="position:sticky;top:0;background:var(--bg-card);z-index:2">Origen</th>
+        <th style="position:sticky;top:0;background:var(--bg-card);z-index:2;text-align:center">✓</th>
+      </tr></thead><tbody>`;
+  if(items.length){
+    items.forEach(c=>{
+      const col = CANTERA_ESTADO_COLOR[c.estado]||'#94a3b8';
+      const fit = Math.max(0,Math.min(5,Number(c.fit)||0));
+      const estrellas = '★'.repeat(fit)+'☆'.repeat(5-fit);
+      h += `<tr class="crm-table-row" style="cursor:pointer" onclick="_canteraAbrirFicha('${c.id}')">
+        <td><b style="font-size:0.84rem">${escapeHtml(c.nombre||'—')}</b>${c.actual?`<div style="font-size:0.66rem;color:var(--text3)">${escapeHtml(c.actual)}</div>`:''}</td>
+        <td style="font-size:0.78rem;color:var(--text2)">${escapeHtml(c.rol||'—')}</td>
+        <td onclick="event.stopPropagation();_canteraEditarDepto('${c.id}')" style="cursor:pointer" title="Clic para editar departamento">${_canteraDeptoChips(c)}</td>
+        <td style="font-size:0.78rem;color:var(--text2)">${escapeHtml(c.nivel||'—')}</td>
+        <td style="font-size:0.72rem;color:var(--text3)">${escapeHtml(c.etapa||'—')}</td>
+        <td style="font-size:0.72rem;color:#f2cc8f;letter-spacing:-1px">${estrellas}</td>
+        <td><span style="font-size:0.66rem;font-weight:700;color:${col};background:${col}1a;border:1px solid ${col}44;border-radius:99px;padding:0.1rem 0.5rem;white-space:nowrap">${escapeHtml(c.estado||'—')}</span></td>
+        <td>${_canteraOrigenChip(c)}</td>
+        <td style="text-align:center">${c.verificado?'<span title="Verificado" style="color:#22c55e">✓</span>':'<span title="Sin verificar" style="color:var(--text3)">·</span>'}</td>
+      </tr>`;
+    });
+  } else {
+    h += `<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text3)">Sin candidatos con estos filtros</td></tr>`;
+  }
+  h += `</tbody></table></div>
+    <div style="font-size:0.66rem;color:var(--text3);margin-top:0.6rem">💡 La ficha, subir CV y shortlist llegan en las siguientes fases.</div>
+  </div>`;
+  cont.innerHTML = h;
+}
+
+// Modal para crear un proyecto de reclutamiento (convocatoria)
+// conv opcional = editar un proyecto existente; sin él = crear nuevo
+function _canteraCrearProyecto(conv){
+  const ed = conv||{};
+  const selSty='width:100%;box-sizing:border-box;padding:0.55rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.84rem;font-family:var(--font);outline:none';
+  const lbl='font-size:0.7rem;color:var(--text3);display:block;margin-bottom:0.25rem';
+  const opt=(arr,val)=>['<option value="">— —</option>'].concat(arr.map(o=>`<option value="${o}" ${o===val?'selected':''}>${o}</option>`)).join('');
+  const v=(x)=>String(x==null?'':x).replace(/"/g,'&quot;');
+  let body = `<div style="display:flex;flex-direction:column;gap:0.7rem;max-height:70vh;overflow-y:auto;padding-right:0.3rem">
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:0.6rem">
+      <div><label style="${lbl}">Cargo que buscas *</label><input id="conv-cargo" value="${v(ed.cargo)}" placeholder="Ej: Redactor Junior" style="${selSty}"></div>
+      <div><label style="${lbl}">Departamento *</label><select id="conv-depto" style="${selSty}"><option value="">—</option>${CANTERA_DEPTOS.map(d=>`<option value="${d}" ${d===ed.departamento?'selected':''}>${d}</option>`).join('')}</select></div>
+    </div>
+
+    <div style="font-size:0.66rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-top:0.3rem">Formato</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.6rem">
+      <div><label style="${lbl}">Modalidad</label><select id="conv-modalidad" style="${selSty}">${opt(['Presencial','Remoto','Híbrido'], ed.modalidad)}</select></div>
+      <div><label style="${lbl}">Dedicación</label><select id="conv-dedic" style="${selSty}">${opt(['Tiempo completo','Medio tiempo','Por proyecto'], ed.dedicacion)}</select></div>
+      <div><label style="${lbl}">Vínculo</label><select id="conv-vinc" style="${selSty}">${opt(['Pasantía','Empleo','Freelance'], ed.tipo_vinculo)}</select></div>
+    </div>
+    <div><label style="${lbl}">Ubicación (si aplica)</label><input id="conv-ubic" value="${v(ed.ubicacion)}" placeholder="Ej: Samborondón / Guayaquil" style="${selSty}"></div>
+
+    <div style="font-size:0.66rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-top:0.3rem">Perfil buscado</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.6rem">
+      <div><label style="${lbl}">Nivel</label><select id="conv-nivel" style="${selSty}">${opt(CANTERA_NIVELES, ed.nivel_buscado)}</select></div>
+      <div><label style="${lbl}">Exp. mín (años)</label><input id="conv-expmin" type="number" min="0" value="${v(ed.exp_min)}" placeholder="0" style="${selSty}"></div>
+      <div><label style="${lbl}">Exp. máx (años)</label><input id="conv-expmax" type="number" min="0" value="${v(ed.exp_max)}" placeholder="3" style="${selSty}"></div>
+    </div>
+    <div><label style="${lbl}">Educación esperada</label><input id="conv-educ" value="${v(ed.educacion)}" placeholder="Ej: estudiante o graduado en publicidad / diseño / comunicación" style="${selSty}"></div>
+
+    <div style="font-size:0.66rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-top:0.3rem">Requisitos</div>
+    <div><label style="${lbl}">Imprescindibles (must have)</label><textarea id="conv-must" placeholder="Lo que no puede faltar…" style="${selSty};min-height:50px;resize:vertical">${escapeHtml(ed.must_have||'')}</textarea></div>
+    <div><label style="${lbl}">Deseables (nice to have)</label><textarea id="conv-nice" placeholder="Lo que suma pero no es obligatorio…" style="${selSty};min-height:50px;resize:vertical">${escapeHtml(ed.nice_have||'')}</textarea></div>
+    <div><label style="${lbl}">Detalle del perfil (opcional)</label><textarea id="conv-desc" placeholder="Contexto adicional…" style="${selSty};min-height:50px;resize:vertical">${escapeHtml(ed.descripcion||'')}</textarea></div>
+
+    <div id="conv-err" style="font-size:0.72rem;color:var(--fuego);min-height:1rem"></div>
+    <div style="display:flex;justify-content:flex-end;gap:0.5rem;position:sticky;bottom:0;background:var(--bg);padding-top:0.5rem">
+      <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:0.82rem">Cancelar</button>
+      <button onclick="_canteraGuardarProyecto('${ed.id||''}')" style="background:var(--agua);color:#fff;border:none;border-radius:8px;padding:0.5rem 1.1rem;cursor:pointer;font-family:var(--font);font-size:0.82rem;font-weight:700">${conv?'Guardar':'Crear proyecto'}</button>
+    </div>
+  </div>`;
+  openGenericModal(conv?'✏️ Editar proyecto':'➕ Nuevo proyecto de reclutamiento', body);
+}
+async function _canteraGuardarProyecto(id){
+  const g=(x)=>(document.getElementById(x)||{}).value||'';
+  const cargo=g('conv-cargo').trim(), depto=g('conv-depto');
+  const err=document.getElementById('conv-err');
+  if(!cargo){ if(err) err.textContent='Escribe el cargo.'; return; }
+  if(!depto){ if(err) err.textContent='Selecciona el departamento.'; return; }
+  const data = {
+    cargo, departamento:depto,
+    modalidad:g('conv-modalidad'), dedicacion:g('conv-dedic'), tipo_vinculo:g('conv-vinc'),
+    ubicacion:g('conv-ubic').trim(), nivel_buscado:g('conv-nivel'),
+    exp_min: g('conv-expmin')===''?null:Number(g('conv-expmin')),
+    exp_max: g('conv-expmax')===''?null:Number(g('conv-expmax')),
+    educacion:g('conv-educ').trim(), must_have:g('conv-must').trim(),
+    nice_have:g('conv-nice').trim(), descripcion:g('conv-desc').trim()
+  };
+  if(id){ data.id=id; data.estado = (_cantera.convocatorias||[]).find(c=>c.id===id)?.estado||'activa'; }
+  else { data.estado='activa'; }
+  try{
+    const row = await canteraAPI('save_convocatoria', { data });
+    const i = (_cantera.convocatorias||[]).findIndex(c=>c.id===row.id);
+    if(i>=0) _cantera.convocatorias[i]=row; else _cantera.convocatorias=[row, ...(_cantera.convocatorias||[])];
+    closeTrayModal();
+    _canteraAbrirProyecto(row.id);
+    showStatus(id?'Proyecto actualizado ✓':'Proyecto creado ✓');
+  }catch(e){ if(err) err.textContent='Error: '+(e.message||''); }
+}
+
+// Vista de un proyecto de reclutamiento: 3 secciones
+function _canteraRenderProyecto(cont){
+  const conv = (_cantera.convocatorias||[]).find(c=>c.id===_cantera.proyectoId);
+  if(!conv){ _canteraVolverInicio(); return; }
+  const col = CANTERA_DEPTO_COLOR[conv.departamento]||'#94a3b8';
+  const cands = _cantera.candidatos||[];
+
+  const esDeDepto = (c)=>{
+    const deps = Array.isArray(c.departamento)?c.departamento:(c.departamento?[c.departamento]:[]);
+    return deps.includes(conv.departamento);
+  };
+  const esIA = (c)=> (c.origen||'').toLowerCase().includes('ia') || (c.origen||'').toLowerCase().includes('búsqueda') || (c.origen||'').toLowerCase().includes('busqueda') || (c.origen||'').toLowerCase().includes('claude');
+
+  // Sección 1: APLICARON — tienen este proyecto en procesos
+  const aplicaron = cands.filter(c=>(c.procesos||[]).includes(conv.id));
+  const aplicaronIds = new Set(aplicaron.map(c=>c.id));
+  // Sección 2: SUGERENCIAS IA — del depto, origen IA, que NO aplicaron a esta ronda
+  const sugeridosIA = cands.filter(c=> !aplicaronIds.has(c.id) && esDeDepto(c) && esIA(c));
+  const sugeridosIds = new Set(sugeridosIA.map(c=>c.id));
+  // Sección 3: BASE — del depto, que NO aplicaron y NO son IA (postulantes de otros procesos, agregados a mano…)
+  const delDepto = cands.filter(c=> !aplicaronIds.has(c.id) && !sugeridosIds.has(c.id) && esDeDepto(c));
+
+  const MSC=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const fFecha=(d)=>{ if(!d) return ''; const p=String(d).slice(0,10).split('-'); return p.length===3?`${MSC[+p[1]-1]} ${p[0]}`:d; };
+
+  // Inicial sobre color para el "avatar" tipo tabla de cobros
+  const _ini = (c)=>{
+    const deps = Array.isArray(c.departamento)?c.departamento:(c.departamento?[c.departamento]:[]);
+    const col = CANTERA_DEPTO_COLOR[deps[0]]||'#94a3b8';
+    return `<div style="width:30px;height:30px;border-radius:8px;background:${col}22;border:1px solid ${col}55;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:800;color:${col};flex-shrink:0">${escapeHtml((c.nombre||'?').charAt(0))}</div>`;
+  };
+  // Fila de candidato como <tr> (estilo tabla de cobros)
+  const filaCand = (c, conBotonAplicar)=>{
+    const ecol = CANTERA_ESTADO_COLOR[c.estado]||'#94a3b8';
+    const fit = Math.max(0,Math.min(5,Number(c.fit)||0));
+    const botonAplic = conBotonAplicar
+      ? `<button onclick="event.stopPropagation();_canteraMarcarAplico('${c.id}','${conv.id}')" title="Marcar que aplicó a esta ronda" style="font-size:0.6rem;font-weight:700;padding:0.18rem 0.45rem;border-radius:99px;border:1px solid var(--tierra);background:transparent;color:var(--tierra);cursor:pointer;font-family:var(--font);white-space:nowrap">+ aplicó</button>`
+      : `<button onclick="event.stopPropagation();_canteraQuitarAplico('${c.id}','${conv.id}')" title="Quitar de esta ronda" style="font-size:0.6rem;font-weight:700;padding:0.18rem 0.45rem;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;font-family:var(--font);white-space:nowrap">✕ quitar</button>`;
+    return `<tr onclick="_canteraAbrirFicha('${c.id}')" style="cursor:pointer;border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--bg-card)'" onmouseout="this.style.background='transparent'">
+      <td style="padding:0.5rem 0.6rem">
+        <div style="display:flex;align-items:center;gap:0.6rem">
+          ${_ini(c)}
+          <div style="min-width:0">
+            <div style="font-size:0.82rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.nombre||'—')}${c.verificado?' <span style="color:#22c55e;font-size:0.68rem">✓</span>':''}</div>
+            <div style="font-size:0.64rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.actual||'')}</div>
+          </div>
+        </div>
+      </td>
+      <td style="padding:0.5rem 0.6rem;font-size:0.74rem;color:var(--text2);white-space:nowrap">${escapeHtml(c.rol||'—')}</td>
+      <td style="padding:0.5rem 0.6rem;font-size:0.72rem;color:var(--text3);white-space:nowrap">${escapeHtml(c.nivel||'—')}</td>
+      <td style="padding:0.5rem 0.6rem;color:#f2cc8f;letter-spacing:-1px;white-space:nowrap;font-size:0.72rem">${'★'.repeat(fit)}${'☆'.repeat(5-fit)}</td>
+      <td style="padding:0.5rem 0.6rem"><span style="font-size:0.6rem;font-weight:700;color:${ecol};background:${ecol}1a;border:1px solid ${ecol}44;border-radius:99px;padding:0.1rem 0.45rem;white-space:nowrap">${escapeHtml(c.estado||'—')}</span></td>
+      <td style="padding:0.5rem 0.6rem;text-align:right" onclick="event.stopPropagation()">${botonAplic}</td>
+    </tr>`;
+  };
+  // key: identificador para colapsar · bg: color de fondo del bloque · borde: color de acento
+  const seccion = (key, titulo, emoji, lista, vacio, colorT, conBotonAplicar, bg, borde, subtitulo)=>{
+    const colapsada = !!_cantera.secColapsadas[key];
+    let s = `<div style="margin-bottom:1rem;background:${bg};border:1px solid ${borde}44;border-left:3px solid ${borde};border-radius:12px;overflow:hidden">
+      <div onclick="_canteraToggleSeccion('${key}')" style="display:flex;align-items:center;gap:0.5rem;padding:0.7rem 0.9rem;cursor:pointer;user-select:none">
+        <span style="font-size:0.7rem;color:${colorT};transition:transform 0.15s;display:inline-block;${colapsada?'':'transform:rotate(90deg)'}">▶</span>
+        <span style="font-size:0.74rem;font-weight:800;color:${colorT};text-transform:uppercase;letter-spacing:0.5px">${emoji} ${titulo}</span>
+        <span style="font-size:0.7rem;font-weight:800;color:${colorT};background:${borde}22;border-radius:99px;padding:0.05rem 0.5rem">${lista.length}</span>
+        ${subtitulo?`<span style="font-size:0.66rem;color:var(--text3);font-weight:500">${subtitulo}</span>`:''}
+      </div>`;
+    if(!colapsada){
+      if(lista.length){
+        s += `<div style="padding:0 0.5rem 0.5rem;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;background:var(--bg-card);border-radius:10px;overflow:hidden">
+            <thead><tr style="border-bottom:1px solid var(--border)">
+              <th style="text-align:left;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0.4rem 0.6rem">Candidato</th>
+              <th style="text-align:left;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0.4rem 0.6rem">Rol</th>
+              <th style="text-align:left;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0.4rem 0.6rem">Nivel</th>
+              <th style="text-align:left;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0.4rem 0.6rem">Fit</th>
+              <th style="text-align:left;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0.4rem 0.6rem">Estado</th>
+              <th style="padding:0.4rem 0.6rem"></th>
+            </tr></thead><tbody>${lista.map(c=>filaCand(c, conBotonAplicar)).join('')}</tbody>
+          </table></div>`;
+      } else {
+        s += `<div style="font-size:0.74rem;color:var(--text3);padding:0.3rem 0.9rem 0.7rem;font-style:italic">${vacio}</div>`;
+      }
+    }
+    s += `</div>`;
+    return s;
+  };
+
+  let h = `<div style="width:100%">
+    <button onclick="_canteraVolverInicio()" style="font-size:0.74rem;color:var(--text3);background:none;border:none;cursor:pointer;font-family:var(--font);margin-bottom:0.6rem">← Cantera</button>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:0.4rem;flex-wrap:wrap">
+      <div>
+        <div style="font-size:1.3rem;font-weight:800;color:var(--text)">${escapeHtml(conv.cargo)}</div>
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.3rem">
+          <span style="font-size:0.66rem;font-weight:700;color:${col};background:${col}1a;border:1px solid ${col}44;border-radius:99px;padding:0.1rem 0.5rem">${escapeHtml(conv.departamento)}</span>
+          <span style="font-size:0.68rem;color:var(--text3)">Creada ${fFecha(conv.creada)}</span>
+          ${conv.estado==='cerrada'?'<span style="font-size:0.62rem;color:var(--text3);background:var(--border);border-radius:99px;padding:0.1rem 0.5rem">Cerrada</span>':''}
+        </div>
+      </div>
+      <div style="display:flex;gap:0.4rem">
+        <button onclick="_canteraSubirCVInput('${conv.id}')" title="Sube CVs de postulantes a este cargo — entran directo a 'Aplicaron'" style="font-size:0.72rem;padding:0.4rem 0.8rem;border-radius:8px;border:none;background:var(--agua);color:#fff;cursor:pointer;font-family:var(--font);font-weight:700">📄 Subir CV al cargo</button>
+        <button onclick='_canteraCrearProyecto(${JSON.stringify(conv).replace(/'/g,"&#39;")})' style="font-size:0.72rem;padding:0.4rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font)">✏️ Editar</button>
+        <button onclick="_canteraExportXLSX()" style="font-size:0.72rem;padding:0.4rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font)">⬇ Excel</button>
+        <button onclick="_canteraExportPDF()" style="font-size:0.72rem;padding:0.4rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font)">⬇ PDF</button>
+        ${conv.estado==='cerrada'
+          ? `<button onclick="_canteraToggleCerrarProyecto('${conv.id}','activa')" style="font-size:0.72rem;padding:0.4rem 0.8rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font)">Reabrir</button>`
+          : `<button onclick="_canteraToggleCerrarProyecto('${conv.id}','cerrada')" style="font-size:0.72rem;padding:0.4rem 0.8rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font)">Cerrar</button>`}
+        <button onclick="_canteraEliminarProyecto('${conv.id}')" style="font-size:0.72rem;padding:0.4rem 0.7rem;border-radius:8px;border:1px solid rgba(255,92,114,0.3);background:rgba(255,92,114,0.08);color:#ff5c72;cursor:pointer;font-family:var(--font)">🗑</button>
+      </div>
+    </div>`;
+  // Panel de requisitos del puesto
+  const pill=(txt)=> txt?`<span style="font-size:0.66rem;font-weight:600;color:var(--text2);background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.15rem 0.55rem;white-space:nowrap">${escapeHtml(txt)}</span>`:'';
+  const rango = (conv.exp_min!=null||conv.exp_max!=null) ? `${conv.exp_min??0}–${conv.exp_max??'+'} años` : '';
+  const pills = [conv.modalidad, conv.dedicacion, conv.tipo_vinculo, conv.ubicacion, conv.nivel_buscado&&('Nivel: '+conv.nivel_buscado), rango&&('Exp: '+rango)].filter(Boolean).map(pill).join('');
+  const hayReq = pills || conv.educacion || conv.must_have || conv.nice_have || conv.descripcion;
+  if(hayReq){
+    h += `<div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:12px;padding:0.8rem 1rem;margin:0.6rem 0 1.4rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:${pills?'0.6rem':'0'}">
+        <div style="font-size:0.66rem;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">📋 Perfil del puesto</div>
+        <span style="font-size:0.62rem;color:var(--aire)">La IA usa esto para evaluar el fit</span>
+      </div>
+      ${pills?`<div style="display:flex;flex-wrap:wrap;gap:0.35rem;margin-bottom:0.6rem">${pills}</div>`:''}
+      ${conv.educacion?`<div style="font-size:0.74rem;color:var(--text2);margin-bottom:0.35rem"><b>Educación:</b> ${escapeHtml(conv.educacion)}</div>`:''}
+      ${conv.must_have?`<div style="font-size:0.74rem;color:var(--text2);margin-bottom:0.35rem"><b style="color:var(--fuego)">Imprescindibles:</b> ${escapeHtml(conv.must_have)}</div>`:''}
+      ${conv.nice_have?`<div style="font-size:0.74rem;color:var(--text2);margin-bottom:0.35rem"><b style="color:var(--tierra)">Deseables:</b> ${escapeHtml(conv.nice_have)}</div>`:''}
+      ${conv.descripcion?`<div style="font-size:0.74rem;color:var(--text3);margin-top:0.4rem">${escapeHtml(conv.descripcion)}</div>`:''}
+    </div>`;
+  } else {
+    h += `<div style="margin:0.6rem 0 1.2rem"><button onclick='_canteraCrearProyecto(${JSON.stringify(conv).replace(/'/g,"&#39;")})' style="font-size:0.72rem;color:var(--aire);background:none;border:1px dashed var(--border);border-radius:8px;padding:0.5rem 0.9rem;cursor:pointer;font-family:var(--font)">+ Añadir requisitos del puesto (ayuda a la IA a evaluar el fit)</button></div>`;
+  }
+
+  // 1) APLICARON (gris) — acción voluntaria, interés real
+  h += seccion('aplicaron','Aplicaron a esta ronda','📥', aplicaron,
+    'Nadie ha aplicado voluntariamente todavía.', '#475569', false,
+    'rgba(100,116,139,0.10)', '#64748b', 'postularon por su cuenta');
+  // 2) SUGERENCIAS IA (amarillo claro) — la IA los encontró, no aplicaron por su cuenta
+  h += seccion('sugeridos','Sugerencias de la IA','✨', sugeridosIA,
+    'No hay candidatos de origen IA en este departamento.', '#b7791f', true,
+    'rgba(246,204,143,0.14)', '#f2cc8f', 'los encontró la IA · no aplicaron');
+  // 3) BASE DEL DEPTO (neutro) — el resto del departamento
+  h += seccion('base','Base del departamento · '+escapeHtml(conv.departamento),'🗂️', delDepto,
+    'No hay otros candidatos de este departamento todavía.', 'var(--text3)', true,
+    'var(--bg-card2)', 'var(--border)', 'candidatos del área que podrías considerar');
+
+  h += `</div>`;
+  cont.innerHTML = h;
+}
+// Marcar que un candidato aplicó a una ronda (agrega la convocatoria a sus "procesos")
+async function _canteraMarcarAplico(candId, convId){
+  const c = (_cantera.candidatos||[]).find(x=>x.id===candId);
+  if(!c) return;
+  const procesos = [...new Set([...(c.procesos||[]), convId])];
+  try{
+    const row = await canteraAPI('save_candidato', { data:{ id:c.id, rev:c.rev, procesos } });
+    if(row && row.conflict){ _cantera.loaded=false; renderCantera(); return; }
+    Object.assign(c, row);
+    renderCantera();
+    showStatus('Marcado como aplicó ✓');
+  }catch(e){ showStatus('Error: '+(e.message||''), true); }
+}
+async function _canteraQuitarAplico(candId, convId){
+  const c = (_cantera.candidatos||[]).find(x=>x.id===candId);
+  if(!c) return;
+  const procesos = (c.procesos||[]).filter(p=>p!==convId);
+  try{
+    const row = await canteraAPI('save_candidato', { data:{ id:c.id, rev:c.rev, procesos } });
+    if(row && row.conflict){ _cantera.loaded=false; renderCantera(); return; }
+    Object.assign(c, row);
+    renderCantera();
+    showStatus('Quitado de la ronda');
+  }catch(e){ showStatus('Error: '+(e.message||''), true); }
+}
+
+async function _canteraToggleCerrarProyecto(id, estado){
+  try{
+    const row = await canteraAPI('save_convocatoria', { data:{ id, estado } });
+    const i = (_cantera.convocatorias||[]).findIndex(c=>c.id===id);
+    if(i>=0) _cantera.convocatorias[i] = row;
+    renderCantera();
+  }catch(e){ showStatus('Error: '+(e.message||''), true); }
+}
+async function _canteraEliminarProyecto(id){
+  const conv = (_cantera.convocatorias||[]).find(c=>c.id===id);
+  const ok = await confirmModal(`¿Eliminar el proyecto "${conv?conv.cargo:''}"? Los candidatos no se borran, solo el proyecto.`, 'Eliminar', 'background:#ff5c72;color:#fff;border:none');
+  if(!ok) return;
+  try{
+    await canteraAPI('delete_convocatoria', { id });
+    _cantera.convocatorias = (_cantera.convocatorias||[]).filter(c=>c.id!==id);
+    // limpiar procesos en memoria
+    (_cantera.candidatos||[]).forEach(c=>{ if(c.procesos) c.procesos = c.procesos.filter(p=>p!==id); });
+    _canteraVolverInicio();
+    showStatus('Proyecto eliminado ✓');
+  }catch(e){ showStatus('Error: '+(e.message||''), true); }
+}
+
+// Chip de origen: distingue a quién encontró la IA vs quién aplicó (postuló)
+function _canteraEsIA(c){
+  const o = (c.origen||'').toLowerCase().trim();
+  // Es "sugerido por IA" SOLO si su origen es una búsqueda de IA.
+  // Quien postuló (origen "Recibido", "Manual", etc.) NO es sugerencia de IA.
+  if(o==='recibido' || o==='manual' || o==='postuló' || o==='postulo') return false;
+  return o.includes('búsqueda') || o.includes('busqueda') || o.includes('claude') || o==='búsqueda ia' || o==='busqueda ia';
+}
+function _canteraOrigenChip(c){
+  if(_canteraEsIA(c)){
+    return `<span style="font-size:0.6rem;font-weight:700;color:#b7791f;background:rgba(246,204,143,0.2);border:1px solid #f2cc8f;border-radius:99px;padding:0.1rem 0.45rem;white-space:nowrap">✨ IA</span>`;
+  }
+  return `<span style="font-size:0.6rem;font-weight:700;color:#475569;background:rgba(100,116,139,0.15);border:1px solid #64748b55;border-radius:99px;padding:0.1rem 0.45rem;white-space:nowrap">📥 Postuló</span>`;
+}
+
+// ── Exportación (Excel y PDF) de lo que esté a la vista (respeta filtros) ──
+function _canteraDatosExport(){
+  // En base: usa los filtrados. En proyecto: todos los del proyecto (aplicaron + depto).
+  let lista;
+  if(_cantera.vista==='proyecto'){
+    const conv = (_cantera.convocatorias||[]).find(c=>c.id===_cantera.proyectoId);
+    if(conv){
+      const esDepto = (c)=>{ const d=Array.isArray(c.departamento)?c.departamento:(c.departamento?[c.departamento]:[]); return d.includes(conv.departamento); };
+      lista = (_cantera.candidatos||[]).filter(c=>(c.procesos||[]).includes(conv.id) || esDepto(c));
+    } else lista = _cantera.candidatos||[];
+  } else {
+    lista = _canteraFiltrados();
+  }
+  return lista.map(c=>({
+    Nombre: c.nombre||'',
+    Rol: c.rol||'',
+    Departamento: (Array.isArray(c.departamento)?c.departamento:[c.departamento]).filter(Boolean).join(', '),
+    Nivel: c.nivel||'',
+    Etapa: c.etapa||'',
+    'Años exp': c.anios_exp??'',
+    Ciudad: c.ciudad||'',
+    'Actual (trabaja/estudia)': c.actual||'',
+    Fit: c.fit||'',
+    Estado: c.estado||'',
+    Origen: _canteraEsIA(c)?'Búsqueda IA':'Postuló',
+    Verificado: c.verificado?'Sí':'No',
+    Contacto: c.contacto||'',
+    LinkedIn: c.links?.linkedin||'',
+    Behance: c.links?.behance||'',
+    Portafolio: c.links?.portafolio||'',
+    Instagram: c.links?.instagram||'',
+    Señales: c.senales||'',
+    Notas: c.notas||''
+  }));
+}
+function _canteraNombreArchivo(){
+  if(_cantera.vista==='proyecto'){
+    const conv = (_cantera.convocatorias||[]).find(c=>c.id===_cantera.proyectoId);
+    if(conv) return 'cantera_'+(conv.cargo||'proyecto').replace(/[^\w]+/g,'_').toLowerCase();
+  }
+  return 'cantera_base_completa';
+}
+function _canteraExportXLSX(){
+  try{
+    const rows = _canteraDatosExport();
+    if(!rows.length){ showStatus('No hay candidatos para exportar', true); return; }
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Candidatos');
+    XLSX.writeFile(wb, _canteraNombreArchivo()+'.xlsx');
+    showStatus('Excel descargado ✓');
+  }catch(e){ showStatus('Error al exportar: '+(e.message||''), true); }
+}
+function _canteraExportPDF(){
+  try{
+    const rows = _canteraDatosExport();
+    if(!rows.length){ showStatus('No hay candidatos para exportar', true); return; }
+    const titulo = _cantera.vista==='proyecto'
+      ? ((_cantera.convocatorias||[]).find(c=>c.id===_cantera.proyectoId)?.cargo||'Proyecto')
+      : 'Base de datos completa';
+    // Columnas clave para el PDF (no todas, para que quepa)
+    const cols = ['Nombre','Rol','Departamento','Nivel','Fit','Estado','Origen','Contacto'];
+    const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    let html = `<html><head><meta charset="utf-8"><style>
+      body{font-family:-apple-system,Arial,sans-serif;padding:24px;color:#1a1730}
+      h1{font-size:18px;margin:0 0 4px} .sub{color:#888;font-size:11px;margin-bottom:16px}
+      table{width:100%;border-collapse:collapse;font-size:10px}
+      th{text-align:left;background:#f4f4f7;padding:6px 8px;border-bottom:2px solid #ddd;text-transform:uppercase;font-size:8px;letter-spacing:0.5px;color:#666}
+      td{padding:5px 8px;border-bottom:1px solid #eee}
+      tr:nth-child(even){background:#fafafb}
+    </style></head><body>
+      <h1>⛏️ Cantera Polen — ${esc(titulo)}</h1>
+      <div class="sub">${rows.length} candidatos · generado ${new Date().toLocaleDateString('es-EC')}</div>
+      <table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>
+    </body></html>`;
+    const w = window.open('', '_blank');
+    if(!w){ showStatus('Permite las ventanas emergentes para exportar PDF', true); return; }
+    w.document.write(html);
+    w.document.close();
+    setTimeout(()=>{ w.print(); }, 400);
+    showStatus('Abriendo PDF — usa "Guardar como PDF" en el diálogo de impresión');
+  }catch(e){ showStatus('Error al exportar: '+(e.message||''), true); }
+}
+
+// Chips de departamento de un candidato (o aviso si no tiene)
+function _canteraDeptoChips(c){
+  const deps = Array.isArray(c.departamento)?c.departamento:(c.departamento?[c.departamento]:[]);
+  if(!deps.length) return `<span style="font-size:0.64rem;color:var(--text3);font-style:italic">⚠️ asignar</span>`;
+  return deps.map(d=>{
+    const col = CANTERA_DEPTO_COLOR[d]||'#94a3b8';
+    return `<span style="font-size:0.62rem;font-weight:700;color:${col};background:${col}1a;border:1px solid ${col}44;border-radius:99px;padding:0.1rem 0.45rem;white-space:nowrap;margin-right:0.2rem">${escapeHtml(d)}</span>`;
+  }).join('');
+}
+
+// Editor de departamento (popup con checkboxes, varios posibles)
+function _canteraEditarDepto(id){
+  const c = (_cantera.candidatos||[]).find(x=>x.id===id);
+  if(!c) return;
+  const deps = Array.isArray(c.departamento)?c.departamento.slice():(c.departamento?[c.departamento]:[]);
+  window._canteraDeptoSel = new Set(deps);
+  window._canteraDeptoId = id;
+  let body = `<div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.3rem">Departamento de <b style="color:var(--text)">${escapeHtml(c.nombre||'')}</b></div>
+    <div style="font-size:0.68rem;color:var(--text3);margin-bottom:1rem">Puede pertenecer a uno o varios. Define en qué proyectos de reclutamiento aparecerá.</div>
+    <div id="cantera-depto-opts" style="display:flex;flex-direction:column;gap:0.45rem"></div>
+    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem">
+      <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:0.82rem">Cancelar</button>
+      <button onclick="_canteraGuardarDepto()" style="background:var(--agua);color:#fff;border:none;border-radius:8px;padding:0.5rem 1.1rem;cursor:pointer;font-family:var(--font);font-size:0.82rem;font-weight:700">Guardar</button>
+    </div>`;
+  openGenericModal('🏷️ Departamento', body);
+  _canteraRenderDeptoOpts();
+}
+function _canteraRenderDeptoOpts(){
+  const cont = document.getElementById('cantera-depto-opts');
+  if(!cont) return;
+  cont.innerHTML = CANTERA_DEPTOS.map(d=>{
+    const on = window._canteraDeptoSel.has(d);
+    const col = CANTERA_DEPTO_COLOR[d];
+    return `<button onclick="_canteraToggleDepto('${d}')" style="display:flex;align-items:center;gap:0.6rem;text-align:left;padding:0.6rem 0.8rem;border-radius:10px;border:1.5px solid ${on?col:'var(--border)'};background:${on?col+'14':'transparent'};cursor:pointer;font-family:var(--font)">
+      <span style="width:20px;height:20px;border-radius:6px;border:1.5px solid ${on?col:'var(--border)'};background:${on?col:'transparent'};display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#fff;flex-shrink:0">${on?'✓':''}</span>
+      <span style="font-size:0.85rem;font-weight:700;color:var(--text)">${d}</span>
+    </button>`;
+  }).join('');
+}
+function _canteraToggleDepto(d){
+  if(window._canteraDeptoSel.has(d)) window._canteraDeptoSel.delete(d);
+  else window._canteraDeptoSel.add(d);
+  _canteraRenderDeptoOpts();
+}
+async function _canteraGuardarDepto(){
+  const c = (_cantera.candidatos||[]).find(x=>x.id===window._canteraDeptoId);
+  if(!c) return;
+  const nuevo = [...window._canteraDeptoSel];
+  try{
+    const row = await canteraAPI('save_candidato', { data:{ id:c.id, rev:c.rev, departamento:nuevo } });
+    if(row && row.conflict){ showStatus('Otro admin lo editó — recargando', true); _cantera.loaded=false; closeTrayModal(); renderCantera(); return; }
+    // Actualizar en memoria
+    Object.assign(c, row);
+    closeTrayModal();
+    _canteraRenderLista(document.getElementById('cantera-content'));
+    showStatus('Departamento actualizado ✓');
+  }catch(e){ showStatus('Error: '+(e.message||''), true); }
+}
+
+// Placeholder de ficha (Fase 2)
+// ── Subir CV con IA ──
+// Extrae los links REALES de un PDF (anotaciones + texto) con PDF.js.
+async function _canteraLinksDePDF(file){
+  try{
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    if(!pdfjsLib) return [];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const urls = new Set();
+    const reUrl = /(https?:\/\/[^\s)<>"']+|www\.[^\s)<>"']+|(?:linkedin\.com|behance\.net|instagram\.com)\/[^\s)<>"']+)/gi;
+    for(let p=1; p<=pdf.numPages; p++){
+      const page = await pdf.getPage(p);
+      // 1) anotaciones (links clicables)
+      const annots = await page.getAnnotations();
+      annots.forEach(a=>{ if(a.url) urls.add(a.url); });
+      // 2) texto visible
+      const txt = await page.getTextContent();
+      const str = txt.items.map(i=>i.str).join(' ');
+      const m = str.match(reUrl);
+      if(m) m.forEach(u=>urls.add(u));
+    }
+    return [...urls];
+  }catch(e){ console.warn('links PDF:', e); return []; }
+}
+
+// Sube un PDF a Storage (URL firmada) y devuelve su path
+async function _canteraSubirPDF(file){
+  const up = await canteraAPI('cv_upload_url', { filename: file.name });
+  const { error } = await sb.storage.from('cantera-cvs').uploadToSignedUrl(up.path, up.token, file);
+  if(error) throw new Error('subida: '+error.message);
+  return up.path;
+}
+
+// Procesa uno o varios CVs
+// convId opcional: si viene de un proyecto, los candidatos entran directo como
+// postulantes que APLICARON a esa ronda, con el departamento del proyecto por defecto.
+async function _canteraProcesarCVs(files, convId){
+  const lista = [...files].filter(f=>f.type==='application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+  if(!lista.length){ showStatus('Selecciona archivos PDF', true); return; }
+  const conv = convId ? (_cantera.convocatorias||[]).find(c=>c.id===convId) : null;
+
+  // Enriquecer la ficha con contexto de proyecto: aplicó a la ronda + departamento
+  const _aplicarContexto = (ficha)=>{
+    ficha.archivos = ficha.archivos || [];
+    if(conv){
+      ficha.procesos = [...new Set([...(ficha.procesos||[]), conv.id])]; // aplicó a esta ronda
+      ficha.origen = 'Recibido'; // postuló
+      // Departamento: la IA pudo inferir; si no, el del proyecto
+      const d = Array.isArray(ficha.departamento)?ficha.departamento:(ficha.departamento?[ficha.departamento]:[]);
+      ficha.departamento = d.length ? d : [conv.departamento];
+    }
+    return ficha;
+  };
+
+  // Desde un proyecto, SIEMPRE se guardan directo (aplicaron). Desde la base: 1 revisa, varios directo.
+  const directo = !!conv || lista.length>1;
+
+  if(!directo){
+    // UN CV desde la base → leer, GUARDAR de una (no se pierde), y abrir la ficha ya guardada para ajustar
+    _canteraOverlayProgreso('Leyendo el CV con IA…');
+    try{
+      const file = lista[0];
+      const path = await _canteraSubirPDF(file);
+      const urls = await _canteraLinksDePDF(file);
+      const ficha = await canteraAPI('extract_cv', { path, urls, puesto: conv||null });
+      ficha.archivos = [{ path, nombre: file.name }];
+      ficha.estado = ficha.estado || 'Por verificar';
+      // Guardar de inmediato para que nunca se pierda
+      const row = await canteraAPI('save_candidato', { data: ficha });
+      _canteraCerrarProgreso();
+      if(row && !row.conflict){
+        _cantera.candidatos.unshift(row);
+        renderCantera();
+        showStatus('Candidato guardado — revisa y ajusta su ficha');
+        // Abrir su ficha YA GUARDADA (modo edición normal, con su id)
+        _canteraAbrirFicha(row.id);
+      } else {
+        // Si falló el guardado, al menos abrir la ficha para que la guarde a mano
+        _canteraAbrirFichaNueva(ficha);
+      }
+    }catch(e){ _canteraCerrarProgreso(); showStatus('Error leyendo CV: '+(e.message||''), true); }
+  } else {
+    // Directo: procesar en cola y guardar
+    let ok=0, fail=0;
+    for(let i=0;i<lista.length;i++){
+      _canteraOverlayProgreso(`Procesando CV ${i+1} de ${lista.length}…`);
+      try{
+        const file = lista[i];
+        const path = await _canteraSubirPDF(file);
+        const urls = await _canteraLinksDePDF(file);
+        const ficha = await canteraAPI('extract_cv', { path, urls, puesto: conv||null });
+        ficha.archivos = [{ path, nombre: file.name }];
+        ficha.estado = ficha.estado || 'Por verificar';
+        _aplicarContexto(ficha);
+        const row = await canteraAPI('save_candidato', { data: ficha });
+        if(row && !row.conflict){ _cantera.candidatos.unshift(row); ok++; }
+      }catch(e){ console.warn('CV', i, e); fail++; }
+    }
+    _canteraCerrarProgreso();
+    renderCantera();
+    const dondeEntro = conv ? ` a "${conv.cargo}"` : '';
+    showStatus(`${ok} CV${ok!==1?'s':''} procesado${ok!==1?'s':''}${dondeEntro}${fail?` · ${fail} con error`:''} ✓`);
+  }
+}
+
+// Overlay de progreso simple
+function _canteraOverlayProgreso(txt){
+  let o = document.getElementById('cantera-prog');
+  if(!o){
+    o = document.createElement('div');
+    o.id='cantera-prog';
+    o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:10000;display:flex;align-items:center;justify-content:center';
+    document.body.appendChild(o);
+  }
+  o.innerHTML = `<div style="background:var(--bg);border-radius:14px;padding:1.5rem 2rem;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,0.2)">
+    <div style="font-size:1.5rem;margin-bottom:0.5rem">⏳</div>
+    <div style="font-size:0.85rem;color:var(--text);font-weight:600">${escapeHtml(txt)}</div>
+    <div style="font-size:0.68rem;color:var(--text3);margin-top:0.3rem">La IA puede tardar unos segundos</div>
+  </div>`;
+}
+function _canteraCerrarProgreso(){ const o=document.getElementById('cantera-prog'); if(o) o.remove(); }
+
+// Abrir ficha para un candidato NUEVO (prellenado por IA, aún no guardado)
+function _canteraAbrirFichaNueva(ficha){
+  window._canteraFichaId = null;         // null = nuevo
+  window._canteraFichaEdit = ficha;
+  _canteraRenderFicha(true);             // modo "nuevo"
+}
+
+// Crear candidato manual (ficha nueva vacía)
+function _canteraNuevoManual(){
+  _canteraAbrirFichaNueva({
+    nombre:'', rol:'', nivel:'Junior', etapa:'Por confirmar', anios_exp:null,
+    ciudad:'', actual:'', contacto:'', senales:'', fit:3, estado:'Por verificar',
+    verificado:false, departamento:[], links:{}, notas:'', origen:'Manual'
+  });
+}
+
+// Disparador: input de archivos oculto (convId opcional = subir desde un proyecto)
+function _canteraSubirCVInput(convId){
+  let inp = document.getElementById('cantera-cv-input');
+  if(!inp){
+    inp = document.createElement('input');
+    inp.type='file'; inp.accept='application/pdf'; inp.multiple=true; inp.id='cantera-cv-input';
+    inp.style.display='none';
+    document.body.appendChild(inp);
+  }
+  // Reasignar el handler con el convId de esta vez
+  inp.onchange = (e)=>{ const cid=inp._convId; if(e.target.files && e.target.files.length) _canteraProcesarCVs(e.target.files, cid); e.target.value=''; inp._convId=null; };
+  inp._convId = convId || null;
+  inp.click();
+}
+
+// Ficha completa del candidato — drawer lateral editable
+function _canteraAbrirFicha(id){
+  const c = (_cantera.candidatos||[]).find(x=>x.id===id);
+  if(!c) return;
+  window._canteraFichaId = id;
+  // estado editable local (copia); se guarda al pulsar Guardar
+  window._canteraFichaEdit = JSON.parse(JSON.stringify(c));
+  _canteraRenderFicha();
+}
+function _canteraCerrarFicha(){
+  const d = document.getElementById('cantera-ficha-drawer');
+  const o = document.getElementById('cantera-ficha-overlay');
+  if(d) d.style.transform='translateX(100%)';
+  if(o) o.style.opacity='0';
+  setTimeout(()=>{ if(d) d.remove(); if(o) o.remove(); }, 250);
+  window._canteraFichaId=null; window._canteraFichaEdit=null;
+}
+function _canteraFichaSet(campo, val){ if(window._canteraFichaEdit) window._canteraFichaEdit[campo]=val; }
+function _canteraFichaSetLink(k, val){ const e=window._canteraFichaEdit; if(e){ e.links=e.links||{}; e.links[k]=val; } }
+
+function _canteraRenderFicha(esNuevo){
+  const c = window._canteraFichaEdit;
+  if(!c) return;
+  const _nuevo = esNuevo || !window._canteraFichaId;
+  // Crear overlay + drawer si no existen
+  let overlay = document.getElementById('cantera-ficha-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id='cantera-ficha-overlay';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:9998;opacity:0;transition:opacity 0.25s';
+    overlay.onclick=_canteraCerrarFicha;
+    document.body.appendChild(overlay);
+    const drawer=document.createElement('div');
+    drawer.id='cantera-ficha-drawer';
+    drawer.style.cssText='position:fixed;top:0;right:0;height:100%;width:min(560px,92vw);background:var(--bg);box-shadow:-4px 0 24px rgba(0,0,0,0.15);z-index:9999;transform:translateX(100%);transition:transform 0.25s;overflow-y:auto;scrollbar-width:thin';
+    drawer.onclick=(e)=>e.stopPropagation();
+    document.body.appendChild(drawer);
+    requestAnimationFrame(()=>{ overlay.style.opacity='1'; drawer.style.transform='translateX(0)'; });
+  }
+  const drawer = document.getElementById('cantera-ficha-drawer');
+
+  const inp = (campo, label, val, ph)=>`<div style="margin-bottom:0.7rem">
+    <label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">${label}</label>
+    <input value="${String(val||'').replace(/"/g,'&quot;')}" oninput="_canteraFichaSet('${campo}', this.value)" placeholder="${ph||''}" style="width:100%;box-sizing:border-box;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.82rem;font-family:var(--font);outline:none">
+  </div>`;
+  const linkInp = (k, label, val)=>`<div style="margin-bottom:0.6rem">
+    <label style="font-size:0.64rem;color:var(--text3);display:block;margin-bottom:0.2rem">${label} ${val?`<a href="${val}" target="_blank" onclick="event.stopPropagation()" style="color:var(--aire);text-decoration:none;font-size:0.6rem">↗ abrir</a>`:''}</label>
+    <input value="${String(val||'').replace(/"/g,'&quot;')}" oninput="_canteraFichaSetLink('${k}', this.value)" placeholder="https://…" style="width:100%;box-sizing:border-box;padding:0.45rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.78rem;font-family:var(--font);outline:none">
+  </div>`;
+  const sel = (campo, label, opts, val)=>`<div style="margin-bottom:0.7rem">
+    <label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">${label}</label>
+    <select onchange="_canteraFichaSet('${campo}', this.value)" style="width:100%;box-sizing:border-box;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.82rem;font-family:var(--font);cursor:pointer">
+      ${opts.map(o=>`<option value="${o}" ${o===val?'selected':''}>${o}</option>`).join('')}
+    </select>
+  </div>`;
+  const deps = Array.isArray(c.departamento)?c.departamento:(c.departamento?[c.departamento]:[]);
+  const fit = Math.max(0,Math.min(5,Number(c.fit)||0));
+  const an = c.analisis||{};
+
+  let h = `<div style="padding:1.2rem 1.4rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <div style="font-size:0.72rem;color:var(--text3)">${_nuevo?'✨ Nuevo candidato (prellenado por IA — revisa y guarda)':'Ficha del candidato'}</div>
+      <button onclick="_canteraCerrarFicha()" style="background:none;border:none;font-size:1.2rem;color:var(--text3);cursor:pointer">✕</button>
+    </div>
+
+    <!-- Nombre + verificado -->
+    <input value="${String(c.nombre||'').replace(/"/g,'&quot;')}" oninput="_canteraFichaSet('nombre', this.value)" placeholder="Nombre" style="width:100%;box-sizing:border-box;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:1.05rem;font-weight:800;font-family:var(--font);outline:none;margin-bottom:0.5rem">
+    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;flex-wrap:wrap">
+      <button onclick="_canteraFichaToggleVerif()" style="font-size:0.68rem;font-weight:700;padding:0.3rem 0.7rem;border-radius:99px;border:1px solid ${c.verificado?'#22c55e':'var(--border)'};background:${c.verificado?'rgba(34,197,94,0.12)':'transparent'};color:${c.verificado?'#22c55e':'var(--text3)'};cursor:pointer;font-family:var(--font)">${c.verificado?'✓ Verificado':'Sin verificar'}</button>
+      <span style="font-size:0.68rem;color:var(--text3)">${_canteraEsIA(c)?'✨ Lo encontró la IA':'📥 Postuló'}</span>
+    </div>
+
+    <!-- Fit (estrellas clicables) -->
+    <div style="margin-bottom:0.9rem">
+      <label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">Fit (1–5)</label>
+      <div style="display:flex;gap:0.15rem">
+        ${[1,2,3,4,5].map(n=>`<span onclick="_canteraFichaSet('fit',${n});_canteraRenderFicha()" style="font-size:1.3rem;cursor:pointer;color:${n<=fit?'#f2cc8f':'var(--border)'}">★</span>`).join('')}
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+      ${inp('rol','Rol', c.rol, 'Redactor creativo')}
+      ${inp('ciudad','Ciudad', c.ciudad, 'Guayaquil')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+      ${sel('nivel','Nivel', CANTERA_NIVELES, c.nivel)}
+      ${sel('etapa','Etapa de carrera', CANTERA_ETAPAS, c.etapa)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+      ${inp('anios_exp','Años de experiencia', c.anios_exp, '')}
+      ${sel('estado','Estado en el pipeline', CANTERA_ESTADOS, c.estado)}
+    </div>
+
+    <!-- Departamento -->
+    <div style="margin-bottom:0.8rem">
+      <label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.3rem">Departamento(s)</label>
+      <div style="display:flex;flex-wrap:wrap;gap:0.3rem">
+        ${CANTERA_DEPTOS.map(d=>{
+          const on=deps.includes(d); const col=CANTERA_DEPTO_COLOR[d];
+          return `<button onclick="_canteraFichaToggleDepto('${d}')" style="font-size:0.68rem;font-weight:700;padding:0.3rem 0.6rem;border-radius:99px;border:1.5px solid ${on?col:'var(--border)'};background:${on?col+'1a':'transparent'};color:${on?col:'var(--text3)'};cursor:pointer;font-family:var(--font)">${on?'✓ ':''}${d}</button>`;
+        }).join('')}
+      </div>
+    </div>
+
+    ${inp('actual','Dónde trabaja / estudia hoy', c.actual, '')}
+    ${inp('contacto','Contacto (email / teléfono)', c.contacto, '')}
+    <div style="margin-bottom:0.7rem">
+      <label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">Señales (premios, proyectos destacados)</label>
+      <textarea oninput="_canteraFichaSet('senales', this.value)" style="width:100%;box-sizing:border-box;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.82rem;font-family:var(--font);outline:none;min-height:50px;resize:vertical">${escapeHtml(c.senales||'')}</textarea>
+    </div>
+
+    <!-- Links -->
+    <div style="font-size:0.66rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:0.4rem 0 0.5rem">Links</div>
+    ${linkInp('linkedin','LinkedIn', c.links?.linkedin)}
+    ${linkInp('behance','Behance', c.links?.behance)}
+    ${linkInp('portafolio','Portafolio', c.links?.portafolio)}
+    ${linkInp('instagram','Instagram', c.links?.instagram)}
+
+    <!-- Notas -->
+    <div style="margin-bottom:0.9rem">
+      <label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">Notas internas</label>
+      <textarea oninput="_canteraFichaSet('notas', this.value)" style="width:100%;box-sizing:border-box;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.82rem;font-family:var(--font);outline:none;min-height:60px;resize:vertical">${escapeHtml(c.notas||'')}</textarea>
+    </div>`;
+
+  // Análisis de IA (solo lectura)
+  if(an && (an.resumen || (an.fortalezas||[]).length || (an.preguntas||[]).length)){
+    h += `<div style="background:rgba(246,204,143,0.1);border:1px solid #f2cc8f55;border-radius:12px;padding:0.9rem;margin-bottom:0.9rem">
+      <div style="font-size:0.66rem;font-weight:800;color:#b7791f;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem">✨ Análisis de la IA${an.fecha?' · '+an.fecha:''}</div>`;
+    if(an.resumen) h += `<div style="font-size:0.78rem;color:var(--text);margin-bottom:0.6rem">${escapeHtml(an.resumen)}</div>`;
+    if((an.fortalezas||[]).length) h += `<div style="font-size:0.7rem;color:var(--text2);margin-bottom:0.4rem"><b>Fortalezas:</b> ${an.fortalezas.map(escapeHtml).join(' · ')}</div>`;
+    if((an.dudas||[]).length) h += `<div style="font-size:0.7rem;color:var(--text2);margin-bottom:0.4rem"><b>Dudas:</b> ${an.dudas.map(escapeHtml).join(' · ')}</div>`;
+    if((an.preguntas||[]).length) h += `<div style="font-size:0.7rem;color:var(--text2)"><b>Preguntas de entrevista:</b><ul style="margin:0.3rem 0 0;padding-left:1.1rem">${an.preguntas.map(p=>`<li>${escapeHtml(p)}</li>`).join('')}</ul></div>`;
+    h += `</div>`;
+  }
+
+  // Acciones
+  h += `<div style="display:flex;gap:0.5rem;position:sticky;bottom:0;background:var(--bg);padding:0.8rem 0;border-top:1px solid var(--border)">
+      <button onclick="_canteraGuardarFicha()" style="flex:1;padding:0.6rem;border-radius:10px;border:none;background:var(--agua);color:#fff;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:var(--font)">${_nuevo?'Guardar candidato':'Guardar cambios'}</button>
+      ${_nuevo?'':`<button onclick="_canteraEliminarCandidato('${c.id}')" style="padding:0.6rem 0.9rem;border-radius:10px;border:1px solid rgba(255,92,114,0.3);background:rgba(255,92,114,0.08);color:#ff5c72;cursor:pointer;font-family:var(--font);font-size:0.85rem">🗑</button>`}
+    </div>
+  </div>`;
+  drawer.innerHTML = h;
+}
+function _canteraFichaToggleVerif(){ const e=window._canteraFichaEdit; if(e){ e.verificado=!e.verificado; _canteraRenderFicha(); } }
+function _canteraFichaToggleDepto(d){
+  const e=window._canteraFichaEdit; if(!e) return;
+  let deps = Array.isArray(e.departamento)?e.departamento.slice():(e.departamento?[e.departamento]:[]);
+  if(deps.includes(d)) deps=deps.filter(x=>x!==d); else deps.push(d);
+  e.departamento=deps; _canteraRenderFicha();
+}
+async function _canteraGuardarFicha(){
+  const e = window._canteraFichaEdit;
+  const esNuevo = !window._canteraFichaId;
+  const orig = esNuevo ? null : (_cantera.candidatos||[]).find(x=>x.id===e.id);
+  if(!esNuevo && !orig) return;
+  if(!(e.nombre||'').trim()){ showStatus('El candidato necesita un nombre', true); return; }
+  // Normalizar años
+  if(e.anios_exp==='' ) e.anios_exp=null; else if(e.anios_exp!=null) e.anios_exp=Number(e.anios_exp)||null;
+  const data = {
+    nombre:e.nombre, rol:e.rol, nivel:e.nivel, etapa:e.etapa, anios_exp:e.anios_exp,
+    ciudad:e.ciudad, actual:e.actual, contacto:e.contacto, senales:e.senales,
+    fit:e.fit, estado:e.estado, verificado:e.verificado, departamento:e.departamento||[],
+    links:e.links||{}, notas:e.notas
+  };
+  if(!esNuevo){ data.id=e.id; data.rev=orig.rev; }
+  // Campos extra que vienen del CV (solo al crear)
+  if(esNuevo){
+    if(e.archivos) data.archivos = e.archivos;
+    if(e.cv_texto) data.cv_texto = e.cv_texto;
+    if(e.analisis) data.analisis = e.analisis;
+    if(e.origen) data.origen = e.origen; else data.origen = 'Recibido';
+    if(e.fuente) data.fuente = e.fuente;
+  }
+  try{
+    const row = await canteraAPI('save_candidato', { data });
+    if(row && row.conflict){ showStatus('Otro admin lo editó — recargando', true); _cantera.loaded=false; _canteraCerrarFicha(); renderCantera(); return; }
+    if(esNuevo){ _cantera.candidatos.unshift(row); }
+    else { Object.assign(orig, row); }
+    _canteraCerrarFicha();
+    renderCantera();
+    showStatus(esNuevo?'Candidato agregado ✓':'Candidato actualizado ✓');
+  }catch(err){ showStatus('Error: '+(err.message||''), true); }
+}
+async function _canteraEliminarCandidato(id){
+  const c = (_cantera.candidatos||[]).find(x=>x.id===id);
+  const ok = await confirmModal(`¿Eliminar a "${c?c.nombre:''}" de la cantera? No se puede deshacer.`, 'Eliminar', 'background:#ff5c72;color:#fff;border:none');
+  if(!ok) return;
+  try{
+    await canteraAPI('delete_candidato', { id });
+    _cantera.candidatos = (_cantera.candidatos||[]).filter(x=>x.id!==id);
+    _canteraCerrarFicha();
+    renderCantera();
+    showStatus('Candidato eliminado ✓');
+  }catch(e){ showStatus('Error: '+(e.message||''), true); }
+}
+
 
 function renderDashboard(){
   // Limpieza de coherencia: mantener las dos listas (brands/demos) sin contradicciones.
