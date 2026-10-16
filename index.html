@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261016-v439-CARGA-SEGURA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261016-v440-CARGA-LIVIANA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4132,7 +4132,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 439;
+const APP_VERSION = 440;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -10527,7 +10527,7 @@ function renderTrayectoria(){
         </div>
         <div class="tray-card-meta">${m.anio||''}</div>
         ${chips?`<div>${chips}</div>`:''}
-        ${m.brandId ? '<button type="button" onclick="event.stopPropagation();openBrand(\''+m.brandId+'\')" style="margin-top:0.45rem;font-size:0.66rem;font-weight:700;color:var(--aire);background:none;border:1px solid var(--border);border-radius:99px;padding:0.15rem 0.55rem;cursor:pointer;font-family:var(--font)">Ver proyecto completo →</button>' : ''}
+        ${m.brandId ? '<button type="button" onclick="event.stopPropagation();_bitAbrirProyecto(\''+m.brandId+'\')" style="margin-top:0.45rem;font-size:0.66rem;font-weight:700;color:var(--aire);background:none;border:1px solid var(--border);border-radius:99px;padding:0.15rem 0.55rem;cursor:pointer;font-family:var(--font)">Ver proyecto completo →</button>' : ''}
       </div>`;
     };
 
@@ -17680,7 +17680,7 @@ function renderRinconSocial(){
   let miembros = (appData.members||[]).filter(m=>m && m.active!==false);
   if(!miembros.length){ cont.innerHTML=''; return; }
   _tripCSS();
-  _tripIniciarNotas();
+  _polenTrasCarga(_tripIniciarNotas, 6000);
 
   const user = _usuarioActual();
   // "Yo" primero, el resto ordenado por apodo
@@ -21298,7 +21298,7 @@ function _aplicarMenuPorRol(){
   set('nav-reportes', A || PM);
   set('nav-roles', A);
   set('nav-cantera', A);                      // Reclutamiento: solo socios (admin)
-  set('nav-crm',       A);
+  set('nav-crm',       A || AS);
   set('nav-cobranzas', A || AS);
   set('nav-contactos', A || PM || AS);
   set('nav-metas',     A || PM || AS);
@@ -29668,7 +29668,7 @@ async function _bitGuardarArchivo(brand, origen){
 }
 async function _bitCargarArchivo(){
   try{
-    const { data, error } = await sb.from('polen_archivo').select('id,nombre,creada_en,archivada_en,snapshot,resumen,origen,trayectoria_id');
+    const { data, error } = await sb.from('polen_archivo').select('id,nombre,creada_en,archivada_en,resumen,origen,trayectoria_id');
     if(error){ console.warn('[Archivo] tabla no disponible:', error.message); return; }
     _bit.archivo = {};
     (data||[]).forEach(r=>{ _bit.archivo[r.id] = r; });
@@ -29744,6 +29744,19 @@ async function bitacoraMigrar(){
   return { archivo:okA, trayectoria:okT, participaciones:okP };
 }
 
+// Abrir un proyecto archivado: si no está en la papelera, se trae su copia del archivo permanente
+async function _bitAbrirProyecto(id){
+  if(!(appData.brands||[]).some(b=>b.id===id) && !(appData.papelera||[]).some(p=>p.type==='brand-archived' && (p.data?.id===id || p.id===id))){
+    const f = _bit.archivo[id];
+    if(!f || !f.snapshot){
+      try{
+        const { data } = await sb.from('polen_archivo').select('id,archivada_en,snapshot').eq('id', id).limit(1);
+        if(data && data[0]) _bit.archivo[id] = Object.assign({}, _bit.archivo[id]||{}, data[0]);
+      }catch(e){}
+    }
+  }
+  openBrand(id);
+}
 // ── Historial por persona ──
 async function bitacoraHistorialPersona(memberId){
   const m = (appData.members||[]).find(x=>x.id===memberId) || { id:memberId, apodo:memberId };
@@ -29905,8 +29918,7 @@ async function checkLogin(){
 
 // Actualiza el pie del sidebar con el usuario logueado
 function _actualizarPieUsuario(){
-  try{ _presIniciar(); }catch(e){}
-  try{ _bitIniciar(); }catch(e){}
+  _polenTrasCarga(()=>{ try{ _presIniciar(); }catch(e){} try{ _bitIniciar(); }catch(e){} }, 4000);
   const foot = document.getElementById('sidebar-user-footer');
   const nameEl = document.getElementById('sidebar-user-name');
   const s = _sesion();
@@ -30102,6 +30114,12 @@ function applyBrandImagesFromPhotoMap(photoMap){
 }
 // ── END BRAND IMAGE STORAGE ───────────────────────────────────────────
 
+// Ejecuta fn cuando la carga inicial terminó (+ espera), para no competir con ella
+function _polenTrasCarga(fn, espera){
+  const go = ()=>setTimeout(()=>{ try{ fn(); }catch(e){ console.warn(e); } }, espera||0);
+  if(window._polenCargaCompleta !== false) { go(); return; }
+  const t = setInterval(()=>{ if(window._polenCargaCompleta !== false){ clearInterval(t); go(); } }, 1000);
+}
 // Aviso discreto mientras la información termina de cargar (en vez de mostrar secciones vacías)
 function _polenAvisoCarga(mostrar){
   let el = document.getElementById('polen-aviso-carga');
