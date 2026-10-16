@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261016-v438-CAMBIAR-PASS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261016-v439-CARGA-SEGURA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4132,7 +4132,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 438;
+const APP_VERSION = 439;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -8209,6 +8209,19 @@ async function upsert(immediate=false){
     window._upsertDebounceTimer = _upsertDebounceTimer;
     return;
   }
+
+  // No guardar mientras la carga inicial no termine: evita guardar datos a medias
+  // y evita sumar escrituras pesadas cuando la base está lenta (statement timeout).
+  if(window._polenCargaCompleta === false){
+    window._upsertEsperaDesde = window._upsertEsperaDesde || Date.now();
+    if(Date.now() - window._upsertEsperaDesde < 90000){
+      clearTimeout(_upsertDebounceTimer);
+      _upsertDebounceTimer = setTimeout(()=>{ upsert(true); }, 3000);
+      window._upsertDebounceTimer = _upsertDebounceTimer;
+      return;
+    }
+  }
+  window._upsertEsperaDesde = null;
 
   // Mostrar indicador de guardado SOLO cuando realmente vamos a enviar
   const connDot = document.getElementById('conn-dot');
@@ -29507,18 +29520,24 @@ function _bitGuardarBase(){ try{ localStorage.setItem(BIT_BASE_KEY, JSON.stringi
 // Compara el estado actual contra la última foto y registra lo que cambió
 function _bitDetectar(){
   if(!appData || !Array.isArray(appData.brands)) return;
+  if(window._polenCargaCompleta === false) return; // esperar a que todo cargue
   if(document.body.classList.contains('portal-mode')) return;
   const primera = !_bitCargarBase();
-  if(primera) _bit.base = {};
+  if(primera) _bit.base = { _desde: Date.now() };
+  if(!_bit.base._desde) _bit.base._desde = Date.now();
   const locales = window._localChangedBrandIds || new Set();
   appData.brands.forEach(b=>{
-    if(!b || !b.id) return;
+    if(!b || !b.id || b.id==='_desde') return;
     if(window._archivedViewIds && window._archivedViewIds.has(b.id)) return;
     const ahora = _bitFoto(b);
     const antes = _bit.base[b.id];
     _bit.base[b.id] = ahora;
     if(primera) return; // la primera vez solo se toma la foto (no se inventan fechas)
     if(!antes){
+      // Solo es "nueva" si se creó después de que este navegador empezó a registrar.
+      // Si no, es una marca que ya existía (p. ej. llegó tarde en la carga): solo se toma la foto.
+      const creada = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if(!creada || creada < (_bit.base._desde - 60000)) return;
       // Marca nueva: registrar su creación y quién arranca en el domo
       _bitEvento('creada', b, {}, { clave:'creada:'+b.id, ts:b.createdAt||undefined, sinAutor:!locales.has(b.id) });
       const r0 = _bitDomoRoles(b);
@@ -30083,6 +30102,17 @@ function applyBrandImagesFromPhotoMap(photoMap){
 }
 // ── END BRAND IMAGE STORAGE ───────────────────────────────────────────
 
+// Aviso discreto mientras la información termina de cargar (en vez de mostrar secciones vacías)
+function _polenAvisoCarga(mostrar){
+  let el = document.getElementById('polen-aviso-carga');
+  if(!mostrar){ if(el) el.remove(); return; }
+  if(el) return;
+  el = document.createElement('div');
+  el.id = 'polen-aviso-carga';
+  el.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:9998;display:flex;align-items:center;gap:0.55rem;padding:0.6rem 1rem;border-radius:99px;background:var(--text);color:var(--bg);font-size:0.8rem;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.25);font-family:var(--font)';
+  el.innerHTML = '<span style="width:12px;height:12px;border-radius:50%;border:2px solid currentColor;border-top-color:transparent;display:inline-block;animation:polenGiro 0.8s linear infinite"></span>Terminando de cargar la información… no hagas cambios todavía<style>@keyframes polenGiro{to{transform:rotate(360deg)}}</style>';
+  document.body.appendChild(el);
+}
 async function boot(){
   // Check for portal mode first
   const urlParams = new URLSearchParams(window.location.search);
@@ -30171,11 +30201,19 @@ async function boot(){
     if(skipBtn) skipBtn.style.display='';
   }, 5000);
 
+  // Marca cuándo la carga REAL termina (la carrera de 10 s solo destapa la pantalla antes)
+  window._polenCargaCompleta = false;
+  const _cargaPromesa = Promise.resolve().then(()=>loadData()).catch(e=>console.warn('loadData:', e)).finally(()=>{
+    window._polenCargaCompleta = true;
+    _polenAvisoCarga(false);
+    try{ renderCurrentPage(); }catch(e){}
+  });
   await Promise.race([
-    loadData(),
+    _cargaPromesa,
     new Promise(res=>setTimeout(res,10000))
   ]);
   clearTimeout(skipTimer);
+  if(!window._polenCargaCompleta) _polenAvisoCarga(true);
 
   // Load photos from separate table and inject into members
   const photoMap = await loadPhotosFromSupabase();
