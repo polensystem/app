@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261016-v442-NOTAS-RESPUESTAS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261016-v443-CONFIRMAR-PROYECTO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4132,7 +4132,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 442;
+const APP_VERSION = 443;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -12300,7 +12300,7 @@ function renderMetas(){
     for(let i=0;i<METAS_SLOTS;i++){
       const s = arr[i];
       if(s){
-        filas += `<div style="display:flex;align-items:center;gap:0.2rem;margin-bottom:0.25rem">
+        filas += `<div draggable="true" ondragstart="metasDragStart(event,'${key}','${s.id}')" ondragend="metasDragEnd(event)" title="Arrastra para mover a otra quincena" style="display:flex;align-items:center;gap:0.2rem;margin-bottom:0.25rem;cursor:grab">
           <div style="flex:1;display:flex;align-items:center;gap:0.3rem;background:var(--text);color:var(--bg);border-radius:7px;padding:0.22rem 0.5rem;min-width:0">
             <span style="font-size:0.72rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.nombre)}</span>
             ${s.crmId?'<span style="font-size:0.5rem;opacity:0.7;flex-shrink:0">CRM</span>':''}
@@ -12312,7 +12312,7 @@ function renderMetas(){
         filas += `<div onclick="metasAgregarManual('${key}')" title="Agregar marca" style="margin-bottom:0.25rem;cursor:pointer;border:1.5px dashed ${col.brd};border-radius:7px;padding:0.22rem 0.5rem;color:var(--text3);font-size:0.68rem;background:var(--bg-card)">＋</div>`;
       }
     }
-    return `<div style="flex:1;min-width:0;background:${col.soft};border:1px solid ${col.brd};border-radius:10px;padding:0.55rem">
+    return `<div data-qkey="${key}" ondragover="metasDragOver(event)" ondragleave="metasDragLeave(event)" ondrop="metasDrop(event,'${key}')" style="flex:1;min-width:0;background:${col.soft};border:1px solid ${col.brd};border-radius:10px;padding:0.55rem;transition:box-shadow .15s,border-color .15s">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.4rem">
         <span style="font-size:0.62rem;font-weight:800;color:${col.accent};text-transform:uppercase;letter-spacing:0.3px">${q===1?'1ª quincena':'2ª quincena'}</span>
         <span style="font-size:0.6rem;font-weight:700;color:${col.accent}">${llenos}/${METAS_SLOTS}</span>
@@ -12448,6 +12448,20 @@ function metasMover(key, slotId){
     </div>`;
   openGenericModal('Mover de quincena', body);
 }
+// Arrastrar y soltar entre quincenas
+window._metasDrag = null;
+function metasDragStart(ev, key, slotId){ window._metasDrag = { key, slotId }; try{ ev.dataTransfer.effectAllowed='move'; ev.dataTransfer.setData('text/plain', slotId); }catch(e){} ev.currentTarget.style.opacity='0.4'; }
+function metasDragEnd(ev){ ev.currentTarget.style.opacity=''; document.querySelectorAll('[data-qkey]').forEach(el=>{ el.style.boxShadow=''; el.style.borderColor=''; }); }
+function metasDragOver(ev){ if(!window._metasDrag) return; ev.preventDefault(); ev.currentTarget.style.boxShadow='0 0 0 2px var(--aire)'; ev.currentTarget.style.borderColor='var(--aire)'; }
+function metasDragLeave(ev){ ev.currentTarget.style.boxShadow=''; ev.currentTarget.style.borderColor=''; }
+async function metasDrop(ev, toKey){
+  ev.preventDefault();
+  ev.currentTarget.style.boxShadow=''; ev.currentTarget.style.borderColor='';
+  const d = window._metasDrag; window._metasDrag = null;
+  if(!d || d.key===toKey) return;
+  if((appData.metas[toKey]||[]).length >= METAS_SLOTS){ showStatus('Esa quincena ya tiene sus '+METAS_SLOTS+' cupos llenos', true); return; }
+  await metasConfirmarMover(d.key, d.slotId, toKey);
+}
 async function metasConfirmarMover(fromKey, slotId, toKey){
   ensureMetas();
   const arr = appData.metas[fromKey]||[];
@@ -12494,23 +12508,20 @@ function openCrmView(id){
          🔗 Ver propuesta enviada</a>`
     : '';
 
-  // Bloque "Crear marca" — solo para tratos GANADOS (cerrados con éxito)
+  // Bloque "Proyecto confirmado": crea la marca real y su ficha de cobranzas
   let crearMarcaBtn = '';
-  if(_crmEtapaEsGanada(it.etapa)){
-    const marcaExiste = it.marcaCreadaId && (appData.brands||[]).some(b=>b.id===it.marcaCreadaId);
-    if(marcaExiste){
-      crearMarcaBtn = `<div style="background:rgba(90,170,53,0.1);border:1px solid rgba(90,170,53,0.35);border-radius:10px;padding:0.7rem 0.9rem;display:flex;align-items:center;gap:0.6rem">
-        <span style="font-size:1.1rem">✅</span>
-        <div style="flex:1;font-size:0.78rem;color:var(--text2)">Ya se creó la marca para este trato.</div>
-        <button onclick="closeTrayModal();openBrand('${it.marcaCreadaId}')" class="btn-add" style="background:var(--tierra);white-space:nowrap">Ver marca →</button>
-      </div>`;
-    } else {
-      crearMarcaBtn = `<div style="background:rgba(90,170,53,0.08);border:1px dashed rgba(90,170,53,0.4);border-radius:10px;padding:0.8rem 0.9rem">
-        <div style="font-size:0.8rem;color:var(--text);font-weight:700;margin-bottom:0.2rem">🎉 ¡Trato ganado!</div>
-        <div style="font-size:0.74rem;color:var(--text3);line-height:1.5;margin-bottom:0.6rem">Crea la marca en el sistema. Se generará su página, cobranzas y cronograma, pero quedará <b>por iniciar</b> (sin fechas) hasta que la PM le dé activar.</div>
-        <button onclick="crmCrearMarcaDesdeTrato('${it.id}')" class="btn-add" style="background:var(--tierra);width:100%">🚀 Crear marca (por iniciar)</button>
-      </div>`;
-    }
+  const marcaExiste = it.marcaCreadaId && (appData.brands||[]).some(b=>b.id===it.marcaCreadaId);
+  if(marcaExiste){
+    crearMarcaBtn = '<div style="background:rgba(90,170,53,0.1);border:1px solid rgba(90,170,53,0.35);border-radius:10px;padding:0.7rem 0.9rem;display:flex;align-items:center;gap:0.6rem">'
+      + '<span style="font-size:1.1rem">✅</span><div style="flex:1;font-size:0.78rem;color:var(--text2)"><b>Proyecto confirmado.</b> Ya tiene su marca en el dashboard y su ficha de cobranzas.</div>'
+      + '<button onclick="closeTrayModal();openBrand(\''+it.marcaCreadaId+'\')" class="btn-add" style="background:var(--tierra);white-space:nowrap">Ver marca →</button></div>';
+  } else if(!_crmEtapaEsPerdida(it.etapa)){
+    const tieneDemo = !!_demoDeProspecto(it.id);
+    crearMarcaBtn = '<div style="background:rgba(90,170,53,0.08);border:1px dashed rgba(90,170,53,0.45);border-radius:10px;padding:0.8rem 0.9rem">'
+      + '<div style="font-size:0.8rem;color:var(--text);font-weight:700;margin-bottom:0.2rem">¿Cerró el trato?</div>'
+      + '<div style="font-size:0.74rem;color:var(--text3);line-height:1.5;margin-bottom:0.6rem">Al confirmar: pasa a confirmado en el pipeline, se crea la marca en el dashboard (por iniciar, cronograma desde cero'
+      + (tieneDemo ? ', con los branding points elegidos en el demo' : '') + ') y su ficha de cobranzas. Antes de esto no se crea nada.</div>'
+      + '<button onclick="crmConfirmarProyecto(\''+it.id+'\')" class="btn-add" style="background:var(--tierra);width:100%">✅ Proyecto confirmado</button></div>';
   }
 
   const html = `
@@ -12794,6 +12805,146 @@ async function crmCrearMarcaDesdeTrato(crmId){
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// PROYECTO CONFIRMADO — único momento en que un prospecto pasa a ser proyecto real.
+//  1) El prospecto pasa a la etapa ganada/confirmada del pipeline (y ocupa su cupo en Metas)
+//  2) Se crea la marca en el dashboard ("por iniciar"): cronograma DE CERO (sin fechas del demo)
+//     y los branding points tal como quedaron en el demo (seleccionados, cantidades, propuestos)
+//  3) Se crea su ficha de cobranzas
+// Antes de confirmar, un demo NO crea nada en cobranzas ni en el dashboard.
+// ══════════════════════════════════════════════════════════════════════════
+function _esDemoMarca(b){
+  if(!b) return false;
+  if(b.isDemo === true) return true;
+  if(String(b.id||'').indexOf('demo_')===0) return true;
+  if(window._demoViewIds && window._demoViewIds.has(b.id)) return true;
+  return false;
+}
+function _crmEtapaConfirmada(){
+  const ets = _crmEtapas();
+  return ets.find(e=>/confirm/i.test(e.nombre||'')) || ets.find(e=>_crmEtapaEsGanada(e.id)) || null;
+}
+async function _bpDelDemo(demo){
+  let cats = null, total = (demo.brandingPoints && demo.brandingPoints.total) || 15;
+  try{
+    if(window.BrandBpDB){
+      const all = await BrandBpDB.loadAll();
+      const mine = all && all[demo.id];
+      if(mine && Array.isArray(mine.categories) && mine.categories.length) cats = mine.categories;
+    }
+  }catch(e){}
+  if(!cats) cats = (demo.brandingPoints && demo.brandingPoints.categories) || [];
+  // Copia con ids nuevos (filas propias para la marca real)
+  const copia = JSON.parse(JSON.stringify(cats)).map(cat=>{
+    cat.id = uid();
+    cat.items = (cat.items||[]).map(it=>Object.assign({}, it, { id: uid() }));
+    return cat;
+  });
+  return { total, categories: copia };
+}
+async function crmConfirmarProyecto(crmId){
+  const it = _crmData.items.find(x=>x.id===crmId);
+  if(!it) return;
+  if(it.marcaCreadaId && (appData.brands||[]).some(b=>b.id===it.marcaCreadaId)){
+    closeTrayModal(); openBrand(it.marcaCreadaId); return;
+  }
+  const demo = _demoDeProspecto(crmId);
+  const nombre = ((demo && demo.name) || it.empresa || it.nombre || '').trim();
+  if(!nombre){ showStatus('El prospecto no tiene nombre/empresa', true); return; }
+  const ok = await confirmModal(
+    'Confirmar el proyecto "'+nombre+'":\n\n'
+    + '• Pasa a confirmado en el pipeline y ocupa su cupo en Metas\n'
+    + '• Se crea la marca en el dashboard (por iniciar), con el cronograma desde cero'
+    + (demo ? ' y los branding points elegidos en el demo' : '') + '\n'
+    + '• Se crea su ficha en Cobranzas\n\n¿Confirmar?', '✅ Confirmar proyecto', 'background:var(--tierra);color:#fff;border:none');
+  if(!ok) return;
+  _canteraOverlayProgreso('Confirmando proyecto…');
+  try{
+    // 1) Pipeline
+    const et = _crmEtapaConfirmada();
+    if(et){ it.etapa = et.id; it.etapaFinalAt = new Date().toISOString(); }
+    it.confirmado = true;
+    it.confirmadoAt = new Date().toISOString();
+    it.reactivadoAt = new Date().toISOString(); it.abandonadoAt = null;
+    let okCrm = await CrmDB.saveItem(it); if(!okCrm) okCrm = await CrmDB.saveItem(it);
+    try{ await metasAsignarDesdeCrm(it); }catch(e){ console.warn('metas:', e); }
+
+    // 2) Marca real
+    const tpl = appData.template || defaultTemplate();
+    const cronograma = buildCronoSinFechas(tpl);   // desde cero; fechas al activar
+    const bp = demo ? await _bpDelDemo(demo) : buildBpFromTemplate(tpl);
+    const newBrand = {
+      id: uid(),
+      name: nombre,
+      industria: (demo && demo.industria && demo.industria!==it.empresa) ? demo.industria : '',
+      stage: 'aire',
+      prioridad: 'media',
+      color: (demo && demo.color) || BRAND_COLORS[Math.floor(Math.random()*BRAND_COLORS.length)],
+      domo: { m1: tpl?.domoM1||'', m2: tpl?.domoM2||'', helpers:[] },
+      image: (demo && demo.image) || '',
+      includeNaming: demo ? !!demo.includeNaming : false,
+      porIniciar: true,
+      createdFromCrm: it.id,
+      createdFromDemo: demo ? demo.id : null,
+      rondas: [{id:uid(),label:'R1',done:false},{id:uid(),label:'R2',done:false},{id:uid(),label:'R3',done:false}],
+      createdAt: new Date().toISOString(),
+      cronograma,
+      brandingPoints: bp,
+      approvals: JSON.parse(JSON.stringify(tpl.approvals || defaultApprovalsForTemplate())),
+    };
+    if(!Array.isArray(appData.brands)) appData.brands=[];
+    appData.brands.push(newBrand);
+    if(appData._deletedBrandIds?.length) appData._deletedBrandIds = appData._deletedBrandIds.filter(id=>id!==newBrand.id);
+    markBrandChange(newBrand.id);
+    const cronoRows = [];
+    ['aire','agua','tierra','fuego'].forEach(st=>{ (newBrand.cronograma?.[st]||[]).forEach((a,i)=> cronoRows.push(CronoDB.actToRow(newBrand.id, st, a, i))); });
+    if(cronoRows.length) await CronoDB.saveActsBatch(cronoRows);
+    if(window.BrandBpDB && newBrand.brandingPoints?.categories?.length){
+      const bpRows = [];
+      newBrand.brandingPoints.categories.forEach((cat,ci)=>{ (cat.items||[]).forEach((item,ii)=>{ if(cat.id&&item.id) bpRows.push(BrandBpDB.itemToRow(newBrand.id, cat, item, ci, ii)); }); });
+      if(bpRows.length){ let okBp = await BrandBpDB.saveItemsBatch(bpRows); if(!okBp) await BrandBpDB.saveItemsBatch(bpRows); }
+    }
+
+    // 3) Cobranzas
+    if(!appData.cobros || typeof appData.cobros!=='object') appData.cobros = {};
+    const pagos = buildPagosFromCrono(newBrand);
+    appData.cobros[newBrand.id] = { expanded:false, pagos };
+    if(window.CobrosDB){ for(const pago of pagos){ try{ await CobrosDB.savePago(newBrand.id, pago); }catch(e){} } }
+
+    // Vincular
+    it.marcaCreadaId = newBrand.id;
+    await CrmDB.saveItem(it);
+    if(demo){ demo.confirmadoComoMarca = newBrand.id; markLocalChange('demos'); }
+    markLocalChange('brands','cobros');
+    await upsert();
+    _canteraCerrarProgreso();
+    closeTrayModal();
+    showStatus('✅ "'+nombre+'" confirmado · marca creada por iniciar y ficha de cobranzas lista');
+    openBrand(newBrand.id);
+  }catch(e){
+    _canteraCerrarProgreso();
+    console.error('[crmConfirmarProyecto] error:', e);
+    showStatus('❌ Error al confirmar: '+(e.message||e), true);
+  }
+}
+
+// Limpieza: quita de Cobranzas las fichas que se crearon por error para demos
+async function limpiarCobrosDeDemos(){
+  const ids = Object.keys(appData.cobros||{}).filter(id=>{
+    const b = (appData.brands||[]).find(x=>x.id===id) || (appData.demos||[]).find(x=>x.id===id);
+    return String(id).indexOf('demo_')===0 || (b && _esDemoMarca(b));
+  });
+  for(const id of ids){
+    const pagos = (appData.cobros[id] && appData.cobros[id].pagos) || [];
+    if(window.CobrosDB && CobrosDB.deletePago){ for(const p of pagos){ try{ await CobrosDB.deletePago(p.id); }catch(e){} } }
+    delete appData.cobros[id];
+  }
+  markLocalChange('cobros');
+  await upsert();
+  console.log('[Cobranzas] Fichas de demos eliminadas:', ids.length, ids);
+  return ids.length;
+}
+
 // Activar una marca "por iniciar": asigna fechas al cronograma desde hoy y genera cobros.
 async function activarMarca(brandId){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
@@ -12833,10 +12984,20 @@ async function activarMarca(brandId){
     if(cronoRows.length) await CronoDB.saveActsBatch(cronoRows);
 
     // Generar cobranzas desde el cronograma (ahora que hay fechas)
-    const pagos = buildPagosFromCrono(brand);
-    appData.cobros[brand.id] = { expanded:false, pagos };
-    if(window.CobrosDB && pagos.length){
-      for(const pago of pagos){ await CobrosDB.savePago(brand.id, pago); }
+    const existentes = (appData.cobros[brand.id] && Array.isArray(appData.cobros[brand.id].pagos)) ? appData.cobros[brand.id].pagos : [];
+    if(existentes.length){
+      // Ya tiene ficha (creada al confirmar): solo actualizar las fechas proyectadas, sin duplicar
+      const acts = {}; ['aire','agua','tierra','fuego'].forEach(st=>(brand.cronograma?.[st]||[]).forEach(a=>{ acts[a.id]=a; }));
+      for(const p of existentes){
+        const a = p.triggerActId && acts[p.triggerActId];
+        if(a){ p.fechaProyectada = a.endDate||''; if(window.CobrosDB){ try{ await CobrosDB.savePago(brand.id, p); }catch(e){} } }
+      }
+    } else {
+      const pagos = buildPagosFromCrono(brand);
+      appData.cobros[brand.id] = { expanded:false, pagos };
+      if(window.CobrosDB && pagos.length){
+        for(const pago of pagos){ await CobrosDB.savePago(brand.id, pago); }
+      }
     }
 
     markLocalChange('brands');
@@ -14123,6 +14284,7 @@ async function openTriggerModal(brandId, pagoId){
 function ensureCobrosData(){
   if(!appData.cobros || typeof appData.cobros !== 'object') appData.cobros = {};
   (appData.brands||[]).forEach(b=>{
+    if(_esDemoMarca(b)) return; // los demos NO tienen cobranzas: solo al confirmar el proyecto
     if(!appData.cobros[b.id]){
       // Solo inicializar EN MEMORIA si la marca no tiene entrada en cobros.
       // ⚠️ NO guardamos estos pagos (monto 0) en la tabla automáticamente: si la marca
@@ -14486,7 +14648,7 @@ function renderCobros(){
     ...((appData._deletedBrandIds)||[]),
     ...((appData.papelera||[]).filter(p=>p.type==='brand'||p.type==='brand-archived').map(p=>p.id))
   ]);
-  let brands = [...(appData.brands||[])].filter(b=>!deletedIds.has(b.id) && !b.deletedAt && !b.archivedAt);
+  let brands = [...(appData.brands||[])].filter(b=>!deletedIds.has(b.id) && !b.deletedAt && !b.archivedAt && !_esDemoMarca(b));
   if(!brands.length){ grid.innerHTML='<div style="color:var(--text3);font-size:0.82rem">No hay marcas activas.</div>'; return; }
 
   // Sort
@@ -32424,6 +32586,7 @@ function _precioBpExtra(nExtra){
 // Marcas sin fecha de creación = anteriores.
 const BP_PRECIO_DESDE = '2026-10-15T05:00:00Z';
 function _bpPrecioAplica(brand){
+  if(brand && _esDemoMarca(brand)) return true; // los demos son proyectos nuevos: siempre aplica
   if(!brand || !brand.createdAt) return false;
   const t = new Date(brand.createdAt).getTime();
   return !isNaN(t) && t >= new Date(BP_PRECIO_DESDE).getTime();
