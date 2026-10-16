@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261016-v436-POSTULANTE-MANUAL -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261016-v437-FIX-BUCLE-CUENTAS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4132,7 +4132,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 436;
+const APP_VERSION = 437;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -21112,7 +21112,11 @@ async function _authCargarCuentas(){
     _authCuentas.lista = d.cuentas||[];
     _authCuentas.loaded = true;
     return true;
-  }catch(e){ return false; }
+  }catch(e){
+    // Clave incorrecta: se borra para no reintentar en bucle (antes generaba cientos de 401)
+    if(e && e._status===401){ _authSetAdminKey(''); showStatus('La clave de administración de cuentas no es válida', true); }
+    return false;
+  }
 }
 function _authCuentaDe(memberId){ return (_authCuentas.lista||[]).find(c=>c.id===memberId); }
 
@@ -21166,7 +21170,10 @@ function renderGestionRoles(){
   }
   const miembros = (appData.members||[]).filter(m=>m && m.active!==false);
   // Cargar cuentas de login en segundo plano (si hay clave admin disponible)
-  if(!_authCuentas.loaded && _authAdminKey()){ _authCargarCuentas().then(()=>renderGestionRoles()); }
+  if(!_authCuentas.loaded && !_authCuentas.cargando && _authAdminKey()){
+    _authCuentas.cargando = true;
+    _authCargarCuentas().then(ok=>{ _authCuentas.cargando = false; if(ok) renderGestionRoles(); });
+  }
 
   let h = `<div style="max-width:880px;margin:0 auto">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.4rem;flex-wrap:wrap">
