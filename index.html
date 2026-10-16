@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261016-v454-FRASES-CARGA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261016-v456-ROL-COMERCIAL -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1961,7 +1961,6 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
 .psl-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.7rem;padding:2.2rem 0;text-align:center}
 .psl-tx{font-size:0.8rem;color:var(--text3)}
 #loading-screen .psl-main{margin-bottom:0.4rem}
-body.portal-mode #loading-screen .psl-main{display:none}
 #loading-screen .loading-spinner{display:none}
 #loading-screen .loading-logo{margin-top:-0.2rem;opacity:0.9}
 .loading-frase{font-size:0.86rem;font-weight:600;color:var(--text);min-height:1.3em;text-align:center;letter-spacing:-0.1px;transition:opacity .35s ease,transform .35s ease}
@@ -1969,9 +1968,8 @@ body.portal-mode #loading-screen .psl-main{display:none}
 #loading-screen .loading-sub{display:none}
 #loading-screen.con-error .loading-sub{display:block}
 #loading-screen.con-error .loading-frase{display:none}
-body.portal-mode #loading-screen .loading-frase{display:none}
-body.portal-mode #loading-screen .loading-sub{display:block}
-body.portal-mode #loading-screen .loading-spinner{display:block}
+body.portal-mode #loading-screen .loading-frase{color:#1a1a1a}
+body.portal-mode #portal-loading-logo{display:none!important}
 /* ── Logo oficial Polen System ── */
 :root,[data-theme="light"]{--ps-a:#363832;--ps-b:#9b9b9b;}
 [data-theme="dark"]{--ps-a:#f2f2f2;--ps-b:#fcfcfc;}
@@ -4003,14 +4001,22 @@ var POLEN_FRASES_CARGA = [
   'Contando las estrellas del fit…','Ajustando el casco…','Despejando la pista de despegue…',
   'Encendiendo los propulsores de ideas…','Conectando con la base espacial…','Escaneando constelaciones de marca…'
 ];
+// Versión para el portal del cliente (sin jerga interna)
+var POLEN_FRASES_PORTAL = [
+  'Analizando etapa Aire…','Calibrando la etapa Agua…','Sembrando ideas en la etapa Tierra…','Encendiendo la etapa Fuego…',
+  'Trazando la órbita de tu marca…','Asignando branding points…','Preparando tu cronograma…','Cargando combustible creativo…',
+  'Abriendo la escotilla de aprobaciones…','Escaneando constelaciones de marca…','Despejando la pista de despegue…',
+  'Encendiendo los propulsores de ideas…','Ajustando el casco…','Alineando tu domo creativo…'
+];
 (function _polenFrasesCarga(){
   var el = document.getElementById('loading-frase'); if(!el) return;
   var ls = document.getElementById('loading-screen');
-  var resto = POLEN_FRASES_CARGA.slice().sort(function(){ return Math.random()-0.5; });
-  var i = 0;
+  var mezclar = function(a){ return a.slice().sort(function(){ return Math.random()-0.5; }); };
+  var resto = null, i = 0;
   var t = setInterval(function(){
     if(!ls || ls.style.display==='none' || ls.classList.contains('hide')){ clearInterval(t); return; }
     el.classList.add('out');
+    if(!resto) resto = mezclar((document.body && document.body.classList.contains('portal-mode')) ? POLEN_FRASES_PORTAL : POLEN_FRASES_CARGA);
     setTimeout(function(){ el.textContent = resto[i++ % resto.length]; el.classList.remove('out'); }, 350);
   }, 1900);
   // Si algo falla, mostrar el mensaje técnico en vez de las frases
@@ -4192,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 454;
+const APP_VERSION = 456;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -17525,12 +17531,13 @@ async function guardarPausaActiva(){
 // (La definición real y vigente de _usuarioActual está más abajo, conectada a la
 // sesión del login. Esta versión antigua se eliminó para evitar duplicados.)
 
-// Normaliza un valor de rol individual a: admin | pm | asistente | revisor | regular
+// Normaliza un valor de rol individual a: admin | pm | comercial | asistente | revisor | regular
 function _normRol(r){
   r = String(r||'').toLowerCase().trim();
   if(['admin','administrador','socio','socia'].includes(r)) return 'admin';
   if(['pm','project manager','project-manager'].includes(r)) return 'pm';
   if(['asistente','asistente administrativo','asistente administrativa'].includes(r)) return 'asistente';
+  if(['comercial','gerente comercial','director comercial','directora comercial','ventas'].includes(r)) return 'comercial';
   if(['revisor','director creativo','dc'].includes(r)) return 'revisor';
   if(['regular','ejecutor','ejecutora'].includes(r)) return 'regular';
   return '';
@@ -17548,7 +17555,7 @@ function _rolesDe(m){
 // Rol PRINCIPAL (mayor jerarquía): admin > pm > asistente > revisor > regular.
 function _rolDe(m){
   const roles = _rolesDe(m);
-  const prioridad = ['admin','pm','asistente','revisor','regular'];
+  const prioridad = ['admin','pm','comercial','asistente','revisor','regular'];
   for(const p of prioridad){ if(roles.includes(p)) return p; }
   return 'regular';
 }
@@ -17560,7 +17567,7 @@ function _rolesActuales(){
 // Rol principal del usuario actual (compatibilidad).
 function _rolActual(){
   const roles = _rolesActuales();
-  const prioridad = ['admin','pm','asistente','revisor','regular'];
+  const prioridad = ['admin','pm','comercial','asistente','revisor','regular'];
   for(const p of prioridad){ if(roles.includes(p)) return p; }
   return 'regular';
 }
@@ -17569,13 +17576,14 @@ function _tieneRol(rol){ return _rolesActuales().includes(rol); }
 // Atajos de rol
 function _esPM(){ return _tieneRol('pm'); }
 function _esAsistente(){ return _tieneRol('asistente'); }
+function _esComercial(){ return _tieneRol('comercial'); }
 function _esRevisor(){ return _tieneRol('revisor'); }
 function _esRegular(){ return _rolActual()==='regular'; }
 
 // Helpers de consola para asignar/ver roles (útiles antes del login).
 // Uso: polenSetRol('Sebas','admin')  ·  polenVerRoles()
 window.polenSetRol = async function(idOApodo, rol){
-  const rolesValidos = ['admin','pm','asistente','revisor','regular'];
+  const rolesValidos = ['admin','pm','comercial','asistente','revisor','regular'];
   if(!rolesValidos.includes(rol)){ console.warn('Rol inválido. Usa:', rolesValidos.join(', ')); return; }
   const m = (appData.members||[]).find(x=>x.id===idOApodo || (x.apodo||'').toLowerCase()===String(idOApodo).toLowerCase() || (x.nombre||'').toLowerCase()===String(idOApodo).toLowerCase());
   if(!m){ console.warn('No encontré al miembro:', idOApodo); return; }
@@ -18278,10 +18286,21 @@ function renderMiTrabajo(){
       <div style="flex:1;min-width:150px">
         <div style="font-size:0.72rem;color:var(--text3);font-weight:600;letter-spacing:0.3px">${saludo},</div>
         <div style="font-size:1.35rem;font-weight:800;color:var(--text);letter-spacing:-0.5px;line-height:1.1">${escapeHtml(nombre)} ${emoji}</div>
-        <div style="font-size:0.72rem;color:var(--text2);margin-top:0.2rem">${_esPM()?'Lo que coordinas esta semana':'Tu trabajo de un vistazo'}</div>
+        <div style="font-size:0.72rem;color:var(--text2);margin-top:0.2rem">${_esPM()?'Lo que coordinas esta semana':(_esComercial()?'Tu radar comercial de hoy':'Tu trabajo de un vistazo')}</div>
       </div>
       <div style="display:flex;gap:1.4rem;text-align:center">`;
-  if(_esPM()){
+  if(_esComercial() && !_esPM()){
+    const _pc = _comercialStats();
+    h1 += `
+        <div>
+          <div style="font-size:1.6rem;font-weight:800;color:${_pc.pend?'#ef4444':color};line-height:1">${_pc.pend}</div>
+          <div style="font-size:0.62rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Seguimientos</div>
+        </div>
+        <div>
+          <div style="font-size:1.6rem;font-weight:800;color:var(--text);line-height:1">${_pc.metaLlenos}<span style="font-size:0.9rem;color:var(--text3)">/${_pc.metaTotal}</span></div>
+          <div style="font-size:0.62rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Meta quincena</div>
+        </div>`;
+  } else if(_esPM()){
     // Contadores de la PM: reuniones cliente de la semana + revisiones pendientes
     let _allH=[]; try{ _allH = deduplicateHitos((appData.members||[]).flatMap(m=>getMemberHitos(m.id))); }catch(e){}
     const _hoy=new Date(); _hoy.setHours(0,0,0,0);
@@ -18326,6 +18345,11 @@ function renderMiTrabajo(){
     tabs.push(['nuevos','Nuevos proyectos']);
     const validas = tabs.map(t=>t[0]);
     if(!validas.includes(_miTrabajoVista)) _miTrabajoVista='resumen';
+  } else if(_esComercial() && !_esPM() && !misMarcas.length){
+    // Gerente comercial sin marcas propias: su panel es comercial (sin semana/mes/domos de marcas)
+    tabs = [['resumen','Resumen']];
+    if(_tieneSuperv) tabs.push(['superviso','Superviso']);
+    if(!tabs.map(t=>t[0]).includes(_miTrabajoVista)) _miTrabajoVista='resumen';
   } else {
     tabs = [['resumen','Resumen']];
     if(_tieneSuperv) tabs.push(['superviso','Superviso']);
@@ -18344,7 +18368,8 @@ function renderMiTrabajo(){
   if(_miTrabajoVista==='resumen'){
     // Resumen base según el rol PRINCIPAL (mayor jerarquía)
     const rolPrincipal = _rolActual();
-    if(rolPrincipal==='asistente')    h1 += _miTrabajoResumenAsistente(STAGE_COLOR, fmtF, diffLabel, diffColor);
+    if(_esComercial() && !_esPM())  h1 += _miTrabajoResumenComercial(user);
+    else if(rolPrincipal==='asistente')    h1 += _miTrabajoResumenAsistente(STAGE_COLOR, fmtF, diffLabel, diffColor);
     else if(rolPrincipal==='pm')      h1 += _miTrabajoResumenPM(STAGE_COLOR, fmtF, diffLabel, diffColor);
     else                              h1 += _miTrabajoResumen(misMarcas, proximosHitos, STAGE_COLOR, fmtF, diffLabel, diffColor);
   }
@@ -18637,6 +18662,188 @@ function _miTrabajoResumenRevisor(STAGE_COLOR, fmtF, diffLabel, diffColor){
 
 // ── Resumen del ASISTENTE: cobros clave (con montos) ──
 // A diferencia de la PM, el asistente SÍ ve montos (maneja la plata).
+// ══ PANEL COMERCIAL (rol 'comercial'): meta, seguimientos, to-dos, pipeline, cobros, Calendly ══
+function _comercialAsegurarCRM(){
+  if(window._crmData && _crmData.loaded) return true;
+  if(window._comercialCargandoCRM || typeof loadCRM!=='function') return false;
+  window._comercialCargandoCRM = true;
+  loadCRM().then(()=>{ window._comercialCargandoCRM=false; if(currentPage==='dashboard') try{ renderMiTrabajo(); }catch(e){} })
+           .catch(()=>{ window._comercialCargandoCRM=false; });
+  return false;
+}
+function _comercialStats(){
+  const listo = _comercialAsegurarCRM();
+  let pend = 0, activos = [];
+  if(listo){
+    activos = (_crmData.items||[]).filter(it=>!it.archivado && !_crmEtapaEsFinal(it.etapa) && !_crmEtapaEsAbandonado(it.etapa) && !_crmEtapaEsDescartada(it.etapa));
+    try{ pend = _crmPendientes().length; }catch(e){}
+  }
+  let metaLlenos = 0, metaTotal = (typeof METAS_SLOTS!=='undefined'?METAS_SLOTS:6), metaKey = '';
+  try{ ensureMetas(); metaKey = _quincenaActual(); metaLlenos = Math.min((appData.metas[metaKey]||[]).length, metaTotal); }catch(e){}
+  return { listo, pend, activos, metaLlenos, metaTotal, metaKey };
+}
+function _comercialCobros(){
+  const hoy = new Date(); hoy.setHours(0,0,0,0); const hoyStr = fmtDate(hoy);
+  const out = [];
+  Object.keys(appData.cobros||{}).forEach(brandId=>{
+    const brand = (appData.brands||[]).find(b=>b.id===brandId);
+    if(!brand || brand.archivedAt || brand.deletedAt) return;
+    ((appData.cobros[brandId]?.pagos)||[]).forEach(p=>{
+      if(p.cobrado || p.incobrable || !p.fechaProyectada) return;
+      const diff = Math.round((parseLocalDate(p.fechaProyectada)-hoy)/86400000);
+      if(diff<=7) out.push({ marca:brand.name||'', monto:parseFloat(p.monto)||0, diff, vencido:p.fechaProyectada<hoyStr });
+    });
+  });
+  return out.sort((a,b)=>a.diff-b.diff);
+}
+function _comercialGuardarCalendly(){
+  const inp = document.getElementById('com-calendly'); if(!inp) return;
+  let v = (inp.value||'').trim();
+  if(v && !/^https?:\/\//i.test(v)) v = 'https://'+v;
+  if(v && !/calendly\.com\//i.test(v)){ showStatus('Pega el enlace de Calendly (calendly.com/…)', true); return; }
+  const u = _usuarioActual(); const m = (appData.members||[]).find(x=>x.id===(u&&u.id)); if(!m) return;
+  m.calendly = v || undefined; if(!v) delete m.calendly;
+  window._comEditCal = false;
+  try{ if(window.MembersDB) MembersDB.saveMember(m, appData.members.indexOf(m)); }catch(e){}
+  renderMiTrabajo(); showStatus(v?'Calendly conectado ✓':'Calendly quitado');
+}
+function _comercialCopiarCalendly(url){
+  try{ navigator.clipboard.writeText(url); showStatus('Link de Calendly copiado ✓'); }catch(e){ showStatus('No se pudo copiar', true); }
+}
+function _comercialAbrirProspecto(id){
+  try{ openCrmView(id); }catch(e){ goToCRM && goToCRM(); }
+}
+async function _comercialToggleTarea(id){
+  await toggleCrmTareaDone(id); renderMiTrabajo();
+}
+function _miTrabajoResumenComercial(user){
+  const st = _comercialStats();
+  const T = (t)=>`<div style="font-size:0.7rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.6rem">${t}</div>`;
+  const money = n => '$'+(n||0).toLocaleString('en-US',{maximumFractionDigits:0});
+  const card = 'padding:0.8rem;border-radius:12px;background:var(--bg-card2);border:1px solid var(--border)';
+  const cobros = _comercialCobros();
+  const venc = cobros.filter(c=>c.vencido);
+  const demos = (appData.demos||[]).filter(d=>d && !d.deletedAt && !d.archivedAt);
+  const pctMeta = st.metaTotal ? Math.round(st.metaLlenos/st.metaTotal*100) : 0;
+
+  let h = `<div style="padding:1rem 1.4rem">`;
+  // ── Tarjetas ──
+  h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.6rem;margin-bottom:1.1rem">
+    <div onclick="goToMetas()" style="${card};cursor:pointer" title="Ir a Metas">
+      <div style="display:flex;align-items:baseline;gap:0.3rem"><span style="font-size:1.4rem;font-weight:800;color:var(--text);line-height:1">${st.metaLlenos}</span><span style="font-size:0.8rem;color:var(--text3);font-weight:700">/ ${st.metaTotal}</span></div>
+      <div style="height:5px;border-radius:3px;background:var(--border);margin:0.4rem 0 0.3rem;overflow:hidden"><div style="width:${pctMeta}%;height:100%;background:${pctMeta>=100?'#22c55e':'var(--aire)'}"></div></div>
+      <div style="font-size:0.62rem;color:var(--text3);font-weight:700;text-transform:uppercase">Meta de la quincena${st.metaTotal-st.metaLlenos>0?' · faltan '+(st.metaTotal-st.metaLlenos):' · ¡lograda!'}</div>
+    </div>
+    <div onclick="goToCRM()" style="${card};cursor:pointer" title="Ir al CRM">
+      <div style="font-size:1.4rem;font-weight:800;color:var(--text);line-height:1">${st.listo?st.activos.length:'…'}</div>
+      <div style="font-size:0.62rem;color:var(--text3);font-weight:700;text-transform:uppercase;margin-top:0.3rem">Prospectos activos</div>
+    </div>
+    <div onclick="goToCRM()" style="${card};cursor:pointer;${st.pend?'background:rgba(239,68,68,0.07);border-color:rgba(239,68,68,0.25)':''}" title="Ir al CRM">
+      <div style="font-size:1.4rem;font-weight:800;color:${st.pend?'#ef4444':'var(--text)'};line-height:1">${st.listo?st.pend:'…'}</div>
+      <div style="font-size:0.62rem;color:var(--text3);font-weight:700;text-transform:uppercase;margin-top:0.3rem">Seguimientos pendientes</div>
+    </div>
+    <div style="${card}">
+      <div style="font-size:1.4rem;font-weight:800;color:${venc.length?'var(--fuego)':'var(--text)'};line-height:1">${money(venc.reduce((a,c)=>a+c.monto,0))}</div>
+      <div style="font-size:0.62rem;color:var(--text3);font-weight:700;text-transform:uppercase;margin-top:0.3rem">Cobros vencidos · ${venc.length}</div>
+    </div>
+  </div>`;
+
+  h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.2rem">`;
+  // ── Columna 1: seguimientos + to-dos ──
+  h += `<div>`;
+  h += T('Seguimientos para hoy');
+  if(!st.listo){
+    h += polenLoader('Revisando el pipeline…',48);
+  } else {
+    const pend = _crmPendientes().slice(0,6);
+    if(!pend.length) h += `<div style="font-size:0.76rem;color:var(--text3);padding:0.6rem 0 1rem">Todo al día. Ningún prospecto espera respuesta 🚀</div>`;
+    else {
+      h += `<div style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:1rem">`;
+      pend.forEach(({it})=>{
+        const et = (typeof _crmEtapaInfo==='function' ? _crmEtapaInfo(it.etapa) : null) || {};
+        h += `<div onclick="_comercialAbrirProspecto('${it.id}')" style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.65rem;border-radius:10px;background:var(--bg-card2);border-left:4px solid ${et.color||'var(--border)'};cursor:pointer">
+          <span class="crm-sem ${_crmSemClass(it.prioridad)}"></span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(it.nombre||'')}${it.empresa?` <span style="font-weight:500;color:var(--text3)">· ${escapeHtml(it.empresa)}</span>`:''}</div>
+            <div style="font-size:0.64rem;color:var(--text3)">${escapeHtml(et.nombre||'')}</div>
+          </div>
+          ${_crmProximoLabel(it)}
+        </div>`;
+      });
+      h += `</div>`;
+    }
+  }
+  const tareas = (appData.crmTareas||[]).filter(t=>!t.done && (!t.responsableId || t.responsableId===user.id))
+    .sort((a,b)=> (a.deadline||'9999').localeCompare(b.deadline||'9999')).slice(0,5);
+  h += T('Mis to-dos comerciales');
+  if(!tareas.length) h += `<div style="font-size:0.76rem;color:var(--text3);padding:0.4rem 0">Sin pendientes.</div>`;
+  else {
+    h += `<div style="display:flex;flex-direction:column;gap:0.35rem">`;
+    tareas.forEach(t=>{
+      h += `<div style="display:flex;align-items:flex-start;gap:0.55rem;padding:0.45rem 0.6rem;border-radius:9px;background:var(--bg-card2)">
+        <div onclick="_comercialToggleTarea('${t.id}')" title="Marcar como hecha" style="width:16px;height:16px;border-radius:5px;border:2px solid var(--border);cursor:pointer;flex-shrink:0;margin-top:2px"></div>
+        <div style="flex:1;min-width:0;font-size:0.78rem;font-weight:600;color:var(--text);line-height:1.35">${escapeHtml(t.titulo||'')}${t.deadline?`<div style="margin-top:0.2rem">${_crmTareaDeadlineChip(t.deadline)}</div>`:''}</div>
+      </div>`;
+    });
+    h += `</div>`;
+  }
+  h += `</div>`;
+
+  // ── Columna 2: pipeline + cobros + demos + Calendly ──
+  h += `<div>`;
+  h += T('Pipeline por etapa');
+  if(st.listo){
+    const etapas = _crmEtapas().filter(e=>!_crmEtapaEsFinal(e.id) && !_crmEtapaEsDescartada(e.id) && !_crmEtapaEsAbandonado(e.id));
+    const max = Math.max(1, ...etapas.map(e=>st.activos.filter(it=>it.etapa===e.id).length));
+    h += `<div style="display:flex;flex-direction:column;gap:0.35rem;margin-bottom:0.5rem">`;
+    etapas.forEach(e=>{
+      const n = st.activos.filter(it=>it.etapa===e.id).length;
+      const prob = st.activos.filter(it=>it.etapa===e.id && it.probabilidad==='alta').length;
+      h += `<div onclick="goToCRM()" style="display:grid;grid-template-columns:130px 1fr 54px;align-items:center;gap:0.5rem;cursor:pointer" title="${prob} probable${prob!==1?'s':''}">
+        <span style="font-size:0.7rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(e.nombre)}</span>
+        <div style="height:8px;border-radius:4px;background:var(--border);overflow:hidden"><div style="width:${Math.round(n/max*100)}%;height:100%;background:${e.color||'var(--aire)'}"></div></div>
+        <span style="font-size:0.7rem;font-weight:800;color:var(--text);text-align:right">${n}${prob?` <span style="color:#22c55e;font-weight:700">·${prob}</span>`:''}</span>
+      </div>`;
+    });
+    h += `</div><div style="font-size:0.6rem;color:var(--text3);margin-bottom:1rem"><span style="color:#22c55e;font-weight:700">·n</span> = prospectos con cierre probable</div>`;
+  } else h += `<div style="font-size:0.74rem;color:var(--text3);margin-bottom:1rem">Cargando…</div>`;
+
+  if(cobros.length){
+    h += T('Cobros esta semana');
+    h += `<div style="display:flex;flex-direction:column;gap:0.3rem;margin-bottom:1rem">`;
+    cobros.slice(0,4).forEach(c=>{
+      const lab = c.vencido?`vencido ${Math.abs(c.diff)}d`:c.diff===0?'hoy':c.diff===1?'mañana':`en ${c.diff}d`;
+      h += `<div style="display:flex;align-items:center;gap:0.5rem;font-size:0.76rem;padding:0.35rem 0.55rem;border-radius:8px;background:var(--bg-card2)">
+        <span style="flex:1;min-width:0;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.marca)}</span>
+        <span style="font-weight:800;color:var(--text)">${money(c.monto)}</span>
+        <span style="font-size:0.64rem;font-weight:700;color:${c.vencido||c.diff<=1?'var(--fuego)':'var(--tierra)'}">${lab}</span>
+      </div>`;
+    });
+    h += `</div>`;
+  }
+
+  // Calendly
+  const cal = (_usuarioActual()||{}).calendly || ((appData.members||[]).find(m=>m.id===user.id)||{}).calendly || '';
+  h += T('Mi Calendly');
+  if(cal && !window._comEditCal){
+    h += `<div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center">
+      <button onclick="_comercialCopiarCalendly('${escapeHtml(cal)}')" style="padding:0.45rem 0.8rem;border-radius:9px;border:none;background:var(--text);color:var(--bg);font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font)">📋 Copiar link para agendar</button>
+      <a href="https://calendly.com/app/scheduled_events/user/me" target="_blank" rel="noopener" style="padding:0.45rem 0.8rem;border-radius:9px;border:1px solid var(--border);color:var(--text);font-size:0.74rem;font-weight:700;text-decoration:none">📅 Ver mis reuniones ↗</a>
+      <button onclick="window._comEditCal=true;renderMiTrabajo()" title="Cambiar link" style="background:none;border:none;color:var(--text3);font-size:0.7rem;cursor:pointer">editar</button>
+    </div>
+    <div style="font-size:0.62rem;color:var(--text3);margin-top:0.35rem;word-break:break-all">${escapeHtml(cal)}</div>`;
+  } else {
+    h += `<div style="display:flex;gap:0.4rem">
+      <input id="com-calendly" value="${escapeHtml(cal)}" placeholder="calendly.com/tu-usuario" onkeydown="if(event.key==='Enter')_comercialGuardarCalendly()" style="flex:1;min-width:0;padding:0.45rem 0.6rem;border-radius:9px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.76rem;font-family:var(--font);outline:none">
+      <button onclick="_comercialGuardarCalendly()" style="padding:0.45rem 0.8rem;border-radius:9px;border:none;background:var(--text);color:var(--bg);font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font)">Conectar</button>
+    </div>
+    <div style="font-size:0.62rem;color:var(--text3);margin-top:0.3rem">Pega tu link de Calendly para copiarlo en un clic cuando agendes con un prospecto.</div>`;
+  }
+  if(demos.length) h += `<div style="font-size:0.7rem;color:var(--text3);margin-top:1rem">🛰 ${demos.length} portal${demos.length!==1?'es':''} demo activo${demos.length!==1?'s':''} · <a onclick="goToCRM()" style="color:var(--aire);cursor:pointer">ver en CRM</a></div>`;
+  h += `</div></div></div>`;
+  return h;
+}
+
 function _miTrabajoResumenAsistente(STAGE_COLOR, fmtF, diffLabel, diffColor){
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const hoyStr = hoy.toISOString().slice(0,10);
@@ -19230,11 +19437,12 @@ function _nuevosProyectos(){
 const _ROLES_INFO = {
   admin:     { label:'Administrador', emoji:'👑', desc:'Socios. Acceso a todo.', color:'#9b8bd4' },
   pm:        { label:'Project Manager', emoji:'🎯', desc:'Coordinación de proyectos.', color:'#3d9edd' },
+  comercial: { label:'Gerente Comercial', emoji:'💼', desc:'Pipeline, seguimientos, metas y cobros.', color:'#e29578' },
   asistente: { label:'Asistente Administrativo', emoji:'💰', desc:'Cobros, finanzas, nuevos proyectos.', color:'#81b29a' },
   revisor:   { label:'Revisor / Dirección Creativa', emoji:'🎬', desc:'Supervisa marcas asignadas.', color:'#e6a817' },
   regular:   { label:'Regular', emoji:'👤', desc:'Su trabajo, notas y tareas.', color:'#7d9bc1' }
 };
-const _ROLES_ORDEN = ['admin','pm','asistente','revisor','regular'];
+const _ROLES_ORDEN = ['admin','pm','comercial','asistente','revisor','regular'];
 
 async function _cambiarRolMiembro(memberId, nuevoRol){
   const m = (appData.members||[]).find(x=>x.id===memberId);
@@ -21846,11 +22054,12 @@ function _abrirGestionRolesMiembro(memberId){
 
 // Aplica la matriz de menú por rol (según el diseño de roles).
 function _aplicarMenuPorRol(){
-  const A = _tieneRol('admin'), PM = _tieneRol('pm'), AS = _tieneRol('asistente'), RV = _tieneRol('revisor');
+  const A = _tieneRol('admin'), PM = _tieneRol('pm'), AS = _tieneRol('asistente') || _tieneRol('comercial'), RV = _tieneRol('revisor');
+  const CO = _tieneRol('comercial');
   const RG = _esRegular();
   const set = (id, visible)=>{ const el=document.getElementById(id); if(el) el.style.display = visible?'':'none'; };
   set('nav-equipo',   false);
-  set('nav-reportes', A || PM);
+  set('nav-reportes', A || PM || CO);
   set('nav-roles', A);
   set('nav-cantera', A);                      // Reclutamiento: solo socios (admin)
   set('nav-crm',       A || AS);
