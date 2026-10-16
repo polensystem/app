@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261016-v437-FIX-BUCLE-CUENTAS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261016-v438-CAMBIAR-PASS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4132,7 +4132,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 437;
+const APP_VERSION = 438;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -29868,6 +29868,7 @@ async function checkLogin(){
     const d = await authAPI('login', { usuario:user.trim().toLowerCase(), pass });
     if(d.ok){
       _guardarSesion({ id:d.id, usuario:d.usuario, nombre:d.nombre, debe_cambiar:!!d.debe_cambiar });
+      window._passLoginTemporal = d.debe_cambiar ? pass : null; // solo en memoria, para no pedirla otra vez
       document.getElementById('login-screen').style.display='none';
       fin();
       boot();
@@ -29913,25 +29914,66 @@ function showLogin(){
 }
 
 // Cambiar mi propia contraseña (obligatorio=true si viene de contraseña temporal)
+// Cambiar mi contraseña — una sola ventana clara:
+//  · contraseña actual (se omite si viene justo del login con contraseña temporal)
+//  · nueva + repetir nueva, con opción de ver lo que se escribe
+//  · al guardar, se COMPRUEBA entrando con la nueva (así sabemos que quedó guardada)
 async function _authCambiarMiPass(obligatorio){
   const s = _sesion();
   if(!s || s.master){ showStatus('No disponible para este acceso', true); return; }
-  const actual = obligatorio ? null : await _promptModal('Cambiar mi contraseña', 'Contraseña actual:', '');
-  if(!obligatorio && !actual) return;
-  const nueva = await _promptModal('Cambiar mi contraseña', obligatorio?'Tu contraseña es temporal. Elige una nueva:':'Nueva contraseña:', '');
-  if(!nueva) return;
-  try{
-    if(obligatorio){
-      // viene de temporal: no pedimos la actual (ya la usó para entrar); reseteamos vía login conocido
-      // usamos cambiar_pass con la temporal que acaba de ingresar — pero no la tenemos; pedimos actual
-      const act = await _promptModal('Confirma', 'Por seguridad, escribe la contraseña con la que acabas de entrar:', '');
-      if(!act) return;
-      await authAPI('cambiar_pass', { usuario:s.usuario, pass_actual:act, pass_nueva:nueva });
-    } else {
+  const tempLogin = (obligatorio && window._passLoginTemporal) ? window._passLoginTemporal : '';
+  const pideActual = !tempLogin;
+  const inp = 'width:100%;box-sizing:border-box;padding:0.65rem 0.75rem;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.9rem;font-family:var(--font);outline:none';
+  const lbl = 'display:block;font-size:0.76rem;font-weight:600;color:var(--text2);margin-bottom:0.3rem';
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:10003;display:flex;align-items:center;justify-content:center;padding:1rem';
+  ov.innerHTML = '<div style="background:var(--bg);border-radius:16px;padding:1.4rem 1.5rem;width:min(420px,94vw);box-shadow:0 10px 40px rgba(0,0,0,0.25)">'
+    + '<div style="font-size:1.05rem;font-weight:800;color:var(--text);margin-bottom:0.3rem">'+(obligatorio?'Crea tu contraseña':'Cambiar mi contraseña')+'</div>'
+    + '<div style="font-size:0.8rem;color:var(--text3);margin-bottom:1rem;line-height:1.45">'
+    + (obligatorio ? 'Entraste con una contraseña temporal. Elige una nueva que solo tú sepas.' : 'Escribe tu contraseña de ahora y luego la nueva dos veces.')
+    + '</div>'
+    + (pideActual ? '<div style="margin-bottom:0.75rem"><label style="'+lbl+'">'+(obligatorio?'Contraseña temporal (la que te dieron)':'Contraseña actual')+'</label><input id="_cp-act" type="password" autocomplete="current-password" style="'+inp+'"></div>' : '')
+    + '<div style="margin-bottom:0.75rem"><label style="'+lbl+'">Nueva contraseña</label><input id="_cp-new" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres" style="'+inp+'"></div>'
+    + '<div style="margin-bottom:0.6rem"><label style="'+lbl+'">Repite la nueva contraseña</label><input id="_cp-rep" type="password" autocomplete="new-password" style="'+inp+'"></div>'
+    + '<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.74rem;color:var(--text3);cursor:pointer;margin-bottom:0.8rem"><input id="_cp-ver" type="checkbox"> Mostrar lo que escribo</label>'
+    + '<div id="_cp-err" style="font-size:0.76rem;color:var(--fuego);min-height:1.1rem;margin-bottom:0.5rem"></div>'
+    + '<div style="display:flex;justify-content:flex-end;gap:0.5rem">'
+    + '<button id="_cp-cancel" style="background:none;border:1px solid var(--border);border-radius:9px;padding:0.55rem 1rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:0.82rem">'+(obligatorio?'Más tarde':'Cancelar')+'</button>'
+    + '<button id="_cp-ok" style="background:var(--agua);color:#fff;border:none;border-radius:9px;padding:0.55rem 1.15rem;cursor:pointer;font-family:var(--font);font-size:0.84rem;font-weight:700">Guardar contraseña</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  const $ = (id)=>ov.querySelector('#'+id);
+  const err = $('_cp-err');
+  $('_cp-ver').onchange = (e)=>{ ['_cp-act','_cp-new','_cp-rep'].forEach(id=>{ const x=$(id); if(x) x.type = e.target.checked ? 'text' : 'password'; }); };
+  $('_cp-cancel').onclick = ()=>{ ov.remove(); if(obligatorio) showStatus('Recuerda cambiar tu contraseña desde ⚙ en el menú'); };
+  setTimeout(()=>{ const f = $(pideActual?'_cp-act':'_cp-new'); if(f) f.focus(); }, 50);
+  const guardar = async ()=>{
+    const actual = pideActual ? $('_cp-act').value : tempLogin;
+    const nueva = $('_cp-new').value, rep = $('_cp-rep').value;
+    err.textContent = '';
+    if(pideActual && !actual){ err.textContent = 'Escribe tu contraseña '+(obligatorio?'temporal':'actual')+'.'; return; }
+    if(nueva.length < 6){ err.textContent = 'La nueva contraseña debe tener al menos 6 caracteres.'; return; }
+    if(nueva !== rep){ err.textContent = 'Las dos contraseñas nuevas no coinciden.'; return; }
+    if(nueva === actual){ err.textContent = 'La nueva contraseña debe ser distinta a la '+(obligatorio?'temporal':'actual')+'.'; return; }
+    const btn = $('_cp-ok'); btn.disabled = true; btn.textContent = 'Guardando…';
+    try{
       await authAPI('cambiar_pass', { usuario:s.usuario, pass_actual:actual, pass_nueva:nueva });
+      // Comprobación: entrar con la nueva contraseña
+      let verificado = false;
+      try{ const d = await authAPI('login', { usuario:s.usuario, pass:nueva }); verificado = !!(d && d.ok); }catch(e){}
+      window._passLoginTemporal = null;
+      try{ const ss = _sesion(); if(ss){ ss.debe_cambiar = false; _guardarSesion(ss); } }catch(e){}
+      ov.remove();
+      if(verificado) showStatus('✓ Contraseña guardada. Desde ahora entras con la nueva.');
+      else showStatus('Se envió el cambio, pero no pude comprobarlo. Cierra sesión y prueba entrar con la nueva.', true);
+    }catch(e){
+      btn.disabled = false; btn.textContent = 'Guardar contraseña';
+      if(e.message==='pass_actual_incorrecta' || e._status===401) err.textContent = 'La contraseña '+(obligatorio?'temporal':'actual')+' no es correcta.';
+      else err.textContent = 'No se pudo guardar: '+(e.message||'error desconocido');
     }
-    showStatus('Contraseña actualizada ✓');
-  }catch(e){ showStatus(e.message==='pass_actual_incorrecta'?'La contraseña actual no coincide':('Error: '+(e.message||'')), true); }
+  };
+  $('_cp-ok').onclick = guardar;
+  ov.querySelectorAll('input[type=password],input[type=text]').forEach(x=>{ x.onkeydown = (e)=>{ if(e.key==='Enter') guardar(); }; });
 }
 
 // ── PHOTO STORAGE — tabla separada `polen_photos` ────────────────────
