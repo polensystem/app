@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261016-v447-REEVALUAR-SELECCION -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261016-v448-FIT-COLORES -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4132,7 +4132,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 447;
+const APP_VERSION = 448;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -19471,12 +19471,64 @@ function _canteraDeptoTxt(c){
   return '<span style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.76rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">'
     + deps.map(d=>_cDot(CANTERA_DEPTO_COLOR[d]||'#94a3b8')).join('') + escapeHtml(deps.join(', ')) + '</span>';
 }
-// Fit de un candidato PARA un proyecto (si la IA lo evaluó contra sus requisitos)
-function _cFitProy(c, convId){
-  const f = c && c.fits && c.fits[convId];
-  if(!f) return _cFit(c);
-  const n = Math.max(0,Math.min(5,Number(f.fit)||0));
-  return '<span title="'+escapeHtml((f.motivo||'')+(f.at?(' · evaluado '+new Date(f.at).toLocaleDateString('es-EC')):''))+'" style="font-size:0.7rem;letter-spacing:-0.5px;white-space:nowrap;cursor:help"><span style="color:#e0a84a">'+'★'.repeat(n)+'</span><span style="color:var(--border)">'+'★'.repeat(5-n)+'</span> <span style="font-size:0.56rem;font-weight:700;color:var(--aire);letter-spacing:0">IA</span></span>';
+// ── Fit con color según quién lo puso ──
+//  azul  = lo puso la IA (sin revisar)
+//  verde = lo puso una persona, o alguien validó el de la IA (✓)
+// key = id del proyecto (match para ese puesto) o '_base' (fit general del candidato)
+const FIT_IA = '#3b9edd', FIT_OK = '#30a46c';
+function _cFitMeta(c, key){ return (c && c.fits && c.fits[key]) || null; }
+function _cFitValor(c, key){
+  if(key!=='_base'){ const m=_cFitMeta(c,key); if(m && m.fit!=null) return Number(m.fit)||0; }
+  return Number(c.fit)||0;
+}
+function _cFitVerde(c, key){
+  const m = (key!=='_base' && _cFitMeta(c,key)) ? _cFitMeta(c,key) : _cFitMeta(c,'_base');
+  return !!(m && (m.origen==='manual' || m.validado));
+}
+function _cFitInter(c, key){
+  const n = Math.max(0,Math.min(5,_cFitValor(c,key)));
+  const usaProyecto = key!=='_base' && _cFitMeta(c,key);
+  const metaVis = usaProyecto ? _cFitMeta(c,key) : _cFitMeta(c,'_base');
+  const keyReal = usaProyecto ? key : '_base';
+  const verde = _cFitVerde(c, key);
+  const col = verde ? FIT_OK : FIT_IA;
+  const tip = (metaVis && metaVis.motivo ? metaVis.motivo+' · ' : '') + (verde ? (metaVis && metaVis.origen==='manual' ? 'Puesto a mano' : 'Valuación de la IA validada') : 'Valuación de la IA (sin validar)') + (usaProyecto ? '' : (key!=='_base' ? ' · fit general' : ''));
+  let h = '<span onclick="event.stopPropagation()" title="'+escapeHtml(tip)+'" style="display:inline-flex;align-items:center;gap:0.25rem;white-space:nowrap">';
+  h += '<span style="font-size:0.78rem;letter-spacing:-0.5px">';
+  for(let i=1;i<=5;i++){
+    h += '<span onclick="_canteraFitSet(\''+c.id+'\',\''+keyReal+'\','+i+')" title="Poner '+i+' a mano" style="cursor:pointer;color:'+(i<=n?col:'var(--border)')+'">★</span>';
+  }
+  h += '</span>';
+  if(n && !(metaVis && metaVis.origen==='manual')){
+    const val = !!(metaVis && metaVis.validado);
+    h += '<button type="button" onclick="_canteraFitValidar(\''+c.id+'\',\''+keyReal+'\')" title="'+(val?'Quitar validación':'Validar la valuación de la IA')+'" style="width:17px;height:17px;border-radius:50%;border:1.5px solid '+(val?FIT_OK:'var(--border)')+';background:'+(val?FIT_OK:'transparent')+';color:'+(val?'#fff':'var(--text3)')+';font-size:0.6rem;line-height:1;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center">✓</button>';
+  }
+  return h + '</span>';
+}
+function _cFitProy(c, convId){ return _cFitInter(c, convId); }
+async function _canteraFitGuardarMeta(c, key, datos){
+  c.fits = (c.fits && typeof c.fits==='object') ? c.fits : {};
+  c.fits[key] = Object.assign({}, c.fits[key]||{}, datos, { at:new Date().toISOString() });
+  renderCantera();
+  try{ await canteraWebAPI({ action:'set_fit', cand_id:c.id, key, data:datos }); }
+  catch(e){ showStatus('No se pudo guardar la valuación ('+(e.message||'')+'). ¿Está activa la función cantera-web y corrido fase-F1-fits.sql?', true); }
+}
+async function _canteraFitSet(candId, key, n){
+  const c = (_cantera.candidatos||[]).find(x=>x.id===candId); if(!c) return;
+  const por = (_usuarioActual()||{}).apodo || '';
+  if(key==='_base'){
+    c.fit = n;
+    try{ const row = await canteraAPI('save_candidato', { data:{ id:c.id, rev:c.rev, fit:n } }); if(row && !row.conflict && row.rev!=null) c.rev = row.rev; }catch(e){ console.warn('fit base:', e); }
+  }
+  await _canteraFitGuardarMeta(c, key, { fit:n, origen:'manual', validado:true, por });
+}
+async function _canteraFitValidar(candId, key){
+  const c = (_cantera.candidatos||[]).find(x=>x.id===candId); if(!c) return;
+  const m = _cFitMeta(c, key);
+  const val = !(m && m.validado);
+  const datos = { validado: val, por: (_usuarioActual()||{}).apodo || '' };
+  if(!m) { datos.origen = 'ia'; if(key==='_base') datos.fit = Number(c.fit)||0; }
+  await _canteraFitGuardarMeta(c, key, datos);
 }
 function _cFit(c){
   const fit = Math.max(0,Math.min(5,Number(c.fit)||0));
@@ -19664,7 +19716,7 @@ function _canteraRenderLista(cont){
       + '<td style="font-size:0.76rem;color:var(--text2);'+_trunc+'" title="'+escapeHtml(c.rol||'')+'">'+escapeHtml(c.rol||'—')+'</td>'
       + '<td style="'+_trunc+'" onclick="event.stopPropagation();_canteraEditarDepto(\''+c.id+'\')" title="Clic para editar departamento">'+_canteraDeptoTxt(c)+'</td>'
       + '<td style="font-size:0.76rem;color:var(--text2);'+_trunc+'">'+escapeHtml(c.ciudad||'—')+'</td>'
-      + '<td>'+_cFit(c)+'</td>'
+      + '<td>'+_cFitInter(c,'_base')+'</td>'
       + '<td style="'+_trunc+'">'+_cTag(c.estado, _canteraColorEstado(c.estado))+'</td>'
       + '<td style="'+_trunc+'">'+_cTag(c.destreza, _canteraColorDestreza(c.destreza))+'</td>'
       + '<td style="text-align:center">'+portaHtml+'</td>'
@@ -21185,6 +21237,7 @@ function _canteraFichaQuitarProceso(pid){
 
 // Ficha completa del candidato — drawer lateral editable
 function _canteraAbrirFicha(id){
+  window._canteraFichaFitManual = false;
   const c = (_cantera.candidatos||[]).find(x=>x.id===id);
   if(!c) return;
   window._canteraFichaId = id;
@@ -21259,7 +21312,7 @@ function _canteraRenderFicha(esNuevo){
     <div style="margin-bottom:0.9rem">
       <label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">Fit (1–5)</label>
       <div style="display:flex;gap:0.15rem">
-        ${[1,2,3,4,5].map(n=>`<span onclick="_canteraFichaSet('fit',${n});_canteraRenderFicha()" style="font-size:1.3rem;cursor:pointer;color:${n<=fit?'#f2cc8f':'var(--border)'}">★</span>`).join('')}
+        ${[1,2,3,4,5].map(n=>`<span onclick="_canteraFichaSet('fit',${n});window._canteraFichaFitManual=true;_canteraRenderFicha()" style="font-size:1.3rem;cursor:pointer;color:${n<=fit?((window._canteraFichaFitManual||_cFitVerde(c,'_base'))?FIT_OK:FIT_IA):'var(--border)'}">★</span>`).join('')}
       </div>
     </div>
 
@@ -21397,6 +21450,11 @@ async function _canteraGuardarFicha(){
     if(row && row.conflict){ showStatus('Otro admin lo editó — recargando', true); _cantera.loaded=false; _canteraCerrarFicha(); renderCantera(); return; }
     if(esNuevo){ _cantera.candidatos.unshift(row); }
     else { Object.assign(orig, row); }
+    if(window._canteraFichaFitManual && row && row.id){
+      const cc = esNuevo ? row : orig;
+      _canteraFitGuardarMeta(cc, '_base', { fit:Number(e.fit)||0, origen:'manual', validado:true, por:(_usuarioActual()||{}).apodo||'' });
+    }
+    window._canteraFichaFitManual = false;
     _canteraCerrarFicha();
     renderCantera();
     showStatus(esNuevo?'Candidato agregado ✓':'Candidato actualizado ✓');
