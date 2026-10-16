@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261016-v443-CONFIRMAR-PROYECTO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261016-v445-CANTERA-WEB -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4132,7 +4132,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 443;
+const APP_VERSION = 445;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -20286,6 +20286,15 @@ function _canteraNuevoManual(){
   });
 }
 
+// Llamada a la función "cantera-web" (lee portafolios web en el servidor)
+const CANTERA_WEB_URL = SB_URL + '/functions/v1/cantera-web';
+async function canteraWebAPI(payload){
+  const res = await fetch(CANTERA_WEB_URL, { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+SB_KEY, 'x-cantera-key': _canteraKey() }, body: JSON.stringify(payload||{}) });
+  const data = await res.json().catch(()=>({}));
+  if(res.status===401){ const e=new Error('no_autorizado'); e._status=401; throw e; }
+  if(!res.ok || data.error){ const e=new Error(data.error||('http_'+res.status)); e._data=data; throw e; }
+  return data;
+}
 // ── Links pegados (del correo del postulante): detectar y clasificar ──
 const CANTERA_TIPOS_LINK = {
   linkedin:'LinkedIn', behance:'Behance', instagram:'Instagram', dribbble:'Dribbble', drive:'Google Drive',
@@ -20381,7 +20390,7 @@ function _canteraRenderModalCV(){
     + '</div>';
   // 2) Links / correo
   h += '<div><div style="'+lbl+'">Links o texto del correo</div>'
-    + '<textarea id="cv-links-txt" '+(varios?'disabled':'')+' oninput="_canteraCVTexto(this.value)" placeholder="Pega aquí los links que mandó la persona, o el correo completo. Detecto LinkedIn, Behance, Instagram, Drive, portafolios y más." '
+    + '<textarea id="cv-links-txt" '+(varios?'disabled':'')+' oninput="_canteraCVTexto(this.value)" placeholder="Pega aquí los links que mandó la persona, o el correo completo. Si hay un portafolio web, la IA entra a leerlo." '
     + 'style="width:100%;box-sizing:border-box;min-height:90px;padding:0.6rem 0.7rem;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.8rem;font-family:var(--font);outline:none;resize:vertical">'+escapeHtml(st.texto)+'</textarea>'
     + '<div id="cv-links-lista" style="margin-top:0.5rem">'+_canteraCVListaLinks()+'</div></div>';
   h += '<div id="cv-err" style="font-size:0.74rem;color:var(--fuego);min-height:1rem"></div>';
@@ -20506,18 +20515,31 @@ async function _canteraCVProcesar(){
   }
   // Solo links / correo: la IA arma la ficha con el texto, y los links se clasifican aquí
   const conv = st.convId ? (_cantera.convocatorias||[]).find(c=>c.id===st.convId) : null;
-  _canteraBarraProgreso('Analizando links y correo con IA…', null);
+  // Portafolios web que la IA puede entrar a leer (redes como LinkedIn/Instagram no se dejan leer)
+  const webs = st.links.filter(l=>['portafolio','web','behance','dribbble','github'].indexOf(l.tipo)>=0).map(l=>l.url).slice(0,3);
+  _canteraBarraProgreso(webs.length ? 'La IA está leyendo el portafolio web…' : 'Analizando links y correo con IA…', null);
   try{
     let ficha = {};
-    try{
+    let leidaWeb = false;
+    if(webs.length){
+      try{
+        const d = await canteraWebAPI({ urls: webs, texto: st.texto, puesto: conv||null });
+        if(d && d.ficha && (d.leidas>0 || d.ficha.nombre)){ ficha = d.ficha; leidaWeb = d.leidas>0; }
+        if(d && d.leidas===0) console.warn('[Cantera web] no se pudo leer:', d.paginas);
+      }catch(e){ console.warn('[Cantera web]', e); }
+    }
+    if(!ficha.nombre) try{
       const fila = {
         'Texto del correo': st.texto.slice(0, 6000),
         'Links': st.links.map(l=>CANTERA_TIPOS_LINK[l.tipo]+': '+l.url).join(' | ')
       };
       if(conv) fila['Cargo al que postula'] = conv.cargo;
       const d = await canteraAPI('extract_excel', { filas:[fila] });
-      ficha = (d.candidatos && d.candidatos[0]) || {};
+      const ex = (d.candidatos && d.candidatos[0]) || {};
+      // Conservar lo que ya se sacó de la web; completar solo lo que falte
+      Object.keys(ex).forEach(k=>{ const v = ficha[k]; if(v===undefined || v===null || v==='' || (Array.isArray(v)&&!v.length)) ficha[k] = ex[k]; });
     }catch(e){ console.warn('IA links:', e); }
+    if(webs.length && !leidaWeb) showStatus('No pude leer el portafolio web (algunas páginas no se dejan). Completé con lo que había.', true);
     if(!ficha.email) ficha.email = _canteraExtraerEmail(st.texto);
     if(!ficha.telefono) ficha.telefono = _canteraExtraerTelefono(st.texto);
     _canteraMezclarLinks(ficha, st.links);
@@ -21041,6 +21063,52 @@ function _canteraCargosPostula(c){
   return chips.map(n=>`<span style="display:inline-block;font-size:0.72rem;font-weight:700;color:var(--tierra);background:rgba(224,122,95,0.1);border:1px solid rgba(224,122,95,0.3);border-radius:99px;padding:0.1rem 0.5rem;margin:0.1rem 0.2rem 0.1rem 0">${escapeHtml(n)}</span>`).join('');
 }
 
+// "Cargo al que postula": elegir entre los proyectos de reclutamiento (activos y cerrados)
+function _canteraFichaProcesosHTML(c){
+  const convs = (_cantera.convocatorias||[]).slice().sort((a,b)=>String(b.creada||'').localeCompare(String(a.creada||'')));
+  const sel = Array.isArray(c.procesos) ? c.procesos : [];
+  const fF = (d)=>{ if(!d) return ''; const M=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']; const p=String(d).slice(0,10).split('-'); return p.length===3 ? (M[+p[1]-1]+' '+p[0]) : ''; };
+  let h = '<div style="display:flex;flex-wrap:wrap;gap:0.35rem;margin-bottom:0.4rem">';
+  sel.forEach(pid=>{
+    const cv = convs.find(x=>x.id===pid);
+    const txt = cv ? (cv.cargo + (cv.creada?(' · '+fF(cv.creada)):'') + (cv.estado==='cerrada'?' · cerrado':'')) : 'Proyecto eliminado';
+    h += '<span style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.74rem;font-weight:600;color:var(--text);background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.2rem 0.3rem 0.2rem 0.6rem">'
+      + escapeHtml(txt) + '<button type="button" onclick="_canteraFichaQuitarProceso(\''+pid+'\')" title="Quitar" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.85rem;line-height:1;padding:0 0.15rem">×</button></span>';
+  });
+  if(c.proceso_texto){
+    h += '<span title="Viene del Excel importado" style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.74rem;color:var(--text2);background:var(--bg-card2);border:1px dashed var(--border);border-radius:99px;padding:0.2rem 0.3rem 0.2rem 0.6rem">'
+      + escapeHtml(c.proceso_texto) + '<button type="button" onclick="_canteraFichaSet(\'proceso_texto\',\'\');_canteraRenderFicha(!window._canteraFichaId)" title="Quitar" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.85rem;line-height:1;padding:0 0.15rem">×</button></span>';
+  }
+  if(!sel.length && !c.proceso_texto) h += '<span style="font-size:0.78rem;color:var(--text3)">No aplicó a ningún proyecto todavía.</span>';
+  h += '</div>';
+  const libres = convs.filter(cv=>sel.indexOf(cv.id)<0);
+  if(libres.length){
+    let opts = '<option value="">+ Agregar a un proyecto de reclutamiento…</option>';
+    const act = libres.filter(cv=>cv.estado!=='cerrada'), cer = libres.filter(cv=>cv.estado==='cerrada');
+    if(act.length){ opts += '<optgroup label="Activos">'; act.forEach(cv=>{ opts += '<option value="'+cv.id+'">'+escapeHtml(cv.cargo)+(cv.creada?(' · '+fF(cv.creada)):'')+'</option>'; }); opts += '</optgroup>'; }
+    if(cer.length){ opts += '<optgroup label="Cerrados">'; cer.forEach(cv=>{ opts += '<option value="'+cv.id+'">'+escapeHtml(cv.cargo)+(cv.creada?(' · '+fF(cv.creada)):'')+'</option>'; }); opts += '</optgroup>'; }
+    h += '<select onchange="if(this.value)_canteraFichaAgregarProceso(this.value)" style="width:100%;box-sizing:border-box;padding:0.45rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);font-size:0.8rem;font-family:var(--font);cursor:pointer">'+opts+'</select>';
+  } else if(!convs.length){
+    h += '<div style="font-size:0.7rem;color:var(--text3)">Aún no hay proyectos de reclutamiento creados.</div>';
+  }
+  return h;
+}
+function _canteraFichaAgregarProceso(pid){
+  const e = window._canteraFichaEdit; if(!e) return;
+  e.procesos = Array.isArray(e.procesos) ? e.procesos : [];
+  if(e.procesos.indexOf(pid)<0) e.procesos.push(pid);
+  // Departamento del proyecto, si la ficha no tiene ninguno
+  const cv = (_cantera.convocatorias||[]).find(x=>x.id===pid);
+  const deps = Array.isArray(e.departamento) ? e.departamento : (e.departamento?[e.departamento]:[]);
+  if(cv && cv.departamento && !deps.length) e.departamento = [cv.departamento];
+  _canteraRenderFicha(!window._canteraFichaId);
+}
+function _canteraFichaQuitarProceso(pid){
+  const e = window._canteraFichaEdit; if(!e || !Array.isArray(e.procesos)) return;
+  e.procesos = e.procesos.filter(x=>x!==pid);
+  _canteraRenderFicha(!window._canteraFichaId);
+}
+
 // Ficha completa del candidato — drawer lateral editable
 function _canteraAbrirFicha(id){
   const c = (_cantera.candidatos||[]).find(x=>x.id===id);
@@ -21171,7 +21239,7 @@ function _canteraRenderFicha(esNuevo){
     <!-- Cargo al que postula (automático desde el proyecto donde aplicó) -->
     <div style="margin-bottom:0.7rem">
       <label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">Cargo al que postula</label>
-      <div style="padding:0.5rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);font-size:0.82rem;min-height:1.1rem">${_canteraCargosPostula(c)||'<span style="color:var(--text3)">— no aplicó a ningún proyecto —</span>'}</div>
+      ${_canteraFichaProcesosHTML(c)}
     </div>
     <div style="margin-bottom:0.7rem">
       <label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">Señales (premios, proyectos destacados)</label>
@@ -21238,7 +21306,8 @@ async function _canteraGuardarFicha(){
     nombre:e.nombre, rol:e.rol, nivel:e.nivel, etapa:e.etapa, anios_exp:e.anios_exp,
     ciudad:e.ciudad, actual:e.actual, email:e.email, telefono:e.telefono, contacto:e.contacto, senales:e.senales,
     fit:e.fit, estado:e.estado, destreza:e.destreza||'', verificado:e.verificado, departamento:e.departamento||[],
-    links:e.links||{}, notas:e.notas
+    links:e.links||{}, notas:e.notas,
+    procesos: Array.isArray(e.procesos) ? e.procesos : [], proceso_texto: e.proceso_texto||''
   };
   if(!esNuevo){ data.id=e.id; data.rev=orig.rev; }
   // Campos extra que vienen del CV (solo al crear)
