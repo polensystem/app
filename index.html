@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261016-v456-ROL-COMERCIAL -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261016-v458-VER-CV-ORIGINAL -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 456;
+const APP_VERSION = 458;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -18347,7 +18347,8 @@ function renderMiTrabajo(){
     if(!validas.includes(_miTrabajoVista)) _miTrabajoVista='resumen';
   } else if(_esComercial() && !_esPM() && !misMarcas.length){
     // Gerente comercial sin marcas propias: su panel es comercial (sin semana/mes/domos de marcas)
-    tabs = [['resumen','Resumen']];
+    tabs = [['resumen','Resumen'],['pipeline','Pipeline'],['facturacion','Facturación'],['nuevos','Nuevos proyectos']];
+    if(_tieneRol('admin')) tabs.push(['reclutamiento','Reclutamiento']);
     if(_tieneSuperv) tabs.push(['superviso','Superviso']);
     if(!tabs.map(t=>t[0]).includes(_miTrabajoVista)) _miTrabajoVista='resumen';
   } else {
@@ -18374,7 +18375,10 @@ function renderMiTrabajo(){
     else                              h1 += _miTrabajoResumen(misMarcas, proximosHitos, STAGE_COLOR, fmtF, diffLabel, diffColor);
   }
   else if(_miTrabajoVista==='superviso') h1 += _miTrabajoSupervisoTab(STAGE_COLOR, fmtF, diffLabel, diffColor);
-  else if(_miTrabajoVista==='nuevos')  h1 += _miTrabajoNuevosProyectos();
+  else if(_miTrabajoVista==='nuevos')  h1 += (_esComercial() && !_esPM()) ? _comercialNuevos() : _miTrabajoNuevosProyectos();
+  else if(_miTrabajoVista==='pipeline')     h1 += _comercialPipeline(user);
+  else if(_miTrabajoVista==='facturacion')  h1 += _comercialFacturacion();
+  else if(_miTrabajoVista==='reclutamiento') h1 += _comercialReclutamiento();
   else if(_miTrabajoVista==='semana')  h1 += _miTrabajoSemana(misMarcas, STAGE_COLOR);
   else if(_miTrabajoVista==='mes')     h1 += _miTrabajoMes(misMarcas, STAGE_COLOR);
   else if(_miTrabajoVista==='domos')   h1 += _miTrabajoDomos(user);
@@ -18716,49 +18720,45 @@ function _comercialAbrirProspecto(id){
 async function _comercialToggleTarea(id){
   await toggleCrmTareaDone(id); renderMiTrabajo();
 }
+const _comT = (t,extra)=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.6rem"><span style="font-size:0.7rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">${t}</span>${extra||''}</div>`;
+const _comCard = 'padding:0.8rem;border-radius:12px;background:var(--bg-card2);border:1px solid var(--border)';
+const _comMoney = n => '$'+(Number(n)||0).toLocaleString('en-US',{maximumFractionDigits:0});
+function _comKpi(valor, label, opts){
+  opts = opts||{};
+  return `<div ${opts.onclick?`onclick="${opts.onclick}"`:''} style="${_comCard};${opts.onclick?'cursor:pointer;':''}${opts.alerta?'background:rgba(239,68,68,0.07);border-color:rgba(239,68,68,0.25);':''}">
+    <div style="font-size:1.4rem;font-weight:800;color:${opts.color||'var(--text)'};line-height:1">${valor}</div>
+    ${opts.barra!=null?`<div style="height:5px;border-radius:3px;background:var(--border);margin:0.4rem 0 0.1rem;overflow:hidden"><div style="width:${opts.barra}%;height:100%;background:${opts.barra>=100?'#22c55e':'var(--aire)'}"></div></div>`:''}
+    <div style="font-size:0.62rem;color:var(--text3);font-weight:700;text-transform:uppercase;margin-top:0.3rem">${label}</div>
+  </div>`;
+}
+function _comKpis(arr){ return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.6rem;margin-bottom:1.1rem">${arr.join('')}</div>`; }
+function _comConfirmadosMes(){
+  try{ ensureMetas(); }catch(e){}
+  const d=new Date(); const y=d.getFullYear(), m=d.getMonth();
+  return ((appData.metas[_quincenaKey(y,m,1)]||[]).length + (appData.metas[_quincenaKey(y,m,2)]||[]).length);
+}
+
+// ── Pestaña RESUMEN: lo urgente de hoy ──
 function _miTrabajoResumenComercial(user){
   const st = _comercialStats();
-  const T = (t)=>`<div style="font-size:0.7rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.6rem">${t}</div>`;
-  const money = n => '$'+(n||0).toLocaleString('en-US',{maximumFractionDigits:0});
-  const card = 'padding:0.8rem;border-radius:12px;background:var(--bg-card2);border:1px solid var(--border)';
-  const cobros = _comercialCobros();
-  const venc = cobros.filter(c=>c.vencido);
-  const demos = (appData.demos||[]).filter(d=>d && !d.deletedAt && !d.archivedAt);
   const pctMeta = st.metaTotal ? Math.round(st.metaLlenos/st.metaTotal*100) : 0;
-
+  const venc = _comercialCobros().filter(c=>c.vencido);
   let h = `<div style="padding:1rem 1.4rem">`;
-  // ── Tarjetas ──
-  h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.6rem;margin-bottom:1.1rem">
-    <div onclick="goToMetas()" style="${card};cursor:pointer" title="Ir a Metas">
-      <div style="display:flex;align-items:baseline;gap:0.3rem"><span style="font-size:1.4rem;font-weight:800;color:var(--text);line-height:1">${st.metaLlenos}</span><span style="font-size:0.8rem;color:var(--text3);font-weight:700">/ ${st.metaTotal}</span></div>
-      <div style="height:5px;border-radius:3px;background:var(--border);margin:0.4rem 0 0.3rem;overflow:hidden"><div style="width:${pctMeta}%;height:100%;background:${pctMeta>=100?'#22c55e':'var(--aire)'}"></div></div>
-      <div style="font-size:0.62rem;color:var(--text3);font-weight:700;text-transform:uppercase">Meta de la quincena${st.metaTotal-st.metaLlenos>0?' · faltan '+(st.metaTotal-st.metaLlenos):' · ¡lograda!'}</div>
-    </div>
-    <div onclick="goToCRM()" style="${card};cursor:pointer" title="Ir al CRM">
-      <div style="font-size:1.4rem;font-weight:800;color:var(--text);line-height:1">${st.listo?st.activos.length:'…'}</div>
-      <div style="font-size:0.62rem;color:var(--text3);font-weight:700;text-transform:uppercase;margin-top:0.3rem">Prospectos activos</div>
-    </div>
-    <div onclick="goToCRM()" style="${card};cursor:pointer;${st.pend?'background:rgba(239,68,68,0.07);border-color:rgba(239,68,68,0.25)':''}" title="Ir al CRM">
-      <div style="font-size:1.4rem;font-weight:800;color:${st.pend?'#ef4444':'var(--text)'};line-height:1">${st.listo?st.pend:'…'}</div>
-      <div style="font-size:0.62rem;color:var(--text3);font-weight:700;text-transform:uppercase;margin-top:0.3rem">Seguimientos pendientes</div>
-    </div>
-    <div style="${card}">
-      <div style="font-size:1.4rem;font-weight:800;color:${venc.length?'var(--fuego)':'var(--text)'};line-height:1">${money(venc.reduce((a,c)=>a+c.monto,0))}</div>
-      <div style="font-size:0.62rem;color:var(--text3);font-weight:700;text-transform:uppercase;margin-top:0.3rem">Cobros vencidos · ${venc.length}</div>
-    </div>
-  </div>`;
-
+  h += _comKpis([
+    _comKpi(`${st.metaLlenos}<span style="font-size:0.8rem;color:var(--text3)"> / ${st.metaTotal}</span>`, 'Meta de la quincena'+(st.metaTotal-st.metaLlenos>0?' · faltan '+(st.metaTotal-st.metaLlenos):' · ¡lograda!'), {barra:pctMeta, onclick:'goToMetas()'}),
+    _comKpi(_comConfirmadosMes(), 'Proyectos que inician este mes', {onclick:'goToMetas()'}),
+    _comKpi(st.listo?st.pend:'…', 'Seguimientos pendientes', {onclick:'goToCRM()', alerta:st.pend>0, color:st.pend?'#ef4444':''}),
+    _comKpi(_comMoney(venc.reduce((a,c)=>a+c.monto,0)), 'Cobros vencidos · '+venc.length, {onclick:"setMiTrabajoVista('facturacion')", color:venc.length?'var(--fuego)':''})
+  ]);
   h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.2rem">`;
-  // ── Columna 1: seguimientos + to-dos ──
-  h += `<div>`;
-  h += T('Seguimientos para hoy');
-  if(!st.listo){
-    h += polenLoader('Revisando el pipeline…',48);
-  } else {
-    const pend = _crmPendientes().slice(0,6);
-    if(!pend.length) h += `<div style="font-size:0.76rem;color:var(--text3);padding:0.6rem 0 1rem">Todo al día. Ningún prospecto espera respuesta 🚀</div>`;
+  // Seguimientos
+  h += `<div>`+_comT('Seguimientos para hoy', `<a onclick="goToCRM()" style="font-size:0.66rem;color:var(--aire);cursor:pointer">Abrir CRM →</a>`);
+  if(!st.listo) h += polenLoader('Revisando el pipeline…',48);
+  else {
+    const pend = _crmPendientes().slice(0,7);
+    if(!pend.length) h += `<div style="font-size:0.76rem;color:var(--text3);padding:0.6rem 0">Todo al día. Ningún prospecto espera respuesta 🚀</div>`;
     else {
-      h += `<div style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:1rem">`;
+      h += `<div style="display:flex;flex-direction:column;gap:0.4rem">`;
       pend.forEach(({it})=>{
         const et = (typeof _crmEtapaInfo==='function' ? _crmEtapaInfo(it.etapa) : null) || {};
         h += `<div onclick="_comercialAbrirProspecto('${it.id}')" style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.65rem;border-radius:10px;background:var(--bg-card2);border-left:4px solid ${et.color||'var(--border)'};cursor:pointer">
@@ -18773,10 +18773,12 @@ function _miTrabajoResumenComercial(user){
       h += `</div>`;
     }
   }
+  h += `</div>`;
+  // To-dos
   const tareas = (appData.crmTareas||[]).filter(t=>!t.done && (!t.responsableId || t.responsableId===user.id))
-    .sort((a,b)=> (a.deadline||'9999').localeCompare(b.deadline||'9999')).slice(0,5);
-  h += T('Mis to-dos comerciales');
-  if(!tareas.length) h += `<div style="font-size:0.76rem;color:var(--text3);padding:0.4rem 0">Sin pendientes.</div>`;
+    .sort((a,b)=> (a.deadline||'9999').localeCompare(b.deadline||'9999')).slice(0,7);
+  h += `<div>`+_comT('Mis to-dos comerciales');
+  if(!tareas.length) h += `<div style="font-size:0.76rem;color:var(--text3);padding:0.6rem 0">Sin pendientes.</div>`;
   else {
     h += `<div style="display:flex;flex-direction:column;gap:0.35rem">`;
     tareas.forEach(t=>{
@@ -18787,61 +18789,190 @@ function _miTrabajoResumenComercial(user){
     });
     h += `</div>`;
   }
-  h += `</div>`;
+  h += `</div></div></div>`;
+  return h;
+}
 
-  // ── Columna 2: pipeline + cobros + demos + Calendly ──
-  h += `<div>`;
-  h += T('Pipeline por etapa');
-  if(st.listo){
-    const etapas = _crmEtapas().filter(e=>!_crmEtapaEsFinal(e.id) && !_crmEtapaEsDescartada(e.id) && !_crmEtapaEsAbandonado(e.id));
-    const max = Math.max(1, ...etapas.map(e=>st.activos.filter(it=>it.etapa===e.id).length));
-    h += `<div style="display:flex;flex-direction:column;gap:0.35rem;margin-bottom:0.5rem">`;
-    etapas.forEach(e=>{
-      const n = st.activos.filter(it=>it.etapa===e.id).length;
-      const prob = st.activos.filter(it=>it.etapa===e.id && it.probabilidad==='alta').length;
-      h += `<div onclick="goToCRM()" style="display:grid;grid-template-columns:130px 1fr 54px;align-items:center;gap:0.5rem;cursor:pointer" title="${prob} probable${prob!==1?'s':''}">
-        <span style="font-size:0.7rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(e.nombre)}</span>
-        <div style="height:8px;border-radius:4px;background:var(--border);overflow:hidden"><div style="width:${Math.round(n/max*100)}%;height:100%;background:${e.color||'var(--aire)'}"></div></div>
-        <span style="font-size:0.7rem;font-weight:800;color:var(--text);text-align:right">${n}${prob?` <span style="color:#22c55e;font-weight:700">·${prob}</span>`:''}</span>
-      </div>`;
-    });
-    h += `</div><div style="font-size:0.6rem;color:var(--text3);margin-bottom:1rem"><span style="color:#22c55e;font-weight:700">·n</span> = prospectos con cierre probable</div>`;
-  } else h += `<div style="font-size:0.74rem;color:var(--text3);margin-bottom:1rem">Cargando…</div>`;
-
-  if(cobros.length){
-    h += T('Cobros esta semana');
-    h += `<div style="display:flex;flex-direction:column;gap:0.3rem;margin-bottom:1rem">`;
-    cobros.slice(0,4).forEach(c=>{
-      const lab = c.vencido?`vencido ${Math.abs(c.diff)}d`:c.diff===0?'hoy':c.diff===1?'mañana':`en ${c.diff}d`;
-      h += `<div style="display:flex;align-items:center;gap:0.5rem;font-size:0.76rem;padding:0.35rem 0.55rem;border-radius:8px;background:var(--bg-card2)">
-        <span style="flex:1;min-width:0;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.marca)}</span>
-        <span style="font-weight:800;color:var(--text)">${money(c.monto)}</span>
-        <span style="font-size:0.64rem;font-weight:700;color:${c.vencido||c.diff<=1?'var(--fuego)':'var(--tierra)'}">${lab}</span>
+// ── Pestaña PIPELINE: embudo, probables, demos, Calendly ──
+function _comercialPipeline(user){
+  const st = _comercialStats();
+  let h = `<div style="padding:1rem 1.4rem">`;
+  if(!st.listo) return h + polenLoader('Revisando el pipeline…',56) + `</div>`;
+  const probables = st.activos.filter(it=>it.probabilidad==='alta');
+  const conProp = st.activos.filter(it=>it.propuestaUrl);
+  const demos = (appData.demos||[]).filter(d=>d && !d.deletedAt && !d.archivedAt);
+  h += _comKpis([
+    _comKpi(st.activos.length, 'Prospectos activos', {onclick:'goToCRM()'}),
+    _comKpi(probables.length, 'Cierre probable', {color:'#22c55e', onclick:'goToCRM()'}),
+    _comKpi(conProp.length, 'Con propuesta enviada', {onclick:'goToCRM()'}),
+    _comKpi(demos.length, 'Portales demo activos', {onclick:'goToCRM()'})
+  ]);
+  h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.2rem"><div>`;
+  h += _comT('Embudo por etapa');
+  const etapas = _crmEtapas().filter(e=>!_crmEtapaEsFinal(e.id) && !_crmEtapaEsDescartada(e.id) && !_crmEtapaEsAbandonado(e.id));
+  const max = Math.max(1, ...etapas.map(e=>st.activos.filter(it=>it.etapa===e.id).length));
+  h += `<div style="display:flex;flex-direction:column;gap:0.4rem">`;
+  etapas.forEach(e=>{
+    const n = st.activos.filter(it=>it.etapa===e.id).length;
+    const prob = st.activos.filter(it=>it.etapa===e.id && it.probabilidad==='alta').length;
+    h += `<div onclick="goToCRM()" style="display:grid;grid-template-columns:140px 1fr 54px;align-items:center;gap:0.5rem;cursor:pointer">
+      <span style="font-size:0.72rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(e.nombre)}</span>
+      <div style="height:9px;border-radius:5px;background:var(--border);overflow:hidden"><div style="width:${Math.round(n/max*100)}%;height:100%;background:${e.color||'var(--aire)'}"></div></div>
+      <span style="font-size:0.72rem;font-weight:800;color:var(--text);text-align:right">${n}${prob?` <span style="color:#22c55e;font-weight:700">·${prob}</span>`:''}</span>
+    </div>`;
+  });
+  h += `</div><div style="font-size:0.6rem;color:var(--text3);margin-top:0.4rem"><span style="color:#22c55e;font-weight:700">·n</span> = con cierre probable</div></div>`;
+  // Probables + Calendly
+  h += `<div>`+_comT('Más cerca de cerrar');
+  if(!probables.length) h += `<div style="font-size:0.76rem;color:var(--text3);padding:0.4rem 0 1rem">Aún no hay prospectos marcados como probables.</div>`;
+  else {
+    h += `<div style="display:flex;flex-direction:column;gap:0.35rem;margin-bottom:1rem">`;
+    probables.slice(0,6).forEach(it=>{
+      const et = _crmEtapaInfo(it.etapa)||{};
+      h += `<div onclick="_comercialAbrirProspecto('${it.id}')" style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0.6rem;border-radius:9px;background:var(--bg-card2);cursor:pointer">
+        <span style="flex:1;min-width:0;font-size:0.78rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(it.nombre||'')}</span>
+        <span style="font-size:0.6rem;font-weight:700;color:${et.color||'var(--text3)'};background:${(et.color||'#888')}1e;border-radius:99px;padding:0.1rem 0.5rem;white-space:nowrap">${escapeHtml(et.nombre||'')}</span>
+        ${it.propuestaUrl?'<span title="Tiene propuesta" style="font-size:0.7rem">🔗</span>':''}
       </div>`;
     });
     h += `</div>`;
   }
-
-  // Calendly
-  const cal = (_usuarioActual()||{}).calendly || ((appData.members||[]).find(m=>m.id===user.id)||{}).calendly || '';
-  h += T('Mi Calendly');
+  h += _comercialCalendlyHTML(user);
+  h += `</div></div></div>`;
+  return h;
+}
+function _comercialCalendlyHTML(user){
+  const cal = ((appData.members||[]).find(m=>m.id===user.id)||{}).calendly || '';
+  let h = _comT('Mi Calendly');
   if(cal && !window._comEditCal){
     h += `<div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center">
       <button onclick="_comercialCopiarCalendly('${escapeHtml(cal)}')" style="padding:0.45rem 0.8rem;border-radius:9px;border:none;background:var(--text);color:var(--bg);font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font)">📋 Copiar link para agendar</button>
       <a href="https://calendly.com/app/scheduled_events/user/me" target="_blank" rel="noopener" style="padding:0.45rem 0.8rem;border-radius:9px;border:1px solid var(--border);color:var(--text);font-size:0.74rem;font-weight:700;text-decoration:none">📅 Ver mis reuniones ↗</a>
-      <button onclick="window._comEditCal=true;renderMiTrabajo()" title="Cambiar link" style="background:none;border:none;color:var(--text3);font-size:0.7rem;cursor:pointer">editar</button>
-    </div>
-    <div style="font-size:0.62rem;color:var(--text3);margin-top:0.35rem;word-break:break-all">${escapeHtml(cal)}</div>`;
+      <button onclick="window._comEditCal=true;renderMiTrabajo()" style="background:none;border:none;color:var(--text3);font-size:0.7rem;cursor:pointer">editar</button>
+    </div>`;
   } else {
     h += `<div style="display:flex;gap:0.4rem">
       <input id="com-calendly" value="${escapeHtml(cal)}" placeholder="calendly.com/tu-usuario" onkeydown="if(event.key==='Enter')_comercialGuardarCalendly()" style="flex:1;min-width:0;padding:0.45rem 0.6rem;border-radius:9px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.76rem;font-family:var(--font);outline:none">
       <button onclick="_comercialGuardarCalendly()" style="padding:0.45rem 0.8rem;border-radius:9px;border:none;background:var(--text);color:var(--bg);font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font)">Conectar</button>
-    </div>
-    <div style="font-size:0.62rem;color:var(--text3);margin-top:0.3rem">Pega tu link de Calendly para copiarlo en un clic cuando agendes con un prospecto.</div>`;
+    </div><div style="font-size:0.62rem;color:var(--text3);margin-top:0.3rem">Pega tu link para copiarlo en un clic cuando agendes con un prospecto.</div>`;
   }
-  if(demos.length) h += `<div style="font-size:0.7rem;color:var(--text3);margin-top:1rem">🛰 ${demos.length} portal${demos.length!==1?'es':''} demo activo${demos.length!==1?'s':''} · <a onclick="goToCRM()" style="color:var(--aire);cursor:pointer">ver en CRM</a></div>`;
-  h += `</div></div></div>`;
   return h;
+}
+
+// ── Pestaña FACTURACIÓN: vencido, por cobrar, cobrado del mes y próximos cobros ──
+function _comercialFacturacion(){
+  const hoy = new Date(); hoy.setHours(0,0,0,0); const hoyStr = fmtDate(hoy);
+  const ym = hoyStr.slice(0,7);
+  const todos = [];
+  let cobradoMes = 0, cobradoMesN = 0;
+  Object.keys(appData.cobros||{}).forEach(brandId=>{
+    const brand = (appData.brands||[]).find(b=>b.id===brandId);
+    if(!brand || brand.archivedAt || brand.deletedAt || brand.isDemo) return;
+    ((appData.cobros[brandId]?.pagos)||[]).forEach(p=>{
+      const monto = parseFloat(p.monto)||0;
+      if(p.incobrable) return;
+      if(p.cobrado){ if((p.fechaCobrado||'').slice(0,7)===ym){ cobradoMes += monto; cobradoMesN++; } return; }
+      const f = p.fechaProyectada||'';
+      const diff = f ? Math.round((parseLocalDate(f)-hoy)/86400000) : null;
+      todos.push({ brandId, marca:brand.name||'', concepto:p.nombre||'Pago', monto, fecha:f, diff, vencido: !!f && f<hoyStr, esteMes: f.slice(0,7)===ym });
+    });
+  });
+  const venc = todos.filter(x=>x.vencido), mes = todos.filter(x=>x.esteMes && !x.vencido);
+  const sum = a => a.reduce((s,x)=>s+x.monto,0);
+  const totalMesProy = sum(mes)+sum(venc.filter(x=>x.esteMes))+cobradoMes;
+  const pctMes = totalMesProy ? Math.round(cobradoMes/totalMesProy*100) : 0;
+  let h = `<div style="padding:1rem 1.4rem">`;
+  h += _comKpis([
+    _comKpi(_comMoney(sum(venc)), 'Vencido · '+venc.length+' cobro'+(venc.length!==1?'s':''), {color:venc.length?'var(--fuego)':'', alerta:venc.length>0, onclick:'goToCobranzas()'}),
+    _comKpi(_comMoney(sum(mes)), 'Por cobrar este mes', {onclick:'goToCobranzas()'}),
+    _comKpi(_comMoney(cobradoMes), 'Cobrado este mes · '+cobradoMesN, {color:'#22c55e', barra:pctMes}),
+    _comKpi(_comMoney(sum(todos)), 'Por cobrar en total', {onclick:'goToCobranzas()'})
+  ]);
+  const lista = todos.filter(x=>x.vencido || (x.diff!=null && x.diff<=30)).sort((a,b)=>(a.diff??9999)-(b.diff??9999));
+  h += _comT('Próximos 30 días', `<a onclick="goToCobranzas()" style="font-size:0.66rem;color:var(--aire);cursor:pointer">Abrir Cobranzas →</a>`);
+  if(!lista.length) h += `<div style="font-size:0.76rem;color:var(--text3);padding:0.6rem 0">No hay cobros programados para los próximos 30 días.</div>`;
+  else {
+    h += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.45rem">`;
+    lista.forEach(c=>{
+      const lab = c.vencido?`vencido ${Math.abs(c.diff)}d`:c.diff===0?'hoy':c.diff===1?'mañana':`en ${c.diff}d`;
+      const col = c.vencido||c.diff<=1?'var(--fuego)':c.diff<=7?'var(--tierra)':'var(--text3)';
+      h += `<div onclick="openBrand('${c.brandId}')" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.65rem;border-radius:9px;background:var(--bg-card2);border-left:3px solid ${col};cursor:pointer">
+        <div style="flex:1;min-width:0"><div style="font-size:0.78rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.marca)}</div><div style="font-size:0.64rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.concepto)}</div></div>
+        <div style="text-align:right"><div style="font-size:0.8rem;font-weight:800;color:var(--text)">${_comMoney(c.monto)}</div><div style="font-size:0.62rem;font-weight:700;color:${col}">${lab}</div></div>
+      </div>`;
+    });
+    h += `</div>`;
+  }
+  return h + `</div>`;
+}
+
+// ── Pestaña NUEVOS PROYECTOS: metas de la quincena + onboarding de lo recién confirmado ──
+function _comercialNuevos(){
+  const st = _comercialStats();
+  let h = `<div style="padding:1rem 1.4rem 0">`;
+  try{ ensureMetas(); }catch(e){}
+  const key = st.metaKey; const arr = (appData.metas[key]||[]);
+  h += _comT('Meta de la quincena · '+((typeof _quincenaLabel==='function')?_quincenaLabel(key):key), `<a onclick="goToMetas()" style="font-size:0.66rem;color:var(--aire);cursor:pointer">Abrir Metas →</a>`);
+  h += `<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.4rem">`;
+  for(let i=0;i<st.metaTotal;i++){
+    const sl = arr[i];
+    h += sl ? `<span style="padding:0.35rem 0.7rem;border-radius:8px;background:var(--text);color:var(--bg);font-size:0.74rem;font-weight:700">${escapeHtml(sl.nombre||'')}</span>`
+            : `<span onclick="goToMetas()" style="padding:0.35rem 0.7rem;border-radius:8px;border:1.5px dashed var(--border);color:var(--text3);font-size:0.74rem;cursor:pointer">＋ cupo libre</span>`;
+  }
+  h += `</div></div>`;
+  return h + _miTrabajoNuevosProyectos();
+}
+
+// ── Pestaña RECLUTAMIENTO: procesos activos y postulantes nuevos ──
+function _comercialReclutamiento(){
+  let h = `<div style="padding:1rem 1.4rem">`;
+  if(typeof _canteraKey!=='function' || !_canteraKey()){
+    return h + `<div style="text-align:center;padding:1.5rem 0;font-size:0.8rem;color:var(--text3)">Para ver los procesos aquí, entra una vez a Reclutamiento con la clave de la cantera.<br><button onclick="goTo('cantera')" style="margin-top:0.8rem;padding:0.5rem 1rem;border-radius:9px;border:none;background:var(--text);color:var(--bg);font-weight:700;cursor:pointer;font-family:var(--font)">Abrir Reclutamiento</button></div></div>`;
+  }
+  if(!_cantera.loaded){
+    if(!window._comCargandoCantera){
+      window._comCargandoCantera = true;
+      canteraAPI('list').then(d=>{
+        _cantera.candidatos=d.candidatos||[]; _cantera.convocatorias=d.convocatorias||[]; _cantera.estados=d.estados||[]; _cantera.destrezas=d.destrezas||[];
+        _cantera.fuentes=d.fuentes||[]; _cantera.criterios=d.criterios||''; _cantera.loaded=true;
+      }).catch(()=>{}).finally(()=>{ window._comCargandoCantera=false; if(currentPage==='dashboard') renderMiTrabajo(); });
+    }
+    return h + polenLoader('Escaneando la cantera…',56) + `</div>`;
+  }
+  const cands = _cantera.candidatos||[];
+  const activas = (_cantera.convocatorias||[]).filter(c=>c.estado!=='cerrada');
+  const hace7 = Date.now() - 7*86400000;
+  const nuevos = cands.filter(c=>{ const t=new Date(c.created_at||c.creado||0).getTime(); return t && t>=hace7; });
+  const estados = (_cantera.estados && _cantera.estados.length) ? _cantera.estados : CANTERA_ESTADOS_DEFAULT;
+  const primerEstado = (estados[0]||{}).nombre;
+  const porRevisar = cands.filter(c=>!c.estado || c.estado===primerEstado);
+  h += _comKpis([
+    _comKpi(activas.length, 'Procesos activos', {onclick:"goTo('cantera')"}),
+    _comKpi(nuevos.length, 'Postulantes nuevos (7 días)', {color:nuevos.length?'var(--aire)':'', onclick:"goTo('cantera')"}),
+    _comKpi(porRevisar.length, 'Por revisar', {onclick:"goTo('cantera')"}),
+    _comKpi(cands.length, 'En la cantera', {onclick:"goTo('cantera')"})
+  ]);
+  h += _comT('Procesos activos', `<a onclick="goTo('cantera')" style="font-size:0.66rem;color:var(--aire);cursor:pointer">Abrir Reclutamiento →</a>`);
+  if(!activas.length) h += `<div style="font-size:0.76rem;color:var(--text3);padding:0.6rem 0">No hay procesos de reclutamiento abiertos.</div>`;
+  else {
+    h += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.5rem">`;
+    activas.forEach(cv=>{
+      const del = cands.filter(c=>Array.isArray(c.procesos) && c.procesos.includes(cv.id));
+      const nv = del.filter(c=>{ const t=new Date(c.created_at||c.creado||0).getTime(); return t && t>=hace7; }).length;
+      const top = del.filter(c=>{ const f=(c.fits&&c.fits[cv.id]&&c.fits[cv.id].fit)||c.fit||0; return Number(f)>=4; }).length;
+      h += `<div onclick="goTo('cantera');setTimeout(()=>_canteraAbrirProyecto('${cv.id}'),60)" style="${_comCard};cursor:pointer">
+        <div style="font-size:0.84rem;font-weight:800;color:var(--text)">${escapeHtml(cv.cargo||'Proceso')}</div>
+        <div style="font-size:0.64rem;color:var(--text3);margin-top:0.15rem">${escapeHtml(cv.departamento||'')}</div>
+        <div style="display:flex;gap:0.8rem;margin-top:0.55rem;font-size:0.7rem;color:var(--text2)">
+          <span><b style="color:var(--text)">${del.length}</b> postulantes</span>
+          ${nv?`<span style="color:var(--aire);font-weight:700">+${nv} nuevos</span>`:''}
+          ${top?`<span style="color:#30a46c;font-weight:700">★ ${top} con fit 4+</span>`:''}
+        </div>
+      </div>`;
+    });
+    h += `</div>`;
+  }
+  return h + `</div>`;
 }
 
 function _miTrabajoResumenAsistente(STAGE_COLOR, fmtF, diffLabel, diffColor){
@@ -20056,7 +20187,7 @@ function _canteraRenderLista(cont){
       ? '<a href="'+escapeHtml(porta)+'" target="_blank" onclick="event.stopPropagation()" title="Abrir portafolio" style="text-decoration:none;color:var(--text2);font-size:0.85rem">↗</a>'
       : '';
     return '<tr class="crm-table-row" style="cursor:pointer;'+bgRow+'" onclick="_canteraAbrirFicha(\''+c.id+'\')">'
-      + '<td style="'+_trunc+'"><div style="font-size:0.82rem;font-weight:600;color:var(--text);'+_trunc+'">'+escapeHtml(c.nombre||'—')+(c.verificado?' <span title="Verificado" style="color:#30a46c;font-size:0.72rem">✓</span>':'')+'</div>'
+      + '<td style="'+_trunc+'"><div style="font-size:0.82rem;font-weight:600;color:var(--text);'+_trunc+'">'+escapeHtml(c.nombre||'—')+(c.verificado?' <span title="Verificado" style="color:#30a46c;font-size:0.72rem">✓</span>':'')+(Array.isArray(c.archivos)&&c.archivos.length?' <span onclick="event.stopPropagation();_canteraVerCV(\''+c.id+'\')" title="Ver CV original (PDF)" style="cursor:pointer;font-size:0.74rem">📄</span>':'')+'</div>'
       + (c.actual?'<div style="font-size:0.68rem;color:var(--text3);'+_trunc+'">'+escapeHtml(c.actual)+'</div>':'')+'</td>'
       + '<td style="'+_trunc+'" title="'+escapeHtml(procTitle)+'">'
         + (pinfo.cargo||pinfo.ctx
@@ -20232,7 +20363,7 @@ function _canteraRenderProyecto(cont){
     const marcado = msel.has(c.id);
     return '<tr class="crm-table-row" onclick="_canteraAbrirFicha(\''+c.id+'\')" style="cursor:pointer;'+(marcado?'background:rgba(59,158,221,0.07)':'')+'">'
       + '<td onclick="event.stopPropagation()" style="text-align:center"><input type="checkbox" '+(marcado?'checked':'')+' onchange="_canteraMatchSel(\''+c.id+'\', this.checked)" title="Seleccionar para re-evaluar" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></td>'
-      + '<td style="'+_tr+'"><div style="font-size:0.82rem;font-weight:600;color:var(--text);'+_tr+'">'+escapeHtml(c.nombre||'—')+(c.verificado?' <span title="Verificado" style="color:#30a46c;font-size:0.72rem">✓</span>':'')+'</div>'
+      + '<td style="'+_tr+'"><div style="font-size:0.82rem;font-weight:600;color:var(--text);'+_tr+'">'+escapeHtml(c.nombre||'—')+(c.verificado?' <span title="Verificado" style="color:#30a46c;font-size:0.72rem">✓</span>':'')+(Array.isArray(c.archivos)&&c.archivos.length?' <span onclick="event.stopPropagation();_canteraVerCV(\''+c.id+'\')" title="Ver CV original (PDF)" style="cursor:pointer;font-size:0.74rem">📄</span>':'')+'</div>'
       + (c.actual?'<div style="font-size:0.68rem;color:var(--text3);'+_tr+'">'+escapeHtml(c.actual)+'</div>':'')+'</td>'
       + '<td style="font-size:0.76rem;color:var(--text2);'+_tr+'">'+escapeHtml(c.rol||'—')+'</td>'
       + '<td style="font-size:0.76rem;color:var(--text2);'+_tr+'">'+escapeHtml(c.nivel||'—')+'</td>'
@@ -20619,6 +20750,40 @@ async function _canteraLinksDePDF(file){
     }
     return [...urls];
   }catch(e){ console.warn('links PDF:', e); return []; }
+}
+
+// ── Ver el CV original: pide un enlace temporal (10 min) y abre el PDF en otra pestaña ──
+async function _canteraVerCV(candId, idx){
+  let c = candId ? (_cantera.candidatos||[]).find(x=>x.id===candId) : window._canteraFichaEdit;
+  const arch = (c && Array.isArray(c.archivos)) ? c.archivos : [];
+  const a = arch[idx||0];
+  if(!a || !a.path){ showStatus('Este candidato no tiene un PDF guardado', true); return; }
+  const w = window.open('', '_blank');   // abrir ya (evita bloqueo de pop-ups) y luego cargar el PDF
+  if(w){ try{ w.document.write('<title>Abriendo CV…</title><body style="font-family:-apple-system,Helvetica,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#666">Abriendo CV…</body>'); }catch(e){} }
+  try{
+    const r = await canteraWebAPI({ action:'cv_url', path:a.path });
+    if(!r || !r.url) throw new Error((r&&r.error)||'sin enlace');
+    if(w) w.location.href = r.url; else window.open(r.url, '_blank');
+  }catch(e){
+    try{ if(w) w.close(); }catch(_){}
+    showStatus('No se pudo abrir el CV ('+(e.message||'')+'). ¿Actualizaste la función cantera-web?', true);
+  }
+}
+// ── Adjuntar el PDF del CV a una ficha que ya existe ──
+async function _canteraAdjuntarCV(file){
+  const e = window._canteraFichaEdit; if(!file || !e) return;
+  if(!(file.type==='application/pdf' || /\.pdf$/i.test(file.name))){ showStatus('Solo PDF', true); return; }
+  showStatus('Subiendo CV…');
+  try{
+    const path = await _canteraSubirPDF(file);
+    e.archivos = (Array.isArray(e.archivos)?e.archivos:[]).concat([{ path, nombre:file.name }]);
+    if(e.id && window._canteraFichaId){
+      const orig = (_cantera.candidatos||[]).find(x=>x.id===e.id);
+      const row = await canteraAPI('save_candidato', { data:{ id:e.id, rev:(orig&&orig.rev!=null)?orig.rev:e.rev, archivos:e.archivos } });
+      if(row && !row.conflict){ if(orig){ orig.archivos = e.archivos; if(row.rev!=null) orig.rev = row.rev; } e.rev = row.rev!=null?row.rev:e.rev; }
+    }
+    _canteraRenderFicha(!window._canteraFichaId); showStatus('CV adjuntado ✓');
+  }catch(err){ showStatus('No se pudo subir el CV: '+(err.message||''), true); }
 }
 
 // Sube un PDF a Storage (URL firmada) y devuelve su path
@@ -21657,6 +21822,12 @@ function _canteraRenderFicha(esNuevo){
     <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;flex-wrap:wrap">
       <button onclick="_canteraFichaToggleVerif()" style="font-size:0.68rem;font-weight:700;padding:0.3rem 0.7rem;border-radius:99px;border:1px solid ${c.verificado?'#22c55e':'var(--border)'};background:${c.verificado?'rgba(34,197,94,0.12)':'transparent'};color:${c.verificado?'#22c55e':'var(--text3)'};cursor:pointer;font-family:var(--font)">${c.verificado?'✓ Verificado':'Sin verificar'}</button>
       <span style="font-size:0.68rem;color:var(--text3)">${_canteraEsIA(c)?'✨ Lo encontró la IA':'📥 Postuló'}</span>
+    </div>
+
+    <!-- CV original (PDF guardado) -->
+    <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;margin:-0.4rem 0 1rem">
+      ${(Array.isArray(c.archivos)?c.archivos:[]).map((a,i)=>`<button type="button" onclick="_canteraVerCV(null,${i})" title="${escapeHtml(a.nombre||'CV.pdf')}" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.75rem;border-radius:9px;border:none;background:var(--text);color:var(--bg);font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font)">📄 Ver CV original${(c.archivos.length>1)?' '+(i+1):''} ↗</button>`).join('')}
+      <label title="Subir el PDF del CV a esta ficha" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.4rem 0.7rem;border-radius:9px;border:1px dashed var(--border);color:var(--text3);font-size:0.72rem;cursor:pointer">📎 ${(Array.isArray(c.archivos)&&c.archivos.length)?'Adjuntar otro PDF':'Adjuntar CV en PDF'}<input type="file" accept="application/pdf,.pdf" style="display:none" onchange="_canteraAdjuntarCV(this.files[0]);this.value=''"></label>
     </div>
 
     <!-- Fit (estrellas clicables) -->
