@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261016-v440-CARGA-LIVIANA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261016-v442-NOTAS-RESPUESTAS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4132,7 +4132,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 440;
+const APP_VERSION = 442;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -6128,11 +6128,19 @@ window.BrandsDB = (function(){
   }
 
   // Guarda un lote de marcas (usado en el guardado general). No bloquea ni lanza.
+  // Solo se reescriben las marcas que cambiaron desde la última vez (antes se reescribían
+  // las 31 en cada guardado de cada persona → mucha carga y "statement timeout").
+  const _huellas = new Map();
+  // La huella ignora updated_at (cambia siempre)
+  function _huella(row){ const t = JSON.stringify({ id:row.id, data:row.data, archived:row.archived }); let h = 0; for(let i=0;i<t.length;i++){ h = (h*31 + t.charCodeAt(i)) | 0; } return t.length+':'+h; }
+  function marcarBase(brands){ (brands||[]).forEach(b=>{ if(b && b.id){ try{ _huellas.set(b.id, _huella(brandToRow(b))); }catch(e){} } }); }
   async function saveBrandsBatch(brands){
     if(!Array.isArray(brands) || !brands.length || _disponible === false) return false;
     try{
-      const rows = brands.filter(b=>b && b.id).map(brandToRow);
-      if(!rows.length) return false;
+      const pares = brands.filter(b=>b && b.id).map(b=>{ const r = brandToRow(b); return { r, h:_huella(r) }; });
+      const cambiadas = pares.filter(p=>_huellas.get(p.r.id)!==p.h);
+      const rows = cambiadas.map(p=>p.r);
+      if(!rows.length) return true;
       const { error } = await sb.from(TABLE).upsert(rows, { onConflict: 'id' });
       if(error){
         if(error.code === '42P01' || /does not exist/i.test(error.message||'')){
@@ -6144,6 +6152,7 @@ window.BrandsDB = (function(){
         return false;
       }
       _disponible = true;
+      cambiadas.forEach(p=>_huellas.set(p.r.id, p.h));
       console.log('[BrandsDB] ✓ (paralelo) Guardadas', rows.length, 'marcas en polen_brands');
       return true;
     }catch(e){ console.error('[BrandsDB] saveBrandsBatch crashed:', e); return false; }
@@ -6202,7 +6211,7 @@ window.BrandsDB = (function(){
     return { enArray: idsArray.size, enTabla: idsTabla.size, faltan: enArrayNoTabla };
   }
 
-  return { saveBrand, saveBrandsBatch, loadAll, brandToRow, isDisponible, verificar, deleteBrand };
+  return { saveBrand, saveBrandsBatch, marcarBase, loadAll, brandToRow, isDisponible, verificar, deleteBrand };
 })();
 
 window.CronoDB = (function(){
@@ -17445,7 +17454,7 @@ function renderCobrosPM(){
 // ══════════════════════════════════════════════════════════════════════════
 const TRIP_PALETA = ['#e07a5f','#3d9edd','#81b29a','#e6a817','#9b8bd4','#e29578','#5fa8a0','#c98bb9','#7d9bc1','#8fb573','#d98c8c','#b08968'];
 const TRIP_NOTA_MAX = 60;
-const TRIP_NOTA_HORAS = 48;
+const TRIP_NOTA_HORAS = 24;
 window._trip = window._trip || { abierto:null, escribiendo:null, editando:false, notas:[], cargadas:false, canal:null, timer:null };
 
 function _tripVePresencia(){ return (typeof _tieneRol==='function') && (_tieneRol('admin') || _tieneRol('pm')); }
@@ -17516,6 +17525,13 @@ function _tripCSS(){
     '.trip-ni .del{font-size:.62rem;color:#e5484d;background:none;border:0;cursor:pointer;padding:0 .1rem;font-family:var(--font)}',
     '.trip-mini{width:20px;height:20px;border-radius:50%;flex-shrink:0;object-fit:cover;background:var(--c);box-shadow:0 0 0 1.5px var(--c);display:inline-flex;align-items:center;justify-content:center;font-size:.6rem;color:#fff}',
     '.trip-note .trip-mini{width:12px;height:12px;font-size:.4rem}',
+    '.trip-resp{display:grid;grid-template-columns:auto minmax(0,1fr);gap:0.4rem;margin-top:0.4rem;padding:0.35rem 0.45rem;border-left:2px solid var(--c);background:var(--bg-card2);border-radius:0 8px 8px 0}',
+    '.trip-resp .trip-mini{width:16px;height:16px;font-size:0.5rem}',
+    '.trip-resp .tx{font-size:.72rem}',
+    '.trip-resp-btn{margin-top:0.3rem;font-size:.66rem;font-weight:600;color:var(--c);background:none;border:none;padding:0;cursor:pointer;font-family:var(--font)}',
+    '.trip-resp-form{display:flex;gap:0.3rem;margin-top:0.35rem}',
+    '.trip-resp-form input{flex:1;min-width:0;font-size:.72rem;padding:0.3rem 0.45rem;border-radius:7px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-family:var(--font);outline:none}',
+    '.trip-resp-form button{font-size:.66rem;font-weight:700;border:0;border-radius:7px;padding:0.3rem 0.55rem;background:var(--c);color:#fff;cursor:pointer;font-family:var(--font)}',
     '.trip-list .add{width:100%;margin-top:.35rem;font-size:.68rem;font-weight:600;padding:.4rem;border-radius:9px;border:1px dashed var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:var(--font)}',
     '.trip-live{font:600 .64rem ui-monospace,"SF Mono",Menlo,monospace;color:var(--text3);display:none;align-items:center;gap:.45rem;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}',
     '.trip-live i{width:7px;height:7px;border-radius:50%;background:#30a46c}',
@@ -17528,7 +17544,7 @@ function _tripCSS(){
 async function _tripCargarNotas(){
   try{
     const desde = new Date(Date.now()-TRIP_NOTA_HORAS*3600e3).toISOString();
-    const { data, error } = await sb.from('polen_notas').select('id,para,de,texto,creada').gt('creada', desde).order('creada', { ascending:false });
+    const { data, error } = await sb.from('polen_notas').select('*').gt('creada', desde).order('creada', { ascending:false });
     if(error){ console.warn('[Notas] tabla no disponible:', error.message); return; }
     _trip.notas = data||[];
     _trip.cargadas = true;
@@ -17547,7 +17563,8 @@ function _tripIniciarNotas(){
 }
 function _tripNotasDe(id){
   const lim = Date.now()-TRIP_NOTA_HORAS*3600e3;
-  return (_trip.notas||[]).filter(n=>n.para===id && new Date(n.creada).getTime()>lim);
+  return (_trip.notas||[]).filter(n=>n.para===id && new Date(n.creada).getTime()>lim)
+    .sort((a,b)=>new Date(b.creada)-new Date(a.creada)); // la más reciente primero
 }
 function _tripHace(iso){
   const h = Math.floor((Date.now()-new Date(iso).getTime())/3600e3);
@@ -17564,7 +17581,7 @@ async function _tripEnviarNota(paraId){
   const v = (t && t.value || '').trim().slice(0, TRIP_NOTA_MAX);
   if(!yo){ showStatus('Necesitas entrar con tu cuenta para dejar notas', true); return; }
   if(!v){ if(t) t.focus(); return; }
-  const fila = { para:paraId, de:yo, texto:v, creada:new Date().toISOString() };
+  const fila = { para:paraId, de:yo, texto:v, creada:new Date().toISOString(), respuesta:null, respuesta_en:null };
   // En memoria primero (se ve al instante); una sola nota por autor y destinatario
   _trip.notas = (_trip.notas||[]).filter(n=>!(n.para===paraId && n.de===yo));
   _trip.notas.unshift(Object.assign({ id:'tmp-'+Date.now() }, fila));
@@ -17576,6 +17593,21 @@ async function _tripEnviarNota(paraId){
     _tripCargarNotas();
     showStatus('Nota publicada ✓');
   }catch(e){ showStatus('No se pudo guardar la nota: '+(e.message||''), true); }
+}
+function _tripResponder(id){ _trip.respondiendo = id; renderRinconSocial(); setTimeout(()=>{ const i=document.getElementById('trip-rp'); if(i){ i.focus(); i.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); _tripGuardarRespuesta(id); } if(e.key==='Escape'){ _trip.respondiendo=null; renderRinconSocial(); } }; } }, 30); }
+async function _tripGuardarRespuesta(id){
+  const i = document.getElementById('trip-rp');
+  const v = (i && i.value || '').trim().slice(0, TRIP_NOTA_MAX);
+  const n = (_trip.notas||[]).find(x=>x.id===id);
+  if(!n) return;
+  n.respuesta = v || null; n.respuesta_en = v ? new Date().toISOString() : null;
+  _trip.respondiendo = null;
+  renderRinconSocial();
+  try{
+    const { error } = await sb.from('polen_notas').update({ respuesta:n.respuesta, respuesta_en:n.respuesta_en }).eq('id', id);
+    if(error) throw error;
+    showStatus(v ? 'Respuesta enviada ✓' : 'Respuesta borrada');
+  }catch(e){ showStatus('No se pudo guardar la respuesta: '+(e.message||''), true); }
 }
 async function _tripBorrarNota(id){
   _trip.notas = (_trip.notas||[]).filter(n=>n.id!==id);
@@ -17604,7 +17636,7 @@ if(!window._tripListener){
   document.addEventListener('click', function(e){
     if(!_trip.abierto && !_trip.escribiendo) return;
     if(e.target.closest && e.target.closest('.trip-in')) return;
-    _trip.abierto=null; _trip.escribiendo=null; renderRinconSocial();
+    _trip.abierto=null; _trip.escribiendo=null; _trip.respondiendo=null; renderRinconSocial();
   });
   document.addEventListener('keydown', function(e){
     if(e.target && e.target.id==='trip-nt'){
@@ -17634,7 +17666,7 @@ function _tripZonaNota(m, esYo){
     const n = ns[0], a = _tripMiembro(n.de);
     return '<button type="button" class="trip-note trip-in" onclick="_tripAbrir(\'n:'+m.id+'\')" title="Ver notas">'
       + '<div class="tx">'+escapeHtml(n.texto)+'</div>'
-      + '<div class="sg">'+_tripMini(a)+escapeHtml(a.apodo||a.nombre||'')+' · '+_tripHace(n.creada)+(ns.length>1?'<span class="more">+'+(ns.length-1)+'</span>':'')+'</div></button>';
+      + '<div class="sg">'+_tripMini(a)+escapeHtml(a.apodo||a.nombre||'')+' · '+_tripHace(n.creada)+(n.respuesta?' · ↩':'')+(ns.length>1?'<span class="more">+'+(ns.length-1)+'</span>':'')+'</div></button>';
   }
   if(esYo || !_tripYoId()) return '';
   return '<button type="button" class="trip-ghost trip-in" onclick="_tripEscribir(\''+m.id+'\')">+ Dejar nota</button>';
@@ -17647,7 +17679,18 @@ function _tripLista(m, esYo){
   ns.forEach(n=>{
     const a = _tripMiembro(n.de);
     const puedo = yo && (n.de===yo || esYo);
-    h += '<div class="trip-ni">'+_tripMini(a)+'<div><div class="tx">'+escapeHtml(n.texto)+'</div><div class="mt">'+escapeHtml(a.apodo||a.nombre||'')+' · hace '+_tripHace(n.creada)+' · '+_tripVence(n.creada)+'</div></div>'
+    const dueno = _tripMiembro(m.id);
+    let resp = '';
+    if(n.respuesta){
+      resp = '<div class="trip-resp">'+_tripMini(dueno)+'<div><div class="tx">'+escapeHtml(n.respuesta)+'</div><div class="mt">'+escapeHtml(dueno.apodo||dueno.nombre||'')+' respondió'+(n.respuesta_en?(' · hace '+_tripHace(n.respuesta_en)):'')+'</div></div></div>';
+    }
+    if(_trip.respondiendo===n.id){
+      resp += '<div class="trip-resp-form"><input id="trip-rp" maxlength="'+TRIP_NOTA_MAX+'" placeholder="Responde a '+escapeHtml(a.apodo||a.nombre||'')+'…" value="'+escapeHtml(n.respuesta||'')+'">'
+        + '<button type="button" onclick="_tripGuardarRespuesta(\''+n.id+'\')">Enviar</button></div>';
+    } else if(esYo && yo){
+      resp += '<button type="button" class="trip-resp-btn" onclick="_tripResponder(\''+n.id+'\')">'+(n.respuesta?'Editar respuesta':'↩ Responder')+'</button>';
+    }
+    h += '<div class="trip-ni">'+_tripMini(a)+'<div><div class="tx">'+escapeHtml(n.texto)+'</div><div class="mt">'+escapeHtml(a.apodo||a.nombre||'')+' · hace '+_tripHace(n.creada)+' · '+_tripVence(n.creada)+'</div>'+resp+'</div>'
       + (puedo ? '<button type="button" class="del" onclick="_tripBorrarNota(\''+n.id+'\')">Borrar</button>' : '<span></span>') + '</div>';
   });
   if(!esYo && yo){
@@ -17737,6 +17780,12 @@ function renderRinconSocial(){
   h += '</div></div>';
   cont.innerHTML = h;
   try{ _presRefrescarUI(); }catch(e){}
+  // Que la lista de notas no se salga de la pantalla por los lados
+  cont.querySelectorAll('.trip-list').forEach(el=>{
+    const r = el.getBoundingClientRect();
+    if(r.left < 8) el.style.marginLeft = (-125 + (8 - r.left))+'px';
+    else if(r.right > window.innerWidth - 8) el.style.marginLeft = (-125 - (r.right - window.innerWidth + 8))+'px';
+  });
   if(_trip.escribiendo){ const t=document.getElementById('trip-nt'); if(t) t.focus(); }
   if(_trip.editando){ const t=document.getElementById('trip-me'); if(t){ t.focus(); const L=t.value.length; try{ t.setSelectionRange(L,L); }catch(e){} _tripGrow(t); } }
 }
@@ -30223,6 +30272,8 @@ async function boot(){
   window._polenCargaCompleta = false;
   const _cargaPromesa = Promise.resolve().then(()=>loadData()).catch(e=>console.warn('loadData:', e)).finally(()=>{
     window._polenCargaCompleta = true;
+    try{ if(window.BrandsDB && BrandsDB.marcarBase) BrandsDB.marcarBase(appData.brands); }catch(e){}
+    try{ _aplicarMenuPorRol(); }catch(e){}
     _polenAvisoCarga(false);
     try{ renderCurrentPage(); }catch(e){}
   });
