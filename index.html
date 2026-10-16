@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261016-v458-VER-CV-ORIGINAL -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261016-v459-ARCHIVOS-CV-PORTAFOLIO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 458;
+const APP_VERSION = 459;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -20187,7 +20187,7 @@ function _canteraRenderLista(cont){
       ? '<a href="'+escapeHtml(porta)+'" target="_blank" onclick="event.stopPropagation()" title="Abrir portafolio" style="text-decoration:none;color:var(--text2);font-size:0.85rem">↗</a>'
       : '';
     return '<tr class="crm-table-row" style="cursor:pointer;'+bgRow+'" onclick="_canteraAbrirFicha(\''+c.id+'\')">'
-      + '<td style="'+_trunc+'"><div style="font-size:0.82rem;font-weight:600;color:var(--text);'+_trunc+'">'+escapeHtml(c.nombre||'—')+(c.verificado?' <span title="Verificado" style="color:#30a46c;font-size:0.72rem">✓</span>':'')+(Array.isArray(c.archivos)&&c.archivos.length?' <span onclick="event.stopPropagation();_canteraVerCV(\''+c.id+'\')" title="Ver CV original (PDF)" style="cursor:pointer;font-size:0.74rem">📄</span>':'')+'</div>'
+      + '<td style="'+_trunc+'"><div style="font-size:0.82rem;font-weight:600;color:var(--text);'+_trunc+'">'+escapeHtml(c.nombre||'—')+(c.verificado?' <span title="Verificado" style="color:#30a46c;font-size:0.72rem">✓</span>':'')+'</div>'
       + (c.actual?'<div style="font-size:0.68rem;color:var(--text3);'+_trunc+'">'+escapeHtml(c.actual)+'</div>':'')+'</td>'
       + '<td style="'+_trunc+'" title="'+escapeHtml(procTitle)+'">'
         + (pinfo.cargo||pinfo.ctx
@@ -20201,6 +20201,7 @@ function _canteraRenderLista(cont){
       + '<td>'+_cFitInter(c,'_base')+'</td>'
       + '<td style="'+_trunc+'">'+_cTag(c.estado, _canteraColorEstado(c.estado))+'</td>'
       + '<td style="'+_trunc+'">'+_cTag(c.destreza, _canteraColorDestreza(c.destreza))+'</td>'
+      + '<td onclick="event.stopPropagation()">'+_cCV(c)+'</td>'
       + '<td style="text-align:center">'+portaHtml+'</td>'
       + '</tr>';
   };
@@ -20209,11 +20210,12 @@ function _canteraRenderLista(cont){
     const flecha = s.col===campo ? (s.dir==='asc'?' ↑':' ↓') : '';
     return '<th onclick="_canteraSortBase(\''+campo+'\')" style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;'+(align?'text-align:'+align:'')+'" title="Ordenar">'+label+flecha+'</th>';
   };
-  const colgroup = '<colgroup><col style="width:22%"><col style="width:13%"><col style="width:12%"><col style="width:11%"><col style="width:10%"><col style="width:8%"><col style="width:13%"><col style="width:8%"><col style="width:3%"></colgroup>';
+  const colgroup = '<colgroup><col style="width:17%"><col style="width:11%"><col style="width:10%"><col style="width:9%"><col style="width:8%"><col style="width:10%"><col style="width:12%"><col style="width:8%"><col style="width:12%"><col style="width:3%"></colgroup>';
   const thBase = '<thead><tr>'
       + _thSort('nombre','Candidato') + _thSort('proceso_texto','Proceso') + _thSort('rol','Rol')
       + _thSort('_depto','Depto') + _thSort('ciudad','Ciudad') + _thSort('fit','Fit')
       + _thSort('estado','Estatus') + _thSort('destreza','Destreza')
+      + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">Archivos</th>'
       + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2"></th>'
       + '</tr></thead>';
   const tabla = (lista, resaltar, maxH)=>
@@ -20363,12 +20365,13 @@ function _canteraRenderProyecto(cont){
     const marcado = msel.has(c.id);
     return '<tr class="crm-table-row" onclick="_canteraAbrirFicha(\''+c.id+'\')" style="cursor:pointer;'+(marcado?'background:rgba(59,158,221,0.07)':'')+'">'
       + '<td onclick="event.stopPropagation()" style="text-align:center"><input type="checkbox" '+(marcado?'checked':'')+' onchange="_canteraMatchSel(\''+c.id+'\', this.checked)" title="Seleccionar para re-evaluar" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></td>'
-      + '<td style="'+_tr+'"><div style="font-size:0.82rem;font-weight:600;color:var(--text);'+_tr+'">'+escapeHtml(c.nombre||'—')+(c.verificado?' <span title="Verificado" style="color:#30a46c;font-size:0.72rem">✓</span>':'')+(Array.isArray(c.archivos)&&c.archivos.length?' <span onclick="event.stopPropagation();_canteraVerCV(\''+c.id+'\')" title="Ver CV original (PDF)" style="cursor:pointer;font-size:0.74rem">📄</span>':'')+'</div>'
+      + '<td style="'+_tr+'"><div style="font-size:0.82rem;font-weight:600;color:var(--text);'+_tr+'">'+escapeHtml(c.nombre||'—')+(c.verificado?' <span title="Verificado" style="color:#30a46c;font-size:0.72rem">✓</span>':'')+'</div>'
       + (c.actual?'<div style="font-size:0.68rem;color:var(--text3);'+_tr+'">'+escapeHtml(c.actual)+'</div>':'')+'</td>'
       + '<td style="font-size:0.76rem;color:var(--text2);'+_tr+'">'+escapeHtml(c.rol||'—')+'</td>'
       + '<td style="font-size:0.76rem;color:var(--text2);'+_tr+'">'+escapeHtml(c.nivel||'—')+'</td>'
       + '<td>'+_cFitProy(c, conv.id)+'</td>'
       + '<td style="'+_tr+'">'+_cTag(c.estado, _canteraColorEstado(c.estado))+'</td>'
+      + '<td onclick="event.stopPropagation()">'+_cCV(c)+'</td>'
       + '<td style="text-align:right" onclick="event.stopPropagation()">'+botonAplic+'</td>'
       + '</tr>';
   };
@@ -20386,10 +20389,10 @@ function _canteraRenderProyecto(cont){
       if(lista.length){
         s += '<div style="border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:calc(100vh - 360px);background:var(--bg-card)">'
           + '<table class="tray-table" style="min-width:640px;table-layout:fixed">'
-          + '<colgroup><col style="width:5%"><col style="width:31%"><col style="width:17%"><col style="width:12%"><col style="width:12%"><col style="width:14%"><col style="width:9%"></colgroup>'
+          + '<colgroup><col style="width:5%"><col style="width:24%"><col style="width:14%"><col style="width:10%"><col style="width:12%"><col style="width:13%"><col style="width:13%"><col style="width:9%"></colgroup>'
           + '<thead><tr>'
           + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;text-align:center;cursor:default"><input type="checkbox" '+(lista.length && lista.every(c=>msel.has(c.id))?'checked':'')+' onchange="_canteraMatchSelVarios(\''+lista.map(c=>c.id).join(',')+'\', this.checked)" title="Seleccionar todos de esta sección" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></th>'
-          + ['Candidato','Rol','Nivel','Fit','Estatus',''].map(t=>'<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">'+t+'</th>').join('')
+          + ['Candidato','Rol','Nivel','Fit','Estatus','Archivos',''].map(t=>'<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">'+t+'</th>').join('')
           + '</tr></thead><tbody>'+lista.map(c=>filaCand(c, conBotonAplicar)).join('')+'</tbody></table></div>';
       } else {
         s += '<div style="font-size:0.76rem;color:var(--text3);padding:0.2rem 0 0.4rem 1.1rem">'+vacio+'</div>';
@@ -20752,38 +20755,54 @@ async function _canteraLinksDePDF(file){
   }catch(e){ console.warn('links PDF:', e); return []; }
 }
 
+// Tipo de archivo guardado: 'portafolio' o 'cv' (los viejos sin tipo son CV)
+function _cArchTipo(a){ return (a && a.tipo==='portafolio') ? 'portafolio' : 'cv'; }
+// Celda "Archivos" de las tablas: chips clicables por CV y portafolio en PDF
+function _cCV(c){
+  const arch = Array.isArray(c.archivos) ? c.archivos : [];
+  if(!arch.length) return '<span style="color:var(--text3);font-size:0.74rem">—</span>';
+  const chip = (idx, txt, col, bg, tip)=>'<button type="button" onclick="event.stopPropagation();_canteraVerCV(\''+c.id+'\','+idx+')" title="'+tip+'" style="display:inline-flex;align-items:center;gap:0.2rem;padding:0.12rem 0.45rem;border-radius:99px;border:1px solid '+col+'55;background:'+bg+';color:'+col+';font-size:0.64rem;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap">'+txt+'</button>';
+  const iCv = arch.findIndex(a=>_cArchTipo(a)==='cv'), iPo = arch.findIndex(a=>_cArchTipo(a)==='portafolio');
+  let h = '<span style="display:inline-flex;gap:0.25rem;flex-wrap:wrap">';
+  if(iCv>=0) h += chip(iCv, '📄 CV', '#d2561f', 'rgba(232,98,42,0.08)', 'Abrir CV original (PDF)');
+  if(iPo>=0) h += chip(iPo, '🎨 Port.', '#7c5cc4', 'rgba(124,92,196,0.09)', 'Abrir portafolio (PDF)');
+  return h + '</span>';
+}
 // ── Ver el CV original: pide un enlace temporal (10 min) y abre el PDF en otra pestaña ──
 async function _canteraVerCV(candId, idx){
   let c = candId ? (_cantera.candidatos||[]).find(x=>x.id===candId) : window._canteraFichaEdit;
   const arch = (c && Array.isArray(c.archivos)) ? c.archivos : [];
   const a = arch[idx||0];
   if(!a || !a.path){ showStatus('Este candidato no tiene un PDF guardado', true); return; }
+  const _lbl = _cArchTipo(a)==='portafolio' ? 'portafolio' : 'CV';
   const w = window.open('', '_blank');   // abrir ya (evita bloqueo de pop-ups) y luego cargar el PDF
-  if(w){ try{ w.document.write('<title>Abriendo CV…</title><body style="font-family:-apple-system,Helvetica,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#666">Abriendo CV…</body>'); }catch(e){} }
+  if(w){ try{ w.document.write('<title>Abriendo '+_lbl+'…</title><body style="font-family:-apple-system,Helvetica,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#666">Abriendo '+_lbl+'…</body>'); }catch(e){} }
   try{
     const r = await canteraWebAPI({ action:'cv_url', path:a.path });
     if(!r || !r.url) throw new Error((r&&r.error)||'sin enlace');
     if(w) w.location.href = r.url; else window.open(r.url, '_blank');
   }catch(e){
     try{ if(w) w.close(); }catch(_){}
-    showStatus('No se pudo abrir el CV ('+(e.message||'')+'). ¿Actualizaste la función cantera-web?', true);
+    showStatus('No se pudo abrir el '+_lbl+' ('+(e.message||'')+'). ¿Actualizaste la función cantera-web?', true);
   }
 }
 // ── Adjuntar el PDF del CV a una ficha que ya existe ──
-async function _canteraAdjuntarCV(file){
+async function _canteraAdjuntarCV(file, tipo){
+  tipo = tipo==='portafolio' ? 'portafolio' : 'cv';
   const e = window._canteraFichaEdit; if(!file || !e) return;
   if(!(file.type==='application/pdf' || /\.pdf$/i.test(file.name))){ showStatus('Solo PDF', true); return; }
-  showStatus('Subiendo CV…');
+  if(file.size > 50*1024*1024){ showStatus('El PDF pesa más de 50 MB. Comprímelo y vuelve a intentar.', true); return; }
+  showStatus(tipo==='portafolio'?'Subiendo portafolio…':'Subiendo CV…');
   try{
     const path = await _canteraSubirPDF(file);
-    e.archivos = (Array.isArray(e.archivos)?e.archivos:[]).concat([{ path, nombre:file.name }]);
+    e.archivos = (Array.isArray(e.archivos)?e.archivos:[]).concat([{ path, nombre:file.name, tipo }]);
     if(e.id && window._canteraFichaId){
       const orig = (_cantera.candidatos||[]).find(x=>x.id===e.id);
       const row = await canteraAPI('save_candidato', { data:{ id:e.id, rev:(orig&&orig.rev!=null)?orig.rev:e.rev, archivos:e.archivos } });
       if(row && !row.conflict){ if(orig){ orig.archivos = e.archivos; if(row.rev!=null) orig.rev = row.rev; } e.rev = row.rev!=null?row.rev:e.rev; }
     }
-    _canteraRenderFicha(!window._canteraFichaId); showStatus('CV adjuntado ✓');
-  }catch(err){ showStatus('No se pudo subir el CV: '+(err.message||''), true); }
+    _canteraRenderFicha(!window._canteraFichaId); showStatus(tipo==='portafolio'?'Portafolio adjuntado ✓':'CV adjuntado ✓');
+  }catch(err){ showStatus('No se pudo subir el PDF: '+(err.message||''), true); }
 }
 
 // Sube un PDF a Storage (URL firmada) y devuelve su path
@@ -21824,10 +21843,11 @@ function _canteraRenderFicha(esNuevo){
       <span style="font-size:0.68rem;color:var(--text3)">${_canteraEsIA(c)?'✨ Lo encontró la IA':'📥 Postuló'}</span>
     </div>
 
-    <!-- CV original (PDF guardado) -->
+    <!-- Archivos originales (CV y portafolio en PDF) -->
     <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;margin:-0.4rem 0 1rem">
-      ${(Array.isArray(c.archivos)?c.archivos:[]).map((a,i)=>`<button type="button" onclick="_canteraVerCV(null,${i})" title="${escapeHtml(a.nombre||'CV.pdf')}" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.75rem;border-radius:9px;border:none;background:var(--text);color:var(--bg);font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font)">📄 Ver CV original${(c.archivos.length>1)?' '+(i+1):''} ↗</button>`).join('')}
-      <label title="Subir el PDF del CV a esta ficha" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.4rem 0.7rem;border-radius:9px;border:1px dashed var(--border);color:var(--text3);font-size:0.72rem;cursor:pointer">📎 ${(Array.isArray(c.archivos)&&c.archivos.length)?'Adjuntar otro PDF':'Adjuntar CV en PDF'}<input type="file" accept="application/pdf,.pdf" style="display:none" onchange="_canteraAdjuntarCV(this.files[0]);this.value=''"></label>
+      ${(Array.isArray(c.archivos)?c.archivos:[]).map((a,i)=>{ const po=_cArchTipo(a)==='portafolio'; return `<button type="button" onclick="_canteraVerCV(null,${i})" title="${escapeHtml(a.nombre||'archivo.pdf')}" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.75rem;border-radius:9px;border:none;background:${po?'#7c5cc4':'var(--text)'};color:${po?'#fff':'var(--bg)'};font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font)">${po?'🎨 Ver portafolio':'📄 Ver CV original'} ↗</button>`; }).join('')}
+      <label title="Subir el CV en PDF a esta ficha" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.4rem 0.7rem;border-radius:9px;border:1px dashed var(--border);color:var(--text3);font-size:0.72rem;cursor:pointer">📎 CV en PDF<input type="file" accept="application/pdf,.pdf" style="display:none" onchange="_canteraAdjuntarCV(this.files[0],'cv');this.value=''"></label>
+      <label title="Subir el portafolio en PDF a esta ficha" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.4rem 0.7rem;border-radius:9px;border:1px dashed var(--border);color:var(--text3);font-size:0.72rem;cursor:pointer">🎨 Portafolio en PDF<input type="file" accept="application/pdf,.pdf" style="display:none" onchange="_canteraAdjuntarCV(this.files[0],'portafolio');this.value=''"></label>
     </div>
 
     <!-- Fit (estrellas clicables) -->
