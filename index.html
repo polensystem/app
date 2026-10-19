@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v478-ACCIONES-LOTE -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v479-BUSQUEDA-POR-PUESTO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 478;
+const APP_VERSION = 479;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -19748,7 +19748,7 @@ window._cantera = window._cantera || {
   filtros:{ q:'', rol:'', nivel:'', etapa:'', depto:'', estado:'', ciudad:'', verificado:'', destreza:'' },
   vista:'inicio',        // inicio | base | proyecto
   proyectoId:null,       // convocatoria abierta cuando vista==='proyecto'
-  secColapsadas:{},      // qué secciones del proyecto están colapsadas
+  secColapsadas:{ base:true },      // qué secciones del proyecto están colapsadas (el resto de la cantera, cerrado por defecto)
   baseColapsadas:{},     // qué grupos de la base (aplicaron/ia) están colapsados
   baseVista:'separado'   // 'separado' (dos bloques) | 'unido' (una tabla, IA en amarillo)
 };
@@ -20588,15 +20588,16 @@ function _canteraRenderProyecto(cont){
   // Sección 1: APLICARON — tienen este proyecto en procesos
   const aplicaron = cands.filter(c=>(c.procesos||[]).includes(conv.id));
   const aplicaronIds = new Set(aplicaron.map(c=>c.id));
-  // Sección 2: SUGERENCIAS IA — del depto, origen IA, que NO aplicaron a esta ronda
-  const sugeridosIA = cands.filter(c=> !aplicaronIds.has(c.id) && esDeDepto(c) && esIA(c));
+  // Sección 2: SUGERIDOS PARA ESTE PUESTO — solo los que salieron de una búsqueda que TÚ activaste para este proyecto
+  const sugeridosIA = cands.filter(c=> !aplicaronIds.has(c.id) && c.fits && c.fits[conv.id] && c.fits[conv.id].sugerido);
   const sugeridosIds = new Set(sugeridosIA.map(c=>c.id));
-  // Sección 3: BASE — del depto, que NO aplicaron y NO son IA (postulantes de otros procesos, agregados a mano…)
-  const delDepto = cands.filter(c=> !aplicaronIds.has(c.id) && !sugeridosIds.has(c.id) && esDeDepto(c));
+  // Sección 3: RESTO DE LA CANTERA — todos los demás (cerrado por defecto; usa el buscador y los filtros)
+  const delDepto = cands.filter(c=> !aplicaronIds.has(c.id) && !sugeridosIds.has(c.id));
   // Ordenar por match con ESTE proyecto (el mejor arriba)
   // Orden y filtros rápidos (por defecto: mejor match con este puesto arriba)
   const _rap = (arr)=>{ const r=_canteraAplicarRapido(arr,'proy',conv.id); arr.length=0; r.forEach(x=>arr.push(x)); };
   [aplicaron, sugeridosIA, delDepto].forEach(_rap);
+  if(_canteraRapState('proy').orden==='match') sugeridosIA.sort((a,b)=>((b.fits[conv.id].fit_busqueda||b.fits[conv.id].fit||0)-(a.fits[conv.id].fit_busqueda||a.fits[conv.id].fit||0)));
 
   const MSC=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   const fFecha=(d)=>{ if(!d) return ''; const p=String(d).slice(0,10).split('-'); return p.length===3?`${MSC[+p[1]-1]} ${p[0]}`:d; };
@@ -20606,8 +20607,10 @@ function _canteraRenderProyecto(cont){
   if(_cantera.matchSelConv!==conv.id){ _cantera.matchSel = new Set(); _cantera.matchSelConv = conv.id; }
   const msel = _cantera.matchSel;
   const filaCand = (c, conBotonAplicar)=>{
+    const esSug = !!(c.fits && c.fits[conv.id] && c.fits[conv.id].sugerido);
     const botonAplic = conBotonAplicar
-      ? '<button onclick="event.stopPropagation();_canteraMarcarAplico(\''+c.id+'\',\''+conv.id+'\')" title="Marcar que aplicó a esta ronda" style="font-size:0.72rem;font-weight:600;padding:0.2rem 0.5rem;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font);white-space:nowrap">+ Aplicó</button>'
+      ? (esSug?'<button onclick="event.stopPropagation();_canteraDescartarSugerido(\''+c.id+'\',\''+conv.id+'\')" title="Descartar esta sugerencia" style="font-size:0.72rem;padding:0.2rem 0.35rem;border:none;background:none;color:var(--text3);cursor:pointer;font-family:var(--font)">✕</button>':'')
+      + '<button onclick="event.stopPropagation();_canteraMarcarAplico(\''+c.id+'\',\''+conv.id+'\')" title="Marcar que aplicó a esta ronda" style="font-size:0.72rem;font-weight:600;padding:0.2rem 0.5rem;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font);white-space:nowrap">+ Aplicó</button>'
       : '<button onclick="event.stopPropagation();_canteraQuitarAplico(\''+c.id+'\',\''+conv.id+'\')" title="Quitar de esta ronda" style="font-size:0.72rem;padding:0.2rem 0.4rem;border:none;background:none;color:var(--text3);cursor:pointer;font-family:var(--font);white-space:nowrap">Quitar</button>';
     const marcado = msel.has(c.id);
     return '<tr class="crm-table-row" onclick="_canteraAbrirFicha(\''+c.id+'\')" style="cursor:pointer;'+(marcado?'background:rgba(59,158,221,0.07)':'')+'">'
@@ -20619,7 +20622,7 @@ function _canteraRenderProyecto(cont){
       + '<td>'+_cFitProy(c, conv.id)+'</td>'
       + '<td style="'+_tr+'">'+_cTag(c.estado, _canteraColorEstado(c.estado))+'</td>'
       + '<td onclick="event.stopPropagation()">'+_cCV(c)+'</td>'
-      + '<td style="text-align:right" onclick="event.stopPropagation()">'+botonAplic+'</td>'
+      + '<td style="text-align:right;white-space:nowrap" onclick="event.stopPropagation()">'+botonAplic+'</td>'
       + '</tr>';
   };
   const seccion = (key, titulo, dotCol, lista, vacio, conBotonAplicar, subtitulo)=>{
@@ -20699,10 +20702,16 @@ function _canteraRenderProyecto(cont){
   h += _canteraBarraRapida('proy');
   h += seccion('aplicaron','Aplicaron a esta ronda', null, aplicaron,
     'Nadie ha aplicado todavía.', false, 'postularon por su cuenta');
-  h += seccion('sugeridos','Sugerencias de la IA', '#f2cc8f', sugeridosIA,
-    'No hay sugeridos por la IA en este departamento.', true, 'no aplicaron');
-  h += seccion('base','Resto de '+escapeHtml(conv.departamento), null, delDepto,
-    'No hay otros candidatos de este departamento.', true, 'podrías considerarlos');
+  const ultimaBusq = (()=>{ try{ return localStorage.getItem('polen-busq-'+conv.id)||''; }catch(e){ return ''; } })();
+  h += '<div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;margin:0.4rem 0 0.6rem;padding:0.6rem 0.8rem;border:1px dashed #f2cc8f;border-radius:10px;background:rgba(242,204,143,0.08)">'
+    + '<span style="font-size:0.76rem;color:var(--text2);flex:1;min-width:220px">'+(ultimaBusq?'Última búsqueda: <i>'+escapeHtml(ultimaBusq.slice(0,120))+(ultimaBusq.length>120?'…':'')+'</i>':'La IA no busca sola. Cuando quieras, búscale candidatos de la cantera a <b>este</b> puesto con lo que necesitas.')+'</span>'
+    + '<button onclick="_canteraBuscarEnCantera(\''+conv.id+'\')" style="font-size:0.78rem;font-weight:700;padding:0.45rem 0.85rem;border-radius:8px;border:none;background:#e0a84a;color:#fff;cursor:pointer;font-family:var(--font)">✨ '+(ultimaBusq?'Nueva búsqueda':'Buscar en la cantera')+'</button>'
+    + (sugeridosIA.length?'<button onclick="_canteraLimpiarSugeridos(\''+conv.id+'\')" style="font-size:0.72rem;padding:0.4rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text3);cursor:pointer;font-family:var(--font)">Limpiar sugeridos</button>':'')
+    + '</div>';
+  h += seccion('sugeridos','Sugeridos para este puesto', '#f2cc8f', sugeridosIA,
+    'Todavía no hay sugeridos. Usa "Buscar en la cantera" y describe lo que necesitas.', true, 'según tu búsqueda');
+  h += seccion('base','Resto de la cantera', null, delDepto,
+    'No hay más candidatos en la cantera.', true, 'ábrelo y usa el buscador o los filtros');
   h += _canteraBarraLote('proy', conv);
 
   h += `</div>`;
@@ -20787,20 +20796,94 @@ function _canteraMatchSel(id, on){ if(!_cantera.matchSel) _cantera.matchSel = ne
 function _canteraMatchSelVarios(ids, on){ if(!_cantera.matchSel) _cantera.matchSel = new Set(); String(ids||'').split(',').filter(Boolean).forEach(id=>{ if(on) _cantera.matchSel.add(id); else _cantera.matchSel.delete(id); }); renderCantera(); }
 function _canteraMatchLimpiar(){ _cantera.matchSel = new Set(); renderCantera(); }
 // Recalcula con IA el match (fit) de los candidatos contra los requisitos actuales del proyecto
+// ══ Búsqueda personalizada en la cantera para UN proyecto (solo cuando tú la activas) ══
+function _canteraBuscarEnCantera(convId){
+  const conv = (_cantera.convocatorias||[]).find(c=>c.id===convId); if(!conv) return;
+  let previa=''; try{ previa = localStorage.getItem('polen-busq-'+convId)||''; }catch(e){}
+  const base = previa || [conv.must_have, conv.nice_have].filter(Boolean).join('. ');
+  const libres = (_cantera.candidatos||[]).filter(c=>!(c.procesos||[]).includes(convId)).length;
+  openGenericModal('✨ Buscar en la cantera · '+escapeHtml(conv.cargo),
+    '<div style="font-size:0.8rem;color:var(--text2);line-height:1.5;margin-bottom:0.7rem">Describe con tus palabras qué necesitas para este puesto. La IA revisa los <b>'+libres+'</b> candidatos de la cantera que no han aplicado y te sugiere los que mejor encajan, con estrellas y el motivo.</div>'
+    + '<textarea id="busq-txt" style="width:100%;box-sizing:border-box;min-height:110px;padding:0.6rem 0.7rem;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.82rem;font-family:var(--font);outline:none;resize:vertical" placeholder="Ej.: diseñador con manejo fuerte de tipografía y branding, que haya trabajado en agencia, ideal con portafolio de packaging. Puede ser junior.">'+escapeHtml(base)+'</textarea>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:0.8rem;align-items:center;margin:0.7rem 0;font-size:0.76rem;color:var(--text2)">'
+    + '<label style="display:inline-flex;gap:0.35rem;align-items:center;cursor:pointer"><input type="radio" name="busq-alc" value="depto" checked> Solo '+escapeHtml(conv.departamento||'su departamento')+' (y sin departamento)</label>'
+    + '<label style="display:inline-flex;gap:0.35rem;align-items:center;cursor:pointer"><input type="radio" name="busq-alc" value="todos"> Toda la cantera</label>'
+    + '<label style="display:inline-flex;gap:0.35rem;align-items:center">Mostrar desde <select id="busq-min" style="font-size:0.74rem;padding:0.15rem 0.3rem;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-family:var(--font)"><option value="3">★3</option><option value="4">★4</option><option value="2">★2</option></select></label>'
+    + '</div>'
+    + '<div style="display:flex;justify-content:flex-end;gap:0.5rem"><button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);border-radius:9px;padding:0.5rem 0.9rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:0.8rem">Cancelar</button>'
+    + '<button onclick="_canteraBuscarEnCanteraEjecutar(\''+convId+'\')" style="background:#e0a84a;color:#fff;border:none;border-radius:9px;padding:0.5rem 1rem;cursor:pointer;font-family:var(--font);font-size:0.8rem;font-weight:700">Buscar</button></div>');
+  setTimeout(()=>{ const t=document.getElementById('busq-txt'); if(t) t.focus(); }, 50);
+}
+async function _canteraBuscarEnCanteraEjecutar(convId){
+  const conv = (_cantera.convocatorias||[]).find(c=>c.id===convId); if(!conv) return;
+  const texto = ((document.getElementById('busq-txt')||{}).value||'').trim();
+  if(texto.length < 8){ showStatus('Describe un poco más lo que buscas', true); return; }
+  const alcance = (document.querySelector('input[name="busq-alc"]:checked')||{}).value || 'depto';
+  const minFit = Number((document.getElementById('busq-min')||{}).value)||3;
+  try{ localStorage.setItem('polen-busq-'+convId, texto); }catch(e){}
+  closeTrayModal();
+  const cands = _cantera.candidatos||[];
+  const deps = c=>Array.isArray(c.departamento)?c.departamento:(c.departamento?[c.departamento]:[]);
+  let pool = cands.filter(c=>!(c.procesos||[]).includes(convId) && (alcance==='todos' || !deps(c).length || deps(c).includes(conv.departamento)));
+  // Si son muchos, primero un pre-filtro por coincidencia de palabras (gratis) y la IA evalúa los 48 más prometedores
+  if(pool.length > 48){
+    const terms = _canteraTerminos(texto).filter(t=>t.length>=4);
+    const puntaje = c=>{ const txt=_canteraNorm(_CANTERA_CAMPOS_BUSQUEDA.map(x=>x[2](c)).join(' ')); return terms.reduce((n,t)=>n+(txt.includes(t)?1:0),0) + ((typeof _cFitValor==='function'?_cFitValor(c,'_base'):0)/10); };
+    pool = pool.map(c=>[c,puntaje(c)]).sort((a,b)=>b[1]-a[1]).slice(0,48).map(x=>x[0]);
+  }
+  if(!pool.length){ showStatus('No hay candidatos en la cantera para revisar', true); return; }
+  // Quitar sugerencias anteriores de este proyecto (la búsqueda nueva las reemplaza)
+  cands.forEach(c=>{ if(c.fits && c.fits[convId] && c.fits[convId].sugerido){ c.fits[convId].sugerido=false; canteraWebAPI({ action:'set_fit', cand_id:c.id, key:convId, data:{ sugerido:false } }).catch(()=>{}); } });
+  const resumen = (c)=>({ id:c.id, nombre:c.nombre, rol:c.rol, nivel:c.nivel, etapa:c.etapa, anios_exp:c.anios_exp, ciudad:c.ciudad, actual:c.actual, senales:c.senales, notas:c.notas,
+    correo: c.mensaje_resumen || '', cv: [c.universidad?('Universidad: '+c.universidad):'', Array.isArray(c.experiencia)&&c.experiencia.length?('Trabajó en: '+c.experiencia.join(', ')):'', c.analisis?(typeof c.analisis==='string'?c.analisis:JSON.stringify(c.analisis)):''].filter(Boolean).join(' | ') });
+  const convDatos = { id:conv.id, cargo:conv.cargo, departamento:conv.departamento, nivel_buscado:conv.nivel_buscado, exp_min:conv.exp_min, exp_max:conv.exp_max,
+    modalidad:conv.modalidad, ubicacion:conv.ubicacion, educacion:conv.educacion, must_have:conv.must_have, nice_have:conv.nice_have, descripcion:conv.descripcion };
+  let encontrados = 0, fallos = 0;
+  for(let i=0;i<pool.length;i+=12){
+    const lote = pool.slice(i,i+12);
+    _canteraBarraProgreso('Buscando en la cantera… '+Math.min(i+12,pool.length)+' de '+pool.length, Math.min(i+12,pool.length)/pool.length);
+    try{
+      const d = await canteraWebAPI({ action:'evaluar', conv:convDatos, candidatos:lote.map(resumen), busqueda:texto });
+      for(const r of (d.resultados||[])){
+        const c = cands.find(x=>x.id===r.id); if(!c) continue;
+        c.fits = (c.fits && typeof c.fits==='object') ? c.fits : {};
+        const prev = c.fits[convId] || {};
+        const sirve = r.fit >= minFit;
+        c.fits[convId] = Object.assign({}, prev.origen==='manual' ? prev : { fit:r.fit, origen:'ia', validado:false }, { motivo:r.motivo, sugerido:sirve, fit_busqueda:r.fit, at:new Date().toISOString() });
+        if(!sirve) canteraWebAPI({ action:'set_fit', cand_id:c.id, key:convId, data:{ sugerido:false } }).catch(()=>{});
+        if(sirve) encontrados++;
+      }
+    }catch(e){ console.warn('[Búsqueda]', e); fallos += lote.length; }
+  }
+  _canteraCerrarProgreso();
+  _cantera.secColapsadas.sugeridos = false;
+  renderCantera();
+  showStatus(encontrados ? (encontrados+' candidato'+(encontrados!==1?'s':'')+' sugerido'+(encontrados!==1?'s':'')+' para "'+conv.cargo+'" ✓') : 'La IA no encontró candidatos que encajen desde ★'+minFit+'. Prueba describiendo distinto o bajando el mínimo.', !encontrados && !!fallos);
+}
+function _canteraLimpiarSugeridos(convId){
+  (_cantera.candidatos||[]).forEach(c=>{ if(c.fits && c.fits[convId] && c.fits[convId].sugerido){ c.fits[convId].sugerido=false; canteraWebAPI({ action:'set_fit', cand_id:c.id, key:convId, data:{ sugerido:false } }).catch(()=>{}); } });
+  renderCantera(); showStatus('Sugeridos limpiados');
+}
+function _canteraDescartarSugerido(candId, convId){
+  const c=(_cantera.candidatos||[]).find(x=>x.id===candId); if(!c||!c.fits||!c.fits[convId]) return;
+  c.fits[convId].sugerido=false; renderCantera();
+  canteraWebAPI({ action:'set_fit', cand_id:candId, key:convId, data:{ sugerido:false } }).catch(()=>{});
+}
+
 async function _canteraRecalcularMatch(convId, alcance){
   const conv = (_cantera.convocatorias||[]).find(c=>c.id===convId);
   if(!conv) return;
   const cands = _cantera.candidatos||[];
   const aplic = cands.filter(c=>(c.procesos||[]).includes(convId));
   const deps = (c)=>Array.isArray(c.departamento)?c.departamento:(c.departamento?[c.departamento]:[]);
-  const sug = cands.filter(c=>!(c.procesos||[]).includes(convId) && deps(c).includes(conv.departamento) && _canteraEsIA(c));
+  const sug = cands.filter(c=>!(c.procesos||[]).includes(convId) && c.fits && c.fits[convId] && c.fits[convId].sugerido);
   if(!alcance){
     const btn = 'width:100%;text-align:left;padding:0.7rem 0.85rem;border-radius:10px;border:1.5px solid var(--border);background:var(--bg-card);cursor:pointer;font-family:var(--font);margin-bottom:0.5rem';
     openGenericModal('Recalcular match con IA',
       '<div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.9rem;line-height:1.5">La IA vuelve a evaluar a cada candidato contra los requisitos actuales de <b>'+escapeHtml(conv.cargo)+'</b> y guarda su match para este proyecto.</div>'
       + ((_cantera.matchSel && _cantera.matchSel.size) ? '<button style="'+btn+'" onclick="closeTrayModal();_canteraRecalcularMatch(\''+convId+'\',\'seleccionados\')"><div style="font-size:0.86rem;font-weight:700;color:var(--text)">Solo los seleccionados ('+_cantera.matchSel.size+')</div></button>' : '')
       + '<button style="'+btn+'" onclick="closeTrayModal();_canteraRecalcularMatch(\''+convId+'\',\'aplicaron\')"><div style="font-size:0.86rem;font-weight:700;color:var(--text)">Solo los que aplicaron ('+aplic.length+')</div></button>'
-      + '<button style="'+btn+'" onclick="closeTrayModal();_canteraRecalcularMatch(\''+convId+'\',\'todos\')"><div style="font-size:0.86rem;font-weight:700;color:var(--text)">Aplicaron + sugeridos por la IA ('+(aplic.length+sug.length)+')</div></button>'
+      + '<button style="'+btn+'" onclick="closeTrayModal();_canteraRecalcularMatch(\''+convId+'\',\'todos\')"><div style="font-size:0.86rem;font-weight:700;color:var(--text)">Aplicaron + sugeridos para este puesto ('+(aplic.length+sug.length)+')</div></button>'
       + '<div style="text-align:right"><button onclick="closeTrayModal()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-family:var(--font);font-size:0.8rem">Cancelar</button></div>');
     return;
   }
@@ -20821,7 +20904,8 @@ async function _canteraRecalcularMatch(convId, alcance){
       (d.resultados||[]).forEach(r=>{
         const c = cands.find(x=>x.id===r.id); if(!c) return;
         c.fits = (c.fits && typeof c.fits==='object') ? c.fits : {};
-        c.fits[conv.id] = { fit:r.fit, motivo:r.motivo, at:new Date().toISOString() };
+        const prevF = c.fits[conv.id] || {};
+        c.fits[conv.id] = Object.assign({ fit:r.fit, motivo:r.motivo, at:new Date().toISOString(), origen:'ia', validado:false }, prevF.sugerido?{ sugerido:true, fit_busqueda:prevF.fit_busqueda }:{});
         ok++;
       });
       guardados += Number(d.guardados)||0;
