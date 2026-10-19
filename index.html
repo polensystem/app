@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v466-VARIOS-CV -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v467-CVS-EN-PROYECTO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 466;
+const APP_VERSION = 467;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -20526,7 +20526,7 @@ function _canteraRenderProyecto(cont){
     + '<div style="display:flex;gap:0.4rem;align-items:center">'
     + menuProy
     + '<button onclick="_canteraRecalcularMatch(\''+conv.id+'\')" title="La IA vuelve a evaluar a los candidatos contra los requisitos actuales" style="font-size:0.78rem;font-weight:600;padding:0.45rem 0.85rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);cursor:pointer;font-family:var(--font)">🔄 Re-evaluar match</button>'
-    + '<button onclick="_canteraSubirCVInput(\''+conv.id+'\')" title="Sube CVs o pega links de postulantes a este cargo — entran directo a Aplicaron" style="font-size:0.78rem;font-weight:600;padding:0.45rem 0.9rem;border-radius:8px;border:none;background:var(--agua);color:#fff;cursor:pointer;font-family:var(--font)">+ Agregar postulante</button>'
+    + '<button onclick="_canteraSubirCVInput(\''+conv.id+'\')" title="Sube uno o varios CVs (o pega links) de postulantes a este cargo — cada uno entra como perfil separado en Aplicaron. También puedes arrastrar los PDF a esta página." style="font-size:0.78rem;font-weight:600;padding:0.45rem 0.9rem;border-radius:8px;border:none;background:var(--agua);color:#fff;cursor:pointer;font-family:var(--font)">+ Agregar postulantes (CVs)</button>'
     + '</div></div>';
   // Panel de requisitos del puesto
   const pill=(txt)=> txt?`<span style="font-size:0.66rem;font-weight:600;color:var(--text2);background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.15rem 0.55rem;white-space:nowrap">${escapeHtml(txt)}</span>`:'';
@@ -21206,6 +21206,34 @@ function _canteraMezclarLinks(ficha, links){
 
 // ── Modal "Agregar CV": PDF y/o links pegados ──
 window._cvLinks = window._cvLinks || { convId:null, archivos:[], links:[], texto:'' };
+// Arrastrar PDFs directo sobre Reclutamiento: abre "Agregar" con esos CVs ya cargados
+// (si estás dentro de un proyecto, entran a ese proyecto)
+(function _canteraDropGlobal(){
+  const esPDF = dt=>dt && [...(dt.items||[])].some(i=>i.kind==='file');
+  const activo = ()=> currentPage==='cantera' && _cantera && _cantera.loaded && !document.getElementById('cv-drop');
+  let aviso = null;
+  const quitar = ()=>{ if(aviso){ aviso.remove(); aviso=null; } };
+  document.addEventListener('dragover', e=>{
+    if(!activo() || !esPDF(e.dataTransfer)) return;
+    e.preventDefault();
+    if(!aviso){
+      const conv = _cantera.vista==='proyecto' ? (_cantera.convocatorias||[]).find(c=>c.id===_cantera.proyectoId) : null;
+      aviso = document.createElement('div');
+      aviso.style.cssText='position:fixed;inset:14px;z-index:9999;border:3px dashed var(--agua);border-radius:20px;background:rgba(59,158,221,0.08);display:flex;align-items:center;justify-content:center;pointer-events:none;font-size:1.05rem;font-weight:800;color:var(--text)';
+      aviso.textContent = '📄 Suelta los CVs aquí'+(conv?' — entran a "'+conv.cargo+'"':' — se agregan a la cantera');
+      document.body.appendChild(aviso);
+    }
+  });
+  document.addEventListener('dragleave', e=>{ if(e.clientX<=0 || e.clientY<=0 || e.clientX>=innerWidth || e.clientY>=innerHeight) quitar(); });
+  document.addEventListener('drop', e=>{
+    if(!activo()){ quitar(); return; }
+    const files = e.dataTransfer && e.dataTransfer.files; quitar();
+    if(!files || !files.length) return;
+    e.preventDefault();
+    _canteraSubirCVInput(_cantera.vista==='proyecto' ? _cantera.proyectoId : null);
+    _canteraCVArchivos(files);
+  });
+})();
 function _canteraSubirCVInput(convId){
   _cvLinks = { convId: convId||null, archivos:[], links:[], texto:'', modo:'ia', man:{} };
   _canteraRenderModalCV();
