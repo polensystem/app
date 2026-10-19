@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v476-CORREO-EN-ANALISIS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v478-ACCIONES-LOTE -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 476;
+const APP_VERSION = 478;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -20000,7 +20000,9 @@ function _canteraAplicarRapido(lista, scope, convId){
   const fitDe = c => (typeof _cFitValor==='function') ? _cFitValor(c, key) : (Number(c.fit)||0);
   const estados = _canteraEstadoNombres ? _canteraEstadoNombres() : [];
   const hoy = Date.now();
+  const qProy = scope==='proy' ? ((_cantera.filtros||{}).q||'') : '';
   let out = lista.filter(c=>{
+    if(qProy && !_canteraCoincide(c, qProy)) return false;
     if(st.fit && fitDe(c) < st.fit) return false;
     if(st.nuevos){ const f=_cFechaInc(c); if(!f || (hoy - parseLocalDate(f).getTime()) > st.nuevos*86400000) return false; }
     const arch = Array.isArray(c.archivos)?c.archivos:[];
@@ -20034,7 +20036,9 @@ function _canteraBarraRapida(scope){
   if(scope==='proy') opts.unshift(['match','Mejor match con el puesto']);
   const usandoEncabezado = scope==='base' && _cantera.baseSort && _cantera.baseSort.col;
   const activos = ['fit','nuevos','cv','port','revisar','contacto'].filter(k=>st[k]).length;
-  return '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin:0 0 0.8rem">'
+  const buscador = scope==='proy' ? '<input id="cantera-q-proy" value="'+escapeHtml((_cantera.filtros||{}).q||'')+'" oninput="_canteraBuscarProy(this.value)" placeholder="🔎 Buscar en este proyecto: nombre, universidad, agencia…" style="font-size:0.76rem;padding:0.4rem 0.65rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-family:var(--font);outline:none;flex:1;min-width:220px;max-width:420px">' : '';
+  return (buscador?'<div style="display:flex;gap:0.5rem;margin:0 0 0.5rem">'+buscador+'</div>':'')
+    + '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin:0 0 0.8rem">'
     + '<label style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.7rem;font-weight:700;color:var(--text3)">↕ Ordenar'
     + '<select onchange="_canteraRap(\''+scope+'\',\'orden\',this.value)" style="font-size:0.74rem;font-weight:600;padding:0.28rem 0.5rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-family:var(--font);cursor:pointer">'
     + (usandoEncabezado?'<option value="" selected>Por columna ('+escapeHtml(_cantera.baseSort.col)+')</option>':'')
@@ -20049,7 +20053,50 @@ function _canteraBarraRapida(scope){
     + (activos?'<button onclick="_canteraRapLimpiar(\''+scope+'\')" style="font-size:0.7rem;background:none;border:none;color:var(--text3);cursor:pointer;text-decoration:underline;font-family:var(--font)">Quitar filtros</button>':'')
     + '</div>';
 }
+function _canteraBuscarProy(v){
+  _cantera.filtros = _cantera.filtros || {}; _cantera.filtros.q = v; renderCantera();
+  const i=document.getElementById('cantera-q-proy'); if(i){ i.focus(); const n=i.value.length; try{ i.setSelectionRange(n,n); }catch(e){} }
+}
 function _canteraRapLimpiar(scope){ const st=_canteraRapState(scope); Object.assign(st,{fit:0,nuevos:0,cv:false,port:false,revisar:false,contacto:false}); renderCantera(); }
+
+// ══ Búsqueda por palabras clave en TODO el perfil (nombre, universidad, empresas, notas, análisis IA, correo…) ══
+const _CANTERA_CAMPOS_BUSQUEDA = [
+  ['nombre','Nombre', c=>c.nombre], ['rol','Rol', c=>c.rol], ['universidad','Universidad', c=>c.universidad],
+  ['experiencia','Experiencia', c=>Array.isArray(c.experiencia)?c.experiencia.join(' · '):c.experiencia],
+  ['actual','Trabaja/estudia hoy', c=>c.actual], ['ciudad','Ciudad', c=>c.ciudad], ['nivel','Nivel', c=>[c.nivel,c.etapa].join(' ')],
+  ['depto','Departamento', c=>Array.isArray(c.departamento)?c.departamento.join(' '):c.departamento],
+  ['estado','Estatus', c=>[c.estado,c.destreza].join(' ')], ['senales','Señales', c=>c.senales],
+  ['analisis','Análisis IA', c=>{ const a=c.analisis; if(!a) return ''; if(typeof a==='string') return a; return [a.resumen,(a.fortalezas||[]).join(' '),(a.dudas||[]).join(' ')].join(' '); }],
+  ['notas','Notas', c=>c.notas], ['correo','Su correo', c=>[c.mensaje_resumen,c.mensaje].join(' ')],
+  ['contacto','Contacto', c=>[c.email,c.telefono,c.contacto].join(' ')],
+  ['links','Links', c=>{ const L=c.links||{}; return Object.keys(L).map(k=>Array.isArray(L[k])?L[k].map(x=>x&&x.url||x).join(' '):L[k]).join(' '); }],
+  ['proceso','Proceso', c=>[c.proceso_texto,(c.procesos||[]).map(pid=>{ const v=(_cantera.convocatorias||[]).find(x=>x.id===pid); return v?v.cargo:''; }).join(' ')].join(' ')],
+  ['archivos','Archivos', c=>(c.archivos||[]).map(a=>a.nombre).join(' ')]
+];
+function _canteraNorm(t){ return String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+// Términos: palabras sueltas o "frases entre comillas"; TODAS deben aparecer (en cualquier campo)
+function _canteraTerminos(q){
+  const out=[]; String(q||'').replace(/"([^"]+)"|(\S+)/g,(m,a,b)=>{ const t=_canteraNorm(a||b).trim(); if(t) out.push(t); return m; });
+  return out;
+}
+// null si no coincide; si coincide, lista de campos donde aparecieron los términos
+function _canteraCoincide(c, q){
+  const terms = _canteraTerminos(q); if(!terms.length) return [];
+  const campos = _CANTERA_CAMPOS_BUSQUEDA.map(([k,label,fn])=>[label, _canteraNorm(fn(c))]);
+  const donde = new Set();
+  for(const t of terms){
+    let ok=false;
+    for(const [label,txt] of campos){ if(txt && txt.includes(t)){ ok=true; donde.add(label); } }
+    if(!ok) return null;
+  }
+  return [...donde];
+}
+function _canteraChipCoincide(c){
+  const q = (_cantera.filtros||{}).q; if(!q) return '';
+  const d = _canteraCoincide(c, q); if(!d || !d.length) return '';
+  const vis = d.filter(x=>x!=='Nombre');
+  return vis.length ? '<div style="font-size:0.62rem;color:var(--aire);font-weight:700;margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="Coincide en: '+escapeHtml(vis.join(', '))+'">🔎 '+escapeHtml(vis.slice(0,3).join(' · '))+'</div>' : '';
+}
 
 function setCanteraFiltro(campo, val){
   _cantera.filtros[campo]=val;
@@ -20079,10 +20126,7 @@ function _canteraFiltrados(){
       if(f.depto==='(sin asignar)'){ if(deps.length) return false; }
       else if(!deps.includes(f.depto)) return false;
     }
-    if(q){
-      const blob = [c.nombre,c.rol,c.actual,c.ciudad,c.senales,c.proceso_texto,c.email,c.universidad,(Array.isArray(c.experiencia)?c.experiencia.join(' '):''),c.mensaje_resumen].join(' ').toLowerCase();
-      if(!blob.includes(q)) return false;
-    }
+    if(q && !_canteraCoincide(c, q)) return false;
     return true;
   });
   items = _canteraAplicarRapido(items, 'base');
@@ -20329,7 +20373,7 @@ function _canteraRenderLista(cont){
     return '<button onclick="_canteraSetVistaBase(\''+v+'\')" style="padding:0.3rem 0.6rem;border-radius:6px;border:none;background:'+(on?'var(--bg-card)':'transparent')+';box-shadow:'+(on?'0 1px 2px rgba(0,0,0,0.08)':'none')+';color:'+(on?'var(--text)':'var(--text3)')+';font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--font)">'+label+'</button>';
   };
   h += '<div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.7rem;flex-wrap:wrap">'
-    + '<input id="cantera-q" value="'+escapeHtml(f.q||'')+'" oninput="setCanteraFiltro(\'q\', this.value)" placeholder="Buscar nombre, rol, ciudad…" style="'+ctrl+';flex:1;min-width:200px;max-width:340px;outline:none">'
+    + '<input id="cantera-q" value="'+escapeHtml(f.q||'')+'" oninput="setCanteraFiltro(\'q\', this.value)" placeholder="🔎 Buscar: nombre, universidad, agencia, ciudad, habilidad…" title="Busca en todo el perfil: nombre, universidad, empresas donde trabajó, notas, análisis de la IA, su correo, links… Varias palabras = deben estar todas. Usa comillas para una frase exacta." style="'+ctrl+';flex:1;min-width:240px;max-width:460px;outline:none">'
     + '<button onclick="_canteraTogglePanelFiltros()" style="'+ctrl+';cursor:pointer;font-weight:600;'+(nFiltros||_cantera.panelFiltros?'color:var(--text);border-color:var(--text3)':'')+'">Filtros'+(nFiltros?' · '+nFiltros:'')+'</button>'
     + '<div style="flex:1"></div>'
     + '<button onclick="_canteraLeerContactosCVs()" title="Lee los CV guardados y completa correo, teléfono, universidad y experiencia en los perfiles que no los tienen" style="'+ctrl+';cursor:pointer;font-weight:600">📇 Completar desde los CV</button>'
@@ -20385,9 +20429,11 @@ function _canteraRenderLista(cont){
     const portaHtml = porta
       ? '<a href="'+escapeHtml(porta)+'" target="_blank" onclick="event.stopPropagation()" title="Abrir portafolio" style="text-decoration:none;color:var(--text2);font-size:0.85rem">↗</a>'
       : '';
-    return '<tr class="crm-table-row" style="cursor:pointer;'+bgRow+'" onclick="_canteraAbrirFicha(\''+c.id+'\')">'
+    const bsel = _canteraSelDe('base').has(c.id);
+    return '<tr class="crm-table-row" style="cursor:pointer;'+bgRow+(bsel?';background:rgba(59,158,221,0.07)':'')+'" onclick="_canteraAbrirFicha(\''+c.id+'\')">'
+      + '<td onclick="event.stopPropagation()" style="text-align:center"><input type="checkbox" '+(bsel?'checked':'')+' onchange="_canteraBaseSel(\''+c.id+'\', this.checked)" title="Seleccionar" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></td>'
       + '<td style="'+_trunc+'"><div style="font-size:0.82rem;font-weight:600;color:var(--text);'+_trunc+'">'+escapeHtml(c.nombre||'—')+(c.verificado?' <span title="Verificado" style="color:#30a46c;font-size:0.72rem">✓</span>':'')+'</div>'
-      + (c.actual?'<div style="font-size:0.68rem;color:var(--text3);'+_trunc+'">'+escapeHtml(c.actual)+'</div>':'')+'</td>'
+      + (c.actual?'<div style="font-size:0.68rem;color:var(--text3);'+_trunc+'">'+escapeHtml(c.actual)+'</div>':'')+_canteraChipCoincide(c)+'</td>'
       + '<td style="'+_trunc+'" title="'+escapeHtml(procTitle)+'">'
         + (pinfo.cargo||pinfo.ctx
             ? '<div style="font-size:0.76rem;color:var(--text2);'+_trunc+'">'+(pinfo.cargo?escapeHtml(pinfo.cargo):'<span style="color:var(--text3)">—</span>')+(pinfo.extra?' <span style="font-size:0.66rem;color:var(--text3)">+'+pinfo.extra+'</span>':'')+'</div>'
@@ -20409,8 +20455,9 @@ function _canteraRenderLista(cont){
     const flecha = s.col===campo ? (s.dir==='asc'?' ↑':' ↓') : '';
     return '<th onclick="_canteraSortBase(\''+campo+'\')" style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;'+(align?'text-align:'+align:'')+'" title="Ordenar">'+label+flecha+'</th>';
   };
-  const colgroup = '<colgroup><col style="width:15%"><col style="width:10%"><col style="width:9%"><col style="width:8%"><col style="width:7%"><col style="width:8%"><col style="width:10%"><col style="width:11%"><col style="width:7%"><col style="width:15%"></colgroup>';
-  const thBase = '<thead><tr>'
+  const colgroup = '<colgroup><col style="width:3%"><col style="width:14%"><col style="width:10%"><col style="width:9%"><col style="width:8%"><col style="width:7%"><col style="width:8%"><col style="width:10%"><col style="width:10%"><col style="width:7%"><col style="width:14%"></colgroup>';
+  const thBase = (lista)=> '<thead><tr>'
+      + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;text-align:center;cursor:default"><input type="checkbox" '+(lista.length && lista.every(c=>_canteraSelDe('base').has(c.id))?'checked':'')+' onchange="_canteraBaseSelVarios(\''+lista.map(c=>c.id).join(',')+'\', this.checked)" title="Seleccionar todos" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></th>'
       + _thSort('nombre','Candidato') + _thSort('proceso_texto','Proceso') + _thSort('rol','Rol')
       + _thSort('_depto','Depto') + _thSort('ciudad','Ciudad') + _thSort('fecha_inclusion','Incluido') + _thSort('fit','Fit')
       + _thSort('estado','Estatus') + _thSort('destreza','Destreza')
@@ -20418,7 +20465,7 @@ function _canteraRenderLista(cont){
       + '</tr></thead>';
   const tabla = (lista, resaltar, maxH)=>
     '<div style="border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:'+maxH+';background:var(--bg-card)">'
-    + '<table class="tray-table" style="min-width:860px;table-layout:fixed">'+colgroup+thBase+'<tbody>'
+    + '<table class="tray-table" style="min-width:880px;table-layout:fixed">'+colgroup+thBase(lista)+'<tbody>'
     + lista.map(c=>filaBase(c, resaltar)).join('')
     + '</tbody></table></div>';
 
@@ -20450,6 +20497,7 @@ function _canteraRenderLista(cont){
     h += grupo('b-aplicaron','Aplicaron', null, aplicaron, 'postularon por su cuenta', 'Nadie ha postulado con estos filtros.');
     h += grupo('b-ia','Sugeridos por la IA', '#f2cc8f', sugeridos, 'no aplicaron', 'No hay sugeridos por la IA con estos filtros.');
   }
+  h += _canteraBarraLote('base', null);
   h += '</div>';
   cont.innerHTML = h;
 }
@@ -20565,7 +20613,7 @@ function _canteraRenderProyecto(cont){
     return '<tr class="crm-table-row" onclick="_canteraAbrirFicha(\''+c.id+'\')" style="cursor:pointer;'+(marcado?'background:rgba(59,158,221,0.07)':'')+'">'
       + '<td onclick="event.stopPropagation()" style="text-align:center"><input type="checkbox" '+(marcado?'checked':'')+' onchange="_canteraMatchSel(\''+c.id+'\', this.checked)" title="Seleccionar para re-evaluar" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></td>'
       + '<td style="'+_tr+'"><div style="font-size:0.82rem;font-weight:600;color:var(--text);'+_tr+'">'+escapeHtml(c.nombre||'—')+(c.verificado?' <span title="Verificado" style="color:#30a46c;font-size:0.72rem">✓</span>':'')+'</div>'
-      + (c.actual?'<div style="font-size:0.68rem;color:var(--text3);'+_tr+'">'+escapeHtml(c.actual)+'</div>':'')+'</td>'
+      + (c.actual?'<div style="font-size:0.68rem;color:var(--text3);'+_tr+'">'+escapeHtml(c.actual)+'</div>':'')+_canteraChipCoincide(c)+'</td>'
       + '<td style="font-size:0.76rem;color:var(--text2);'+_tr+'">'+escapeHtml(c.rol||'—')+'</td>'
       + '<td style="font-size:0.76rem;color:var(--text2);'+_tr+'">'+escapeHtml(c.nivel||'—')+'</td>'
       + '<td>'+_cFitProy(c, conv.id)+'</td>'
@@ -20655,13 +20703,7 @@ function _canteraRenderProyecto(cont){
     'No hay sugeridos por la IA en este departamento.', true, 'no aplicaron');
   h += seccion('base','Resto de '+escapeHtml(conv.departamento), null, delDepto,
     'No hay otros candidatos de este departamento.', true, 'podrías considerarlos');
-  if(msel.size){
-    h += '<div style="position:sticky;bottom:12px;z-index:20;display:flex;align-items:center;gap:0.7rem;flex-wrap:wrap;margin-top:0.5rem;padding:0.6rem 0.8rem;border-radius:12px;background:var(--text);color:var(--bg);box-shadow:0 10px 30px rgba(0,0,0,0.25)">'
-      + '<span style="font-size:0.82rem;font-weight:700">'+msel.size+' seleccionado'+(msel.size!==1?'s':'')+'</span>'
-      + '<button onclick="_canteraRecalcularMatch(\''+conv.id+'\',\'seleccionados\')" style="font-size:0.8rem;font-weight:700;padding:0.4rem 0.85rem;border-radius:8px;border:none;background:var(--agua);color:#fff;cursor:pointer;font-family:var(--font)">🔄 Re-evaluar seleccionados</button>'
-      + '<button onclick="_canteraMatchLimpiar()" style="font-size:0.78rem;padding:0.4rem 0.6rem;border:none;background:none;color:inherit;opacity:0.75;cursor:pointer;font-family:var(--font)">Quitar selección</button>'
-      + '</div>';
-  }
+  h += _canteraBarraLote('proy', conv);
 
   h += `</div>`;
   cont.innerHTML = h;
@@ -20670,6 +20712,76 @@ function _canteraEditarProyecto(id){
   const conv=(_cantera.convocatorias||[]).find(c=>c.id===id);
   if(conv) _canteraCrearProyecto(conv);
 }
+// ══ Acciones en lote sobre los candidatos marcados (base y proyectos) ══
+function _canteraSelDe(scope){
+  if(scope==='proy'){ if(!_cantera.matchSel) _cantera.matchSel = new Set(); return _cantera.matchSel; }
+  if(!_cantera.baseSel) _cantera.baseSel = new Set(); return _cantera.baseSel;
+}
+function _canteraBaseSel(id, on){ const s=_canteraSelDe('base'); if(on) s.add(id); else s.delete(id); renderCantera(); }
+function _canteraBaseSelVarios(ids, on){ const s=_canteraSelDe('base'); String(ids||'').split(',').filter(Boolean).forEach(id=>{ if(on) s.add(id); else s.delete(id); }); renderCantera(); }
+async function _canteraLoteGuardar(scope, etiqueta, fn){
+  const sel = _canteraSelDe(scope); const ids = [...sel];
+  if(!ids.length) return;
+  let ok=0, err=0;
+  for(let i=0;i<ids.length;i++){
+    const c = (_cantera.candidatos||[]).find(x=>x.id===ids[i]); if(!c) continue;
+    if(ids.length>2) _canteraBarraProgreso(etiqueta+' '+(i+1)+' de '+ids.length+'…', (i+1)/ids.length);
+    try{
+      const r = await fn(c);
+      if(r===false){ err++; continue; }
+      if(r && typeof r==='object'){
+        const row = await canteraAPI('save_candidato', { data:Object.assign({ id:c.id, rev:c.rev, nombre:c.nombre||'Sin nombre' }, r) });
+        if(row && !row.conflict){ Object.assign(c, r); if(row.rev!=null) c.rev = row.rev; ok++; } else err++;
+      } else ok++;
+    }catch(e){ console.warn('lote', c.nombre, e); err++; }
+  }
+  if(ids.length>2) _canteraCerrarProgreso();
+  renderCantera();
+  showStatus(etiqueta.replace(/…$/,'')+': '+ok+' listo'+(ok!==1?'s':'')+(err?' · '+err+' con error':'')+' ✓', !!err && !ok);
+}
+function _canteraLoteEstado(scope, v){ if(!v) return; _canteraLoteGuardar(scope, 'Cambiando estatus…', c=>({ estado:v })); }
+function _canteraLoteDestreza(scope, v){ if(v==null) return; _canteraLoteGuardar(scope, 'Cambiando destreza…', c=>({ destreza:v==='(ninguna)'?'':v })); }
+function _canteraLoteFit(scope, n, convId){
+  n = Number(n); if(!n) return;
+  _canteraLoteGuardar(scope, 'Poniendo '+n+' estrella'+(n!==1?'s':'')+'…', async c=>{ await _canteraFitSet(c.id, convId||'_base', n); return true; });
+}
+function _canteraLoteProceso(scope, convId){
+  if(!convId) return;
+  const cv = (_cantera.convocatorias||[]).find(x=>x.id===convId);
+  _canteraLoteGuardar(scope, 'Asignando a "'+(cv?cv.cargo:'proceso')+'"…', c=>{
+    const deps = Array.isArray(c.departamento)?c.departamento:(c.departamento?[c.departamento]:[]);
+    const out = { procesos:[...new Set([...(c.procesos||[]), convId])] };
+    if(cv && cv.departamento && !deps.includes(cv.departamento)) out.departamento = deps.concat([cv.departamento]);
+    return out;
+  });
+}
+function _canteraLoteQuitarProceso(scope, convId){
+  _canteraLoteGuardar(scope, 'Quitando de este proceso…', c=>({ procesos:(c.procesos||[]).filter(p=>p!==convId) })).then(()=>{ _canteraSelDe(scope).clear(); renderCantera(); });
+}
+function _canteraLoteDepto(scope, v){
+  if(!v) return;
+  _canteraLoteGuardar(scope, 'Asignando departamento…', c=>{ const d=Array.isArray(c.departamento)?c.departamento:(c.departamento?[c.departamento]:[]); return d.includes(v)?true:{ departamento:d.concat([v]) }; });
+}
+function _canteraLoteVerificar(scope, on){ _canteraLoteGuardar(scope, on?'Marcando verificados…':'Quitando verificado…', c=>({ verificado:!!on })); }
+function _canteraBarraLote(scope, conv){
+  const sel = _canteraSelDe(scope); if(!sel.size) return '';
+  const st = 'font-size:0.74rem;font-weight:600;padding:0.32rem 0.45rem;border-radius:8px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.1);color:inherit;font-family:var(--font);cursor:pointer;max-width:180px';
+  const opt = (v,t)=>'<option value="'+escapeHtml(v)+'" style="color:#111">'+escapeHtml(t)+'</option>';
+  const otros = (_cantera.convocatorias||[]).filter(cv=>!conv || cv.id!==conv.id);
+  return '<div style="position:sticky;bottom:12px;z-index:20;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;padding:0.6rem 0.8rem;border-radius:12px;background:var(--text);color:var(--bg);box-shadow:0 10px 30px rgba(0,0,0,0.25)">'
+    + '<span style="font-size:0.82rem;font-weight:800;margin-right:0.2rem">'+sel.size+' seleccionado'+(sel.size!==1?'s':'')+'</span>'
+    + (scope==='proy'&&conv ? '<button onclick="_canteraRecalcularMatch(\''+conv.id+'\',\'seleccionados\')" style="font-size:0.76rem;font-weight:700;padding:0.36rem 0.7rem;border-radius:8px;border:none;background:var(--agua);color:#fff;cursor:pointer;font-family:var(--font)">🔄 Re-evaluar</button>' : '')
+    + '<select onchange="_canteraLoteEstado(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Estatus…')+_canteraEstadoNombres().map(n=>opt(n,n)).join('')+'</select>'
+    + '<select onchange="_canteraLoteFit(\''+scope+'\',this.value,'+(scope==='proy'&&conv?'\''+conv.id+'\'':'null')+');this.value=\'\'" style="'+st+'">'+opt('','Estrellas…')+[5,4,3,2,1].map(n=>opt(n,'★'.repeat(n)+' ('+n+')')).join('')+'</select>'
+    + (otros.length ? '<select onchange="_canteraLoteProceso(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Asignar a proceso…')+otros.map(cv=>opt(cv.id,cv.cargo+(cv.estado==='cerrada'?' (cerrado)':''))).join('')+'</select>' : '')
+    + '<select onchange="_canteraLoteDepto(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Departamento…')+CANTERA_DEPTOS.map(d=>opt(d,d)).join('')+'</select>'
+    + '<select onchange="_canteraLoteDestreza(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Destreza…')+_canteraDestrezas().map(d=>opt(d.nombre,d.nombre)).join('')+opt('(ninguna)','Sin destreza')+'</select>'
+    + '<button onclick="_canteraLoteVerificar(\''+scope+'\',true)" style="'+st+'">✓ Verificar</button>'
+    + (scope==='proy'&&conv ? '<button onclick="_canteraLoteQuitarProceso(\''+scope+'\',\''+conv.id+'\')" style="'+st+'">Quitar de este proceso</button>' : '')
+    + '<button onclick="_canteraSelDe(\''+scope+'\').clear();renderCantera()" style="font-size:0.74rem;padding:0.35rem 0.5rem;border:none;background:none;color:inherit;opacity:0.75;cursor:pointer;font-family:var(--font);margin-left:auto">Quitar selección</button>'
+    + '</div>';
+}
+
 // Selección de candidatos (checkbox) para re-evaluar
 function _canteraMatchSel(id, on){ if(!_cantera.matchSel) _cantera.matchSel = new Set(); if(on) _cantera.matchSel.add(id); else _cantera.matchSel.delete(id); renderCantera(); }
 function _canteraMatchSelVarios(ids, on){ if(!_cantera.matchSel) _cantera.matchSel = new Set(); String(ids||'').split(',').filter(Boolean).forEach(id=>{ if(on) _cantera.matchSel.add(id); else _cantera.matchSel.delete(id); }); renderCantera(); }
