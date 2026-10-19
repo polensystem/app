@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v482-EDAD-ESTIMADA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v483-AUTO-PERFIL -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 482;
+const APP_VERSION = 483;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -19800,6 +19800,7 @@ async function _canteraCargarFechas(forzar){
     (_cantera.candidatos||[]).forEach(c=>{ const x=mapa[c.id]; if(x){ if(x.fecha_inclusion) c.fecha_inclusion=x.fecha_inclusion; if(x.created_at) c.created_at=x.created_at; if(x.universidad!=null && !c.universidad) c.universidad=x.universidad; if(Array.isArray(x.experiencia) && !(Array.isArray(c.experiencia)&&c.experiencia.length)) c.experiencia=x.experiencia; if(x.mensaje && !c.mensaje) c.mensaje=x.mensaje; if(x.canal && !c.canal) c.canal=x.canal; if(x.sexo && !c.sexo) c.sexo=x.sexo; if(x.anio_nacimiento && !c.anio_nacimiento) c.anio_nacimiento=x.anio_nacimiento; if(x.edad_estimada!=null && c.edad_estimada==null) c.edad_estimada=x.edad_estimada; if(x.mensaje_resumen && !c.mensaje_resumen) c.mensaje_resumen=x.mensaje_resumen; } });
     if(r.grabadas) console.log('[Cantera] Fecha de inclusión grabada a', r.grabadas, 'candidatos');
     if(currentPage==='cantera') renderCantera();
+    setTimeout(_canteraAutoCompletarPerfiles, 1500);   // en segundo plano: edad, sexo, universidad… de los CV
   }catch(e){
     console.warn('fechas cantera:', e);
     if(e && e.message==='falta_columna_fecha_inclusion') showStatus('Falta correr fase-F2-fecha-inclusion.sql en Supabase para guardar la fecha de inclusión', true);
@@ -21237,7 +21238,7 @@ async function _canteraTextoCVGuardado(c){
   const buf = await (await fetch(r.url)).arrayBuffer();
   return (await _canteraLinksDePDF(buf)).texto || '';
 }
-async function _canteraPerfilDesdeCV(id, sobrescribir, texto, mensaje){
+async function _canteraPerfilDesdeCV(id, sobrescribir, texto, mensaje, silencioso){
   const c = (_cantera.candidatos||[]).find(x=>x.id===id); if(!c) return false;
   try{
     if(sobrescribir) showStatus(mensaje ? 'Analizando el CV y el correo…' : 'Leyendo el CV…');
@@ -21255,7 +21256,7 @@ async function _canteraPerfilDesdeCV(id, sobrescribir, texto, mensaje){
     if(mensaje){ c.mensaje = mensaje; if(r.mensaje_resumen) c.mensaje_resumen = r.mensaje_resumen; if(r.analisis) c.analisis = r.analisis; }
     const ed = window._canteraFichaEdit;
     if(ed && ed.id===id){ ed.universidad = c.universidad; ed.experiencia = c.experiencia; ed.sexo = c.sexo; ed.anio_nacimiento = c.anio_nacimiento; ed.edad_estimada = c.edad_estimada; ed.mensaje = c.mensaje; ed.mensaje_resumen = c.mensaje_resumen; if(c.analisis) ed.analisis = c.analisis; _canteraRenderFicha(!window._canteraFichaId); }
-    if(currentPage==='cantera' && !(ed && ed.id===id)) renderCantera();
+    if(!silencioso && currentPage==='cantera' && !(ed && ed.id===id)) renderCantera();
     if(sobrescribir) showStatus(mensaje ? 'Análisis de la IA actualizado con su correo ✓' : 'Universidad y experiencia actualizadas ✓');
     return true;
   }catch(e){ if(sobrescribir) showStatus('No se pudo leer el CV ('+(e.message||'')+')', true); return false; }
@@ -21267,6 +21268,51 @@ async function _canteraAnalizarMensajeFicha(id){
   await _canteraPerfilDesdeCV(id, true, '', msg);
 }
 
+// ── Auto-completar en segundo plano (al abrir la cantera) los perfiles con CV a los que les falta
+//    edad, sexo, universidad o experiencia. Cada CV se intenta UNA sola vez (si el PDF no trae el dato,
+//    no se vuelve a gastar IA en él); si se sube un CV nuevo, se vuelve a intentar. ──
+const _CANTERA_AUTO_KEY = 'polen_cantera_perfil_ia_v1';
+function _canteraAutoIntentados(){ try{ return JSON.parse(localStorage.getItem(_CANTERA_AUTO_KEY)||'{}')||{}; }catch(_){ return {}; } }
+function _canteraAutoMarcar(id, path){ try{ const m=_canteraAutoIntentados(); m[id]=path; localStorage.setItem(_CANTERA_AUTO_KEY, JSON.stringify(m)); }catch(_){} }
+// Redibuja la tabla solo si no interrumpe (sin ficha abierta ni escribiendo en un campo)
+function _canteraAutoRefrescar(){
+  if(currentPage!=='cantera' || window._canteraFichaEdit) return;
+  const f=document.activeElement; if(f && /^(INPUT|TEXTAREA|SELECT)$/.test(f.tagName)) return;
+  renderCantera();
+}
+async function _canteraAutoCompletarPerfiles(){
+  if(_cantera._autoCorriendo) return; _cantera._autoCorriendo = true;
+  try{
+    const sinPerfil = c=>!c.universidad || !(Array.isArray(c.experiencia)&&c.experiencia.length) || !c.sexo || !c.anio_nacimiento;
+    const hechos = _canteraAutoIntentados();
+    const pend = (_cantera.candidatos||[]).filter(c=>{
+      if(!c.id || !sinPerfil(c) || !Array.isArray(c.archivos)) return false;
+      const a = c.archivos.find(x=>_cArchTipo(x)==='cv' && x.path);
+      return a && hechos[c.id]!==a.path;
+    });
+    if(!pend.length) return;
+    console.log('[Cantera] Completando en segundo plano', pend.length, 'perfiles desde el CV');
+    let ok=0, t=null;
+    for(const c of pend){
+      const a = c.archivos.find(x=>_cArchTipo(x)==='cv' && x.path);
+      try{
+        const r = await canteraWebAPI({ action:'cv_url', path:a.path });
+        const buf = await (await fetch(r.url)).arrayBuffer();
+        const lk = await _canteraLinksDePDF(buf);
+        if(lk.texto && lk.texto.length>=40){
+          const antes = [c.universidad, (c.experiencia||[]).length, c.sexo, c.anio_nacimiento].join('|');
+          const hecho = await _canteraPerfilDesdeCV(c.id, false, lk.texto, '', true);
+          if(!hecho) continue;   // error de IA/red: se reintenta la próxima vez
+          if([c.universidad, (c.experiencia||[]).length, c.sexo, c.anio_nacimiento].join('|')!==antes){
+            ok++; clearTimeout(t); t=setTimeout(_canteraAutoRefrescar, 800);
+          }
+        }
+        _canteraAutoMarcar(c.id, a.path);   // intentado (con o sin datos): no se repite
+      }catch(e){ console.warn('[Cantera] auto-perfil', c.nombre, e); if(e && /falta_columnas_fase_F7|ANTHROPIC/.test(e.message||'')) break; }
+    }
+    if(ok){ _canteraAutoRefrescar(); showStatus('🤖 '+ok+' perfil'+(ok!==1?'es':'')+' completado'+(ok!==1?'s':'')+' automáticamente desde el CV'); }
+  } finally { _cantera._autoCorriendo = false; }
+}
 // ── Leer correo y teléfono de los CV ya guardados (para los perfiles que no los tienen) ──
 async function _canteraLeerContactosCVs(){
   const sinExp = c=>!c.universidad || !(Array.isArray(c.experiencia)&&c.experiencia.length) || !c.sexo || !c.anio_nacimiento;
