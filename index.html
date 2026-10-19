@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v479-BUSQUEDA-POR-PUESTO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v482-EDAD-ESTIMADA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 479;
+const APP_VERSION = 482;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -19703,6 +19703,36 @@ const CANTERA_URL = SB_URL + '/functions/v1/cantera';
 const CANTERA_NIVELES = ['Pasante','Junior','Semi-senior','Senior'];
 const CANTERA_ETAPAS = ['Estudiante','Recién graduado 0–1 año','1–3 años','3+ años','Por confirmar'];
 const CANTERA_DEPTOS = ['Diseño','Redacción','Administrativo','Comercial'];
+// Canal por el que postuló la persona
+const CANTERA_CANALES = ['Correo','LinkedIn','Instagram','Computrabajo','Multitrabajos','Referido','WhatsApp','Web de Polen','Bolsa universitaria','Búsqueda IA','Otro'];
+const CANTERA_CANAL_ICONO = { 'Correo':'✉️','LinkedIn':'💼','Instagram':'📸','Computrabajo':'🧾','Multitrabajos':'🧾','Referido':'🤝','WhatsApp':'💬','Web de Polen':'🌐','Bolsa universitaria':'🎓','Búsqueda IA':'✨','Otro':'📥' };
+function _canteraCanal(c){ if(!c) return ''; if(c.canal) return c.canal; return ''; }
+function _cEdad(c){ const a=Number(c&&c.anio_nacimiento); return (a>=1940&&a<=2015) ? (new Date().getFullYear()-a) : null; }
+function _cCeldasPerfil(c, tr){
+  const e=_cEdad(c);
+  return '<td style="font-size:0.74rem;color:var(--text2);'+tr+'" title="'+escapeHtml(c.universidad||'')+'">'+escapeHtml(c.universidad||'—')+'</td>'
+    + '<td style="font-size:0.74rem;color:var(--text2);text-align:center">'+(c.sexo==='M'||c.sexo==='F'?c.sexo:'—')+'</td>'
+    + '<td style="font-size:0.74rem;color:var(--text2);text-align:center"'+(e!=null&&c.edad_estimada?' title="Edad estimada: 18 años al terminar el colegio o al entrar a la universidad"':'')+'>'+(e!=null?(c.edad_estimada?'~'+e:e):'—')+'</td>';
+}
+function _cCanalTxt(c){ const k=_canteraCanal(c); return k ? '<div style="font-size:0.64rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(CANTERA_CANAL_ICONO[k]||'📥')+' vía '+escapeHtml(k)+'</div>' : ''; }
+function _canteraCanalesUsados(){ const s=new Set(CANTERA_CANALES); (_cantera.candidatos||[]).forEach(c=>{ if(c.canal) s.add(c.canal); }); return [...s]; }
+async function _canteraGuardarCanal(id, canal){
+  const c=(_cantera.candidatos||[]).find(x=>x.id===id); const prev=c?c.canal:null;
+  if(c) c.canal = canal||null;
+  if(window._canteraFichaEdit && window._canteraFichaEdit.id===id) window._canteraFichaEdit.canal = canal||null;
+  try{ await canteraWebAPI({ action:'set_perfil', cand_id:id, data:{ canal: canal||'' } }); if(currentPage==='cantera' && !window._canteraFichaEdit) renderCantera(); return true; }
+  catch(e){ if(c) c.canal=prev; showStatus(e && e.message==='falta_columna_fase_F6' ? 'Para guardar el canal, corre fase-F6 en Supabase' : 'No se pudo guardar el canal ('+(e.message||'')+')', true); return false; }
+}
+function _canteraCanalSelectHTML(val, onchange, extraStyle){
+  const ops = _canteraCanalesUsados();
+  return '<select onchange="'+onchange+'" style="font-size:0.74rem;padding:0.3rem 0.45rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-family:var(--font);cursor:pointer;'+(extraStyle||'')+'">'
+    + '<option value="">— Canal —</option>' + ops.map(o=>'<option value="'+escapeHtml(o)+'"'+(o===val?' selected':'')+'>'+(CANTERA_CANAL_ICONO[o]||'📥')+' '+escapeHtml(o)+'</option>').join('')
+    + '<option value="__otro">✏️ Otro canal…</option></select>';
+}
+function _canteraCanalOtro(sel, cb){
+  if(sel.value!=='__otro') return cb(sel.value);
+  askModal({ label:'¿Por dónde postuló? (nombre del canal)', placeholder:'Ej.: Feria de empleo UEES' }).then(v=>{ if(v && String(v).trim()) cb(String(v).trim()); else sel.value=''; });
+}
 const CANTERA_DEPTO_COLOR = { 'Diseño':'#e07a5f','Redacción':'#3d9edd','Administrativo':'#81b29a','Comercial':'#9b8bd4' };
 // Estados por defecto (si la config no trae ninguno). Colores orgánicos Polen.
 const CANTERA_ESTADOS_DEFAULT = [
@@ -19767,7 +19797,7 @@ async function _canteraCargarFechas(forzar){
   try{
     const r = await canteraWebAPI({ action:'fechas' });
     const mapa = {}; (r.fechas||[]).forEach(x=>{ mapa[x.id]=x; });
-    (_cantera.candidatos||[]).forEach(c=>{ const x=mapa[c.id]; if(x){ if(x.fecha_inclusion) c.fecha_inclusion=x.fecha_inclusion; if(x.created_at) c.created_at=x.created_at; if(x.universidad!=null && !c.universidad) c.universidad=x.universidad; if(Array.isArray(x.experiencia) && !(Array.isArray(c.experiencia)&&c.experiencia.length)) c.experiencia=x.experiencia; if(x.mensaje && !c.mensaje) c.mensaje=x.mensaje; if(x.mensaje_resumen && !c.mensaje_resumen) c.mensaje_resumen=x.mensaje_resumen; } });
+    (_cantera.candidatos||[]).forEach(c=>{ const x=mapa[c.id]; if(x){ if(x.fecha_inclusion) c.fecha_inclusion=x.fecha_inclusion; if(x.created_at) c.created_at=x.created_at; if(x.universidad!=null && !c.universidad) c.universidad=x.universidad; if(Array.isArray(x.experiencia) && !(Array.isArray(c.experiencia)&&c.experiencia.length)) c.experiencia=x.experiencia; if(x.mensaje && !c.mensaje) c.mensaje=x.mensaje; if(x.canal && !c.canal) c.canal=x.canal; if(x.sexo && !c.sexo) c.sexo=x.sexo; if(x.anio_nacimiento && !c.anio_nacimiento) c.anio_nacimiento=x.anio_nacimiento; if(x.edad_estimada!=null && c.edad_estimada==null) c.edad_estimada=x.edad_estimada; if(x.mensaje_resumen && !c.mensaje_resumen) c.mensaje_resumen=x.mensaje_resumen; } });
     if(r.grabadas) console.log('[Cantera] Fecha de inclusión grabada a', r.grabadas, 'candidatos');
     if(currentPage==='cantera') renderCantera();
   }catch(e){
@@ -19776,7 +19806,16 @@ async function _canteraCargarFechas(forzar){
   }
 }
 // Momento exacto en que se agregó (para el orden estricto): fecha de inclusión + hora de creación
-function _canteraMarcarCreado(row){ if(row && !row.created_at) row.created_at = new Date().toISOString(); return row; }
+function _canteraMarcarCreado(row){
+  if(row && !row.created_at) row.created_at = new Date().toISOString();
+  // Canal elegido en "Agregar" (o Correo si pegaron su mensaje)
+  try{
+    const st = window._cvLinks || {};
+    const canal = st.canal || ((st.mensajes && Object.values(st.mensajes).some(m=>String(m||'').trim())) ? 'Correo' : '');
+    if(row && row.id && canal && !row.canal && st._activo){ row.canal = canal; canteraWebAPI({ action:'set_perfil', cand_id:row.id, data:{ canal } }).catch(()=>{}); }
+  }catch(e){}
+  return row;
+}
 function _cClaveReciente(c){
   const f = _cFechaInc(c) || '0000-00-00';
   let ts = 0;
@@ -20069,6 +20108,7 @@ const _CANTERA_CAMPOS_BUSQUEDA = [
   ['analisis','Análisis IA', c=>{ const a=c.analisis; if(!a) return ''; if(typeof a==='string') return a; return [a.resumen,(a.fortalezas||[]).join(' '),(a.dudas||[]).join(' ')].join(' '); }],
   ['notas','Notas', c=>c.notas], ['correo','Su correo', c=>[c.mensaje_resumen,c.mensaje].join(' ')],
   ['contacto','Contacto', c=>[c.email,c.telefono,c.contacto].join(' ')],
+  ['canal','Canal', c=>c.canal],
   ['links','Links', c=>{ const L=c.links||{}; return Object.keys(L).map(k=>Array.isArray(L[k])?L[k].map(x=>x&&x.url||x).join(' '):L[k]).join(' '); }],
   ['proceso','Proceso', c=>[c.proceso_texto,(c.procesos||[]).map(pid=>{ const v=(_cantera.convocatorias||[]).find(x=>x.id===pid); return v?v.cargo:''; }).join(' ')].join(' ')],
   ['archivos','Archivos', c=>(c.archivos||[]).map(a=>a.nombre).join(' ')]
@@ -20119,6 +20159,7 @@ function _canteraFiltrados(){
     else if(f.estado && (c.estado||'')!==f.estado) return false;
     if(f.ciudad && (c.ciudad||'')!==f.ciudad) return false;
     if(f.destreza && (c.destreza||'')!==f.destreza) return false;
+    if(f.canal==='(sin canal)'){ if(_canteraCanal(c)) return false; } else if(f.canal && _canteraCanal(c)!==f.canal) return false;
     if(f.verificado==='si' && !c.verificado) return false;
     if(f.verificado==='no' && c.verificado) return false;
     if(f.depto){
@@ -20138,6 +20179,7 @@ function _canteraFiltrados(){
       if(s.col==='fit') return (typeof _cFitValor==='function') ? _cFitValor(c,'_base') : (Number(c.fit)||0);
       if(s.col==='verificado') return c.verificado?1:0;
       if(s.col==='fecha_inclusion') return _cClaveReciente(c);
+      if(s.col==='_edad'){ const e=_cEdad(c); return e==null?999:e; }
       return String(c[s.col]||'').toLowerCase();
     };
     items = [...items].sort((a,b)=>{
@@ -20401,11 +20443,12 @@ function _canteraRenderLista(cont){
       + sel('destreza','Destreza', _canteraDestrezas().map(d=>d.nombre))
       + sel('ciudad','Ciudad', ciudades)
       + sel('verificado','Verificado', [['si','Verificados'],['no','Sin verificar']])
+      + sel('canal','Canal', _canteraCanalesUsados().concat([['(sin canal)','Sin canal']]))
       + '</div>';
   }
   // Chips de filtros activos
   if(nFiltros){
-    const etiquetas = {rol:'Rol',nivel:'Nivel',etapa:'Etapa',depto:'Depto',ciudad:'Ciudad',verificado:'Verificado',destreza:'Destreza'};
+    const etiquetas = {rol:'Rol',nivel:'Nivel',etapa:'Etapa',depto:'Depto',ciudad:'Ciudad',verificado:'Verificado',destreza:'Destreza',canal:'Canal'};
     h += '<div style="display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;margin-bottom:0.8rem">';
     Object.keys(etiquetas).forEach(k=>{
       if(!f[k]) return;
@@ -20441,6 +20484,7 @@ function _canteraRenderLista(cont){
             : '<span style="color:var(--text3)">—</span>')
         + '</td>'
       + '<td style="font-size:0.76rem;color:var(--text2);'+_trunc+'" title="'+escapeHtml(c.rol||'')+'">'+escapeHtml(c.rol||'—')+'</td>'
+      + _cCeldasPerfil(c, _trunc)
       + '<td style="'+_trunc+'" onclick="event.stopPropagation();_canteraEditarDepto(\''+c.id+'\')" title="Clic para editar departamento">'+_canteraDeptoTxt(c)+'</td>'
       + '<td style="font-size:0.76rem;color:var(--text2);'+_trunc+'">'+escapeHtml(c.ciudad||'—')+'</td>'
       + '<td style="font-size:0.74rem;color:var(--text2);white-space:nowrap" title="'+escapeHtml(_cFechaInc(c))+'">'+(_cFechaInc(c)?_canteraFechaCorta(_cFechaInc(c)):'—')+'</td>'
@@ -20455,17 +20499,18 @@ function _canteraRenderLista(cont){
     const flecha = s.col===campo ? (s.dir==='asc'?' ↑':' ↓') : '';
     return '<th onclick="_canteraSortBase(\''+campo+'\')" style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;'+(align?'text-align:'+align:'')+'" title="Ordenar">'+label+flecha+'</th>';
   };
-  const colgroup = '<colgroup><col style="width:3%"><col style="width:14%"><col style="width:10%"><col style="width:9%"><col style="width:8%"><col style="width:7%"><col style="width:8%"><col style="width:10%"><col style="width:10%"><col style="width:7%"><col style="width:14%"></colgroup>';
+  const colgroup = '<colgroup><col style="width:3%"><col style="width:12%"><col style="width:9%"><col style="width:8%"><col style="width:10%"><col style="width:4%"><col style="width:4%"><col style="width:7%"><col style="width:6%"><col style="width:7%"><col style="width:9%"><col style="width:8%"><col style="width:5%"><col style="width:8%"></colgroup>';
   const thBase = (lista)=> '<thead><tr>'
       + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;text-align:center;cursor:default"><input type="checkbox" '+(lista.length && lista.every(c=>_canteraSelDe('base').has(c.id))?'checked':'')+' onchange="_canteraBaseSelVarios(\''+lista.map(c=>c.id).join(',')+'\', this.checked)" title="Seleccionar todos" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></th>'
       + _thSort('nombre','Candidato') + _thSort('proceso_texto','Proceso') + _thSort('rol','Rol')
+      + _thSort('universidad','Universidad') + _thSort('sexo','Sexo','center') + _thSort('_edad','Edad','center')
       + _thSort('_depto','Depto') + _thSort('ciudad','Ciudad') + _thSort('fecha_inclusion','Incluido') + _thSort('fit','Fit')
       + _thSort('estado','Estatus') + _thSort('destreza','Destreza')
       + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">CV / Portafolio</th>'
       + '</tr></thead>';
   const tabla = (lista, resaltar, maxH)=>
     '<div style="border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:'+maxH+';background:var(--bg-card)">'
-    + '<table class="tray-table" style="min-width:880px;table-layout:fixed">'+colgroup+thBase(lista)+'<tbody>'
+    + '<table class="tray-table" style="min-width:1180px;table-layout:fixed">'+colgroup+thBase(lista)+'<tbody>'
     + lista.map(c=>filaBase(c, resaltar)).join('')
     + '</tbody></table></div>';
 
@@ -20618,6 +20663,7 @@ function _canteraRenderProyecto(cont){
       + '<td style="'+_tr+'"><div style="font-size:0.82rem;font-weight:600;color:var(--text);'+_tr+'">'+escapeHtml(c.nombre||'—')+(c.verificado?' <span title="Verificado" style="color:#30a46c;font-size:0.72rem">✓</span>':'')+'</div>'
       + (c.actual?'<div style="font-size:0.68rem;color:var(--text3);'+_tr+'">'+escapeHtml(c.actual)+'</div>':'')+_canteraChipCoincide(c)+'</td>'
       + '<td style="font-size:0.76rem;color:var(--text2);'+_tr+'">'+escapeHtml(c.rol||'—')+'</td>'
+      + _cCeldasPerfil(c, _tr)
       + '<td style="font-size:0.76rem;color:var(--text2);'+_tr+'">'+escapeHtml(c.nivel||'—')+'</td>'
       + '<td>'+_cFitProy(c, conv.id)+'</td>'
       + '<td style="'+_tr+'">'+_cTag(c.estado, _canteraColorEstado(c.estado))+'</td>'
@@ -20639,10 +20685,10 @@ function _canteraRenderProyecto(cont){
       if(lista.length){
         s += '<div style="border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:calc(100vh - 360px);background:var(--bg-card)">'
           + '<table class="tray-table" style="min-width:640px;table-layout:fixed">'
-          + '<colgroup><col style="width:5%"><col style="width:24%"><col style="width:14%"><col style="width:10%"><col style="width:12%"><col style="width:13%"><col style="width:13%"><col style="width:9%"></colgroup>'
+          + '<colgroup><col style="width:4%"><col style="width:18%"><col style="width:11%"><col style="width:12%"><col style="width:4%"><col style="width:4%"><col style="width:8%"><col style="width:11%"><col style="width:11%"><col style="width:10%"><col style="width:7%"></colgroup>'
           + '<thead><tr>'
           + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;text-align:center;cursor:default"><input type="checkbox" '+(lista.length && lista.every(c=>msel.has(c.id))?'checked':'')+' onchange="_canteraMatchSelVarios(\''+lista.map(c=>c.id).join(',')+'\', this.checked)" title="Seleccionar todos de esta sección" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></th>'
-          + ['Candidato','Rol','Nivel','Fit','Estatus','CV / Portafolio',''].map(t=>'<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">'+t+'</th>').join('')
+          + ['Candidato','Rol','Universidad','Sexo','Edad','Nivel','Fit','Estatus','CV / Portafolio',''].map(t=>'<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">'+t+'</th>').join('')
           + '</tr></thead><tbody>'+lista.map(c=>filaCand(c, conBotonAplicar)).join('')+'</tbody></table></div>';
       } else {
         s += '<div style="font-size:0.76rem;color:var(--text3);padding:0.2rem 0 0.4rem 1.1rem">'+vacio+'</div>';
@@ -20771,6 +20817,7 @@ function _canteraLoteDepto(scope, v){
   if(!v) return;
   _canteraLoteGuardar(scope, 'Asignando departamento…', c=>{ const d=Array.isArray(c.departamento)?c.departamento:(c.departamento?[c.departamento]:[]); return d.includes(v)?true:{ departamento:d.concat([v]) }; });
 }
+function _canteraLoteCanal(scope, v){ if(!v) return; _canteraLoteGuardar(scope, 'Asignando canal…', async c=>{ const ok = await _canteraGuardarCanal(c.id, v); return ok; }); }
 function _canteraLoteVerificar(scope, on){ _canteraLoteGuardar(scope, on?'Marcando verificados…':'Quitando verificado…', c=>({ verificado:!!on })); }
 function _canteraBarraLote(scope, conv){
   const sel = _canteraSelDe(scope); if(!sel.size) return '';
@@ -20783,6 +20830,7 @@ function _canteraBarraLote(scope, conv){
     + '<select onchange="_canteraLoteEstado(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Estatus…')+_canteraEstadoNombres().map(n=>opt(n,n)).join('')+'</select>'
     + '<select onchange="_canteraLoteFit(\''+scope+'\',this.value,'+(scope==='proy'&&conv?'\''+conv.id+'\'':'null')+');this.value=\'\'" style="'+st+'">'+opt('','Estrellas…')+[5,4,3,2,1].map(n=>opt(n,'★'.repeat(n)+' ('+n+')')).join('')+'</select>'
     + (otros.length ? '<select onchange="_canteraLoteProceso(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Asignar a proceso…')+otros.map(cv=>opt(cv.id,cv.cargo+(cv.estado==='cerrada'?' (cerrado)':''))).join('')+'</select>' : '')
+    + '<select onchange="_canteraLoteCanal(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Canal…')+_canteraCanalesUsados().map(k=>opt(k,(CANTERA_CANAL_ICONO[k]||'📥')+' '+k)).join('')+'</select>'
     + '<select onchange="_canteraLoteDepto(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Departamento…')+CANTERA_DEPTOS.map(d=>opt(d,d)).join('')+'</select>'
     + '<select onchange="_canteraLoteDestreza(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Destreza…')+_canteraDestrezas().map(d=>opt(d.nombre,d.nombre)).join('')+opt('(ninguna)','Sin destreza')+'</select>'
     + '<button onclick="_canteraLoteVerificar(\''+scope+'\',true)" style="'+st+'">✓ Verificar</button>'
@@ -21202,9 +21250,11 @@ async function _canteraPerfilDesdeCV(id, sobrescribir, texto, mensaje){
     const r = await canteraWebAPI({ action:'perfil_cv', cand_id:id, texto:t||'', mensaje:mensaje||'', sobrescribir:!!sobrescribir, puesto });
     if(r.universidad!=null && r.universidad!=='') c.universidad = r.universidad;
     if(Array.isArray(r.experiencia) && r.experiencia.length) c.experiencia = r.experiencia;
+    if(r.sexo && !c.sexo) c.sexo = r.sexo;
+    if(r.anio_nacimiento && (!c.anio_nacimiento || c.edad_estimada)){ c.anio_nacimiento = r.anio_nacimiento; c.edad_estimada = !!r.edad_estimada; }
     if(mensaje){ c.mensaje = mensaje; if(r.mensaje_resumen) c.mensaje_resumen = r.mensaje_resumen; if(r.analisis) c.analisis = r.analisis; }
     const ed = window._canteraFichaEdit;
-    if(ed && ed.id===id){ ed.universidad = c.universidad; ed.experiencia = c.experiencia; ed.mensaje = c.mensaje; ed.mensaje_resumen = c.mensaje_resumen; if(c.analisis) ed.analisis = c.analisis; _canteraRenderFicha(!window._canteraFichaId); }
+    if(ed && ed.id===id){ ed.universidad = c.universidad; ed.experiencia = c.experiencia; ed.sexo = c.sexo; ed.anio_nacimiento = c.anio_nacimiento; ed.edad_estimada = c.edad_estimada; ed.mensaje = c.mensaje; ed.mensaje_resumen = c.mensaje_resumen; if(c.analisis) ed.analisis = c.analisis; _canteraRenderFicha(!window._canteraFichaId); }
     if(currentPage==='cantera' && !(ed && ed.id===id)) renderCantera();
     if(sobrescribir) showStatus(mensaje ? 'Análisis de la IA actualizado con su correo ✓' : 'Universidad y experiencia actualizadas ✓');
     return true;
@@ -21219,7 +21269,7 @@ async function _canteraAnalizarMensajeFicha(id){
 
 // ── Leer correo y teléfono de los CV ya guardados (para los perfiles que no los tienen) ──
 async function _canteraLeerContactosCVs(){
-  const sinExp = c=>!c.universidad || !(Array.isArray(c.experiencia)&&c.experiencia.length);
+  const sinExp = c=>!c.universidad || !(Array.isArray(c.experiencia)&&c.experiencia.length) || !c.sexo || !c.anio_nacimiento;
   const pend = (_cantera.candidatos||[]).filter(c=>Array.isArray(c.archivos) && c.archivos.some(a=>_cArchTipo(a)==='cv' && a.path) && (!c.email || !c.telefono || sinExp(c)));
   if(!pend.length){ showStatus('Todos los perfiles con CV ya están completos ✓'); return; }
   let ok=0, sinDatos=0, err=0;
@@ -21623,6 +21673,10 @@ function _canteraRenderModalCV(){
     openGenericModal(conv ? 'Agregar postulante' : 'Agregar candidato', h);
     return;
   }
+  // 0) Canal
+  h += '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap"><span style="'+lbl+';margin:0">📥 ¿Por dónde postuló?</span>'
+    + _canteraCanalSelectHTML(st.canal||'', "_canteraCanalOtro(this, v=>{ _cvLinks.canal=v; _canteraRenderModalCV(); })")
+    + '<span style="font-size:0.66rem;color:var(--text3)">'+(varios?'Aplica a todas las personas de esta carga':'')+'</span></div>';
   // 1) PDF
   h += '<div><div style="'+lbl+'">CV en PDF (opcional)</div>'
     + '<label id="cv-drop" style="display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.9rem;border:1.5px dashed var(--border);border-radius:12px;cursor:pointer;font-size:0.8rem;color:var(--text2);background:var(--bg-card2)">'
@@ -21877,7 +21931,7 @@ function _canteraCVTexto(v){
   if(box) box.innerHTML = _canteraCVListaLinks();
 }
 async function _canteraCVProcesar(){
-  const st = _cvLinks;
+  const st = _cvLinks; st._activo = true; setTimeout(()=>{ st._activo = false; }, 10*60*1000);
   const err = document.getElementById('cv-err');
   if(!st.archivos.length && !st.links.length && !st.texto.trim() && !((st.mensajes||{})._uno||'').trim()){
     if(err) err.textContent = 'Sube un PDF o pega al menos un link o el texto del correo.';
@@ -22578,7 +22632,8 @@ function _canteraRenderFicha(esNuevo){
     <input value="${String(c.nombre||'').replace(/"/g,'&quot;')}" oninput="_canteraFichaSet('nombre', this.value)" placeholder="Nombre" style="width:100%;box-sizing:border-box;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:1.05rem;font-weight:800;font-family:var(--font);outline:none;margin-bottom:0.5rem">
     <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;flex-wrap:wrap">
       <button onclick="_canteraFichaToggleVerif()" style="font-size:0.68rem;font-weight:700;padding:0.3rem 0.7rem;border-radius:99px;border:1px solid ${c.verificado?'#22c55e':'var(--border)'};background:${c.verificado?'rgba(34,197,94,0.12)':'transparent'};color:${c.verificado?'#22c55e':'var(--text3)'};cursor:pointer;font-family:var(--font)">${c.verificado?'✓ Verificado':'Sin verificar'}</button>
-      <span style="font-size:0.68rem;color:var(--text3)">${_canteraEsIA(c)?'✨ Lo encontró la IA':'📥 Postuló'}</span>
+      <span style="font-size:0.68rem;color:var(--text3)">${_canteraEsIA(c)?'✨ Lo encontró la IA':'📥 Postuló por'}</span>
+      ${_canteraCanalSelectHTML(_canteraCanal(c), (c.id && window._canteraFichaId) ? "_canteraCanalOtro(this, v=>_canteraGuardarCanal('"+c.id+"', v).then(()=>_canteraRenderFicha(!window._canteraFichaId)))" : "_canteraCanalOtro(this, v=>{ window._canteraFichaEdit.canal=v; _canteraRenderFicha(true); })")}
       <label title="Fecha en que entró a la cantera" style="margin-left:auto;display:inline-flex;align-items:center;gap:0.35rem;font-size:0.68rem;color:var(--text3)">📅 Incluido
         ${c.id && window._canteraFichaId
           ? `<input type="date" value="${_cFechaInc(c)}" onchange="_canteraSetFechaInclusion('${c.id}', this.value)" style="padding:0.2rem 0.4rem;border-radius:7px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.72rem;font-family:var(--font)">`
@@ -22645,6 +22700,13 @@ function _canteraRenderFicha(esNuevo){
     ${inp('actual','Dónde trabaja / estudia hoy', c.actual, '')}
     <!-- Formación y experiencia -->
     ${inp('universidad','🎓 Universidad', c.universidad, 'Institución donde estudió')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:0.7rem">
+      <div><label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">Sexo</label>
+        <select onchange="_canteraFichaSet('sexo', this.value)" style="width:100%;box-sizing:border-box;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.82rem;font-family:var(--font)">
+          <option value="">—</option><option value="F" ${c.sexo==='F'?'selected':''}>F</option><option value="M" ${c.sexo==='M'?'selected':''}>M</option></select></div>
+      <div><label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">Edad <span style="opacity:0.7">${c.edad_estimada&&_cEdad(c)!=null?'(estimada por colegio/universidad)':'(solo como dato)'}</span></label>
+        <input type="number" min="15" max="80" value="${_cEdad(c)??''}" oninput="_canteraFichaSet('anio_nacimiento', this.value ? (new Date().getFullYear()-Number(this.value)) : null)" placeholder="—" style="width:100%;box-sizing:border-box;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.82rem;font-family:var(--font);outline:none"></div>
+    </div>
     <div style="margin-bottom:0.7rem">
       <label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">💼 Experiencia <span style="opacity:0.7">(empresas, separadas por coma)</span></label>
       <input value="${escapeHtml(Array.isArray(c.experiencia)?c.experiencia.join(', '):(c.experiencia||''))}" oninput="_canteraFichaSet('experiencia', this.value.split(',').map(x=>x.trim()).filter(Boolean))" placeholder="Ej.: Maruri, Polen, Freelance" style="width:100%;box-sizing:border-box;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.82rem;font-family:var(--font);outline:none">
@@ -22757,11 +22819,16 @@ async function _canteraGuardarFicha(){
       const cc = esNuevo ? row : orig;
       const per = { universidad: e.universidad||'', experiencia: Array.isArray(e.experiencia)?e.experiencia:[] };
       if(typeof e.mensaje==='string') per.mensaje = e.mensaje;
+      if(esNuevo && e.canal) per.canal = e.canal;
+      if(e.sexo!==undefined) per.sexo = e.sexo||'';
+      if(e.anio_nacimiento!==undefined && (!orig || Number(orig.anio_nacimiento||0)!==Number(e.anio_nacimiento||0))) per.anio_nacimiento = e.anio_nacimiento;
       const msgCambio = typeof e.mensaje==='string' && e.mensaje.trim() && (!orig || (orig.mensaje||'')!==e.mensaje);
       cc.universidad = per.universidad; cc.experiencia = per.experiencia; if(per.mensaje!=null) cc.mensaje = per.mensaje;
+      if(per.sexo!==undefined) cc.sexo = per.sexo||null; if(per.anio_nacimiento!==undefined){ cc.anio_nacimiento = per.anio_nacimiento; cc.edad_estimada = false; }
       if(msgCambio) setTimeout(()=>_canteraPerfilDesdeCV(row.id, false, '', per.mensaje), 300);   // resumir el correo nuevo
       canteraWebAPI({ action:'set_perfil', cand_id:row.id, data:per }).catch(err=>{
         if(err && err.message==='falta_columnas_fase_F3') showStatus('Para guardar Universidad y Experiencia, corre fase-F3 en Supabase', true);
+        else if(err && err.message==='falta_columnas_fase_F7') showStatus('Para guardar sexo y edad, corre fase-F7 en Supabase', true);
         else if(err && err.message==='falta_columnas_fase_F5') showStatus('Para guardar el mensaje del correo, corre fase-F5 en Supabase', true);
         else console.warn('set_perfil:', err);
       });
