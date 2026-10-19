@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v483-AUTO-PERFIL -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v484-AUTO-PERFIL-F7 -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 483;
+const APP_VERSION = 484;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -21249,6 +21249,8 @@ async function _canteraPerfilDesdeCV(id, sobrescribir, texto, mensaje, silencios
     const conv = pid ? (_cantera.convocatorias||[]).find(x=>x.id===pid) : null;
     const puesto = conv ? { cargo:conv.cargo, departamento:conv.departamento, must_have:conv.must_have, nice_have:conv.nice_have } : null;
     const r = await canteraWebAPI({ action:'perfil_cv', cand_id:id, texto:t||'', mensaje:mensaje||'', sobrescribir:!!sobrescribir, puesto });
+    window._canteraUltimoPerfil = r;
+    if(r && r.f7!==true) _canteraAvisoFaltaF7();
     if(r.universidad!=null && r.universidad!=='') c.universidad = r.universidad;
     if(Array.isArray(r.experiencia) && r.experiencia.length) c.experiencia = r.experiencia;
     if(r.sexo && !c.sexo) c.sexo = r.sexo;
@@ -21271,7 +21273,10 @@ async function _canteraAnalizarMensajeFicha(id){
 // ── Auto-completar en segundo plano (al abrir la cantera) los perfiles con CV a los que les falta
 //    edad, sexo, universidad o experiencia. Cada CV se intenta UNA sola vez (si el PDF no trae el dato,
 //    no se vuelve a gastar IA en él); si se sube un CV nuevo, se vuelve a intentar. ──
-const _CANTERA_AUTO_KEY = 'polen_cantera_perfil_ia_v1';
+const _CANTERA_AUTO_KEY = 'polen_cantera_perfil_ia_v2';
+// Si el servidor no guarda sexo/edad (falta fase-F7 o la versión nueva de cantera-web), avisar una vez
+function _canteraAvisoFaltaF7(){ if(window._canteraAvisoF7Dado) return; window._canteraAvisoF7Dado=true;
+  showStatus('Sexo y edad no se están guardando: corre fase-F7-sexo-edad.sql y despliega la versión nueva de cantera-web', true); }
 function _canteraAutoIntentados(){ try{ return JSON.parse(localStorage.getItem(_CANTERA_AUTO_KEY)||'{}')||{}; }catch(_){ return {}; } }
 function _canteraAutoMarcar(id, path){ try{ const m=_canteraAutoIntentados(); m[id]=path; localStorage.setItem(_CANTERA_AUTO_KEY, JSON.stringify(m)); }catch(_){} }
 // Redibuja la tabla solo si no interrumpe (sin ficha abierta ni escribiendo en un campo)
@@ -21303,6 +21308,7 @@ async function _canteraAutoCompletarPerfiles(){
           const antes = [c.universidad, (c.experiencia||[]).length, c.sexo, c.anio_nacimiento].join('|');
           const hecho = await _canteraPerfilDesdeCV(c.id, false, lk.texto, '', true);
           if(!hecho) continue;   // error de IA/red: se reintenta la próxima vez
+          if(!window._canteraUltimoPerfil || window._canteraUltimoPerfil.f7!==true) break;   // servidor sin F7: no marcar, reintentar cuando esté listo
           if([c.universidad, (c.experiencia||[]).length, c.sexo, c.anio_nacimiento].join('|')!==antes){
             ok++; clearTimeout(t); t=setTimeout(_canteraAutoRefrescar, 800);
           }
