@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261016-v459-ARCHIVOS-CV-PORTAFOLIO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v461-VER-PANEL-DE -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 459;
+const APP_VERSION = 461;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -18249,7 +18249,65 @@ function _misDomosDeMarcas(userId){
   return Object.values(grupos);
 }
 
+// ══ "Ver como": admins y PM pueden ver el panel personal (y to-dos) de cualquier persona ══
+window._mtVerComo = null;
+function _usuarioReal(){
+  try{
+    const s = (typeof _sesion==='function') ? _sesion() : null;
+    if(s && s.master) return { id:'__master__', roles:['admin'] };
+    if(s && s.id) return (appData.members||[]).find(m=>m.id===s.id) || null;
+  }catch(e){}
+  return null;
+}
+function _mtPuedeVerOtros(){
+  const u = _usuarioReal(); if(!u) return false;
+  const r = _rolesDe(u); return r.includes('admin') || r.includes('pm');
+}
+function _mtSetVerComo(id){
+  const yo = _usuarioReal();
+  window._mtVerComo = (id && (!yo || id!==yo.id)) ? id : null;
+  try{ _restaurarDomosPM(); }catch(e){}
+  _miTrabajoVista = 'resumen';
+  renderMiTrabajo();
+}
+function _mtSelectorHTML(){
+  const yo = _usuarioReal();
+  const miembros = (appData.members||[]).filter(m=>m && m.active!==false && (!yo || m.id!==yo.id))
+    .sort((a,b)=>(a.apodo||a.nombre||'').localeCompare(b.apodo||b.nombre||''));
+  const sel = window._mtVerComo || '';
+  const viendo = !!sel;
+  return `<label title="Ver el panel personal de alguien del equipo" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.28rem 0.35rem 0.28rem 0.6rem;border-radius:99px;border:1px solid ${viendo?'var(--aire)':'var(--border)'};background:${viendo?'rgba(59,158,221,0.1)':'var(--bg-card)'};margin:0.3rem 0">
+    <span style="font-size:0.7rem;font-weight:700;color:${viendo?'var(--aire)':'var(--text3)'}">👁 Ver panel de</span>
+    <select onchange="_mtSetVerComo(this.value)" style="border:none;background:transparent;color:var(--text);font-size:0.74rem;font-weight:700;font-family:var(--font);cursor:pointer;outline:none;max-width:160px">
+      <option value="">Yo (mi panel)</option>
+      ${miembros.map(m=>`<option value="${m.id}" ${m.id===sel?'selected':''}>${escapeHtml((m.emoji?m.emoji+' ':'')+(m.apodo||m.nombre||''))}</option>`).join('')}
+    </select>
+  </label>`;
+}
 function renderMiTrabajo(){
+  const puede = _mtPuedeVerOtros();
+  if(!puede) window._mtVerComo = null;
+  const objetivo = window._mtVerComo ? (appData.members||[]).find(m=>m.id===window._mtVerComo) : null;
+  if(window._mtVerComo && !objetivo) window._mtVerComo = null;
+  if(objetivo){
+    const prev = window._simUserId;
+    window._simUserId = objetivo.id;
+    try{ _renderMiTrabajoInterno(); } finally { window._simUserId = prev; }
+    // Aviso: estás viendo el panel de otra persona
+    const cont = document.getElementById('mi-trabajo-module');
+    if(cont && cont.firstElementChild){
+      const av = document.createElement('div');
+      av.style.cssText = 'display:flex;align-items:center;gap:0.6rem;padding:0.5rem 1.4rem;background:rgba(59,158,221,0.1);border-bottom:1px solid rgba(59,158,221,0.25);font-size:0.74rem;color:var(--text2)';
+      av.innerHTML = '<span>👁 Estás viendo el panel de <b style="color:var(--text)">'+escapeHtml(objetivo.apodo||objetivo.nombre||'')+'</b>, tal como lo ve esa persona.</span><button onclick="_mtSetVerComo(\'\')" style="margin-left:auto;padding:0.25rem 0.7rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.7rem;font-weight:700;cursor:pointer;font-family:var(--font)">Volver a mi panel</button>';
+      cont.firstElementChild.insertBefore(av, cont.firstElementChild.firstChild);
+    }
+  } else {
+    _renderMiTrabajoInterno();
+  }
+  const slot = document.getElementById('mt-vercomo-slot');
+  if(slot) slot.innerHTML = puede ? _mtSelectorHTML() : '';
+}
+function _renderMiTrabajoInterno(){
   const cont = document.getElementById('mi-trabajo-module');
   if(!cont) return;
   // Si el panel real de domos estaba montado aquí, devolverlo a su lugar ANTES de
@@ -18356,11 +18414,12 @@ function renderMiTrabajo(){
     if(_tieneSuperv) tabs.push(['superviso','Superviso']);
     tabs.push(['semana','Semana'],['mes','Mes'],['domos',_esPM()?'Domos':'Mis domos']);
   }
-  h1 += `<div style="display:flex;gap:0.3rem;padding:0 1.4rem;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--glass)">`;
+  h1 += `<div style="display:flex;align-items:center;gap:0.3rem;padding:0 1.4rem;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--glass);flex-wrap:wrap">`;
   tabs.forEach(([key,label])=>{
     const on = _miTrabajoVista===key;
     h1 += `<button onclick="setMiTrabajoVista('${key}')" style="padding:0.6rem 0.9rem;background:none;border:none;border-bottom:2px solid ${on?color:'transparent'};color:${on?'var(--text)':'var(--text3)'};font-size:0.76rem;font-weight:${on?'800':'600'};cursor:pointer;font-family:var(--font);transition:all 0.15s">${label}</button>`;
   });
+  h1 += `<div id="mt-vercomo-slot" style="margin-left:auto"></div>`;
   h1 += `</div>`;
 
   // ── Contenido según la vista (tope de altura con scroll interno: el módulo NUNCA crece infinito) ──
@@ -22053,9 +22112,21 @@ function _authSetAdminKey(k){ try{ sessionStorage.setItem('auth_admin_key', k||'
 async function authAPI(action, payload, usarAdminKey){
   const headers = { 'Content-Type':'application/json', 'Authorization':'Bearer '+SB_KEY };
   if(usarAdminKey) headers['x-auth-key'] = _authAdminKey();
-  const res = await fetch(AUTH_URL, { method:'POST', headers, body: JSON.stringify({ action, ...(payload||{}) }) });
+  // Tope de espera: si el servidor no responde, avisar en vez de quedarse "Entrando…" para siempre
+  const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+  const tope = setTimeout(()=>{ try{ ctrl && ctrl.abort(); }catch(e){} }, 20000);
+  let res;
+  try{
+    res = await fetch(AUTH_URL, { method:'POST', headers, body: JSON.stringify({ action, ...(payload||{}) }), signal: ctrl ? ctrl.signal : undefined });
+  }catch(err){
+    clearTimeout(tope);
+    const e = new Error(err && err.name==='AbortError' ? 'El servidor tardó demasiado en responder. Intenta de nuevo en un momento.' : 'Sin conexión con el servidor. Revisa tu internet e intenta de nuevo.');
+    e._red = true; throw e;
+  }
+  clearTimeout(tope);
   const data = await res.json().catch(()=>({}));
   if(res.status===401){ const e=new Error('no_autorizado'); e._status=401; throw e; }
+  if(!res.ok && !data.error){ const e=new Error('El servidor respondió con un error ('+res.status+'). Intenta de nuevo.'); e._red=true; throw e; }
   if(data.error){ const e=new Error(data.error); e._data=data; throw e; }
   return data;
 }
@@ -30866,8 +30937,9 @@ async function checkLogin(){
     }
   }catch(e){
     fin();
-    if(errEl){ errEl.textContent = e.message==='credenciales'||e._status===401 ? 'Usuario o contraseña incorrectos' : ('Error: '+(e.message||'')); errEl.style.display='block'; }
-    const p=document.getElementById('login-password'); if(p){ p.value=''; p.focus(); }
+    if(errEl){ errEl.textContent = e.message==='credenciales'||e._status===401 ? 'Usuario o contraseña incorrectos' : (e._red ? e.message : ('Error: '+(e.message||''))); errEl.style.display='block'; }
+    // Solo borrar la contraseña si estaba mal (si fue la red, se deja para reintentar)
+    const p=document.getElementById('login-password'); if(p && !e._red){ p.value=''; p.focus(); }
   }
 }
 
