@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v484-AUTO-PERFIL-F7 -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v485-DESTREZA-PROYECTO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 484;
+const APP_VERSION = 485;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -20668,6 +20668,7 @@ function _canteraRenderProyecto(cont){
       + '<td style="font-size:0.76rem;color:var(--text2);'+_tr+'">'+escapeHtml(c.nivel||'—')+'</td>'
       + '<td>'+_cFitProy(c, conv.id)+'</td>'
       + '<td style="'+_tr+'">'+_cTag(c.estado, _canteraColorEstado(c.estado))+'</td>'
+      + '<td style="'+_tr+'">'+(c.destreza?_cTag(c.destreza, _canteraColorDestreza(c.destreza)):'<span style="font-size:0.74rem;color:var(--text3)">—</span>')+'</td>'
       + '<td onclick="event.stopPropagation()">'+_cCV(c)+'</td>'
       + '<td style="text-align:right;white-space:nowrap" onclick="event.stopPropagation()">'+botonAplic+'</td>'
       + '</tr>';
@@ -20685,11 +20686,11 @@ function _canteraRenderProyecto(cont){
     if(!colapsada){
       if(lista.length){
         s += '<div style="border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:calc(100vh - 360px);background:var(--bg-card)">'
-          + '<table class="tray-table" style="min-width:640px;table-layout:fixed">'
-          + '<colgroup><col style="width:4%"><col style="width:18%"><col style="width:11%"><col style="width:12%"><col style="width:4%"><col style="width:4%"><col style="width:8%"><col style="width:11%"><col style="width:11%"><col style="width:10%"><col style="width:7%"></colgroup>'
+          + '<table class="tray-table" style="min-width:880px;table-layout:fixed">'
+          + '<colgroup><col style="width:4%"><col style="width:16%"><col style="width:10%"><col style="width:11%"><col style="width:4%"><col style="width:4%"><col style="width:7%"><col style="width:10%"><col style="width:10%"><col style="width:9%"><col style="width:9%"><col style="width:6%"></colgroup>'
           + '<thead><tr>'
           + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;text-align:center;cursor:default"><input type="checkbox" '+(lista.length && lista.every(c=>msel.has(c.id))?'checked':'')+' onchange="_canteraMatchSelVarios(\''+lista.map(c=>c.id).join(',')+'\', this.checked)" title="Seleccionar todos de esta sección" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></th>'
-          + ['Candidato','Rol','Universidad','Sexo','Edad','Nivel','Fit','Estatus','CV / Portafolio',''].map(t=>'<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">'+t+'</th>').join('')
+          + ['Candidato','Rol','Universidad','Sexo','Edad','Nivel','Fit','Estatus','Destreza','CV / Portafolio',''].map(t=>'<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">'+t+'</th>').join('')
           + '</tr></thead><tbody>'+lista.map(c=>filaCand(c, conBotonAplicar)).join('')+'</tbody></table></div>';
       } else {
         s += '<div style="font-size:0.76rem;color:var(--text3);padding:0.2rem 0 0.4rem 1.1rem">'+vacio+'</div>';
