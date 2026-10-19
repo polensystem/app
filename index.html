@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v470-ORDEN-RECIENTE -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v472-LINKS-POR-PERSONA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 470;
+const APP_VERSION = 472;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -21052,7 +21052,10 @@ async function _canteraAdjuntarCV(file, tipo){
       if(row && !row.conflict){ if(orig){ orig.archivos = e.archivos; if(row.rev!=null) orig.rev = row.rev; } e.rev = row.rev!=null?row.rev:e.rev; }
     }
     _canteraRenderFicha(!window._canteraFichaId); showStatus(tipo==='portafolio'?'Portafolio adjuntado ✓':'CV adjuntado ✓');
-  }catch(err){ showStatus('No se pudo subir el PDF: '+(err.message||''), true); }
+  }catch(err){
+    if(/maximum allowed size|too large|413|exceed/i.test(err.message||'')) _canteraAvisoPesados([file.name+' ('+Math.round(file.size/1048576)+' MB)']);
+    else showStatus('No se pudo subir el PDF: '+(err.message||''), true);
+  }
 }
 
 // Sube un PDF a Storage (URL firmada) y devuelve su path
@@ -21149,15 +21152,24 @@ async function _canteraProcesarCVs(files, convId){
 
 // Procesa PDF agrupados por persona: un perfil por persona, con su CV y su portafolio adjuntos.
 // La IA lee el CV (o el portafolio si no hay CV); correo/teléfono se buscan en todos sus PDF.
-async function _canteraProcesarGrupos(grupos, convId, extra){
+async function _canteraProcesarGrupos(grupos, convId, extras){
   const conv = convId ? (_cantera.convocatorias||[]).find(c=>c.id===convId) : null;
-  let ok=0, fail=0;
+  let ok=0, fail=0; const pesados = [];
   for(let i=0;i<grupos.length;i++){
     const g = grupos[i];
+    const extra = Array.isArray(extras) ? (extras[i]||null) : (extras||null);
     _canteraBarraProgreso('Procesando persona '+(i+1)+' de '+grupos.length+'…', (i+1)/grupos.length);
     try{
       const archivos = [];
-      for(const x of g){ const path = await _canteraSubirPDF(x.file); archivos.push({ path, nombre:x.file.name, tipo:x.tipo, _x:x }); }
+      // Subir cada PDF; si uno es demasiado pesado (p. ej. un portafolio), se salta y el perfil se crea igual
+      for(const x of g){
+        try{ const path = await _canteraSubirPDF(x.file); archivos.push({ path, nombre:x.file.name, tipo:x.tipo, _x:x }); }
+        catch(err){
+          if(/maximum allowed size|too large|413|exceed/i.test(err.message||'')) pesados.push(x.file.name+' ('+Math.round(x.file.size/1048576)+' MB)');
+          else throw err;
+        }
+      }
+      if(!archivos.length) throw new Error('ningún PDF se pudo subir');
       const principal = archivos.find(a=>a.tipo==='cv') || archivos[0];
       const pdfUrls = await _canteraLinksDePDF(principal._x.file);
       let otrosUrls = [];
@@ -21183,6 +21195,13 @@ async function _canteraProcesarGrupos(grupos, convId, extra){
   _canteraCerrarProgreso();
   renderCantera();
   showStatus(ok+' perfil'+(ok!==1?'es':'')+' creado'+(ok!==1?'s':'')+(conv?' en "'+conv.cargo+'"':'')+(fail?' · '+fail+' con error':'')+' ✓', !!fail && !ok);
+  if(pesados.length) _canteraAvisoPesados(pesados);
+}
+function _canteraAvisoPesados(lista){
+  openGenericModal('Algunos PDF eran muy pesados', '<div style="font-size:0.84rem;color:var(--text2);line-height:1.55">'
+    + 'Los perfiles se crearon, pero estos archivos <b>no se guardaron</b> porque superan el tamaño máximo permitido en el almacenamiento:'
+    + '<ul style="margin:0.6rem 0;padding-left:1.2rem">'+lista.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul>'
+    + 'Puedes comprimirlos (por ejemplo en ilovepdf.com → Comprimir PDF) y subirlos luego desde la ficha con <b>"🎨 Portafolio en PDF"</b>, o subir el límite del almacenamiento en Supabase.</div>');
 }
 
 // Overlay con barra de progreso (0..1). Si pct es null, muestra barra indeterminada.
@@ -21385,11 +21404,11 @@ function _canteraRenderModalCV(){
     + (st.archivos.length ? ('➕ Agregar más PDF (o arrástralos aquí)') : '📄 Elegir o arrastrar PDF (puedes elegir varios)')
     + '</label>'
     + (st.archivos.length ? _canteraCVListaAgrupada() : '')
-    + (varios ? '<div style="font-size:0.7rem;color:var(--text3);margin-top:0.35rem">Se crea un perfil por persona, con su CV y su portafolio juntos. Con varias personas a la vez, los links pegados no se usan.</div>' : '')
+    + (varios ? '<div style="font-size:0.7rem;color:var(--text3);margin-top:0.35rem">Se crea un perfil por persona, con su CV y su portafolio juntos. Los links que pegues abajo se asignan a la persona que elijas.</div>' : '')
     + '</div>';
   // 2) Links / correo
   h += '<div><div style="'+lbl+'">Links o texto del correo</div>'
-    + '<textarea id="cv-links-txt" '+(varios?'disabled':'')+' oninput="_canteraCVTexto(this.value)" placeholder="Pega aquí los links que mandó la persona, o el correo completo. Si hay un portafolio web, la IA entra a leerlo." '
+    + '<textarea id="cv-links-txt" oninput="_canteraCVTexto(this.value)" onfocus="window._cvTxtFocus=true" onblur="window._cvTxtFocus=false" placeholder="'+(varios?'Pega los links de cada persona (portafolio, Behance, LinkedIn…). Luego elige a quién pertenece cada uno.':'Pega aquí los links que mandó la persona, o el correo completo. Si hay un portafolio web, la IA entra a leerlo.')+'" '
     + 'style="width:100%;box-sizing:border-box;min-height:90px;padding:0.6rem 0.7rem;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.8rem;font-family:var(--font);outline:none;resize:vertical">'+escapeHtml(st.texto)+'</textarea>'
     + '<div id="cv-links-lista" style="margin-top:0.5rem">'+_canteraCVListaLinks()+'</div></div>';
   h += '<div id="cv-err" style="font-size:0.74rem;color:var(--fuego);min-height:1rem"></div>';
@@ -21398,6 +21417,7 @@ function _canteraRenderModalCV(){
     + '<button onclick="_canteraCVProcesar()" style="background:var(--agua);color:#fff;border:none;border-radius:9px;padding:0.55rem 1.1rem;cursor:pointer;font-family:var(--font);font-size:0.82rem;font-weight:700">Analizar con IA</button>'
     + '</div></div>';
   openGenericModal(conv ? 'Agregar postulante' : 'Agregar candidato', h);
+  if(window._cvTxtFocus){ const ta=document.getElementById('cv-links-txt'); if(ta){ ta.focus(); const n=ta.value.length; try{ ta.setSelectionRange(n,n); }catch(e){} } }
   const drop = document.getElementById('cv-drop');
   if(drop){
     drop.ondragover = (e)=>{ e.preventDefault(); drop.style.borderColor='var(--agua)'; };
@@ -21468,16 +21488,42 @@ async function _canteraCVGuardarManual(){
     }
   }catch(e){ _canteraCerrarProgreso(); if(err) err.textContent = 'Error: '+(e.message||''); }
 }
+// Personas (grupos) actuales del modal y a quién parece pertenecer un link (por el nombre en los archivos)
+function _canteraCVPersonas(){
+  const st=_cvLinks; const ids=[]; (st.archivos||[]).forEach((f,i)=>{ const g=(st.grupo||{})[f.name+'|'+f.size]||('s'+i); if(!ids.includes(g)) ids.push(g); });
+  return ids;
+}
+function _canteraCVPersonaDeLink(url){
+  const st=_cvLinks; const u=String(url||'').toLowerCase().replace(/[^a-z]/g,'');
+  let mejor=null, pts=0;
+  (st.archivos||[]).forEach((f,i)=>{
+    const g=(st.grupo||{})[f.name+'|'+f.size]||('s'+i);
+    const ws=_canteraCVRaizNombre(f.name).split(' ').filter(w=>w.length>=4);
+    const n=ws.filter(w=>u.includes(w)).length;
+    if(n>pts){ pts=n; mejor=g; }
+  });
+  return mejor;
+}
+function _canteraCVLinkPersona(i, v){ const l=_cvLinks.links[i]; if(l) l.persona = v==='' ? '' : (isNaN(+v)?v:+v); }
 function _canteraCVListaLinks(){
   const ls = _cvLinks.links;
   if(!ls.length) return '';
+  const pers = _canteraCVPersonas();
   let h = '<div style="font-size:0.68rem;color:var(--text3);margin-bottom:0.35rem">'+ls.length+' link'+(ls.length!==1?'s':'')+' detectado'+(ls.length!==1?'s':'')+'. Corrige el tipo si hace falta:</div><div style="display:flex;flex-direction:column;gap:0.35rem">';
   ls.forEach((l,i)=>{
     let opts = '';
     Object.keys(CANTERA_TIPOS_LINK).forEach(k=>{ opts += '<option value="'+k+'"'+(k===l.tipo?' selected':'')+'>'+CANTERA_TIPOS_LINK[k]+'</option>'; });
-    h += '<div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:0.45rem;align-items:center;padding:0.35rem 0.45rem;border:1px solid var(--border);border-radius:9px;background:var(--bg-card2)">'
+    let selP = '';
+    if(pers.length>1){
+      if(l.persona==null){ const auto=_canteraCVPersonaDeLink(l.url); if(auto!=null) l.persona = auto; }
+      selP = '<select onchange="_canteraCVLinkPersona('+i+',this.value)" title="¿De quién es este link?" style="font-size:0.7rem;padding:0.2rem 0.3rem;border-radius:6px;border:1px solid '+(l.persona==null||l.persona===''?'var(--fuego)':'var(--border)')+';background:var(--bg-card);color:var(--text);font-family:var(--font)">'
+        + '<option value=""'+(l.persona==null||l.persona===''?' selected':'')+'>¿De quién?</option>'
+        + pers.map((g,gi)=>'<option value="'+g+'"'+(String(l.persona)===String(g)?' selected':'')+'>Persona '+(gi+1)+'</option>').join('') + '</select>';
+    }
+    h += '<div style="display:grid;grid-template-columns:auto minmax(0,1fr) '+(selP?'auto ':'')+'auto;gap:0.45rem;align-items:center;padding:0.35rem 0.45rem;border:1px solid var(--border);border-radius:9px;background:var(--bg-card2)">'
       + '<select onchange="_cvLinks.links['+i+'].tipo=this.value" style="font-size:0.72rem;padding:0.2rem 0.3rem;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-family:var(--font)">'+opts+'</select>'
       + '<a href="'+escapeHtml(l.url)+'" target="_blank" rel="noopener" style="font-size:0.74rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none">'+escapeHtml(l.url.replace(/^https?:\/\/(www\.)?/,''))+'</a>'
+      + selP
       + '<button onclick="_cvLinks.links.splice('+i+',1);document.getElementById(\'cv-links-lista\').innerHTML=_canteraCVListaLinks()" title="Quitar" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.9rem">×</button>'
       + '</div>';
   });
@@ -21591,7 +21637,8 @@ function _canteraCVTexto(v){
   _cvLinks.texto = v;
   // Mantener el tipo que el usuario haya corregido a mano
   const previos = {}; _cvLinks.links.forEach(l=>{ previos[l.url] = l.tipo; });
-  _cvLinks.links = _canteraExtraerLinks(v).map(l=>({ url:l.url, tipo: previos[l.url] || l.tipo }));
+  const persPrev = {}; _cvLinks.links.forEach(l=>{ if(l.persona!=null) persPrev[l.url] = l.persona; });
+  _cvLinks.links = _canteraExtraerLinks(v).map(l=>({ url:l.url, tipo: previos[l.url] || l.tipo, persona: persPrev[l.url] }));
   const box = document.getElementById('cv-links-lista');
   if(box) box.innerHTML = _canteraCVListaLinks();
 }
@@ -21602,22 +21649,32 @@ async function _canteraCVProcesar(){
     if(err) err.textContent = 'Sube un PDF o pega al menos un link o el texto del correo.';
     return;
   }
-  closeTrayModal();
   // Con PDF(s): el flujo de siempre, sumando los links pegados (solo si es un CV)
   if(st.archivos.length){
     const clave = f=>f.name+'|'+f.size;
     const grupos = {}; st.archivos.forEach((f,i)=>{ const g=(st.grupo||{})[clave(f)]||('s'+i); (grupos[g]=grupos[g]||[]).push(f); });
     const lista = Object.values(grupos);
-    const hayCombinados = lista.some(g=>g.length>1) || st.archivos.some(f=>(st.tipo||{})[clave(f)]==='portafolio');
+    const hayCombinados = st.archivos.length>1 || st.archivos.some(f=>(st.tipo||{})[clave(f)]==='portafolio');
     if(hayCombinados){
-      await _canteraProcesarGrupos(lista.map(g=>g.map(f=>({ file:f, tipo:(st.tipo||{})[clave(f)]||'cv', meta:(st.meta||{})[clave(f)]||{} }))), st.convId, lista.length===1 ? { links: st.links.slice(), texto: st.texto } : null);
+      const ids = Object.keys(grupos);
+      const extras = ids.map(g=>{
+        if(ids.length===1) return { links: st.links.slice(), texto: st.texto };
+        const ls = st.links.filter(l=>String(l.persona)===String(g));
+        return ls.length ? { links: ls, texto:'' } : null;
+      });
+      const sinDueno = ids.length>1 ? st.links.filter(l=>l.persona==null||l.persona==='').length : 0;
+      if(sinDueno){ const e=document.getElementById('cv-err'); if(e) e.textContent = sinDueno+' link'+(sinDueno!==1?'s':'')+' sin asignar a una persona: elige "¿De quién?" o quítalo.'; return; }
+      closeTrayModal();
+      await _canteraProcesarGrupos(ids.map(g=>grupos[g].map(f=>({ file:f, tipo:(st.tipo||{})[clave(f)]||'cv', meta:(st.meta||{})[clave(f)]||{} }))), st.convId, extras);
       return;
     }
+    closeTrayModal();
     window._cvLinksExtra = (st.archivos.length===1) ? { links: st.links.slice(), texto: st.texto } : null;
     await _canteraProcesarCVs(st.archivos, st.convId);
     window._cvLinksExtra = null;
     return;
   }
+  closeTrayModal();
   // Solo links / correo: la IA arma la ficha con el texto, y los links se clasifican aquí
   const conv = st.convId ? (_cantera.convocatorias||[]).find(c=>c.id===st.convId) : null;
   // Portafolios web que la IA puede entrar a leer (redes como LinkedIn/Instagram no se dejan leer)
