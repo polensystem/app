@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v465-UNIVERSIDAD-EXPERIENCIA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v466-VARIOS-CV -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 465;
+const APP_VERSION = 466;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -21232,9 +21232,13 @@ function _canteraRenderModalCV(){
   // 1) PDF
   h += '<div><div style="'+lbl+'">CV en PDF (opcional)</div>'
     + '<label id="cv-drop" style="display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.9rem;border:1.5px dashed var(--border);border-radius:12px;cursor:pointer;font-size:0.8rem;color:var(--text2);background:var(--bg-card2)">'
-    + '<input type="file" accept="application/pdf" multiple style="display:none" onchange="_canteraCVArchivos(this.files)">'
-    + (st.archivos.length ? ('📄 '+st.archivos.map(f=>escapeHtml(f.name)).join(', ')) : '📄 Elegir o arrastrar PDF')
+    + '<input type="file" accept="application/pdf" multiple style="display:none" onchange="_canteraCVArchivos(this.files);this.value=\'\'">'
+    + (st.archivos.length ? ('➕ Agregar más PDF (o arrástralos aquí)') : '📄 Elegir o arrastrar PDF (puedes elegir varios)')
     + '</label>'
+    + (st.archivos.length ? '<div style="display:flex;flex-direction:column;gap:0.3rem;margin-top:0.45rem;max-height:180px;overflow-y:auto">'
+        + '<div style="font-size:0.68rem;font-weight:700;color:var(--text3)">'+st.archivos.length+' CV'+(st.archivos.length!==1?'s':'')+' listo'+(st.archivos.length!==1?'s':'')+' — cada uno será un perfil separado</div>'
+        + st.archivos.map((f,i)=>'<div style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0.5rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);font-size:0.74rem;color:var(--text2)"><span>📄</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escapeHtml(f.name)+'</span><button onclick="event.preventDefault();_canteraCVQuitarArchivo('+i+')" title="Quitar" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.9rem">×</button></div>').join('')
+        + '</div>' : '')
     + (varios ? '<div style="font-size:0.7rem;color:var(--text3);margin-top:0.35rem">Con varios CVs a la vez, cada uno se procesa por separado y los links pegados no se usan.</div>' : '')
     + '</div>';
   // 2) Links / correo
@@ -21336,9 +21340,13 @@ function _canteraCVListaLinks(){
 function _canteraCVArchivos(files){
   const lista = [...(files||[])].filter(f=>f.type==='application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
   if(!lista.length){ showStatus('Solo se aceptan archivos PDF', true); return; }
-  _cvLinks.archivos = lista;
+  // Se SUMAN a los que ya estaban (arrastrar otro CV no borra el anterior); sin repetir el mismo archivo
+  const clave = f=>f.name+'|'+f.size;
+  const ya = new Set((_cvLinks.archivos||[]).map(clave));
+  _cvLinks.archivos = (_cvLinks.archivos||[]).concat(lista.filter(f=>!ya.has(clave(f))));
   _canteraRenderModalCV();
 }
+function _canteraCVQuitarArchivo(i){ _cvLinks.archivos.splice(i,1); _canteraRenderModalCV(); }
 function _canteraCVTexto(v){
   _cvLinks.texto = v;
   // Mantener el tipo que el usuario haya corregido a mano
