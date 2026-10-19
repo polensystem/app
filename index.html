@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v473-MENSAJE-CORREO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v474-ORDEN-LINKS-MENSAJE -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 473;
+const APP_VERSION = 474;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -21416,17 +21416,17 @@ function _canteraRenderModalCV(){
     + (st.archivos.length ? _canteraCVListaAgrupada() : '')
     + (varios ? '<div style="font-size:0.7rem;color:var(--text3);margin-top:0.35rem">Se crea un perfil por persona, con su CV y su portafolio juntos. Los links que pegues abajo se asignan a la persona que elijas.</div>' : '')
     + '</div>';
-  // 2) Mensaje del correo (la IA lo analiza junto al CV)
+  // 2) Links
+  h += '<div><div style="'+lbl+'">Links (portafolio, Behance, LinkedIn…)</div>'
+    + '<textarea id="cv-links-txt" oninput="_canteraCVTexto(this.value)" onfocus="window._cvTxtFocus=true" onblur="window._cvTxtFocus=false" placeholder="'+(varios?'Pega los links de cada persona (portafolio, Behance, LinkedIn…). Luego elige a quién pertenece cada uno.':'Pega aquí los links que mandó la persona (portafolio, Behance, LinkedIn…). Si hay un portafolio web, la IA entra a leerlo.')+'" '
+    + 'style="width:100%;box-sizing:border-box;min-height:90px;padding:0.6rem 0.7rem;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.8rem;font-family:var(--font);outline:none;resize:vertical">'+escapeHtml(st.texto)+'</textarea>'
+    + '<div id="cv-links-lista" style="margin-top:0.5rem">'+_canteraCVListaLinks()+'</div></div>';
+  // 3) Mensaje del correo (la IA lo analiza junto al CV)
   st.mensajes = st.mensajes || {};
   if(!varios){
     h += '<div><div style="'+lbl+'">✉️ Mensaje que envió por correo (opcional)</div>'
       + '<textarea oninput="_cvLinks.mensajes._uno=this.value" placeholder="Pega aquí lo que la persona escribió en su correo: motivación, disponibilidad, pretensión salarial… La IA lo resume y lo tiene en cuenta para el fit." style="width:100%;box-sizing:border-box;min-height:80px;padding:0.6rem 0.7rem;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.8rem;font-family:var(--font);outline:none;resize:vertical">'+escapeHtml(st.mensajes._uno||'')+'</textarea></div>';
   }
-  // 3) Links
-  h += '<div><div style="'+lbl+'">Links (portafolio, Behance, LinkedIn…)</div>'
-    + '<textarea id="cv-links-txt" oninput="_canteraCVTexto(this.value)" onfocus="window._cvTxtFocus=true" onblur="window._cvTxtFocus=false" placeholder="'+(varios?'Pega los links de cada persona (portafolio, Behance, LinkedIn…). Luego elige a quién pertenece cada uno.':'Pega aquí los links que mandó la persona, o el correo completo. Si hay un portafolio web, la IA entra a leerlo.')+'" '
-    + 'style="width:100%;box-sizing:border-box;min-height:90px;padding:0.6rem 0.7rem;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.8rem;font-family:var(--font);outline:none;resize:vertical">'+escapeHtml(st.texto)+'</textarea>'
-    + '<div id="cv-links-lista" style="margin-top:0.5rem">'+_canteraCVListaLinks()+'</div></div>';
   h += '<div id="cv-err" style="font-size:0.74rem;color:var(--fuego);min-height:1rem"></div>';
   h += '<div style="display:flex;justify-content:flex-end;gap:0.5rem;position:sticky;bottom:0;background:var(--bg);padding-top:0.4rem">'
     + '<button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);border-radius:9px;padding:0.55rem 1rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:0.82rem">Cancelar</button>'
