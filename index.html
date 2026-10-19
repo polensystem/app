@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v468-ORDEN-FILTROS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v469-AGRUPAR-CV-PORTAFOLIO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 468;
+const APP_VERSION = 469;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -21139,6 +21139,44 @@ async function _canteraProcesarCVs(files, convId){
   }
 }
 
+// Procesa PDF agrupados por persona: un perfil por persona, con su CV y su portafolio adjuntos.
+// La IA lee el CV (o el portafolio si no hay CV); correo/teléfono se buscan en todos sus PDF.
+async function _canteraProcesarGrupos(grupos, convId, extra){
+  const conv = convId ? (_cantera.convocatorias||[]).find(c=>c.id===convId) : null;
+  let ok=0, fail=0;
+  for(let i=0;i<grupos.length;i++){
+    const g = grupos[i];
+    _canteraBarraProgreso('Procesando persona '+(i+1)+' de '+grupos.length+'…', (i+1)/grupos.length);
+    try{
+      const archivos = [];
+      for(const x of g){ const path = await _canteraSubirPDF(x.file); archivos.push({ path, nombre:x.file.name, tipo:x.tipo, _x:x }); }
+      const principal = archivos.find(a=>a.tipo==='cv') || archivos[0];
+      const pdfUrls = await _canteraLinksDePDF(principal._x.file);
+      let otrosUrls = [];
+      for(const a of archivos){ if(a!==principal){ try{ const l=await _canteraLinksDePDF(a._x.file); otrosUrls=otrosUrls.concat(l); pdfUrls.texto += '\n'+(l.texto||''); }catch(_){} } }
+      const urls = pdfUrls.concat(extra ? extra.links.map(l=>l.url) : []);
+      const ficha = await canteraAPI('extract_cv', { path: principal.path, urls, puesto: conv||null });
+      ficha.archivos = archivos.map(a=>({ path:a.path, nombre:a.nombre, tipo:a.tipo }));
+      ficha.estado = ficha.estado || 'Por verificar';
+      _canteraContactoDeTexto(ficha, pdfUrls.texto);
+      _canteraMezclarLinks(ficha, (extra ? extra.links : []).concat(pdfUrls.concat(otrosUrls).map(u=>({ url:u, tipo:_canteraTipoLink(u) }))));
+      if(extra){ if(!ficha.email) ficha.email = _canteraExtraerEmail(extra.texto); if(!ficha.telefono) ficha.telefono = _canteraExtraerTelefono(extra.texto); }
+      if(conv){
+        ficha.procesos = [...new Set([...(ficha.procesos||[]), conv.id])];
+        ficha.origen = 'Recibido';
+        const d = Array.isArray(ficha.departamento)?ficha.departamento:(ficha.departamento?[ficha.departamento]:[]);
+        ficha.departamento = d.length ? d : [conv.departamento];
+      }
+      const row = await canteraAPI('save_candidato', { data: ficha });
+      if(row && !row.conflict){ _cantera.candidatos.unshift(row); ok++; if(pdfUrls.texto) _canteraPerfilDesdeCV(row.id, false, pdfUrls.texto); }
+      else fail++;
+    }catch(e){ console.warn('grupo', i, e); fail++; }
+  }
+  _canteraCerrarProgreso();
+  renderCantera();
+  showStatus(ok+' perfil'+(ok!==1?'es':'')+' creado'+(ok!==1?'s':'')+(conv?' en "'+conv.cargo+'"':'')+(fail?' · '+fail+' con error':'')+' ✓', !!fail && !ok);
+}
+
 // Overlay con barra de progreso (0..1). Si pct es null, muestra barra indeterminada.
 function _canteraBarraProgreso(txt, pct){
   let o = document.getElementById('cantera-prog');
@@ -21310,13 +21348,13 @@ window._cvLinks = window._cvLinks || { convId:null, archivos:[], links:[], texto
   });
 })();
 function _canteraSubirCVInput(convId){
-  _cvLinks = { convId: convId||null, archivos:[], links:[], texto:'', modo:'ia', man:{} };
+  _cvLinks = { convId: convId||null, archivos:[], links:[], texto:'', modo:'ia', man:{}, meta:{}, grupo:{}, tipo:{} };
   _canteraRenderModalCV();
 }
 function _canteraRenderModalCV(){
   const st = _cvLinks;
   const conv = st.convId ? (_cantera.convocatorias||[]).find(c=>c.id===st.convId) : null;
-  const varios = st.archivos.length>1;
+  const varios = new Set((st.archivos||[]).map((f,i)=>(st.grupo||{})[f.name+'|'+f.size]||('s'+i))).size>1;  // más de una PERSONA
   const lbl = 'font-size:0.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.35rem';
   let h = '<div style="display:flex;flex-direction:column;gap:0.9rem;max-height:72vh;overflow-y:auto;padding-right:0.2rem">';
   if(conv) h += '<div style="font-size:0.78rem;color:var(--text2)">Entra como postulante a <b>'+escapeHtml(conv.cargo)+'</b>.</div>';
@@ -21338,11 +21376,8 @@ function _canteraRenderModalCV(){
     + '<input type="file" accept="application/pdf" multiple style="display:none" onchange="_canteraCVArchivos(this.files);this.value=\'\'">'
     + (st.archivos.length ? ('➕ Agregar más PDF (o arrástralos aquí)') : '📄 Elegir o arrastrar PDF (puedes elegir varios)')
     + '</label>'
-    + (st.archivos.length ? '<div style="display:flex;flex-direction:column;gap:0.3rem;margin-top:0.45rem;max-height:180px;overflow-y:auto">'
-        + '<div style="font-size:0.68rem;font-weight:700;color:var(--text3)">'+st.archivos.length+' CV'+(st.archivos.length!==1?'s':'')+' listo'+(st.archivos.length!==1?'s':'')+' — cada uno será un perfil separado</div>'
-        + st.archivos.map((f,i)=>'<div style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0.5rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);font-size:0.74rem;color:var(--text2)"><span>📄</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escapeHtml(f.name)+'</span><button onclick="event.preventDefault();_canteraCVQuitarArchivo('+i+')" title="Quitar" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.9rem">×</button></div>').join('')
-        + '</div>' : '')
-    + (varios ? '<div style="font-size:0.7rem;color:var(--text3);margin-top:0.35rem">Con varios CVs a la vez, cada uno se procesa por separado y los links pegados no se usan.</div>' : '')
+    + (st.archivos.length ? _canteraCVListaAgrupada() : '')
+    + (varios ? '<div style="font-size:0.7rem;color:var(--text3);margin-top:0.35rem">Se crea un perfil por persona, con su CV y su portafolio juntos. Con varias personas a la vez, los links pegados no se usan.</div>' : '')
     + '</div>';
   // 2) Links / correo
   h += '<div><div style="'+lbl+'">Links o texto del correo</div>'
@@ -21446,10 +21481,104 @@ function _canteraCVArchivos(files){
   // Se SUMAN a los que ya estaban (arrastrar otro CV no borra el anterior); sin repetir el mismo archivo
   const clave = f=>f.name+'|'+f.size;
   const ya = new Set((_cvLinks.archivos||[]).map(clave));
-  _cvLinks.archivos = (_cvLinks.archivos||[]).concat(lista.filter(f=>!ya.has(clave(f))));
+  const nuevos = lista.filter(f=>!ya.has(clave(f)));
+  _cvLinks.archivos = (_cvLinks.archivos||[]).concat(nuevos);
+  _cvLinks.meta = _cvLinks.meta || {};
   _canteraRenderModalCV();
+  // Analizar cada PDF (tipo CV/portafolio + datos de contacto) y agrupar por persona
+  Promise.all(nuevos.map(f=>_canteraCVAnalizarLocal(f).then(m=>{ _cvLinks.meta[clave(f)] = m; })))
+    .then(()=>{ _canteraCVAgrupar(); if(document.getElementById('cv-drop')) _canteraRenderModalCV(); });
 }
-function _canteraCVQuitarArchivo(i){ _cvLinks.archivos.splice(i,1); _canteraRenderModalCV(); }
+// Lee un PDF en el navegador: páginas, densidad de texto, correos, teléfonos → adivina si es CV o portafolio
+async function _canteraCVAnalizarLocal(file){
+  const m = { tipo:'cv', emails:[], tels:[], paginas:0, chars:0, texto:'' };
+  const n = (file.name||'').toLowerCase();
+  try{
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    if(pdfjsLib){
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      m.paginas = pdf.numPages;
+      const hasta = Math.min(pdf.numPages, 6); let t = '';
+      for(let i=1;i<=hasta;i++){ const pg = await pdf.getPage(i); const tc = await pg.getTextContent(); t += tc.items.map(x=>x.str).join(' ')+'\n'; }
+      m.texto = t; m.chars = t.replace(/\s+/g,'').length;
+      const em = t.match(/[A-Za-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,6}(?![a-z])/g) || [];
+      m.emails = [...new Set(em.map(x=>x.toLowerCase()))];
+      const tf = _canteraExtraerTelefono(t); if(tf) m.tels = [tf.replace(/\D/g,'').slice(-9)];
+    }
+  }catch(e){ console.warn('analizar PDF', e); }
+  if(/portaf|portfol|book|works|trabajos|muestra|showreel|reel/.test(n)) m.tipo = 'portafolio';
+  else if(/\bcv\b|cv[_ .-]|curr[ií]cul|resume|hoja.?de.?vida/.test(n)) m.tipo = 'cv';
+  else if(m.paginas >= 5 || (m.paginas && m.chars/m.paginas < 350)) m.tipo = 'portafolio';   // muchas páginas o casi solo imágenes
+  return m;
+}
+// "Nombre" que sugiere el nombre del archivo (sin palabras de tipo ni números): para juntar ana_cv.pdf con ana_portafolio.pdf
+function _canteraCVRaizNombre(nombre){
+  return String(nombre||'').toLowerCase().replace(/\.pdf$/,'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/portafolio|portfolio|curriculum|curriculo|resume|hoja de vida|book|cv|final|actualizado|202\d|\d+/g,' ')
+    .replace(/[^a-z]+/g,' ').trim().split(' ').filter(w=>w.length>=3).join(' ');
+}
+// Agrupa los PDF por persona: mismo correo, mismo teléfono o mismo nombre en el archivo
+function _canteraCVAgrupar(){
+  const st = _cvLinks; const clave = f=>f.name+'|'+f.size;
+  st.grupo = st.grupo || {}; st.tipo = st.tipo || {};
+  const files = st.archivos||[];
+  const padre = files.map((_,i)=>i);
+  const raiz = i=>{ while(padre[i]!==i) i=padre[i]=padre[padre[i]]; return i; };
+  const unir = (a,b)=>{ a=raiz(a); b=raiz(b); if(a!==b) padre[b]=a; };
+  const M = files.map(f=>st.meta[clave(f)]||{});
+  for(let i=0;i<files.length;i++) for(let j=i+1;j<files.length;j++){
+    const a=M[i], b=M[j];
+    const mismoMail = (a.emails||[]).some(e=>(b.emails||[]).includes(e));
+    const mismoTel = (a.tels||[]).some(t=>(b.tels||[]).includes(t));
+    const ra=_canteraCVRaizNombre(files[i].name), rb=_canteraCVRaizNombre(files[j].name);
+    const mismoNombre = ra && rb && (ra===rb || (ra.split(' ').filter(w=>rb.split(' ').includes(w)).length>=2));
+    if(mismoMail || mismoTel || mismoNombre) unir(i,j);
+  }
+  const mapa = {}; let n = 0;
+  files.forEach((f,i)=>{
+    const k = clave(f);
+    if(st.grupoManual && st.grupoManual[k]!=null){ st.grupo[k] = st.grupoManual[k]; return; }
+    const r = raiz(i); if(mapa[r]==null) mapa[r] = ++n; st.grupo[k] = mapa[r];
+    if(!st.tipoManual || st.tipoManual[k]==null) st.tipo[k] = (M[i].tipo)||'cv';
+  });
+}
+function _canteraCVSetGrupo(i, v){
+  const st=_cvLinks, f=st.archivos[i]; if(!f) return; const k=f.name+'|'+f.size;
+  st.grupoManual = st.grupoManual || {};
+  st.grupoManual[k] = v==='nueva' ? (Math.max(0,...Object.values(st.grupo||{}))+1) : Number(v);
+  st.grupo[k] = st.grupoManual[k]; _canteraRenderModalCV();
+}
+function _canteraCVSetTipo(i, v){
+  const st=_cvLinks, f=st.archivos[i]; if(!f) return; const k=f.name+'|'+f.size;
+  st.tipoManual = st.tipoManual || {}; st.tipoManual[k] = v; st.tipo[k] = v; _canteraRenderModalCV();
+}
+function _canteraCVListaAgrupada(){
+  const st=_cvLinks, clave=f=>f.name+'|'+f.size;
+  const files = st.archivos||[];
+  const analizando = files.some(f=>!(st.meta||{})[clave(f)]);
+  const grupos = {}; files.forEach((f,i)=>{ const g=(st.grupo||{})[clave(f)]||(i+1); (grupos[g]=grupos[g]||[]).push(i); });
+  const ids = Object.keys(grupos).map(Number).sort((a,b)=>a-b);
+  const nPers = ids.length;
+  let h = '<div style="display:flex;flex-direction:column;gap:0.45rem;margin-top:0.5rem;max-height:260px;overflow-y:auto">'
+    + '<div style="font-size:0.68rem;font-weight:700;color:var(--text3)">'+files.length+' PDF → '+(analizando?'analizando…':(nPers+' persona'+(nPers!==1?'s':'')))+' · revisa que cada persona tenga juntos su CV y su portafolio</div>';
+  ids.forEach((g,gi)=>{
+    h += '<div style="border:1px solid var(--border);border-radius:10px;padding:0.45rem 0.5rem;background:var(--bg-card)">'
+      + '<div style="font-size:0.66rem;font-weight:800;color:var(--text2);margin-bottom:0.3rem">👤 Persona '+(gi+1)+'</div>';
+    grupos[g].forEach(i=>{
+      const f=files[i], k=clave(f), tipo=(st.tipo||{})[k]||'cv';
+      const opGr = ids.map((x,xi)=>'<option value="'+x+'"'+(x===g?' selected':'')+'>Persona '+(xi+1)+'</option>').join('') + '<option value="nueva">+ Persona nueva</option>';
+      h += '<div style="display:flex;align-items:center;gap:0.35rem;padding:0.2rem 0;font-size:0.73rem;color:var(--text2)">'
+        + '<select onchange="_canteraCVSetTipo('+i+',this.value)" style="font-size:0.68rem;padding:0.15rem 0.25rem;border-radius:6px;border:1px solid var(--border);background:'+(tipo==='portafolio'?'rgba(124,92,196,0.1)':'rgba(232,98,42,0.08)')+';color:var(--text);font-family:var(--font)"><option value="cv"'+(tipo==='cv'?' selected':'')+'>📄 CV</option><option value="portafolio"'+(tipo==='portafolio'?' selected':'')+'>🎨 Portafolio</option></select>'
+        + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escapeHtml(f.name)+'">'+escapeHtml(f.name)+'</span>'
+        + (nPers>1||grupos[g].length>1 ? '<select onchange="_canteraCVSetGrupo('+i+',this.value)" title="Mover a otra persona" style="font-size:0.66rem;padding:0.15rem 0.25rem;border-radius:6px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);font-family:var(--font)">'+opGr+'</select>' : '')
+        + '<button onclick="event.preventDefault();_canteraCVQuitarArchivo('+i+')" title="Quitar" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.9rem">×</button></div>';
+    });
+    h += '</div>';
+  });
+  return h + '</div>';
+}
+function _canteraCVQuitarArchivo(i){ _cvLinks.archivos.splice(i,1); _canteraCVAgrupar(); _canteraRenderModalCV(); }
 function _canteraCVTexto(v){
   _cvLinks.texto = v;
   // Mantener el tipo que el usuario haya corregido a mano
@@ -21468,6 +21597,14 @@ async function _canteraCVProcesar(){
   closeTrayModal();
   // Con PDF(s): el flujo de siempre, sumando los links pegados (solo si es un CV)
   if(st.archivos.length){
+    const clave = f=>f.name+'|'+f.size;
+    const grupos = {}; st.archivos.forEach((f,i)=>{ const g=(st.grupo||{})[clave(f)]||('s'+i); (grupos[g]=grupos[g]||[]).push(f); });
+    const lista = Object.values(grupos);
+    const hayCombinados = lista.some(g=>g.length>1) || st.archivos.some(f=>(st.tipo||{})[clave(f)]==='portafolio');
+    if(hayCombinados){
+      await _canteraProcesarGrupos(lista.map(g=>g.map(f=>({ file:f, tipo:(st.tipo||{})[clave(f)]||'cv', meta:(st.meta||{})[clave(f)]||{} }))), st.convId, lista.length===1 ? { links: st.links.slice(), texto: st.texto } : null);
+      return;
+    }
     window._cvLinksExtra = (st.archivos.length===1) ? { links: st.links.slice(), texto: st.texto } : null;
     await _canteraProcesarCVs(st.archivos, st.convId);
     window._cvLinksExtra = null;
