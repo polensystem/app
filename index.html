@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v461-VER-PANEL-DE -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v463-PM-SIN-COMERCIAL -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 461;
+const APP_VERSION = 463;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -18263,6 +18263,15 @@ function _mtPuedeVerOtros(){
   const u = _usuarioReal(); if(!u) return false;
   const r = _rolesDe(u); return r.includes('admin') || r.includes('pm');
 }
+// ¿El usuario real puede ver el panel de este miembro? Admin: todos. PM: todos menos los paneles comerciales.
+function _mtPuedeVerA(m){
+  const u = _usuarioReal(); if(!u || !m) return false;
+  const yo = _rolesDe(u);
+  if(yo.includes('admin')) return true;
+  if(!yo.includes('pm')) return false;
+  const r = _rolesDe(m);
+  return !(r.includes('asistente') || r.includes('comercial'));
+}
 function _mtSetVerComo(id){
   const yo = _usuarioReal();
   window._mtVerComo = (id && (!yo || id!==yo.id)) ? id : null;
@@ -18272,7 +18281,7 @@ function _mtSetVerComo(id){
 }
 function _mtSelectorHTML(){
   const yo = _usuarioReal();
-  const miembros = (appData.members||[]).filter(m=>m && m.active!==false && (!yo || m.id!==yo.id))
+  const miembros = (appData.members||[]).filter(m=>m && m.active!==false && (!yo || m.id!==yo.id) && _mtPuedeVerA(m))
     .sort((a,b)=>(a.apodo||a.nombre||'').localeCompare(b.apodo||b.nombre||''));
   const sel = window._mtVerComo || '';
   const viendo = !!sel;
@@ -18288,8 +18297,8 @@ function renderMiTrabajo(){
   const puede = _mtPuedeVerOtros();
   if(!puede) window._mtVerComo = null;
   const objetivo = window._mtVerComo ? (appData.members||[]).find(m=>m.id===window._mtVerComo) : null;
-  if(window._mtVerComo && !objetivo) window._mtVerComo = null;
-  if(objetivo){
+  if(window._mtVerComo && (!objetivo || !_mtPuedeVerA(objetivo))) window._mtVerComo = null;
+  if(objetivo && window._mtVerComo){
     const prev = window._simUserId;
     window._simUserId = objetivo.id;
     try{ _renderMiTrabajoInterno(); } finally { window._simUserId = prev; }
@@ -19752,6 +19761,23 @@ function _canteraSetVistaBase(v){
   _canteraRenderLista(document.getElementById('cantera-content'));
 }
 // Ordenar la base por una columna (alterna asc/desc)
+// Fecha de inclusión (YYYY-MM-DD): la guardada, o el día en que se creó el registro
+function _cFechaInc(c){
+  if(c && c.fecha_inclusion) return String(c.fecha_inclusion).slice(0,10);
+  const raw = c && (c.created_at||c.creado); if(!raw) return '';
+  const d = new Date(raw); if(isNaN(d)) return String(raw).slice(0,10);
+  return fmtDate(d);
+}
+async function _canteraSetFechaInclusion(id, fecha){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha||'')) return;
+  const c = (_cantera.candidatos||[]).find(x=>x.id===id);
+  const prev = c ? c.fecha_inclusion : null;
+  if(c) c.fecha_inclusion = fecha;
+  if(window._canteraFichaEdit && window._canteraFichaEdit.id===id) window._canteraFichaEdit.fecha_inclusion = fecha;
+  try{ await canteraWebAPI({ action:'set_fecha_inclusion', cand_id:id, fecha }); showStatus('Fecha de inclusión guardada ✓'); }
+  catch(e){ if(c) c.fecha_inclusion = prev; showStatus('No se pudo guardar la fecha ('+(e.message||'')+'). ¿Corriste fase-F2 y actualizaste cantera-web?', true); }
+}
+
 function _canteraSortBase(col){
   const s = _cantera.baseSort || {col:'', dir:'asc'};
   if(s.col===col) s.dir = s.dir==='asc' ? 'desc' : 'asc';
@@ -19956,6 +19982,7 @@ function _canteraFiltrados(){
       if(s.col==='_depto'){ const d=Array.isArray(c.departamento)?c.departamento:[c.departamento]; return (d[0]||'').toLowerCase(); }
       if(s.col==='fit') return Number(c.fit)||0;
       if(s.col==='verificado') return c.verificado?1:0;
+      if(s.col==='fecha_inclusion') return _cFechaInc(c);
       return String(c[s.col]||'').toLowerCase();
     };
     items = [...items].sort((a,b)=>{
@@ -20257,6 +20284,7 @@ function _canteraRenderLista(cont){
       + '<td style="font-size:0.76rem;color:var(--text2);'+_trunc+'" title="'+escapeHtml(c.rol||'')+'">'+escapeHtml(c.rol||'—')+'</td>'
       + '<td style="'+_trunc+'" onclick="event.stopPropagation();_canteraEditarDepto(\''+c.id+'\')" title="Clic para editar departamento">'+_canteraDeptoTxt(c)+'</td>'
       + '<td style="font-size:0.76rem;color:var(--text2);'+_trunc+'">'+escapeHtml(c.ciudad||'—')+'</td>'
+      + '<td style="font-size:0.74rem;color:var(--text2);white-space:nowrap" title="'+escapeHtml(_cFechaInc(c))+'">'+(_cFechaInc(c)?_canteraFechaCorta(_cFechaInc(c)):'—')+'</td>'
       + '<td>'+_cFitInter(c,'_base')+'</td>'
       + '<td style="'+_trunc+'">'+_cTag(c.estado, _canteraColorEstado(c.estado))+'</td>'
       + '<td style="'+_trunc+'">'+_cTag(c.destreza, _canteraColorDestreza(c.destreza))+'</td>'
@@ -20269,10 +20297,10 @@ function _canteraRenderLista(cont){
     const flecha = s.col===campo ? (s.dir==='asc'?' ↑':' ↓') : '';
     return '<th onclick="_canteraSortBase(\''+campo+'\')" style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;'+(align?'text-align:'+align:'')+'" title="Ordenar">'+label+flecha+'</th>';
   };
-  const colgroup = '<colgroup><col style="width:17%"><col style="width:11%"><col style="width:10%"><col style="width:9%"><col style="width:8%"><col style="width:10%"><col style="width:12%"><col style="width:8%"><col style="width:12%"><col style="width:3%"></colgroup>';
+  const colgroup = '<colgroup><col style="width:15%"><col style="width:10%"><col style="width:9%"><col style="width:8%"><col style="width:7%"><col style="width:8%"><col style="width:10%"><col style="width:11%"><col style="width:7%"><col style="width:12%"><col style="width:3%"></colgroup>';
   const thBase = '<thead><tr>'
       + _thSort('nombre','Candidato') + _thSort('proceso_texto','Proceso') + _thSort('rol','Rol')
-      + _thSort('_depto','Depto') + _thSort('ciudad','Ciudad') + _thSort('fit','Fit')
+      + _thSort('_depto','Depto') + _thSort('ciudad','Ciudad') + _thSort('fecha_inclusion','Incluido') + _thSort('fit','Fit')
       + _thSort('estado','Estatus') + _thSort('destreza','Destreza')
       + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">Archivos</th>'
       + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2"></th>'
@@ -21900,6 +21928,11 @@ function _canteraRenderFicha(esNuevo){
     <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;flex-wrap:wrap">
       <button onclick="_canteraFichaToggleVerif()" style="font-size:0.68rem;font-weight:700;padding:0.3rem 0.7rem;border-radius:99px;border:1px solid ${c.verificado?'#22c55e':'var(--border)'};background:${c.verificado?'rgba(34,197,94,0.12)':'transparent'};color:${c.verificado?'#22c55e':'var(--text3)'};cursor:pointer;font-family:var(--font)">${c.verificado?'✓ Verificado':'Sin verificar'}</button>
       <span style="font-size:0.68rem;color:var(--text3)">${_canteraEsIA(c)?'✨ Lo encontró la IA':'📥 Postuló'}</span>
+      <label title="Fecha en que entró a la cantera" style="margin-left:auto;display:inline-flex;align-items:center;gap:0.35rem;font-size:0.68rem;color:var(--text3)">📅 Incluido
+        ${c.id && window._canteraFichaId
+          ? `<input type="date" value="${_cFechaInc(c)}" onchange="_canteraSetFechaInclusion('${c.id}', this.value)" style="padding:0.2rem 0.4rem;border-radius:7px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.72rem;font-family:var(--font)">`
+          : `<b style="color:var(--text2)">hoy</b>`}
+      </label>
     </div>
 
     <!-- Archivos originales (CV y portafolio en PDF) -->
