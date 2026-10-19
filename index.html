@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v463-PM-SIN-COMERCIAL -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v464-CANTERA-CONTACTOS-FECHAS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 463;
+const APP_VERSION = 464;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -19762,6 +19762,19 @@ function _canteraSetVistaBase(v){
 }
 // Ordenar la base por una columna (alterna asc/desc)
 // Fecha de inclusión (YYYY-MM-DD): la guardada, o el día en que se creó el registro
+async function _canteraCargarFechas(forzar){
+  if(_cantera._fechasPedidas && !forzar) return; _cantera._fechasPedidas = true;
+  try{
+    const r = await canteraWebAPI({ action:'fechas' });
+    const mapa = {}; (r.fechas||[]).forEach(x=>{ mapa[x.id]=x; });
+    (_cantera.candidatos||[]).forEach(c=>{ const x=mapa[c.id]; if(x){ if(x.fecha_inclusion) c.fecha_inclusion=x.fecha_inclusion; if(x.created_at && !c.created_at) c.created_at=x.created_at; } });
+    if(r.grabadas) console.log('[Cantera] Fecha de inclusión grabada a', r.grabadas, 'candidatos');
+    if(currentPage==='cantera') renderCantera();
+  }catch(e){
+    console.warn('fechas cantera:', e);
+    if(e && e.message==='falta_columna_fecha_inclusion') showStatus('Falta correr fase-F2-fecha-inclusion.sql en Supabase para guardar la fecha de inclusión', true);
+  }
+}
 function _cFechaInc(c){
   if(c && c.fecha_inclusion) return String(c.fecha_inclusion).slice(0,10);
   const raw = c && (c.created_at||c.creado); if(!raw) return '';
@@ -19846,6 +19859,7 @@ function renderCantera(){
     });
     return;
   }
+  if(!_cantera._fechasPedidas) _canteraCargarFechas();
   // Enrutar según la vista
   if(_cantera.vista==='base') _canteraRenderLista(cont);
   else if(_cantera.vista==='proyecto') _canteraRenderProyecto(cont);
@@ -20086,7 +20100,7 @@ async function _canteraFitSet(candId, key, n){
   const por = (_usuarioActual()||{}).apodo || '';
   if(key==='_base'){
     c.fit = n;
-    try{ const row = await canteraAPI('save_candidato', { data:{ id:c.id, rev:c.rev, fit:n } }); if(row && !row.conflict && row.rev!=null) c.rev = row.rev; }catch(e){ console.warn('fit base:', e); }
+    try{ const row = await canteraAPI('save_candidato', { data:{ id:c.id, rev:c.rev, nombre:c.nombre||'Sin nombre', fit:n } }); if(row && !row.conflict && row.rev!=null) c.rev = row.rev; }catch(e){ console.warn('fit base:', e); }
   }
   await _canteraFitGuardarMeta(c, key, { fit:n, origen:'manual', validado:true, por });
 }
@@ -20221,6 +20235,7 @@ function _canteraRenderLista(cont){
     + '<input id="cantera-q" value="'+escapeHtml(f.q||'')+'" oninput="setCanteraFiltro(\'q\', this.value)" placeholder="Buscar nombre, rol, ciudad…" style="'+ctrl+';flex:1;min-width:200px;max-width:340px;outline:none">'
     + '<button onclick="_canteraTogglePanelFiltros()" style="'+ctrl+';cursor:pointer;font-weight:600;'+(nFiltros||_cantera.panelFiltros?'color:var(--text);border-color:var(--text3)':'')+'">Filtros'+(nFiltros?' · '+nFiltros:'')+'</button>'
     + '<div style="flex:1"></div>'
+    + '<button onclick="_canteraLeerContactosCVs()" title="Busca correo y teléfono dentro de los CV guardados y completa los perfiles que no los tienen" style="'+ctrl+';cursor:pointer;font-weight:600">📇 Leer contactos de los CV</button>'
     + '<span style="font-size:0.74rem;color:var(--text3)">'+items.length+' resultado'+(items.length!==1?'s':'')+'</span>'
     + '<div style="display:flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:2px;gap:2px">'+segBtn('separado','Por origen')+segBtn('unido','Lista única')+'</div>'
     + '</div>';
@@ -20289,7 +20304,6 @@ function _canteraRenderLista(cont){
       + '<td style="'+_trunc+'">'+_cTag(c.estado, _canteraColorEstado(c.estado))+'</td>'
       + '<td style="'+_trunc+'">'+_cTag(c.destreza, _canteraColorDestreza(c.destreza))+'</td>'
       + '<td onclick="event.stopPropagation()">'+_cCV(c)+'</td>'
-      + '<td style="text-align:center">'+portaHtml+'</td>'
       + '</tr>';
   };
   const _thSort = (campo,label,align)=>{
@@ -20297,13 +20311,12 @@ function _canteraRenderLista(cont){
     const flecha = s.col===campo ? (s.dir==='asc'?' ↑':' ↓') : '';
     return '<th onclick="_canteraSortBase(\''+campo+'\')" style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;'+(align?'text-align:'+align:'')+'" title="Ordenar">'+label+flecha+'</th>';
   };
-  const colgroup = '<colgroup><col style="width:15%"><col style="width:10%"><col style="width:9%"><col style="width:8%"><col style="width:7%"><col style="width:8%"><col style="width:10%"><col style="width:11%"><col style="width:7%"><col style="width:12%"><col style="width:3%"></colgroup>';
+  const colgroup = '<colgroup><col style="width:15%"><col style="width:10%"><col style="width:9%"><col style="width:8%"><col style="width:7%"><col style="width:8%"><col style="width:10%"><col style="width:11%"><col style="width:7%"><col style="width:15%"></colgroup>';
   const thBase = '<thead><tr>'
       + _thSort('nombre','Candidato') + _thSort('proceso_texto','Proceso') + _thSort('rol','Rol')
       + _thSort('_depto','Depto') + _thSort('ciudad','Ciudad') + _thSort('fecha_inclusion','Incluido') + _thSort('fit','Fit')
       + _thSort('estado','Estatus') + _thSort('destreza','Destreza')
-      + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">Archivos</th>'
-      + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2"></th>'
+      + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">CV / Portafolio</th>'
       + '</tr></thead>';
   const tabla = (lista, resaltar, maxH)=>
     '<div style="border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:'+maxH+';background:var(--bg-card)">'
@@ -20479,7 +20492,7 @@ function _canteraRenderProyecto(cont){
           + '<colgroup><col style="width:5%"><col style="width:24%"><col style="width:14%"><col style="width:10%"><col style="width:12%"><col style="width:13%"><col style="width:13%"><col style="width:9%"></colgroup>'
           + '<thead><tr>'
           + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;text-align:center;cursor:default"><input type="checkbox" '+(lista.length && lista.every(c=>msel.has(c.id))?'checked':'')+' onchange="_canteraMatchSelVarios(\''+lista.map(c=>c.id).join(',')+'\', this.checked)" title="Seleccionar todos de esta sección" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></th>'
-          + ['Candidato','Rol','Nivel','Fit','Estatus','Archivos',''].map(t=>'<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">'+t+'</th>').join('')
+          + ['Candidato','Rol','Nivel','Fit','Estatus','CV / Portafolio',''].map(t=>'<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">'+t+'</th>').join('')
           + '</tr></thead><tbody>'+lista.map(c=>filaCand(c, conBotonAplicar)).join('')+'</tbody></table></div>';
       } else {
         s += '<div style="font-size:0.76rem;color:var(--text3);padding:0.2rem 0 0.4rem 1.1rem">'+vacio+'</div>';
@@ -20818,28 +20831,39 @@ async function _canteraGuardarDepto(){
 // Placeholder de ficha (Fase 2)
 // ── Subir CV con IA ──
 // Extrae los links REALES de un PDF (anotaciones + texto) con PDF.js.
+// Lee un PDF con PDF.js: devuelve los links (array) y deja el texto en .texto
 async function _canteraLinksDePDF(file){
+  const out = []; out.texto = '';
   try{
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
-    if(!pdfjsLib) return [];
+    if(!pdfjsLib) return out;
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    const buf = await file.arrayBuffer();
+    const buf = (file instanceof ArrayBuffer) ? file : await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
     const urls = new Set();
     const reUrl = /(https?:\/\/[^\s)<>"']+|www\.[^\s)<>"']+|(?:linkedin\.com|behance\.net|instagram\.com)\/[^\s)<>"']+)/gi;
+    let textos = [];
     for(let p=1; p<=pdf.numPages; p++){
       const page = await pdf.getPage(p);
-      // 1) anotaciones (links clicables)
       const annots = await page.getAnnotations();
-      annots.forEach(a=>{ if(a.url) urls.add(a.url); });
-      // 2) texto visible
+      annots.forEach(a=>{ if(a.url) urls.add(a.url); if(a.url && /^mailto:/i.test(a.url)) textos.push(a.url.replace(/^mailto:/i,'')); if(a.url && /^tel:/i.test(a.url)) textos.push(a.url.replace(/^tel:/i,'')); });
       const txt = await page.getTextContent();
       const str = txt.items.map(i=>i.str).join(' ');
+      textos.push(str, txt.items.map(i=>i.str).join(''));   // con y sin espacios (correos partidos)
       const m = str.match(reUrl);
       if(m) m.forEach(u=>urls.add(u));
     }
-    return [...urls];
-  }catch(e){ console.warn('links PDF:', e); return []; }
+    [...urls].filter(u=>!/^(mailto|tel):/i.test(u)).forEach(u=>out.push(u));
+    out.texto = textos.join('\n');
+    return out;
+  }catch(e){ console.warn('links PDF:', e); return out; }
+}
+// Completa correo y teléfono de la ficha con lo que diga el texto del PDF (si la IA no los sacó)
+function _canteraContactoDeTexto(ficha, texto){
+  if(!texto) return ficha;
+  if(!ficha.email) ficha.email = _canteraExtraerEmail(texto);
+  if(!ficha.telefono) ficha.telefono = _canteraExtraerTelefono(texto);
+  return ficha;
 }
 
 // Tipo de archivo guardado: 'portafolio' o 'cv' (los viejos sin tipo son CV)
@@ -20847,13 +20871,43 @@ function _cArchTipo(a){ return (a && a.tipo==='portafolio') ? 'portafolio' : 'cv
 // Celda "Archivos" de las tablas: chips clicables por CV y portafolio en PDF
 function _cCV(c){
   const arch = Array.isArray(c.archivos) ? c.archivos : [];
-  if(!arch.length) return '<span style="color:var(--text3);font-size:0.74rem">—</span>';
-  const chip = (idx, txt, col, bg, tip)=>'<button type="button" onclick="event.stopPropagation();_canteraVerCV(\''+c.id+'\','+idx+')" title="'+tip+'" style="display:inline-flex;align-items:center;gap:0.2rem;padding:0.12rem 0.45rem;border-radius:99px;border:1px solid '+col+'55;background:'+bg+';color:'+col+';font-size:0.64rem;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap">'+txt+'</button>';
+  const L = c.links || {};
+  const linkPort = L.portafolio || L.behance || L.dribbble || '';
+  const chipBtn = (onclick, txt, col, bg, tip)=>'<button type="button" onclick="event.stopPropagation();'+onclick+'" title="'+escapeHtml(tip)+'" style="display:inline-flex;align-items:center;gap:0.2rem;padding:0.12rem 0.45rem;border-radius:99px;border:1px solid '+col+'55;background:'+bg+';color:'+col+';font-size:0.64rem;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap">'+txt+'</button>';
   const iCv = arch.findIndex(a=>_cArchTipo(a)==='cv'), iPo = arch.findIndex(a=>_cArchTipo(a)==='portafolio');
-  let h = '<span style="display:inline-flex;gap:0.25rem;flex-wrap:wrap">';
-  if(iCv>=0) h += chip(iCv, '📄 CV', '#d2561f', 'rgba(232,98,42,0.08)', 'Abrir CV original (PDF)');
-  if(iPo>=0) h += chip(iPo, '🎨 Port.', '#7c5cc4', 'rgba(124,92,196,0.09)', 'Abrir portafolio (PDF)');
-  return h + '</span>';
+  let h = '';
+  if(iCv>=0) h += chipBtn("_canteraVerCV('"+c.id+"',"+iCv+")", '📄 CV', '#d2561f', 'rgba(232,98,42,0.08)', 'Abrir CV original (PDF)');
+  if(iPo>=0) h += chipBtn("_canteraVerCV('"+c.id+"',"+iPo+")", '🎨 Port. PDF', '#7c5cc4', 'rgba(124,92,196,0.09)', 'Abrir portafolio (PDF)');
+  else if(linkPort){
+    const url = /^https?:\/\//i.test(linkPort) ? linkPort : 'https://'+linkPort;
+    h += '<a href="'+escapeHtml(url)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="'+escapeHtml(url)+'" style="display:inline-flex;align-items:center;gap:0.2rem;padding:0.12rem 0.45rem;border-radius:99px;border:1px solid #7c5cc455;background:rgba(124,92,196,0.09);color:#7c5cc4;font-size:0.64rem;font-weight:700;text-decoration:none;white-space:nowrap">🔗 Port. web</a>';
+  }
+  if(!h) return '<span style="color:var(--text3);font-size:0.74rem">—</span>';
+  return '<span style="display:inline-flex;gap:0.25rem;flex-wrap:wrap">'+h+'</span>';
+}
+// ── Leer correo y teléfono de los CV ya guardados (para los perfiles que no los tienen) ──
+async function _canteraLeerContactosCVs(){
+  const pend = (_cantera.candidatos||[]).filter(c=>Array.isArray(c.archivos) && c.archivos.some(a=>_cArchTipo(a)==='cv' && a.path) && (!c.email || !c.telefono));
+  if(!pend.length){ showStatus('Todos los perfiles con CV ya tienen correo y teléfono ✓'); return; }
+  let ok=0, sinDatos=0, err=0;
+  for(let i=0;i<pend.length;i++){
+    const c = pend[i];
+    _canteraBarraProgreso('Leyendo contactos de los CV… '+(i+1)+' de '+pend.length, (i+1)/pend.length);
+    try{
+      const a = c.archivos.find(x=>_cArchTipo(x)==='cv' && x.path);
+      const r = await canteraWebAPI({ action:'cv_url', path:a.path });
+      const buf = await (await fetch(r.url)).arrayBuffer();
+      const lk = await _canteraLinksDePDF(buf);
+      const datos = {};
+      if(!c.email){ const em=_canteraExtraerEmail(lk.texto); if(em) datos.email=em; }
+      if(!c.telefono){ const tf=_canteraExtraerTelefono(lk.texto); if(tf) datos.telefono=tf; }
+      if(!Object.keys(datos).length){ sinDatos++; continue; }
+      const row = await canteraAPI('save_candidato', { data:Object.assign({ id:c.id, rev:c.rev, nombre:c.nombre||'Sin nombre' }, datos) });
+      if(row && !row.conflict){ Object.assign(c, datos); if(row.rev!=null) c.rev=row.rev; ok++; } else err++;
+    }catch(e){ console.warn('contacto CV', c.nombre, e); err++; }
+  }
+  _canteraCerrarProgreso(); renderCantera();
+  showStatus(ok+' perfil'+(ok!==1?'es':'')+' completado'+(ok!==1?'s':'')+(sinDatos?' · '+sinDatos+' sin datos en el PDF':'')+(err?' · '+err+' con error':''), !!err && !ok);
 }
 // ── Ver el CV original: pide un enlace temporal (10 min) y abre el PDF en otra pestaña ──
 async function _canteraVerCV(candId, idx){
@@ -20882,10 +20936,11 @@ async function _canteraAdjuntarCV(file, tipo){
   showStatus(tipo==='portafolio'?'Subiendo portafolio…':'Subiendo CV…');
   try{
     const path = await _canteraSubirPDF(file);
-    e.archivos = (Array.isArray(e.archivos)?e.archivos:[]).concat([{ path, nombre:file.name, tipo }]);
+    e.archivos = (Array.isArray(e.archivos)?e.archivos:[]).concat([{ path, nombre:file.name||('documento-'+Date.now()+'.pdf'), tipo }]);
     if(e.id && window._canteraFichaId){
       const orig = (_cantera.candidatos||[]).find(x=>x.id===e.id);
-      const row = await canteraAPI('save_candidato', { data:{ id:e.id, rev:(orig&&orig.rev!=null)?orig.rev:e.rev, archivos:e.archivos } });
+      const row = await canteraAPI('save_candidato', { data:{ id:e.id, rev:(orig&&orig.rev!=null)?orig.rev:e.rev, nombre:(orig&&orig.nombre)||e.nombre||'Sin nombre', archivos:e.archivos } });
+      if(row && row.conflict) throw new Error('otro admin editó esta ficha; ciérrala, recarga y vuelve a intentar');
       if(row && !row.conflict){ if(orig){ orig.archivos = e.archivos; if(row.rev!=null) orig.rev = row.rev; } e.rev = row.rev!=null?row.rev:e.rev; }
     }
     _canteraRenderFicha(!window._canteraFichaId); showStatus(tipo==='portafolio'?'Portafolio adjuntado ✓':'CV adjuntado ✓');
@@ -20934,8 +20989,9 @@ async function _canteraProcesarCVs(files, convId){
       const pdfUrls = await _canteraLinksDePDF(file);
       const urls = pdfUrls.concat(extra ? extra.links.map(l=>l.url) : []);
       const ficha = await canteraAPI('extract_cv', { path, urls, puesto: conv||null });
-      ficha.archivos = [{ path, nombre: file.name }];
+      ficha.archivos = [{ path, nombre: file.name, tipo:'cv' }];
       ficha.estado = ficha.estado || 'Por verificar';
+      _canteraContactoDeTexto(ficha, pdfUrls.texto);
       // Links del PDF + links pegados del correo, clasificados por tipo
       _canteraMezclarLinks(ficha, (extra ? extra.links : []).concat(pdfUrls.map(u=>({ url:u, tipo:_canteraTipoLink(u) }))));
       if(extra){ if(!ficha.email) ficha.email = _canteraExtraerEmail(extra.texto); if(!ficha.telefono) ficha.telefono = _canteraExtraerTelefono(extra.texto); }
@@ -20965,8 +21021,9 @@ async function _canteraProcesarCVs(files, convId){
         const pdfUrls = await _canteraLinksDePDF(file);
         const urls = pdfUrls.concat(extra ? extra.links.map(l=>l.url) : []);
         const ficha = await canteraAPI('extract_cv', { path, urls, puesto: conv||null });
-        ficha.archivos = [{ path, nombre: file.name }];
+        ficha.archivos = [{ path, nombre: file.name, tipo:'cv' }];
         ficha.estado = ficha.estado || 'Por verificar';
+        _canteraContactoDeTexto(ficha, pdfUrls.texto);
         _canteraMezclarLinks(ficha, (extra ? extra.links : []).concat(pdfUrls.map(u=>({ url:u, tipo:_canteraTipoLink(u) }))));
         if(extra){ if(!ficha.email) ficha.email = _canteraExtraerEmail(extra.texto); if(!ficha.telefono) ficha.telefono = _canteraExtraerTelefono(extra.texto); }
         _aplicarContexto(ficha);
@@ -21080,8 +21137,26 @@ function _canteraExtraerLinks(texto){
   });
   return out;
 }
-function _canteraExtraerEmail(texto){ const m = String(texto||'').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i); return m ? m[0] : ''; }
-function _canteraExtraerTelefono(texto){ const m = String(texto||'').match(/(\+?593[\s-]?|0)9\d[\s-]?\d{3}[\s-]?\d{4}/); return m ? m[0].replace(/[\s-]/g,'') : ''; }
+function _canteraExtraerEmail(texto){
+  const t = String(texto||'');
+  // Dominio en minúsculas y que no se "pegue" con la palabra siguiente (p. ej. "gmail.comLinkedIn")
+  let m = t.match(/[A-Za-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,6}(?![a-z])/);
+  if(!m) m = t.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,6}\b/i);
+  return m ? m[0].replace(/^[.]+|[.]+$/g,'') : '';
+}
+function _canteraExtraerTelefono(texto){
+  const t = String(texto||'');
+  // 1) Celular de Ecuador (09…, +593 9…)
+  let m = t.match(/(\+?\s?593[\s.-]?\(?0?\)?|0)9\d[\s.-]?\d{3}[\s.-]?\d{4}/);
+  if(m) return m[0].replace(/[\s.()-]/g,'');
+  // 2) Cualquier número telefónico razonable (internacional o fijo), 9 a 13 dígitos
+  const re = /\+?\(?\d[\d\s().-]{7,18}\d/g; let x;
+  while((x = re.exec(t))){
+    const dig = x[0].replace(/\D/g,'');
+    if(dig.length>=9 && dig.length<=13 && !/^(19|20)\d{2}(19|20)\d{2}/.test(dig)) return x[0].trim().replace(/\s+/g,' ');
+  }
+  return '';
+}
 
 // Mete los links clasificados en la ficha sin pisar lo que ya tenga
 function _canteraMezclarLinks(ficha, links){
@@ -21202,7 +21277,7 @@ async function _canteraCVGuardarManual(){
   try{
     _canteraBarraProgreso('Guardando…', null);
     if(st.manPdf){
-      try{ const path = await _canteraSubirPDF(st.manPdf); ficha.archivos = [{ path, nombre: st.manPdf.name }]; }
+      try{ const path = await _canteraSubirPDF(st.manPdf); ficha.archivos = [{ path, nombre: st.manPdf.name, tipo:'cv' }]; try{ const lk = await _canteraLinksDePDF(st.manPdf); _canteraContactoDeTexto(ficha, lk.texto); }catch(_){} }
       catch(e){ console.warn('PDF manual:', e); }
     }
     const row = await canteraAPI('save_candidato', { data: ficha });
