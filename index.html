@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v467-CVS-EN-PROYECTO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v468-ORDEN-FILTROS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 467;
+const APP_VERSION = 468;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -19955,6 +19955,77 @@ async function _canteraGuardarClave(){
 }
 
 // Filtros
+// ══ Orden y filtros rápidos de las tablas de candidatos (base y proyectos) ══
+function _canteraRapState(scope){
+  const k = scope==='proy' ? 'rapProy' : 'rapBase';
+  if(!_cantera[k]) _cantera[k] = { orden: scope==='proy' ? 'match' : 'recientes', fit:0, nuevos:0, cv:false, port:false, revisar:false, contacto:false };
+  return _cantera[k];
+}
+function _canteraRap(scope, key, val){
+  const st = _canteraRapState(scope);
+  if(typeof st[key]==='boolean') st[key] = !st[key];
+  else if(key==='orden') st.orden = val;
+  else st[key] = (st[key]===val) ? 0 : val;          // tocar el mismo chip lo apaga
+  if(scope==='base' && key==='orden') _cantera.baseSort = null;   // el orden elegido manda sobre el de los encabezados
+  renderCantera();
+}
+function _canteraAplicarRapido(lista, scope, convId){
+  const st = _canteraRapState(scope);
+  const key = convId || '_base';
+  const fitDe = c => (typeof _cFitValor==='function') ? _cFitValor(c, key) : (Number(c.fit)||0);
+  const estados = _canteraEstadoNombres ? _canteraEstadoNombres() : [];
+  const hoy = Date.now();
+  let out = lista.filter(c=>{
+    if(st.fit && fitDe(c) < st.fit) return false;
+    if(st.nuevos){ const f=_cFechaInc(c); if(!f || (hoy - parseLocalDate(f).getTime()) > st.nuevos*86400000) return false; }
+    const arch = Array.isArray(c.archivos)?c.archivos:[];
+    if(st.cv && !arch.some(a=>_cArchTipo(a)==='cv')) return false;
+    if(st.port && !(arch.some(a=>_cArchTipo(a)==='portafolio') || (c.links && (c.links.portafolio||c.links.behance||c.links.dribbble)))) return false;
+    if(st.revisar && c.estado && c.estado!==estados[0]) return false;
+    if(st.contacto && !(c.email||c.telefono)) return false;
+    return true;
+  });
+  const ord = st.orden;
+  if(scope==='base' && _cantera.baseSort && _cantera.baseSort.col) return out;  // ya ordenado por encabezado
+  const nombre = c=>(c.nombre||'').toLowerCase();
+  const cmp = {
+    recientes: (a,b)=> _cFechaInc(b).localeCompare(_cFechaInc(a)) || nombre(a).localeCompare(nombre(b)),
+    antiguos:  (a,b)=> (_cFechaInc(a)||'9999').localeCompare(_cFechaInc(b)||'9999') || nombre(a).localeCompare(nombre(b)),
+    mas_estrellas: (a,b)=> fitDe(b)-fitDe(a) || _cFechaInc(b).localeCompare(_cFechaInc(a)),
+    menos_estrellas: (a,b)=> fitDe(a)-fitDe(b) || nombre(a).localeCompare(nombre(b)),
+    nombre: (a,b)=> nombre(a).localeCompare(nombre(b)),
+    estatus: (a,b)=>{ const ia=estados.indexOf(a.estado||''), ib=estados.indexOf(b.estado||''); return (ia<0?99:ia)-(ib<0?99:ib) || fitDe(b)-fitDe(a); },
+    match: (a,b)=>{ const fa=(a.fits&&a.fits[key])?fitDe(a):fitDe(a)-0.1, fb=(b.fits&&b.fits[key])?fitDe(b):fitDe(b)-0.1; return fb-fa; }
+  }[ord];
+  return cmp ? out.slice().sort(cmp) : out;
+}
+function _canteraBarraRapida(scope){
+  const st = _canteraRapState(scope);
+  const chip = (key, val, txt, tip)=>{
+    const on = (typeof st[key]==='boolean') ? st[key] : st[key]===val;
+    return '<button onclick="_canteraRap(\''+scope+'\',\''+key+'\','+(typeof val==='number'?val:'null')+')" title="'+escapeHtml(tip||'')+'" style="font-size:0.7rem;font-weight:700;padding:0.25rem 0.6rem;border-radius:99px;border:1px solid '+(on?'var(--aire)':'var(--border)')+';background:'+(on?'rgba(59,158,221,0.12)':'var(--bg-card)')+';color:'+(on?'var(--aire)':'var(--text2)')+';cursor:pointer;font-family:var(--font);white-space:nowrap">'+txt+'</button>';
+  };
+  const opts = [['recientes','Agregados recientemente'],['antiguos','Más antiguos primero'],['mas_estrellas','Más estrellas'],['menos_estrellas','Menos estrellas'],['estatus','Por estatus del proceso'],['nombre','Nombre A–Z']];
+  if(scope==='proy') opts.unshift(['match','Mejor match con el puesto']);
+  const usandoEncabezado = scope==='base' && _cantera.baseSort && _cantera.baseSort.col;
+  const activos = ['fit','nuevos','cv','port','revisar','contacto'].filter(k=>st[k]).length;
+  return '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin:0 0 0.8rem">'
+    + '<label style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.7rem;font-weight:700;color:var(--text3)">↕ Ordenar'
+    + '<select onchange="_canteraRap(\''+scope+'\',\'orden\',this.value)" style="font-size:0.74rem;font-weight:600;padding:0.28rem 0.5rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-family:var(--font);cursor:pointer">'
+    + (usandoEncabezado?'<option value="" selected>Por columna ('+escapeHtml(_cantera.baseSort.col)+')</option>':'')
+    + opts.map(o=>'<option value="'+o[0]+'"'+(!usandoEncabezado&&st.orden===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')
+    + '</select></label>'
+    + '<span style="width:1px;height:18px;background:var(--border);margin:0 0.2rem"></span>'
+    + chip('fit',5,'★★★★★','Solo 5 estrellas') + chip('fit',4,'★4+','4 estrellas o más') + chip('fit',3,'★3+','3 estrellas o más')
+    + chip('nuevos',7,'🆕 Últimos 7 días','Agregados en los últimos 7 días') + chip('nuevos',30,'Últimos 30 días','Agregados en los últimos 30 días')
+    + chip('revisar',null,'👀 Por revisar','Sin estatus o en el primer paso del proceso')
+    + chip('cv',null,'📄 Con CV','Tienen el CV en PDF guardado') + chip('port',null,'🎨 Con portafolio','Portafolio en PDF o link')
+    + chip('contacto',null,'📇 Con contacto','Tienen correo o teléfono')
+    + (activos?'<button onclick="_canteraRapLimpiar(\''+scope+'\')" style="font-size:0.7rem;background:none;border:none;color:var(--text3);cursor:pointer;text-decoration:underline;font-family:var(--font)">Quitar filtros</button>':'')
+    + '</div>';
+}
+function _canteraRapLimpiar(scope){ const st=_canteraRapState(scope); Object.assign(st,{fit:0,nuevos:0,cv:false,port:false,revisar:false,contacto:false}); renderCantera(); }
+
 function setCanteraFiltro(campo, val){
   _cantera.filtros[campo]=val;
   _canteraRenderLista(document.getElementById('cantera-content'));
@@ -19989,12 +20060,13 @@ function _canteraFiltrados(){
     }
     return true;
   });
-  // Ordenamiento
+  items = _canteraAplicarRapido(items, 'base');
+  // Ordenamiento por encabezado de columna (si se eligió)
   const s = _cantera.baseSort;
   if(s && s.col){
     const val = (c)=>{
       if(s.col==='_depto'){ const d=Array.isArray(c.departamento)?c.departamento:[c.departamento]; return (d[0]||'').toLowerCase(); }
-      if(s.col==='fit') return Number(c.fit)||0;
+      if(s.col==='fit') return (typeof _cFitValor==='function') ? _cFitValor(c,'_base') : (Number(c.fit)||0);
       if(s.col==='verificado') return c.verificado?1:0;
       if(s.col==='fecha_inclusion') return _cFechaInc(c);
       return String(c[s.col]||'').toLowerCase();
@@ -20239,6 +20311,7 @@ function _canteraRenderLista(cont){
     + '<span style="font-size:0.74rem;color:var(--text3)">'+items.length+' resultado'+(items.length!==1?'s':'')+'</span>'
     + '<div style="display:flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:2px;gap:2px">'+segBtn('separado','Por origen')+segBtn('unido','Lista única')+'</div>'
     + '</div>';
+  h += _canteraBarraRapida('base');
 
   // Panel de filtros (solo si se abre)
   if(_cantera.panelFiltros){
@@ -20448,8 +20521,9 @@ function _canteraRenderProyecto(cont){
   // Sección 3: BASE — del depto, que NO aplicaron y NO son IA (postulantes de otros procesos, agregados a mano…)
   const delDepto = cands.filter(c=> !aplicaronIds.has(c.id) && !sugeridosIds.has(c.id) && esDeDepto(c));
   // Ordenar por match con ESTE proyecto (el mejor arriba)
-  const _fp = (c)=>{ const f=c.fits&&c.fits[conv.id]; return f ? Number(f.fit)||0 : (Number(c.fit)||0)-0.1; };
-  [aplicaron, sugeridosIA, delDepto].forEach(arr=>arr.sort((x,y)=>_fp(y)-_fp(x)));
+  // Orden y filtros rápidos (por defecto: mejor match con este puesto arriba)
+  const _rap = (arr)=>{ const r=_canteraAplicarRapido(arr,'proy',conv.id); arr.length=0; r.forEach(x=>arr.push(x)); };
+  [aplicaron, sugeridosIA, delDepto].forEach(_rap);
 
   const MSC=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   const fFecha=(d)=>{ if(!d) return ''; const p=String(d).slice(0,10).split('-'); return p.length===3?`${MSC[+p[1]-1]} ${p[0]}`:d; };
@@ -20549,6 +20623,7 @@ function _canteraRenderProyecto(cont){
     h += '<div style="margin:0.8rem 0 1.4rem"><button onclick="_canteraEditarProyecto(\''+conv.id+'\')" style="font-size:0.74rem;color:var(--text2);background:none;border:1px dashed var(--border);border-radius:8px;padding:0.5rem 0.9rem;cursor:pointer;font-family:var(--font)">+ Añadir requisitos del puesto (ayuda a la IA a evaluar el fit)</button></div>';
   }
 
+  h += _canteraBarraRapida('proy');
   h += seccion('aplicaron','Aplicaron a esta ronda', null, aplicaron,
     'Nadie ha aplicado todavía.', false, 'postularon por su cuenta');
   h += seccion('sugeridos','Sugerencias de la IA', '#f2cc8f', sugeridosIA,
