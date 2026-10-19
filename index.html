@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v469-AGRUPAR-CV-PORTAFOLIO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v470-ORDEN-RECIENTE -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 469;
+const APP_VERSION = 470;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -19767,13 +19767,21 @@ async function _canteraCargarFechas(forzar){
   try{
     const r = await canteraWebAPI({ action:'fechas' });
     const mapa = {}; (r.fechas||[]).forEach(x=>{ mapa[x.id]=x; });
-    (_cantera.candidatos||[]).forEach(c=>{ const x=mapa[c.id]; if(x){ if(x.fecha_inclusion) c.fecha_inclusion=x.fecha_inclusion; if(x.created_at && !c.created_at) c.created_at=x.created_at; if(x.universidad!=null && !c.universidad) c.universidad=x.universidad; if(Array.isArray(x.experiencia) && !(Array.isArray(c.experiencia)&&c.experiencia.length)) c.experiencia=x.experiencia; } });
+    (_cantera.candidatos||[]).forEach(c=>{ const x=mapa[c.id]; if(x){ if(x.fecha_inclusion) c.fecha_inclusion=x.fecha_inclusion; if(x.created_at) c.created_at=x.created_at; if(x.universidad!=null && !c.universidad) c.universidad=x.universidad; if(Array.isArray(x.experiencia) && !(Array.isArray(c.experiencia)&&c.experiencia.length)) c.experiencia=x.experiencia; } });
     if(r.grabadas) console.log('[Cantera] Fecha de inclusión grabada a', r.grabadas, 'candidatos');
     if(currentPage==='cantera') renderCantera();
   }catch(e){
     console.warn('fechas cantera:', e);
     if(e && e.message==='falta_columna_fecha_inclusion') showStatus('Falta correr fase-F2-fecha-inclusion.sql en Supabase para guardar la fecha de inclusión', true);
   }
+}
+// Momento exacto en que se agregó (para el orden estricto): fecha de inclusión + hora de creación
+function _canteraMarcarCreado(row){ if(row && !row.created_at) row.created_at = new Date().toISOString(); return row; }
+function _cClaveReciente(c){
+  const f = _cFechaInc(c) || '0000-00-00';
+  let ts = 0;
+  if(c && c.created_at){ const t = new Date(c.created_at).getTime(); if(!isNaN(t)) ts = t; }
+  return f + '|' + String(ts).padStart(15,'0');
 }
 function _cFechaInc(c){
   if(c && c.fecha_inclusion) return String(c.fecha_inclusion).slice(0,10);
@@ -19989,8 +19997,8 @@ function _canteraAplicarRapido(lista, scope, convId){
   if(scope==='base' && _cantera.baseSort && _cantera.baseSort.col) return out;  // ya ordenado por encabezado
   const nombre = c=>(c.nombre||'').toLowerCase();
   const cmp = {
-    recientes: (a,b)=> _cFechaInc(b).localeCompare(_cFechaInc(a)) || nombre(a).localeCompare(nombre(b)),
-    antiguos:  (a,b)=> (_cFechaInc(a)||'9999').localeCompare(_cFechaInc(b)||'9999') || nombre(a).localeCompare(nombre(b)),
+    recientes: (a,b)=> _cClaveReciente(b).localeCompare(_cClaveReciente(a)) || String(b.id||'').localeCompare(String(a.id||'')),
+    antiguos:  (a,b)=> _cClaveReciente(a).localeCompare(_cClaveReciente(b)) || String(a.id||'').localeCompare(String(b.id||'')),
     mas_estrellas: (a,b)=> fitDe(b)-fitDe(a) || _cFechaInc(b).localeCompare(_cFechaInc(a)),
     menos_estrellas: (a,b)=> fitDe(a)-fitDe(b) || nombre(a).localeCompare(nombre(b)),
     nombre: (a,b)=> nombre(a).localeCompare(nombre(b)),
@@ -20068,7 +20076,7 @@ function _canteraFiltrados(){
       if(s.col==='_depto'){ const d=Array.isArray(c.departamento)?c.departamento:[c.departamento]; return (d[0]||'').toLowerCase(); }
       if(s.col==='fit') return (typeof _cFitValor==='function') ? _cFitValor(c,'_base') : (Number(c.fit)||0);
       if(s.col==='verificado') return c.verificado?1:0;
-      if(s.col==='fecha_inclusion') return _cFechaInc(c);
+      if(s.col==='fecha_inclusion') return _cClaveReciente(c);
       return String(c[s.col]||'').toLowerCase();
     };
     items = [...items].sort((a,b)=>{
@@ -21099,7 +21107,7 @@ async function _canteraProcesarCVs(files, convId){
       const row = await canteraAPI('save_candidato', { data: ficha });
       _canteraCerrarProgreso();
       if(row && !row.conflict){
-        _cantera.candidatos.unshift(row);
+        _cantera.candidatos.unshift(_canteraMarcarCreado(row));
         if(pdfUrls.texto) _canteraPerfilDesdeCV(row.id, false, pdfUrls.texto);
         renderCantera();
         showStatus('Candidato guardado — revisa y ajusta su ficha');
@@ -21129,7 +21137,7 @@ async function _canteraProcesarCVs(files, convId){
         if(extra){ if(!ficha.email) ficha.email = _canteraExtraerEmail(extra.texto); if(!ficha.telefono) ficha.telefono = _canteraExtraerTelefono(extra.texto); }
         _aplicarContexto(ficha);
         const row = await canteraAPI('save_candidato', { data: ficha });
-        if(row && !row.conflict){ _cantera.candidatos.unshift(row); ok++; if(pdfUrls.texto) _canteraPerfilDesdeCV(row.id, false, pdfUrls.texto); }
+        if(row && !row.conflict){ _cantera.candidatos.unshift(_canteraMarcarCreado(row)); ok++; if(pdfUrls.texto) _canteraPerfilDesdeCV(row.id, false, pdfUrls.texto); }
       }catch(e){ console.warn('CV', i, e); fail++; }
     }
     _canteraCerrarProgreso();
@@ -21168,7 +21176,7 @@ async function _canteraProcesarGrupos(grupos, convId, extra){
         ficha.departamento = d.length ? d : [conv.departamento];
       }
       const row = await canteraAPI('save_candidato', { data: ficha });
-      if(row && !row.conflict){ _cantera.candidatos.unshift(row); ok++; if(pdfUrls.texto) _canteraPerfilDesdeCV(row.id, false, pdfUrls.texto); }
+      if(row && !row.conflict){ _cantera.candidatos.unshift(_canteraMarcarCreado(row)); ok++; if(pdfUrls.texto) _canteraPerfilDesdeCV(row.id, false, pdfUrls.texto); }
       else fail++;
     }catch(e){ console.warn('grupo', i, e); fail++; }
   }
@@ -21451,7 +21459,7 @@ async function _canteraCVGuardarManual(){
     const row = await canteraAPI('save_candidato', { data: ficha });
     _canteraCerrarProgreso();
     if(row && !row.conflict){
-      _cantera.candidatos.unshift(row);
+      _cantera.candidatos.unshift(_canteraMarcarCreado(row));
       closeTrayModal();
       renderCantera();
       showStatus('Postulante guardado ✓');
@@ -21656,7 +21664,7 @@ async function _canteraCVProcesar(){
     }
     const row = await canteraAPI('save_candidato', { data: ficha });
     if(row && !row.conflict){
-      _cantera.candidatos.unshift(row);
+      _cantera.candidatos.unshift(_canteraMarcarCreado(row));
       renderCantera();
       showStatus('Candidato guardado — revisa su ficha');
       _canteraAbrirFicha(row.id);
@@ -21856,7 +21864,7 @@ async function _canteraProcesarExcel(file){
       try{
         const limpio = {}; Object.keys(nuevos[i]).forEach(k=>{ if(k.charAt(0)!=='_') limpio[k]=nuevos[i][k]; });
         const row = await canteraAPI('save_candidato', { data: limpio });
-        if(row && !row.conflict){ _cantera.candidatos.unshift(row); idsCreados.push(row.id); ok++; }
+        if(row && !row.conflict){ _cantera.candidatos.unshift(_canteraMarcarCreado(row)); idsCreados.push(row.id); ok++; }
       }catch(e){ console.warn('excel row', i, e); }
     }
     if(modo==='actualizar'){
@@ -22439,7 +22447,7 @@ async function _canteraGuardarFicha(){
   try{
     const row = await canteraAPI('save_candidato', { data });
     if(row && row.conflict){ showStatus('Otro admin lo editó — recargando', true); _cantera.loaded=false; _canteraCerrarFicha(); renderCantera(); return; }
-    if(esNuevo){ _cantera.candidatos.unshift(row); }
+    if(esNuevo){ _cantera.candidatos.unshift(_canteraMarcarCreado(row)); }
     else { Object.assign(orig, row); }
     // Universidad y experiencia (columnas propias, se guardan por cantera-web)
     if(row && row.id){
