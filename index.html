@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v474-ORDEN-LINKS-MENSAJE -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v475-ESTATUS-INICIAL -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 474;
+const APP_VERSION = 475;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -19783,6 +19783,22 @@ function _cClaveReciente(c){
   if(c && c.created_at){ const t = new Date(c.created_at).getTime(); if(!isNaN(t)) ts = t; }
   return f + '|' + String(ts).padStart(15,'0');
 }
+// Estatus con el que entra un candidato nuevo: el primer paso del proceso
+function _canteraEstadoInicial(){ const e=_canteraEstadoNombres(); return e[0] || 'Revisar portafolio'; }
+// Los perfiles creados con el estatus viejo "Por verificar" (que no existe en el proceso) no salían
+// en las pestañas de estatus: los pasamos al primer paso del proceso, una sola vez.
+async function _canteraNormalizarEstados(){
+  if(_cantera._estadosNormalizados) return; _cantera._estadosNormalizados = true;
+  const validos = _canteraEstadoNombres(); const ini = _canteraEstadoInicial();
+  const malos = (_cantera.candidatos||[]).filter(c=>c.estado==='Por verificar' && !validos.includes('Por verificar'));
+  for(const c of malos){
+    try{
+      const row = await canteraAPI('save_candidato', { data:{ id:c.id, rev:c.rev, nombre:c.nombre||'Sin nombre', estado:ini } });
+      if(row && !row.conflict){ c.estado = ini; if(row.rev!=null) c.rev = row.rev; }
+    }catch(e){ console.warn('normalizar estatus', c.nombre, e); }
+  }
+  if(malos.length){ console.log('[Cantera] '+malos.length+' perfiles pasaron de "Por verificar" a "'+ini+'"'); if(currentPage==='cantera') renderCantera(); }
+}
 function _cFechaInc(c){
   if(c && c.fecha_inclusion) return String(c.fecha_inclusion).slice(0,10);
   const raw = c && (c.created_at||c.creado); if(!raw) return '';
@@ -19868,6 +19884,7 @@ function renderCantera(){
     return;
   }
   if(!_cantera._fechasPedidas) _canteraCargarFechas();
+  if(!_cantera._estadosNormalizados) _canteraNormalizarEstados();
   // Enrutar según la vista
   if(_cantera.vista==='base') _canteraRenderLista(cont);
   else if(_cantera.vista==='proyecto') _canteraRenderProyecto(cont);
@@ -21111,7 +21128,7 @@ async function _canteraProcesarCVs(files, convId){
       const urls = pdfUrls.concat(extra ? extra.links.map(l=>l.url) : []);
       const ficha = await canteraAPI('extract_cv', { path, urls, puesto: conv||null });
       ficha.archivos = [{ path, nombre: file.name, tipo:'cv' }];
-      ficha.estado = ficha.estado || 'Por verificar';
+      ficha.estado = (ficha.estado && _canteraEstadoNombres().includes(ficha.estado)) ? ficha.estado : _canteraEstadoInicial();
       _canteraContactoDeTexto(ficha, pdfUrls.texto);
       // Links del PDF + links pegados del correo, clasificados por tipo
       _canteraMezclarLinks(ficha, (extra ? extra.links : []).concat(pdfUrls.map(u=>({ url:u, tipo:_canteraTipoLink(u) }))));
@@ -21144,7 +21161,7 @@ async function _canteraProcesarCVs(files, convId){
         const urls = pdfUrls.concat(extra ? extra.links.map(l=>l.url) : []);
         const ficha = await canteraAPI('extract_cv', { path, urls, puesto: conv||null });
         ficha.archivos = [{ path, nombre: file.name, tipo:'cv' }];
-        ficha.estado = ficha.estado || 'Por verificar';
+        ficha.estado = (ficha.estado && _canteraEstadoNombres().includes(ficha.estado)) ? ficha.estado : _canteraEstadoInicial();
         _canteraContactoDeTexto(ficha, pdfUrls.texto);
         _canteraMezclarLinks(ficha, (extra ? extra.links : []).concat(pdfUrls.map(u=>({ url:u, tipo:_canteraTipoLink(u) }))));
         if(extra){ if(!ficha.email) ficha.email = _canteraExtraerEmail(extra.texto); if(!ficha.telefono) ficha.telefono = _canteraExtraerTelefono(extra.texto); }
@@ -21187,7 +21204,7 @@ async function _canteraProcesarGrupos(grupos, convId, extras){
       const urls = pdfUrls.concat(extra ? extra.links.map(l=>l.url) : []);
       const ficha = await canteraAPI('extract_cv', { path: principal.path, urls, puesto: conv||null });
       ficha.archivos = archivos.map(a=>({ path:a.path, nombre:a.nombre, tipo:a.tipo }));
-      ficha.estado = ficha.estado || 'Por verificar';
+      ficha.estado = (ficha.estado && _canteraEstadoNombres().includes(ficha.estado)) ? ficha.estado : _canteraEstadoInicial();
       _canteraContactoDeTexto(ficha, pdfUrls.texto);
       _canteraMezclarLinks(ficha, (extra ? extra.links : []).concat(pdfUrls.concat(otrosUrls).map(u=>({ url:u, tipo:_canteraTipoLink(u) }))));
       if(extra){ if(!ficha.email) ficha.email = _canteraExtraerEmail(extra.texto); if(!ficha.telefono) ficha.telefono = _canteraExtraerTelefono(extra.texto); }
@@ -21262,7 +21279,7 @@ function _canteraAbrirFichaNueva(ficha){
 function _canteraNuevoManual(){
   _canteraAbrirFichaNueva({
     nombre:'', rol:'', nivel:'Junior', etapa:'Por confirmar', anios_exp:null,
-    ciudad:'', actual:'', contacto:'', senales:'', fit:3, estado:'Por verificar',
+    ciudad:'', actual:'', contacto:'', senales:'', fit:3, estado:_canteraEstadoInicial(),
     verificado:false, departamento:[], links:{}, notas:'', origen:'Manual'
   });
 }
@@ -21480,7 +21497,7 @@ async function _canteraCVGuardarManual(){
   const ficha = {
     nombre, email:(m.email||'').trim(), telefono:(m.telefono||'').trim(), rol:(m.rol||'').trim(),
     ciudad:(m.ciudad||'').trim(), nivel:m.nivel||'', actual:(m.actual||'').trim(), notas:(m.notas||'').trim(),
-    etapa:'Por confirmar', fit:3, estado:'Por verificar', verificado:false, links:{},
+    etapa:'Por confirmar', fit:3, estado:_canteraEstadoInicial(), verificado:false, links:{},
     departamento: (m.departamento || (conv ? conv.departamento : '')) ? [m.departamento || conv.departamento] : [],
     origen: conv ? 'Recibido' : 'Manual'
   };
@@ -21724,7 +21741,7 @@ async function _canteraCVProcesar(){
     if(!ficha.email) ficha.email = _canteraExtraerEmail(st.texto);
     if(!ficha.telefono) ficha.telefono = _canteraExtraerTelefono(st.texto);
     _canteraMezclarLinks(ficha, st.links);
-    ficha.estado = ficha.estado || 'Por verificar';
+    ficha.estado = (ficha.estado && _canteraEstadoNombres().includes(ficha.estado)) ? ficha.estado : _canteraEstadoInicial();
     if(!ficha.origen) ficha.origen = 'Recibido';
     if(conv){
       ficha.procesos = [...new Set([...(ficha.procesos||[]), conv.id])];
