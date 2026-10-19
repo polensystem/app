@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v475-ESTATUS-INICIAL -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261019-v476-CORREO-EN-ANALISIS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 475;
+const APP_VERSION = 476;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -21000,14 +21000,17 @@ async function _canteraPerfilDesdeCV(id, sobrescribir, texto, mensaje){
     let t = texto;
     if(!t && (c.archivos||[]).some(a=>_cArchTipo(a)==='cv')) { try{ t = await _canteraTextoCVGuardado(c); }catch(_){ t=''; } }
     if(!t && !mensaje) { if(sobrescribir) showStatus('No se pudo leer texto de ese PDF', true); return false; }
-    const r = await canteraWebAPI({ action:'perfil_cv', cand_id:id, texto:t||'', mensaje:mensaje||'', sobrescribir:!!sobrescribir });
+    const pid = (Array.isArray(c.procesos)&&c.procesos.length) ? c.procesos[c.procesos.length-1] : null;
+    const conv = pid ? (_cantera.convocatorias||[]).find(x=>x.id===pid) : null;
+    const puesto = conv ? { cargo:conv.cargo, departamento:conv.departamento, must_have:conv.must_have, nice_have:conv.nice_have } : null;
+    const r = await canteraWebAPI({ action:'perfil_cv', cand_id:id, texto:t||'', mensaje:mensaje||'', sobrescribir:!!sobrescribir, puesto });
     if(r.universidad!=null && r.universidad!=='') c.universidad = r.universidad;
     if(Array.isArray(r.experiencia) && r.experiencia.length) c.experiencia = r.experiencia;
-    if(mensaje){ c.mensaje = mensaje; if(r.mensaje_resumen) c.mensaje_resumen = r.mensaje_resumen; }
+    if(mensaje){ c.mensaje = mensaje; if(r.mensaje_resumen) c.mensaje_resumen = r.mensaje_resumen; if(r.analisis) c.analisis = r.analisis; }
     const ed = window._canteraFichaEdit;
-    if(ed && ed.id===id){ ed.universidad = c.universidad; ed.experiencia = c.experiencia; ed.mensaje = c.mensaje; ed.mensaje_resumen = c.mensaje_resumen; _canteraRenderFicha(!window._canteraFichaId); }
+    if(ed && ed.id===id){ ed.universidad = c.universidad; ed.experiencia = c.experiencia; ed.mensaje = c.mensaje; ed.mensaje_resumen = c.mensaje_resumen; if(c.analisis) ed.analisis = c.analisis; _canteraRenderFicha(!window._canteraFichaId); }
     if(currentPage==='cantera' && !(ed && ed.id===id)) renderCantera();
-    if(sobrescribir) showStatus(mensaje ? 'Correo analizado ✓' : 'Universidad y experiencia actualizadas ✓');
+    if(sobrescribir) showStatus(mensaje ? 'Análisis de la IA actualizado con su correo ✓' : 'Universidad y experiencia actualizadas ✓');
     return true;
   }catch(e){ if(sobrescribir) showStatus('No se pudo leer el CV ('+(e.message||'')+')', true); return false; }
 }
@@ -22456,9 +22459,9 @@ function _canteraRenderFicha(esNuevo){
     <div style="margin-bottom:0.8rem;padding:0.6rem 0.7rem;border:1px solid var(--border);border-radius:10px;background:var(--bg-card2)">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.35rem">
         <span style="font-size:0.66rem;font-weight:700;color:var(--text3)">✉️ Lo que escribió en su correo</span>
-        ${c.id && window._canteraFichaId ? `<button type="button" onclick="_canteraAnalizarMensajeFicha('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.2rem 0.55rem;font-size:0.66rem;color:var(--text2);cursor:pointer;font-family:var(--font)">✨ Analizar con IA</button>` : ''}
+        ${c.id && window._canteraFichaId ? `<button type="button" onclick="_canteraAnalizarMensajeFicha('${c.id}')" title="La IA rehace el análisis del perfil sumando lo que escribió en su correo" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.2rem 0.55rem;font-size:0.66rem;color:var(--text2);cursor:pointer;font-family:var(--font)">✨ Sumar al análisis de la IA</button>` : ''}
       </div>
-      ${c.mensaje_resumen ? `<div style="font-size:0.76rem;color:var(--text);line-height:1.5;margin-bottom:0.4rem"><b style="color:var(--aire)">Resumen IA:</b> ${escapeHtml(c.mensaje_resumen)}</div>` : ''}
+      ${c.mensaje && !(c.analisis&&c.analisis.incluye_correo) ? `<div style="font-size:0.66rem;color:var(--text3);margin-bottom:0.35rem">Aún no está incluido en el análisis de la IA.</div>` : ''}
       <textarea id="ficha-mensaje" oninput="_canteraFichaSet('mensaje', this.value)" placeholder="Pega aquí el correo que envió la persona (motivación, disponibilidad, pretensión salarial…)" style="width:100%;box-sizing:border-box;min-height:60px;padding:0.45rem 0.55rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.76rem;font-family:var(--font);outline:none;resize:vertical">${escapeHtml(c.mensaje||'')}</textarea>
     </div>
     <!-- Contacto separado -->
@@ -22501,7 +22504,7 @@ function _canteraRenderFicha(esNuevo){
   // Análisis de IA (solo lectura)
   if(an && (an.resumen || (an.fortalezas||[]).length || (an.preguntas||[]).length)){
     h += `<div style="background:rgba(246,204,143,0.1);border:1px solid #f2cc8f55;border-radius:12px;padding:0.9rem;margin-bottom:0.9rem">
-      <div style="font-size:0.66rem;font-weight:800;color:#b7791f;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem">✨ Análisis de la IA${an.fecha?' · '+an.fecha:''}</div>`;
+      <div style="font-size:0.66rem;font-weight:800;color:#b7791f;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem">✨ Análisis de la IA${an.fecha?' · '+an.fecha:''}${an.incluye_correo?' · incluye su correo':''}</div>`;
     if(an.resumen) h += `<div style="font-size:0.78rem;color:var(--text);margin-bottom:0.6rem">${escapeHtml(an.resumen)}</div>`;
     if((an.fortalezas||[]).length) h += `<div style="font-size:0.7rem;color:var(--text2);margin-bottom:0.4rem"><b>Fortalezas:</b> ${an.fortalezas.map(escapeHtml).join(' · ')}</div>`;
     if((an.dudas||[]).length) h += `<div style="font-size:0.7rem;color:var(--text2);margin-bottom:0.4rem"><b>Dudas:</b> ${an.dudas.map(escapeHtml).join(' · ')}</div>`;
