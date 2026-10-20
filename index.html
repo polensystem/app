@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261019-v485-DESTREZA-PROYECTO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261020-v486-REINTENTOS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 485;
+const APP_VERSION = 486;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -19883,7 +19883,7 @@ function _canteraClearKey(){ try{ sessionStorage.removeItem('cantera_key'); }cat
 // Llamada a la Edge Function. Devuelve datos o lanza { _status } para manejar 401.
 async function canteraAPI(action, payload){
   const key = _canteraKey();
-  const res = await fetch(CANTERA_URL, {
+  const r = await _cFetchReintento(CANTERA_URL, {
     method:'POST',
     headers:{
       'Content-Type':'application/json',
@@ -19891,11 +19891,10 @@ async function canteraAPI(action, payload){
       'x-cantera-key': key                   // nuestra clave de admin
     },
     body: JSON.stringify({ action, ...(payload||{}) })
-  });
-  if(res.status===401){ _canteraClearKey(); const e=new Error('no_autorizado'); e._status=401; throw e; }
-  const data = await res.json().catch(()=>({}));
-  if(!res.ok || data.error){ const e=new Error(data.error||('http_'+res.status)); e._data=data; throw e; }
-  return data;
+  }, 3);
+  if(r.status===401){ _canteraClearKey(); const e=new Error('no_autorizado'); e._status=401; throw e; }
+  if(r.status<200 || r.status>=300 || r.data.error){ const e=new Error(r.data.error==='sin_internet'?'Sin internet: no se guardó, vuelve a intentar':(r.data.error||('http_'+r.status))); e._data=r.data; e._status=r.status; throw e; }
+  return r.data;
 }
 
 // Punto de entrada del módulo
@@ -21298,8 +21297,11 @@ async function _canteraAutoCompletarPerfiles(){
     });
     if(!pend.length) return;
     console.log('[Cantera] Completando en segundo plano', pend.length, 'perfiles desde el CV');
-    let ok=0, t=null;
+    let ok=0, t=null, fallos=0;
     for(const c of pend){
+      if(fallos>=3){ console.warn('[Cantera] auto-perfil pausado: el servidor está respondiendo con errores; se retoma la próxima vez'); break; }
+      if(navigator.onLine===false) break;
+      await _cEsperar(1500);   // sin apuro: deja libre el servidor para lo que estés guardando
       const a = c.archivos.find(x=>_cArchTipo(x)==='cv' && x.path);
       try{
         const r = await canteraWebAPI({ action:'cv_url', path:a.path });
@@ -21308,14 +21310,15 @@ async function _canteraAutoCompletarPerfiles(){
         if(lk.texto && lk.texto.length>=40){
           const antes = [c.universidad, (c.experiencia||[]).length, c.sexo, c.anio_nacimiento].join('|');
           const hecho = await _canteraPerfilDesdeCV(c.id, false, lk.texto, '', true);
-          if(!hecho) continue;   // error de IA/red: se reintenta la próxima vez
+          if(!hecho){ fallos++; continue; }   // error de IA/red: se reintenta la próxima vez
+          fallos=0;
           if(!window._canteraUltimoPerfil || window._canteraUltimoPerfil.f7!==true) break;   // servidor sin F7: no marcar, reintentar cuando esté listo
           if([c.universidad, (c.experiencia||[]).length, c.sexo, c.anio_nacimiento].join('|')!==antes){
             ok++; clearTimeout(t); t=setTimeout(_canteraAutoRefrescar, 800);
           }
         }
         _canteraAutoMarcar(c.id, a.path);   // intentado (con o sin datos): no se repite
-      }catch(e){ console.warn('[Cantera] auto-perfil', c.nombre, e); if(e && /falta_columnas_fase_F7|ANTHROPIC/.test(e.message||'')) break; }
+      }catch(e){ fallos++; console.warn('[Cantera] auto-perfil', c.nombre, e); if(e && /falta_columnas_fase_F7|ANTHROPIC/.test(e.message||'')) break; }
     }
     if(ok){ _canteraAutoRefrescar(); showStatus('🤖 '+ok+' perfil'+(ok!==1?'es':'')+' completado'+(ok!==1?'s':'')+' automáticamente desde el CV'); }
   } finally { _cantera._autoCorriendo = false; }
@@ -21588,12 +21591,43 @@ function _canteraNuevoManual(){
 
 // Llamada a la función "cantera-web" (lee portafolios web en el servidor)
 const CANTERA_WEB_URL = SB_URL + '/functions/v1/cantera-web';
+// Fallos pasajeros (internet que se cae, Supabase saturado, función que se reinicia): se reintenta solo.
+// Los errores "de verdad" (falta una columna, clave mala…) no se reintentan.
+const _cEsperar = ms=>new Promise(r=>setTimeout(r,ms));
+function _cEsTransitorio(status, data){
+  if(status===0) return true;                                   // sin red
+  if(data && data.error && data.error!=='transitorio' && data.error!=='no_guardado' && data.error!=='no_leido') return false;
+  return status>=500 || status===429 || status===408;
+}
+async function _cFetchReintento(url, opts, intentos){
+  let ult=null;
+  for(let i=0;i<intentos;i++){
+    if(i){ await _cEsperar(i===1?900:2500); }
+    if(typeof navigator!=='undefined' && navigator.onLine===false){ ult={status:0,data:{error:'sin_internet'}}; await _cEsperar(1500); continue; }
+    let res=null, data={};
+    try{ res = await fetch(url, opts); data = await res.json().catch(()=>({})); }
+    catch(e){ ult={status:0,data:{error:'sin_internet'}}; continue; }
+    if(res.ok && !data.error) return {status:res.status, data};
+    ult={status:res.status, data};
+    if(!_cEsTransitorio(res.status, data)) break;
+  }
+  return ult;
+}
 async function canteraWebAPI(payload){
-  const res = await fetch(CANTERA_WEB_URL, { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+SB_KEY, 'x-cantera-key': _canteraKey() }, body: JSON.stringify(payload||{}) });
-  const data = await res.json().catch(()=>({}));
-  if(res.status===401){ const e=new Error('no_autorizado'); e._status=401; throw e; }
-  if(!res.ok || data.error){ const e=new Error(data.error||('http_'+res.status)); e._data=data; throw e; }
-  return data;
+  const accion = (payload&&payload.action)||'';
+  const intentos = (accion==='perfil_cv'||accion==='evaluar'||!accion) ? 2 : 3;   // las de IA cuestan: menos reintentos
+  const r = await _cFetchReintento(CANTERA_WEB_URL, { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+SB_KEY, 'x-cantera-key': _canteraKey() }, body: JSON.stringify(payload||{}) }, intentos);
+  if(r.status===401){ const e=new Error('no_autorizado'); e._status=401; throw e; }
+  if(r.status<200 || r.status>=300 || r.data.error){ const e=new Error(r.data.error||('http_'+r.status)); e._data=r.data; e._status=r.status; throw e; }
+  if(Array.isArray(r.data.faltan_columnas) && r.data.faltan_columnas.length){
+    // Se guardó todo lo demás; solo avisar (una vez por sesión) qué dato no se pudo guardar
+    window._cAvisosCol = window._cAvisosCol || {};
+    const nuevos = r.data.faltan_columnas.filter(x=>!window._cAvisosCol[x.columna]);
+    if(nuevos.length){ nuevos.forEach(x=>window._cAvisosCol[x.columna]=1);
+      const fases=[...new Set(nuevos.map(x=>x.fase))].join(', ');
+      showStatus('Guardado ✓ — excepto '+nuevos.map(x=>x.columna).join(', ')+': falta correr fase-'+fases+' en Supabase', true); }
+  }
+  return r.data;
 }
 // ── Links pegados (del correo del postulante): detectar y clasificar ──
 const CANTERA_TIPOS_LINK = {
