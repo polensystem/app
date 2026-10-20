@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261020-v486-REINTENTOS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261020-v488-CONFLICTO-CANTERA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 486;
+const APP_VERSION = 488;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -4362,6 +4362,7 @@ function confirmModal(label, confirmLabel='Confirmar', confirmStyle='background:
       okBtn.style.cssText = '';
       okBtn.className = 'btn-save';
       okBtn.textContent = 'Aceptar';
+      cancelBtn.textContent = 'Cancelar';   // no heredar "No"/"Solo esta" al siguiente diálogo
       resolve(val);
     }
     okBtn.onclick = ()=> finish(true);
@@ -6439,8 +6440,15 @@ window.CronoDB = (function(){
           if(actId && isOwnEcho(actId)) return;
 
           const bid = newRow?.brand_id || oldRow?.brand_id;
-          const brand = ((appData.brands||[]).find(b=>b.id === bid) || (appData.demos||[]).find(b=>b.id === bid));
+          const _marcaReal = (appData.brands||[]).find(b=>b.id === bid);
+          const brand = (_marcaReal || (appData.demos||[]).find(b=>b.id === bid));
           if(!brand) return;
+          // Marca que este dispositivo aún no hidrató: un cambio suelto le dejaría un
+          // cronograma parcial. Mejor traer el cronograma completo de la tabla.
+          if(_marcaReal && window._cronoHidratados && !window._cronoHidratados.has(bid) && typeof _asegurarCronoHidratado==='function'){
+            _asegurarCronoHidratado().then(()=>{ try{ if(onChange) onChange(payload); }catch(e){} });
+            return;
+          }
           if(!brand.cronograma) brand.cronograma = { aire:[], agua:[], tierra:[], fuego:[] };
 
           if(eventType === 'DELETE'){
@@ -7433,6 +7441,8 @@ async function loadData(){
             }
           });
           console.log('[Polen] ✓ Cronogramas cargados de tabla nueva');
+          (appData.brands||[]).forEach(b=>{ if(b && b.id) window._cronoHidratados.add(b.id); });
+          window._cronoBootTabla = cronoFromTable;   // para las marcas que solo vienen de polen_brands
         }
       } catch(cronoErr) {
         console.error('[Polen] Error cargando cronograma:', cronoErr);
@@ -7458,7 +7468,12 @@ async function loadData(){
       try {
         if(!appData._brandsTableOff && window.BrandsDB){
           if(lsub) lsub.textContent = 'Cargando marcas…';
-          const brandsFromTable = await BrandsDB.loadAll(); // {id: ficha} o null
+          let brandsFromTable = await BrandsDB.loadAll(); // {id: ficha} o null
+          if(brandsFromTable === null && BrandsDB.isDisponible() !== false){
+            // Supabase saturado: un segundo intento antes de quedarnos solo con el array
+            await new Promise(r=>setTimeout(r, 1500));
+            brandsFromTable = await BrandsDB.loadAll();
+          }
           if(brandsFromTable && Object.keys(brandsFromTable).length){
             const arr = Array.isArray(appData.brands) ? appData.brands : [];
             const porId = {};
@@ -7490,6 +7505,8 @@ async function loadData(){
             appData.brands = Object.values(porId).filter(b=>
               b && b.id && !del.has(b.id) && !enPapelera.has(b.id) && !b.archivedAt
             );
+            // Marcas que solo estaban en polen_brands: traer su cronograma de polen_crono
+            try{ const nH = _cronoAplicarTabla(window._cronoBootTabla, true); if(nH) console.log('[Polen] Cronograma hidratado para', nH, 'marca(s) que solo estaban en polen_brands'); }catch(e){}
             console.log('[Polen] ✓ Marcas cargadas de tabla nueva (polen_brands):', appData.brands.length,
               '| en array previo:', arr.length, '| en tabla:', Object.keys(brandsFromTable).length);
           } else {
@@ -8429,6 +8446,7 @@ async function _doUpsert(){
             });
             if(reincorporadas.length){
               console.warn('[Polen] 🗂️ Pre-guardado: reincorporadas', reincorporadas.length, 'marca(s) desde polen_brands para no pisarlas:', reincorporadas.join(', '));
+              setTimeout(_asegurarCronoHidratado, 0);
               toWrite.brands = appData.brands;
             }
           }
@@ -9123,6 +9141,97 @@ function buildCronoFromTemplate(tpl,startDateStr){
     });
   });
   return crono;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// 🔒 HIDRATACIÓN DEL CRONOGRAMA (fix "marca nueva con cronograma vacío")
+// El JSON compartido ya NO lleva cronograma (vive en polen_crono). Una marca que este
+// dispositivo conoce por otra vía (polen_brands, realtime de otro usuario, reposición)
+// llegaba SIN cronograma, y los cambios en vivo de otros (una fecha) le dejaban un
+// cronograma PARCIAL de 1 actividad. Ahora toda marca se hidrata desde la tabla una vez,
+// y el realtime no aplica cambios sueltos a una marca aún no hidratada.
+// ══════════════════════════════════════════════════════════════════════════
+window._cronoHidratados = window._cronoHidratados || new Set();
+const _CRONO_ST5 = ['aire','agua','tierra','fuego','_sinUbicar'];
+function _cronoAplicarTabla(tabla, soloPendientes){
+  if(!tabla) return 0;
+  let cambiadas = 0;
+  (appData.brands||[]).forEach(b=>{
+    if(!b || !b.id) return;
+    if(soloPendientes && window._cronoHidratados.has(b.id)) return;
+    const t = tabla[b.id];
+    const tieneFilas = t && _CRONO_ST5.some(st=>Array.isArray(t[st]) && t[st].length);
+    if(tieneFilas){
+      b.cronograma = {};
+      _CRONO_ST5.forEach(st=>{ b.cronograma[st] = Array.isArray(t[st]) ? t[st] : []; });
+      cambiadas++;
+    } else if(!b.cronograma){
+      b.cronograma = { aire:[], agua:[], tierra:[], fuego:[] };
+    }
+    window._cronoHidratados.add(b.id);
+  });
+  return cambiadas;
+}
+let _cronoHidrPromise = null, _cronoHidrOtraVez = false;
+async function _asegurarCronoHidratado(){
+  if(!window.CronoDB) return;
+  const pend = (appData.brands||[]).some(b=>b && b.id && !window._cronoHidratados.has(b.id));
+  if(!pend) return;
+  if(_cronoHidrPromise){ _cronoHidrOtraVez = true; return _cronoHidrPromise; }
+  _cronoHidrPromise = (async()=>{
+    try{
+      const tabla = await CronoDB.loadAll();
+      if(!tabla) return;   // falló la lectura: se reintenta en la próxima llamada
+      const n = _cronoAplicarTabla(tabla, true);
+      if(n){
+        console.log('[Polen] Cronograma hidratado desde polen_crono para', n, 'marca(s) que llegaron sin él');
+        try{ if(typeof renderCurrentPage==='function' && !document.querySelector('input.act-date')) renderCurrentPage(); }catch(e){}
+      }
+    }catch(e){ console.warn('[Polen] hidratación de cronograma falló:', e); }
+    finally{
+      _cronoHidrPromise = null;
+      if(_cronoHidrOtraVez){ _cronoHidrOtraVez = false; setTimeout(_asegurarCronoHidratado, 300); }
+    }
+  })();
+  return _cronoHidrPromise;
+}
+// Guardado verificado de filas del cronograma: reintenta una vez y avisa si no se pudo.
+async function _cronoGuardarFilas(rows){
+  if(!rows || !rows.length) return true;
+  let ok = await CronoDB.saveActsBatch(rows);
+  if(!ok){ await new Promise(r=>setTimeout(r, 1200)); ok = await CronoDB.saveActsBatch(rows); }
+  if(!ok) showStatus('❌ No se guardaron las fechas (falló la conexión con la base). Vuelve a intentar.', true);
+  return ok;
+}
+// Propone fechas base para las actividades SIN fecha, tomando como ancla una actividad
+// que ya tiene fecha: las posteriores van una tras otra hacia adelante y las anteriores
+// hacia atrás, en días hábiles. Las que ya tienen fecha no se tocan (sirven de nueva ancla).
+function _cronoProponerDesde(brand, actId){
+  const lista = [];
+  ['aire','agua','tierra','fuego'].forEach(st=>(brand.cronograma?.[st]||[]).forEach(a=>lista.push(a)));
+  const k = lista.findIndex(a=>a.id===actId);
+  if(k<0 || !lista[k].startDate) return 0;
+  const dur = a=>Math.max((Number(a.days)||1)-1, 0);
+  let n = 0;
+  let cursor = shiftWD(lista[k].endDate || lista[k].startDate, 1);
+  for(let j=k+1;j<lista.length;j++){
+    const a = lista[j];
+    if(a.startDate){ cursor = shiftWD(a.endDate || a.startDate, 1); continue; }
+    a.startDate = cursor; a.endDate = addWorkdaysStr(cursor, dur(a)); n++;
+    cursor = shiftWD(a.endDate, 1);
+  }
+  let fin = shiftWD(lista[k].startDate, -1);
+  for(let j=k-1;j>=0;j--){
+    const a = lista[j];
+    if(a.startDate){ fin = shiftWD(a.startDate, -1); continue; }
+    a.endDate = fin; a.startDate = shiftWD(fin, -dur(a)); n++;
+    fin = shiftWD(a.startDate, -1);
+  }
+  return n;
+}
+function _cronoSinFechaCount(brand){
+  let n = 0; ['aire','agua','tierra','fuego'].forEach(st=>(brand.cronograma?.[st]||[]).forEach(a=>{ if(!a.startDate) n++; }));
+  return n;
 }
 
 function buildCronoSinFechas(tpl){
@@ -12915,7 +13024,7 @@ async function crmCrearMarcaDesdeTrato(crmId){
       approvals: JSON.parse(JSON.stringify(tpl.approvals || defaultApprovalsForTemplate())),
     };
     if(!Array.isArray(appData.brands)) appData.brands=[];
-    appData.brands.push(newBrand);
+    appData.brands.push(newBrand); try{ window._cronoHidratados && window._cronoHidratados.add(newBrand.id); }catch(e){}
     if(appData._deletedBrandIds?.length)
       appData._deletedBrandIds = appData._deletedBrandIds.filter(id=>id!==newBrand.id);
     markBrandChange(newBrand.id);
@@ -13042,12 +13151,12 @@ async function crmConfirmarProyecto(crmId){
       approvals: JSON.parse(JSON.stringify(tpl.approvals || defaultApprovalsForTemplate())),
     };
     if(!Array.isArray(appData.brands)) appData.brands=[];
-    appData.brands.push(newBrand);
+    appData.brands.push(newBrand); try{ window._cronoHidratados && window._cronoHidratados.add(newBrand.id); }catch(e){}
     if(appData._deletedBrandIds?.length) appData._deletedBrandIds = appData._deletedBrandIds.filter(id=>id!==newBrand.id);
     markBrandChange(newBrand.id);
     const cronoRows = [];
     ['aire','agua','tierra','fuego'].forEach(st=>{ (newBrand.cronograma?.[st]||[]).forEach((a,i)=> cronoRows.push(CronoDB.actToRow(newBrand.id, st, a, i))); });
-    if(cronoRows.length) await CronoDB.saveActsBatch(cronoRows);
+    if(cronoRows.length) await _cronoGuardarFilas(cronoRows);
     if(window.BrandBpDB && newBrand.brandingPoints?.categories?.length){
       const bpRows = [];
       newBrand.brandingPoints.categories.forEach((cat,ci)=>{ (cat.items||[]).forEach((item,ii)=>{ if(cat.id&&item.id) bpRows.push(BrandBpDB.itemToRow(newBrand.id, cat, item, ci, ii)); }); });
@@ -13105,6 +13214,18 @@ async function activarMarca(brandId){
 
   try{
     ensureCobrosData();
+    // Si ya se propusieron fechas en el cronograma, preguntar si mantenerlas
+    const _conFecha = [];
+    ['aire','agua','tierra','fuego'].forEach(st=>(brand.cronograma?.[st]||[]).forEach(a=>{ if(a.startDate) _conFecha.push(a); }));
+    let mantener = false;
+    if(_conFecha.length){
+      const primera = _conFecha.map(a=>a.startDate).sort()[0];
+      const r = await askModal({ label:'Este cronograma ya tiene fechas propuestas (empieza el '+fmtDateDisplay(primera)+'). ¿Qué hacemos?', type:'select', options:['Mantener las fechas propuestas','Recalcular todo desde hoy','Cancelar'] });
+      if(r==null || r===2) return;
+      mantener = (r===0);
+    }
+    if(mantener) _cronoProponerDesde(brand, _conFecha[0].id);   // completa solo las que falten
+    else {
     // Asignar fechas al cronograma existente, en orden, comenzando hoy (saltando fines de semana)
     let cursorStr = todayStr();
     let cursorD = parseLocalDate(cursorStr);
@@ -13120,6 +13241,7 @@ async function activarMarca(brandId){
         cursorStr = addWorkdaysStr(endStr, 1);
       });
     });
+    }
 
     // Quitar estado "por iniciar"
     delete brand.porIniciar;
@@ -13130,7 +13252,7 @@ async function activarMarca(brandId){
     ['aire','agua','tierra','fuego'].forEach(st=>{
       (brand.cronograma?.[st]||[]).forEach((a,i)=> cronoRows.push(CronoDB.actToRow(brand.id, st, a, i)));
     });
-    if(cronoRows.length) await CronoDB.saveActsBatch(cronoRows);
+    if(cronoRows.length && !(await _cronoGuardarFilas(cronoRows))){ brand.porIniciar = true; return; }
 
     // Generar cobranzas desde el cronograma (ahora que hay fechas)
     const existentes = (appData.cobros[brand.id] && Array.isArray(appData.cobros[brand.id].pagos)) ? appData.cobros[brand.id].pagos : [];
@@ -15992,7 +16114,7 @@ async function restoreFromPapelera(itemId){ markLocalChange("papelera","brands",
       // Continuamos aunque haya error — al menos se restaura la marca con sus datos del JSON.
     }
 
-    appData.brands.push(restored);
+    appData.brands.push(restored); try{ window._cronoHidratados && window._cronoHidratados.add(restored.id); }catch(e){}
     // Limpiar de TODAS las listas de eliminados
     appData._deletedBrandIds = (appData._deletedBrandIds||[]).filter(id=>id!==brandId && id!==itemId);
     _localDeletedIds.brands.delete(brandId);
@@ -19881,6 +20003,33 @@ function _canteraSetKey(k){ try{ sessionStorage.setItem('cantera_key', k||''); }
 function _canteraClearKey(){ try{ sessionStorage.removeItem('cantera_key'); }catch(e){} }
 
 // Llamada a la Edge Function. Devuelve datos o lanza { _status } para manejar 401.
+async function _canteraResolverConflicto(payload){
+  const d = payload.data;
+  const fr = await canteraWebAPI({ action:'rev', ids:[d.id] });
+  const actual = fr && Array.isArray(fr.candidatos) && fr.candidatos[0];
+  if(!actual || actual.rev==null) return { conflict:true };
+  const local = (_cantera.candidatos||[]).find(x=>x.id===d.id) || {};
+  const igual = (a,b)=>JSON.stringify(a==null?null:a)===JSON.stringify(b==null?null:b);
+  const cambios = { id:d.id, rev:actual.rev, nombre:d.nombre||actual.nombre||local.nombre||'Sin nombre' };
+  let choque = [];
+  Object.keys(d).forEach(k=>{
+    if(k==='id'||k==='rev'||k==='nombre') return;
+    if(igual(d[k], local[k])) return;                       // no lo cambiaste tú
+    cambios[k] = d[k];
+    if(!igual(actual[k], local[k]) && !igual(actual[k], d[k])) choque.push(k);   // otra persona cambió ESE mismo campo
+  });
+  if(d.nombre && !igual(d.nombre, local.nombre)) cambios.nombre = d.nombre;
+  if(choque.length) console.warn('[Cantera] mismo campo cambiado por otra persona, gana tu versión:', choque);
+  const row = await canteraAPI('save_candidato', { data:cambios, _reintentoConflicto:true });
+  if(row && !row.conflict){
+    // traer a memoria lo que había cambiado en el servidor (IA, otra persona) + lo tuyo
+    const merged = Object.assign({}, actual, row);
+    if(local && local.id) Object.keys(merged).forEach(k=>{ if(merged[k]!==undefined) local[k]=merged[k]; });
+    console.log('[Cantera] Versión desactualizada resuelta sola para', cambios.nombre);
+    return merged;
+  }
+  return row || { conflict:true };
+}
 async function canteraAPI(action, payload){
   const key = _canteraKey();
   const r = await _cFetchReintento(CANTERA_URL, {
@@ -19890,10 +20039,17 @@ async function canteraAPI(action, payload){
       'Authorization':'Bearer '+SB_KEY,      // Supabase exige su anon key
       'x-cantera-key': key                   // nuestra clave de admin
     },
-    body: JSON.stringify({ action, ...(payload||{}) })
+    body: JSON.stringify((({ _reintentoConflicto, ...resto })=>({ action, ...resto }))(payload||{}))
   }, 3);
   if(r.status===401){ _canteraClearKey(); const e=new Error('no_autorizado'); e._status=401; throw e; }
   if(r.status<200 || r.status>=300 || r.data.error){ const e=new Error(r.data.error==='sin_internet'?'Sin internet: no se guardó, vuelve a intentar':(r.data.error||('http_'+r.status))); e._data=r.data; e._status=r.status; throw e; }
+  // "Otro admin lo editó": casi siempre es el propio sistema (la IA completando el perfil, las
+  // estrellas, la fecha de inclusión, un reintento) que avanzó la versión del candidato.
+  // Se resuelve solo: se lee la versión actual y se reenvía SOLO lo que cambiaste, así no se
+  // pisa nada de lo que otra persona haya cambiado en otros campos.
+  if(action==='save_candidato' && r.data && r.data.conflict && payload && payload.data && payload.data.id && !payload._reintentoConflicto){
+    try{ return await _canteraResolverConflicto(payload); }catch(e){ console.warn('[Cantera] no se pudo resolver el conflicto:', e); }
+  }
   return r.data;
 }
 
@@ -23665,7 +23821,7 @@ function abrirDemo(demoId){
   // Inyectar temporalmente en appData.brands para reutilizar la página de marca
   if(!(appData.brands||[]).some(b=>b.id===demo.id)){
     if(!Array.isArray(appData.brands)) appData.brands = [];
-    appData.brands.push(demo); // referencia directa: las ediciones quedan en el objeto demo
+    appData.brands.push(demo); try{ window._cronoHidratados && window._cronoHidratados.add(demo.id); }catch(e){} // referencia directa: las ediciones quedan en el objeto demo
     window._demoViewIds.add(demo.id);
   }
   showStatus('🎬 Demo (no cuenta en el dashboard ni en los totales)');
@@ -24226,11 +24382,19 @@ async function renderBrandPage(){
   // actividades (o el bug de paginación las dejaba fuera), el cronograma se veía
   // "vacío" y se re-inyectaba con ids NUEVOS en cada apertura → duplicados x2, x3, x4.
   // Verificamos además en la tabla, no solo en memoria, antes de inyectar.
+  if(window.CronoDB && !window._cronoHidratados.has(brand.id)){
+    try{ await _asegurarCronoHidratado(); }catch(e){}
+  }
   const _cronoVacioEnMemoria = !brand.cronograma || Object.values(brand.cronograma).every(arr=>!arr||arr.length===0);
   let _cronoRealmenteVacio = _cronoVacioEnMemoria;
   if(_cronoVacioEnMemoria && window.CronoDB){
     try{
       const tablaCrono = await CronoDB.loadAll();
+      if(tablaCrono === null){
+        // La base no respondió: NO inventar un cronograma nuevo (crearía duplicados).
+        _cronoRealmenteVacio = false;
+        showStatus('No se pudo leer el cronograma (conexión con la base). Recarga en un momento.', true);
+      }
       const enTabla = tablaCrono && tablaCrono[brand.id];
       if(enTabla && Object.values(enTabla).some(arr=>arr&&arr.length)){
         // La tabla SÍ tiene actividades — hidratar en memoria y NO inyectar.
@@ -24244,7 +24408,8 @@ async function renderBrandPage(){
     const tpl = appData.template || defaultTemplate();
     const start = brand.createdAt ? brand.createdAt.slice(0,10) : todayStr();
     const tplWithNaming = {...tpl, includeNaming: brand.includeNaming !== false};
-    brand.cronograma = buildCronoFromTemplate(tplWithNaming, start);
+    // Una marca "por iniciar" no tiene fechas todavía (se ponen al activar o al proponerlas)
+    brand.cronograma = brand.porIniciar ? buildCronoSinFechas(tplWithNaming) : buildCronoFromTemplate(tplWithNaming, start);
     needsSave = true;
     cronoInjected = true;
   }
@@ -25602,11 +25767,11 @@ function editDate(e,brandId,stage,actId,field){
           allRows.push(CronoDB.actToRow(brandId, st, a, i));
         });
       });
-      await CronoDB.saveActsBatch(allRows);
+      return await _cronoGuardarFilas(allRows);
     };
     const saveJustThisStage = async ()=>{
       const stageRows = acts.map((a, i)=>CronoDB.actToRow(brandId, stage, a, i));
-      await CronoDB.saveActsBatch(stageRows);
+      return await _cronoGuardarFilas(stageRows);
     };
 
     // Solo editamos startDate; endDate se deriva de startDate + days
@@ -25614,7 +25779,23 @@ function editDate(e,brandId,stage,actId,field){
     act.startDate = val;
     act.endDate = addWorkdays(val, Math.max((act.days||1)-1, 0));
 
-    if(!oldEndDate){ renderBrandCrono(brand); await saveJustThisStage(); showStatus('Fecha actualizada ✓'); try{ await _registrarCambioCrono(brand, _cronoDiff(brand, _cronoBefore)); }catch(e){} return; }
+    if(!oldEndDate){
+      // Primera fecha de una actividad sin fecha: ofrecer las fechas base del resto a partir de esta
+      let propuso = 0;
+      if(_cronoSinFechaCount(brand) > 0){
+        renderBrandCrono(brand);
+        await new Promise(r=>setTimeout(r, 80));
+        const proponer = await confirmModal(
+          'Hay '+_cronoSinFechaCount(brand)+' actividades sin fecha.\n\n¿Proponer sus fechas a partir de esta? Las siguientes van una tras otra desde aquí y las anteriores hacia atrás, en días hábiles. Las que ya tienen fecha no se tocan.',
+          'Sí, proponer fechas', 'background:var(--aire);color:#fff;border:none', 'Solo esta');
+        if(proponer) propuso = _cronoProponerDesde(brand, actId);
+      }
+      renderBrandCrono(brand);
+      const okG = propuso ? await saveAllStages() : await saveJustThisStage();
+      if(okG) showStatus(propuso ? 'Fechas propuestas para '+(propuso+1)+' actividades ✓' : 'Fecha actualizada ✓');
+      try{ await _registrarCambioCrono(brand, _cronoDiff(brand, _cronoBefore)); }catch(e){}
+      return;
+    }
     const delta = wdDeltaBetween(oldEndDate, act.endDate);
 
     let didCascade = false;
@@ -25653,9 +25834,8 @@ function editDate(e,brandId,stage,actId,field){
       renderBrandCrono(brand);
     }
 
-    if(didCascade) await saveAllStages();
-    else await saveJustThisStage();
-    showStatus('Fecha actualizada ✓');
+    const okG = didCascade ? await saveAllStages() : await saveJustThisStage();
+    if(okG) showStatus('Fecha actualizada ✓');
     // Registrar el cambio en el log (un solo batch, una sola razón, aunque haya cascada)
     try{ await _registrarCambioCrono(brand, _cronoDiff(brand, _cronoBefore)); }catch(e){ console.warn('log crono:', e); }
   };
@@ -26488,7 +26668,7 @@ async function saveBrand(){
       approvals: JSON.parse(JSON.stringify(tpl.approvals || defaultApprovalsForTemplate())),
     };
     if(!Array.isArray(appData.brands))appData.brands=[];
-    appData.brands.push(newBrand);
+    appData.brands.push(newBrand); try{ window._cronoHidratados && window._cronoHidratados.add(newBrand.id); }catch(e){}
     // 🔒 Defensa: si por cualquier razón el id de esta marca nueva estuviera en la lista
     // de borrados, lo quitamos — una marca recién creada nunca debe considerarse borrada.
     if(appData._deletedBrandIds?.length)
@@ -26588,7 +26768,7 @@ async function deleteBrandCurrent(){
   const saved = await upsert();
   if(!saved){
     // Rollback — restore brand to appData
-    appData.brands.push(brandBackup);
+    appData.brands.push(brandBackup); try{ window._cronoHidratados && window._cronoHidratados.add(brandBackup.id); }catch(e){}
     appData.papelera = (appData.papelera||[]).filter(p=>p.id!==brandId);
     _localDeletedIds.brands.delete(brandId);
     currentBrandId = brandId;
@@ -27977,6 +28157,7 @@ function subscribeRealtime(onUpdate){
           return;
         }
         Object.assign(appData, merged);
+        setTimeout(_asegurarCronoHidratado, 0);   // marcas nuevas de otro usuario llegan sin cronograma
 
         // ══════════════════════════════════════════════════════════════════════
         // 🗂️ FASE 3a — Proteger el merge EN VIVO con polen_brands.
@@ -28020,6 +28201,7 @@ function subscribeRealtime(onUpdate){
               if(repuestas){
                 appData.brands = Object.values(actuales);
                 console.warn('[Polen] 🗂️ Realtime: repuestas', repuestas, 'marca(s) desde polen_brands (evitado borrado fantasma)');
+                setTimeout(_asegurarCronoHidratado, 0);
                 try{ if(typeof renderCurrentPage==='function') renderCurrentPage(); }catch(e){}
                 try{ if(typeof renderDashboard==='function') renderDashboard(); }catch(e){}
               }
@@ -32394,7 +32576,7 @@ async function boot(){
                 _localDeletedIds.brands.delete(itemData.id);
                 // Quitar archivedAt si era brand-archived
                 if(itemType === 'brand-archived') delete fresh.archivedAt;
-                appData.brands.push(fresh);
+                appData.brands.push(fresh); try{ window._cronoHidratados && window._cronoHidratados.add(fresh.id); }catch(e){}
                 console.log('[Polen] Marca restaurada desde otra pestaña:', fresh.name);
               }
             } catch(fetchErr){ console.warn('[Polen] Error recuperando marca restaurada:', fetchErr); }
