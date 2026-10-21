@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261021-v493-RONDAS-APROBACION -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261021-v494-FECHAS-PANEL -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 493;
+const APP_VERSION = 494;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -18335,11 +18335,12 @@ function _hitosDe(marcas, desde, hasta){
     const cr = b.cronograma||{};
     ['aire','agua','tierra','fuego'].forEach(st=>{
       (cr[st]||[]).forEach(a=>{
-        if(a.isHito && a.startDate){
-          const f = new Date(a.startDate); if(isNaN(f)) return;
+        const fechaHito = a.endDate || a.startDate;   // el hito es la ENTREGA (igual que semana/mes y Equipo)
+        if(a.isHito && fechaHito){
+          const f = parseLocalDate(fechaHito); f.setHours(0,0,0,0); if(isNaN(f)) return;
           if(desde && f < desde) return;
           if(hasta && f > hasta) return;
-          hitos.push({ marca:b.name, brandId:b.id, actividad:a.name, fecha:a.startDate, stage:st, done:a.status==='completada', dateObj:f });
+          hitos.push({ marca:b.name, brandId:b.id, actId:a.id, actividad:a.name, fecha:fechaHito, inicio:a.startDate||'', stage:st, done:a.status==='completada', dateObj:f });
         }
       });
     });
@@ -18415,7 +18416,39 @@ function _mtSelectorHTML(){
     </select>
   </label>`;
 }
+// El panel personal lee el cronograma en memoria. Si este dispositivo se perdió algún
+// cambio en vivo (conexión caída, Supabase saturado), mostraba fechas viejas. Ahora, al
+// mostrar el panel, se compara con polen_crono (la verdad) y se corrige lo que difiera.
+let _cronoRefrescoAt = 0, _cronoRefrescando = false;
+async function _cronoRefrescarDesdeTabla(forzar){
+  if(!window.CronoDB || _cronoRefrescando) return;
+  if(!forzar && Date.now()-_cronoRefrescoAt < 45000) return;
+  _cronoRefrescando = true; _cronoRefrescoAt = Date.now();
+  try{
+    const tabla = await CronoDB.loadAll();
+    if(!tabla) return;
+    const ST = ['aire','agua','tierra','fuego','_sinUbicar'];
+    const firma = cr => JSON.stringify(ST.map(st=>(cr&&cr[st]||[]).map(a=>[a.id,a.name,a.startDate||'',a.endDate||'',!!a.isHito,a.status||'',!!a.isInterno,a.revDateOverride||''])));
+    let cambiadas = [];
+    (appData.brands||[]).forEach(b=>{
+      if(!b || !b.id || (currentPage==='brand' && currentBrandId===b.id)) return;   // no tocar la marca que estás editando
+      const t = tabla[b.id];
+      if(!t || !ST.some(st=>Array.isArray(t[st]) && t[st].length)) return;
+      if(firma(b.cronograma) !== firma(t)){
+        b.cronograma = {}; ST.forEach(st=>{ b.cronograma[st] = Array.isArray(t[st]) ? t[st] : []; });
+        cambiadas.push(b.name);
+      }
+      if(window._cronoHidratados) window._cronoHidratados.add(b.id);
+    });
+    if(cambiadas.length){
+      console.log('[Polen] Cronograma actualizado desde la tabla para:', cambiadas.join(', '));
+      try{ if(currentPage==='dashboard'){ renderMiTrabajo(); } else if(typeof renderCurrentPage==='function') renderCurrentPage(); }catch(e){}
+    }
+  }catch(e){ console.warn('[Polen] refresco de cronograma falló:', e); }
+  finally{ _cronoRefrescando = false; }
+}
 function renderMiTrabajo(){
+  setTimeout(()=>_cronoRefrescarDesdeTabla(false), 0);
   const puede = _mtPuedeVerOtros();
   if(!puede) window._mtVerComo = null;
   const objetivo = window._mtVerComo ? (appData.members||[]).find(m=>m.id===window._mtVerComo) : null;
@@ -19480,6 +19513,7 @@ function _miTrabajoSemana(misMarcas, STAGE_COLOR){
             <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${yaPaso?'text-decoration:line-through':''}">${brand?.name||''}</span>
           </div>
           <div style="font-size:0.6rem;color:var(--text2);margin-top:0.1rem;line-height:1.2">${escapeHtml((h.name||'').replace('🔍 Rev. interna: ',''))}</div>
+          ${(h.type==='oficial' && h.inicio && h.inicio!==h.date)?`<div style="font-size:0.56rem;color:var(--text3);margin-top:0.1rem">entrega · inicia ${fmtDateDisplay(h.inicio)}</div>`:''}
           ${partner?`<div style="margin-top:0.25rem">${partner}</div>`:''}
         </div>`;
       });
@@ -19504,7 +19538,7 @@ function _miTrabajoMes(misMarcas, STAGE_COLOR){
 
   let hitos = [];
   try{ hitos = _hitosParaVista(user).filter(h=>{
-    const d = new Date(h.date); return d>=refMonth && d<=finMonth;
+    const d = parseLocalDate(h.date); return d>=refMonth && d<=finMonth;
   }); }catch(e){ hitos = []; }
   // Agrupar por fecha
   const porDia = {};
@@ -19519,7 +19553,7 @@ function _miTrabajoMes(misMarcas, STAGE_COLOR){
     const hoyStr2 = fmtDate(hoy);
     let ancladoYa = false;
     fechasOrden.forEach(fecha=>{
-      const d = new Date(fecha);
+      const d = parseLocalDate(fecha);
       const esHoy = fmtDate(d)===hoyStr2;
       const yaPasoDia = fecha < hoyStr2;
       // Anclar el primer día que sea hoy o futuro (para scroll automático)
@@ -25344,7 +25378,7 @@ function renderBrandCrono(brand){
             title="Click para editar nombre">${a.name}</span>
           <span class="act-days-inline" id="days-badge-${a.id}" onclick="startInlineDays(event,'${brand.id}','${stage}','${a.id}')" title="Click para editar duración">${a.days}d</span>
           ${actSmartStatusPill(a)}
-          <span class="act-date" title="Fecha inicio — click para editar" onclick="editDate(event,'${brand.id}','${stage}','${a.id}','startDate')">📅 ${fmtDateDisplay(a.startDate)}</span>
+          <span class="act-date" title="Fecha inicio — click para editar" onclick="editDate(event,'${brand.id}','${stage}','${a.id}','startDate')">📅 ${fmtDateDisplay(a.startDate)}</span>${(a.endDate && a.startDate && a.endDate!==a.startDate)?`<span title="Fecha de entrega" style="font-size:0.7rem;color:var(--text3);white-space:nowrap;margin-left:-0.2rem">→ ${fmtDateDisplay(a.endDate)}</span>`:''}
           <button onclick="deleteCronoActivity('${brand.id}','${stage}','${a.id}')" title="Eliminar actividad" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:0.75rem;color:var(--text3);padding:0.1rem 0.3rem;border-radius:4px;opacity:0.4;transition:opacity 0.15s" onmouseover="this.style.opacity=1;this.style.color='#ef4444'" onmouseout="this.style.opacity=0.4;this.style.color='var(--text3)'">🗑</button>
         </div>`).join('')}
       <div style="padding:0.4rem 1.2rem 0.6rem"
@@ -29231,6 +29265,7 @@ function getMemberHitos(memberId) {
             stage,
             date: act.endDate,
             dateObj: endD,
+            inicio: act.startDate || '',
             status: act.status,
             isHito: act.isHito,
           });
