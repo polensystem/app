@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261021-v496-FECHAS-AUDITORIA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261021-v498-PROCESO-FILTROS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 496;
+const APP_VERSION = 498;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -8061,7 +8061,7 @@ function deepMergeAppData(server, local){
   merged.banners = Array.isArray(local.banners) ? local.banners : [];
 
   // ── scalar fields: local wins if user changed them, else server ──
-  const scalarKeys = ['finanzas','calendarUrl','domoNames','pausaActiva','onboarding','canteraNiveles'];
+  const scalarKeys = ['finanzas','calendarUrl','domoNames','pausaActiva','onboarding','canteraNiveles','canteraSeguimiento'];
   scalarKeys.forEach(k=>{
     merged[k] = _localChangedKeys.has(k) ? local[k] : (server[k] ?? local[k]);
   });
@@ -19857,6 +19857,43 @@ function _toggleMemberRolSel(r){
 
 const CANTERA_URL = SB_URL + '/functions/v1/cantera';
 const CANTERA_NIVELES = ['Pasante','Junior','Semi-senior','Senior'];
+// Proceso de contacto con el candidato (editable, con colores). Se guarda en appData.
+const CANTERA_SEGUIMIENTO_DEFAULT = [
+  {nombre:'Por contactar',             color:'#94a3b8'},
+  {nombre:'Esperando respuesta',       color:'#f2cc8f'},
+  {nombre:'Confirmado reunión grupal', color:'#81b29a'},
+  {nombre:'Agendar entrevista',        color:'#e07a5f'},
+  {nombre:'Entrevista agendada',       color:'#3d9edd'},
+];
+function _canteraSeguimientos(){ const l = window.appData && Array.isArray(appData.canteraSeguimiento) && appData.canteraSeguimiento.length ? appData.canteraSeguimiento : CANTERA_SEGUIMIENTO_DEFAULT; return l.map(x=>typeof x==='string'?{nombre:x,color:'#94a3b8'}:x).filter(x=>x && x.nombre); }
+function _canteraColorSeguimiento(n){ const x=_canteraSeguimientos().find(o=>o.nombre===n); return x?x.color:'#94a3b8'; }
+// Celda editable en la tabla (cambiar el proceso sin abrir la ficha)
+function _cSeguimientoCelda(c){
+  const v=c.seguimiento||''; const col=v?_canteraColorSeguimiento(v):'var(--text3)';
+  const ops=_canteraSeguimientos(); const existe=!v||ops.some(o=>o.nombre===v);
+  return '<select onclick="event.stopPropagation()" onchange="_canteraSetSeguimiento(\''+c.id+'\', this.value)" title="Cambiar proceso" style="width:100%;font-size:0.7rem;font-weight:600;padding:0.2rem 0.35rem;border-radius:99px;border:1px solid '+(v?col+'66':'var(--border)')+';background:'+(v?col+'1f':'transparent')+';color:'+(v?'var(--text)':'var(--text3)')+';cursor:pointer;font-family:var(--font);text-overflow:ellipsis">'
+    + '<option value="">—</option>' + ops.map(o=>'<option value="'+escapeHtml(o.nombre)+'"'+(o.nombre===v?' selected':'')+'>'+escapeHtml(o.nombre)+'</option>').join('')
+    + (existe?'':'<option selected>'+escapeHtml(v)+'</option>') + '</select>';
+}
+async function _canteraSetSeguimiento(id, valor){
+  const c=(_cantera.candidatos||[]).find(x=>x.id===id); if(!c) return;
+  const prev=c.seguimiento; c.seguimiento=valor||'';
+  try{
+    const r = await canteraWebAPI({ action:'set_perfil', cand_id:id, data:{ seguimiento:valor||'' } });
+    if(r && Array.isArray(r.faltan_columnas) && r.faltan_columnas.some(x=>x.columna==='seguimiento')){ c.seguimiento=prev; renderCantera(); return; }
+    showStatus('Proceso: '+(valor||'—')+' ✓');
+  }catch(e){ c.seguimiento=prev; showStatus('No se guardó el proceso: '+(e.message||''), true); }
+  renderCantera();
+}
+function _canteraLoteSeguimiento(scope, v){
+  if(v==null || v==='') return;
+  const ids=[..._canteraSelDe(scope)]; if(!ids.length) return;
+  const val = v==='(ninguno)'?'':v;
+  (async()=>{ let ok=0, err=0;
+    for(let i=0;i<ids.length;i++){ _canteraBarraProgreso('Cambiando proceso… '+(i+1)+' de '+ids.length,(i+1)/ids.length);
+      try{ await canteraWebAPI({ action:'set_perfil', cand_id:ids[i], data:{ seguimiento:val } }); const c=(_cantera.candidatos||[]).find(x=>x.id===ids[i]); if(c) c.seguimiento=val; ok++; }catch(e){ err++; } }
+    _canteraCerrarProgreso(); renderCantera(); showStatus(ok+' actualizado'+(ok!==1?'s':'')+(err?' · '+err+' con error':''), !!err); })();
+}
 function _canteraNiveles(){ const n = window.appData && Array.isArray(appData.canteraNiveles) && appData.canteraNiveles.length ? appData.canteraNiveles : CANTERA_NIVELES; return n.map(x=>typeof x==='string'?x:x.nombre).filter(Boolean); }
 const CANTERA_ETAPAS = ['Estudiante','Recién graduado 0–1 año','1–3 años','3+ años','Por confirmar'];
 const CANTERA_DEPTOS = ['Diseño','Redacción','Administrativo','Comercial'];
@@ -19954,7 +19991,7 @@ async function _canteraCargarFechas(forzar){
   try{
     const r = await canteraWebAPI({ action:'fechas' });
     const mapa = {}; (r.fechas||[]).forEach(x=>{ mapa[x.id]=x; });
-    (_cantera.candidatos||[]).forEach(c=>{ const x=mapa[c.id]; if(x){ if(x.fecha_inclusion) c.fecha_inclusion=x.fecha_inclusion; if(x.created_at) c.created_at=x.created_at; if(x.universidad!=null && !c.universidad) c.universidad=x.universidad; if(Array.isArray(x.experiencia) && !(Array.isArray(c.experiencia)&&c.experiencia.length)) c.experiencia=x.experiencia; if(x.mensaje && !c.mensaje) c.mensaje=x.mensaje; if(x.canal && !c.canal) c.canal=x.canal; if(x.sexo && !c.sexo) c.sexo=x.sexo; if(x.anio_nacimiento && !c.anio_nacimiento) c.anio_nacimiento=x.anio_nacimiento; if(x.edad_estimada!=null && c.edad_estimada==null) c.edad_estimada=x.edad_estimada; if(x.mensaje_resumen && !c.mensaje_resumen) c.mensaje_resumen=x.mensaje_resumen; } });
+    (_cantera.candidatos||[]).forEach(c=>{ const x=mapa[c.id]; if(x){ if(x.fecha_inclusion) c.fecha_inclusion=x.fecha_inclusion; if(x.created_at) c.created_at=x.created_at; if(x.universidad!=null && !c.universidad) c.universidad=x.universidad; if(Array.isArray(x.experiencia) && !(Array.isArray(c.experiencia)&&c.experiencia.length)) c.experiencia=x.experiencia; if(x.mensaje && !c.mensaje) c.mensaje=x.mensaje; if(x.canal && !c.canal) c.canal=x.canal; if(x.sexo && !c.sexo) c.sexo=x.sexo; if(x.anio_nacimiento && !c.anio_nacimiento) c.anio_nacimiento=x.anio_nacimiento; if(x.edad_estimada!=null && c.edad_estimada==null) c.edad_estimada=x.edad_estimada; if(x.seguimiento!=null && c.seguimiento==null) c.seguimiento=x.seguimiento; if(x.mensaje_resumen && !c.mensaje_resumen) c.mensaje_resumen=x.mensaje_resumen; } });
     if(r.grabadas) console.log('[Cantera] Fecha de inclusión grabada a', r.grabadas, 'candidatos');
     if(currentPage==='cantera') renderCantera();
     setTimeout(_canteraAutoCompletarPerfiles, 1500);   // en segundo plano: edad, sexo, universidad… de los CV
@@ -20264,7 +20301,8 @@ function _canteraAplicarRapido(lista, scope, convId){
     if(scope==='proy'){ const ff=_cantera.filtros||{};
       if(!_cMultiPasa(ff.estados, c.estado, estados)) return false;
       if(!_cMultiPasa(ff.niveles, c.nivel, _canteraNiveles())) return false;
-      if(!_cMultiPasa(ff.destrezas, c.destreza, _canteraDestrezas().map(d=>d.nombre))) return false; }
+      if(!_cMultiPasa(ff.destrezas, c.destreza, _canteraDestrezas().map(d=>d.nombre))) return false;
+      if(!_cMultiPasa(ff.seguimientos, c.seguimiento, _canteraSeguimientos().map(x=>x.nombre))) return false; }
     if(st.fit && fitDe(c) < st.fit) return false;
     if(st.nuevos){ const f=_cFechaInc(c); if(!f || (hoy - parseLocalDate(f).getTime()) > st.nuevos*86400000) return false; }
     const arch = Array.isArray(c.archivos)?c.archivos:[];
@@ -20315,9 +20353,8 @@ function _canteraBarraRapida(scope){
     + '</div>'
     + '<div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;margin:-0.35rem 0 0.8rem">'
     + '<span style="font-size:0.7rem;font-weight:700;color:var(--text3)">⛃ Filtrar</span>'
-    + _cMultiFiltroHTML('estados','Estatus', _canteraEstadoNombres(), _canteraColorEstado, 'estado', 'Sin estatus', _cMultiCtrl, true)
-    + _cMultiFiltroHTML('niveles','Nivel', _canteraNiveles(), null, 'nivel', 'Sin nivel', _cMultiCtrl, true)
-    + _cMultiFiltroHTML('destrezas','Destreza', _canteraDestrezas().map(d=>d.nombre), _canteraColorDestreza, 'destreza', 'Sin destreza', _cMultiCtrl, true)
+    + _cMultiFiltroHTML('estados') + _cMultiFiltroHTML('seguimientos') + _cMultiFiltroHTML('niveles') + _cMultiFiltroHTML('destrezas')
+    + (['estados','seguimientos','niveles','destrezas'].some(k=>(_cantera.filtros[k]||[]).length)?'<button onclick="[\'estados\',\'seguimientos\',\'niveles\',\'destrezas\'].forEach(k=>_cantera.filtros[k]=[]);_cFiltroCerrar();renderCantera()" style="font-size:0.7rem;background:none;border:none;color:var(--text3);cursor:pointer;text-decoration:underline;font-family:var(--font)">Limpiar</button>':'')
     + '<span style="flex:1"></span>'
     + '<button onclick="_canteraMenuPropiedades()" title="Añadir, renombrar, borrar o reordenar las opciones de estatus, nivel y destreza" style="font-size:0.72rem;font-weight:700;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font)">⚙ Editar propiedades</button>'
     + (activos?'<button onclick="_canteraRapLimpiar(\''+scope+'\')" style="font-size:0.7rem;background:none;border:none;color:var(--text3);cursor:pointer;text-decoration:underline;font-family:var(--font)">Quitar filtros</button>':'')
@@ -20387,56 +20424,101 @@ function _cMultiPasa(sel, valor, validos){
   if(sel.includes('(vacío)') && (!v || (validos && !validos.includes(v)))) return true;
   return false;
 }
+// ── Filtros de opción múltiple ─────────────────────────────────────────────
+// Cada filtro es un botón; al tocarlo se abre un panel flotante con casillas. El panel vive
+// fuera de la tabla, así que marcar casillas actualiza la tabla sin cerrarlo ni parpadear.
+// Se cierra al hacer clic en cualquier lugar fuera, con Esc o con "Listo".
+const _C_FILTROS = {
+  estados:     { label:'Estatus',  campo:'estado',     vacio:'Sin estatus',  editor:'estado',     opciones:()=>_canteraEstadoNombres(), color:n=>_canteraColorEstado(n) },
+  seguimientos:{ label:'Proceso',  campo:'seguimiento',vacio:'Sin proceso',  editor:'seguimiento',opciones:()=>_canteraSeguimientos().map(x=>x.nombre), color:n=>_canteraColorSeguimiento(n) },
+  niveles:     { label:'Nivel',    campo:'nivel',      vacio:'Sin nivel',    editor:'nivel',      opciones:()=>_canteraNiveles(), color:null },
+  destrezas:   { label:'Destreza', campo:'destreza',   vacio:'Sin destreza', editor:'destreza',   opciones:()=>_canteraDestrezas().map(d=>d.nombre), color:n=>_canteraColorDestreza(n) },
+};
 function _canteraToggleMulti(campo, valor, on){
   const f=_cantera.filtros; const l = Array.isArray(f[campo]) ? f[campo].slice() : [];
   const i = l.indexOf(valor);
   if(on && i<0) l.push(valor); if(!on && i>=0) l.splice(i,1);
-  f[campo] = l; _cantera._multiAbierto = campo;
-  renderCantera();
+  f[campo] = l; _cFiltroRefrescar(campo);
 }
-document.addEventListener('click', ev=>{
-  if(!_cantera || !_cantera._multiAbierto) return;
-  if(ev.target.closest && ev.target.closest('details')) return;
-  document.querySelectorAll('#cantera-content details[open]').forEach(d=>d.removeAttribute('open'));
-  _cantera._multiAbierto = null;
+function _canteraSoloMulti(campo, lista){ _cantera.filtros[campo] = lista; _cFiltroRefrescar(campo); }
+function _cFiltroRefrescar(campo){
+  renderCantera();
+  const pop=document.getElementById('c-filtro-pop');
+  if(pop && pop.dataset.campo===campo){ pop.innerHTML=_cFiltroPopHTML(campo); _cFiltroPosicionar(campo); }
+}
+function _cFiltroCerrar(){ const pop=document.getElementById('c-filtro-pop'); if(pop) pop.remove(); }
+function _cFiltroPosicionar(campo){
+  const pop=document.getElementById('c-filtro-pop'), btn=document.getElementById('cfbtn-'+campo);
+  if(!pop || !btn){ _cFiltroCerrar(); return; }
+  const r=btn.getBoundingClientRect(); const w=Math.max(240, r.width);
+  pop.style.minWidth=w+'px';
+  let left=r.left; if(left+w>window.innerWidth-12) left=Math.max(12, window.innerWidth-12-w);
+  pop.style.left=left+'px'; pop.style.top=(r.bottom+6)+'px';
+  pop.style.maxHeight=Math.max(200, window.innerHeight-r.bottom-24)+'px';
+}
+function _cFiltroAbrir(campo){
+  const pop0=document.getElementById('c-filtro-pop');
+  if(pop0 && pop0.dataset.campo===campo){ _cFiltroCerrar(); return; }   // segundo clic en el mismo botón = cerrar
+  _cFiltroCerrar();
+  const pop=document.createElement('div'); pop.id='c-filtro-pop'; pop.dataset.campo=campo;
+  pop.style.cssText='position:fixed;z-index:9000;overflow:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.16);padding:0.45rem';
+  pop.innerHTML=_cFiltroPopHTML(campo);
+  document.body.appendChild(pop); _cFiltroPosicionar(campo);
+}
+function _cFiltroPopHTML(campo){
+  const cfg=_C_FILTROS[campo]; const f=_cantera.filtros; const sel=Array.isArray(f[campo])?f[campo]:[];
+  const ops=cfg.opciones(); const todas=ops.concat(['(vacío)']);
+  const fila=v=>{
+    const t=v==='(vacío)'?cfg.vacio:v; const on=sel.includes(v);
+    const n=(_cantera.candidatos||[]).filter(c=>_cMultiPasa([v], c[cfg.campo], ops)).length;
+    return '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.38rem 0.45rem;border-radius:7px;cursor:pointer;font-size:0.78rem;color:var(--text);font-weight:500;'+(on?'background:rgba(59,158,221,0.08)':'')+'" onmouseover="if(!this.querySelector(\'input\').checked)this.style.background=\'var(--bg-card2)\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.background=\'none\'">'
+      + '<input type="checkbox" '+(on?'checked':'')+' onchange="_canteraToggleMulti(\''+campo+'\',\''+_cJsq(v)+'\',this.checked)" style="accent-color:var(--aire);width:15px;height:15px;cursor:pointer;margin:0">'
+      + (cfg.color && v!=='(vacío)' ? _cDot(cfg.color(v),8) : '')
+      + '<span style="flex:1;'+(v==='(vacío)'?'color:var(--text3);font-style:italic':'')+'">'+escapeHtml(t)+'</span><span style="font-size:0.68rem;color:var(--text3);min-width:1.2rem;text-align:right">'+n+'</span></label>';
+  };
+  const lk='font-size:0.7rem;background:none;border:none;color:var(--text2);cursor:pointer;font-family:var(--font);padding:0.15rem 0.2rem';
+  return '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.15rem 0.3rem 0.45rem;border-bottom:1px solid var(--border);margin-bottom:0.3rem">'
+    + '<span style="font-size:0.7rem;font-weight:800;color:var(--text);flex:1">'+cfg.label+'</span>'
+    + '<button onclick="_canteraSoloMulti(\''+campo+'\','+escapeHtml(JSON.stringify(ops))+')" style="'+lk+'">Todos</button>'
+    + '<button onclick="_canteraSoloMulti(\''+campo+'\',[])" style="'+lk+'">Ninguno</button>'
+    + '</div>'
+    + todas.map(fila).join('')
+    + '<div style="display:flex;align-items:center;gap:0.4rem;border-top:1px solid var(--border);margin-top:0.35rem;padding:0.45rem 0.3rem 0.1rem">'
+    + '<button onclick="_cFiltroCerrar();_canteraEditorOpciones(\''+cfg.editor+'\')" style="'+lk+';color:var(--aire);font-weight:700">⚙ Editar opciones</button>'
+    + '<span style="flex:1"></span>'
+    + '<button onclick="_cFiltroCerrar()" style="font-size:0.72rem;font-weight:700;padding:0.3rem 0.8rem;border-radius:7px;border:none;background:var(--text);color:var(--bg-card);cursor:pointer;font-family:var(--font)">Listo</button>'
+    + '</div>';
+}
+document.addEventListener('mousedown', ev=>{
+  const pop=document.getElementById('c-filtro-pop'); if(!pop) return;
+  if(pop.contains(ev.target)) return;
+  const btn=ev.target.closest && ev.target.closest('[id^="cfbtn-"]');
+  if(btn && btn.id==='cfbtn-'+pop.dataset.campo) return;   // el propio botón alterna (lo maneja su onclick)
+  _cFiltroCerrar();
 });
-function _canteraSoloMulti(campo, lista){ _cantera.filtros[campo] = lista; _cantera._multiAbierto = campo; renderCantera(); }
-// Desplegable con casillas (varias opciones a la vez) + acceso a editar las opciones
-const _cMultiCtrl = 'font-size:0.74rem;font-weight:600;padding:0.28rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);font-family:var(--font);gap:0.5rem';
+document.addEventListener('keydown', ev=>{ if(ev.key==='Escape') _cFiltroCerrar(); });
+window.addEventListener('resize', ()=>{ const pop=document.getElementById('c-filtro-pop'); if(pop) _cFiltroPosicionar(pop.dataset.campo); });
+document.addEventListener('scroll', ()=>{ const pop=document.getElementById('c-filtro-pop'); if(pop) _cFiltroPosicionar(pop.dataset.campo); }, true);
+// Botón de un filtro (en la barra)
+function _cMultiFiltroHTML(campo){
+  const cfg=_C_FILTROS[campo]; const sel=Array.isArray(_cantera.filtros[campo])?_cantera.filtros[campo]:[];
+  const resumen = !sel.length ? 'Todos' : (sel.length===1 ? (sel[0]==='(vacío)'?cfg.vacio:sel[0]) : sel.length+' seleccionados');
+  const on = sel.length>0;
+  return '<span style="display:inline-flex;align-items:center;border-radius:99px;border:1px solid '+(on?'var(--aire)':'var(--border)')+';background:'+(on?'rgba(59,158,221,0.08)':'var(--bg-card)')+';overflow:hidden">'
+    + '<button id="cfbtn-'+campo+'" onclick="_cFiltroAbrir(\''+campo+'\')" style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.74rem;font-weight:600;padding:0.3rem 0.65rem;border:none;background:none;color:'+(on?'var(--text)':'var(--text2)')+';cursor:pointer;font-family:var(--font)">'
+    + '<span style="color:var(--text3)">'+cfg.label+':</span> <span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escapeHtml(resumen)+'</span><span style="font-size:0.6rem;opacity:0.6">▾</span></button>'
+    + (on?'<button onclick="_canteraSoloMulti(\''+campo+'\',[])" title="Quitar este filtro" style="border:none;background:none;color:var(--text3);cursor:pointer;padding:0.3rem 0.55rem 0.3rem 0.1rem;font-size:0.72rem">✕</button>':'')
+    + '</span>';
+}
+const _cMultiCtrl = '';
 function _canteraMenuPropiedades(){
-  const b = (tipo, ico, t, d)=>'<button onclick="closeTrayModal();setTimeout(()=>_canteraEditorOpciones(\''+tipo+'\'),60)" style="display:flex;align-items:center;gap:0.8rem;width:100%;text-align:left;padding:0.75rem 0.9rem;margin-bottom:0.5rem;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);cursor:pointer;font-family:var(--font)"><span style="font-size:1.1rem">'+ico+'</span><span><span style="display:block;font-size:0.86rem;font-weight:700;color:var(--text)">'+t+'</span><span style="font-size:0.72rem;color:var(--text3)">'+d+'</span></span></button>';
+  const b = (tipo, ico, t, d)=>'<button onclick="closeTrayModal();setTimeout(()=>_canteraEditorOpciones(\''+tipo+'\'),60)" style="display:flex;align-items:center;gap:0.8rem;width:100%;text-align:left;padding:0.75rem 0.9rem;margin-bottom:0.5rem;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);cursor:pointer;font-family:var(--font)"><span style="font-size:1.1rem">'+ico+'</span><span><span style="display:block;font-size:0.86rem;font-weight:700;color:var(--text)">'+t+'</span><span style="font-size:0.72rem;color:var(--text3)">'+escapeHtml(d)+'</span></span></button>';
   openGenericModal('⚙ Editar propiedades',
     '<div style="font-size:0.76rem;color:var(--text3);margin-bottom:0.9rem">Añade, renombra, borra o reordena las opciones. Los perfiles se actualizan solos.</div>'
     + b('estado','🔵','Estatus', _canteraEstadoNombres().length+' pasos del proceso')
+    + b('seguimiento','📞','Proceso', _canteraSeguimientos().map(x=>x.nombre).join(' · '))
     + b('nivel','📶','Nivel', _canteraNiveles().join(' · '))
     + b('destreza','🎯','Destreza', _canteraDestrezas().map(d=>d.nombre).join(' · ')));
-}
-function _cMultiFiltroHTML(campo, label, opciones, colorDe, tipoEditor, vacioLabel, ctrl, compacto){
-  const f=_cantera.filtros; const sel = Array.isArray(f[campo]) ? f[campo] : [];
-  const abierto = _cantera._multiAbierto===campo;
-  const resumen = !sel.length ? 'Todos' : (sel.length===1 ? (sel[0]==='(vacío)'?vacioLabel:sel[0]) : sel.length+' seleccionados');
-  const todas = opciones.concat(['(vacío)']);
-  const fila = (v)=>{
-    const t = v==='(vacío)' ? vacioLabel : v; const on = sel.includes(v);
-    const n = (_cantera.candidatos||[]).filter(c=>_cMultiPasa([v], c[campo==='estados'?'estado':campo==='niveles'?'nivel':'destreza'], opciones)).length;
-    return '<label style="display:flex;align-items:center;gap:0.45rem;padding:0.28rem 0.35rem;border-radius:6px;cursor:pointer;font-size:0.76rem;color:var(--text);font-weight:500" onmouseover="this.style.background=\'var(--bg-card2)\'" onmouseout="this.style.background=\'none\'">'
-      + '<input type="checkbox" '+(on?'checked':'')+' onchange="_canteraToggleMulti(\''+campo+'\',\''+_cJsq(v)+'\',this.checked)" style="accent-color:var(--aire);width:14px;height:14px;cursor:pointer">'
-      + (colorDe && v!=='(vacío)' ? _cDot(colorDe(v),7) : '')
-      + '<span style="flex:1;'+(v==='(vacío)'?'color:var(--text3);font-style:italic':'')+'">'+escapeHtml(t)+'</span><span style="font-size:0.66rem;color:var(--text3)">'+n+'</span></label>';
-  };
-  const etiquetaSum = compacto ? '<span><span style="color:var(--text3);font-weight:600">'+label+':</span> '+escapeHtml(resumen)+'</span>' : escapeHtml(resumen);
-  return '<div style="display:flex;flex-direction:column;gap:0.25rem;font-size:0.66rem;color:var(--text3);font-weight:600;position:relative">'+(compacto?'':label)
-    + '<details '+(abierto?'open':'')+' ontoggle="if(this.open){_cantera._multiAbierto=\''+campo+'\';}else if(_cantera._multiAbierto===\''+campo+'\'){_cantera._multiAbierto=null;}" style="position:relative">'
-    + '<summary style="'+ctrl+';cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;'+(sel.length?'color:var(--text);border-color:var(--text3);font-weight:600;background:rgba(59,158,221,0.07)':'')+'">'+etiquetaSum+'<span style="font-size:0.6rem;opacity:0.6">▾</span></summary>'
-    + '<div style="position:absolute;z-index:30;top:calc(100% + 4px);left:0;min-width:220px;max-height:320px;overflow:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);padding:0.4rem">'
-    + '<div style="display:flex;gap:0.6rem;padding:0.15rem 0.35rem 0.4rem;border-bottom:1px solid var(--border);margin-bottom:0.3rem">'
-    +   '<button onclick="_canteraSoloMulti(\''+campo+'\','+escapeHtml(JSON.stringify(opciones))+')" style="font-size:0.68rem;background:none;border:none;color:var(--text2);cursor:pointer;font-family:var(--font);text-decoration:underline">Marcar todos</button>'
-    +   '<button onclick="_canteraSoloMulti(\''+campo+'\',[])" style="font-size:0.68rem;background:none;border:none;color:var(--text2);cursor:pointer;font-family:var(--font);text-decoration:underline">Ninguno</button>'
-    +   '<span style="flex:1"></span>'
-    +   '<button onclick="_canteraEditorOpciones(\''+tipoEditor+'\')" title="Añadir, renombrar, borrar o reordenar" style="font-size:0.68rem;background:none;border:none;color:var(--aire);cursor:pointer;font-family:var(--font);font-weight:700">⚙ Editar</button>'
-    + '</div>'
-    + todas.map(fila).join('')
-    + '</div></details></div>';
 }
 function _canteraFiltrados(){
   const f = _cantera.filtros;
@@ -20448,6 +20530,7 @@ function _canteraFiltrados(){
     if(!_cMultiPasa(f.estados, c.estado, nombresEstado)) return false;
     if(!_cMultiPasa(f.niveles, c.nivel, _canteraNiveles())) return false;
     if(!_cMultiPasa(f.destrezas, c.destreza, _canteraDestrezas().map(d=>d.nombre))) return false;
+    if(!_cMultiPasa(f.seguimientos, c.seguimiento, _canteraSeguimientos().map(x=>x.nombre))) return false;
     if(f.etapa && (c.etapa||'')!==f.etapa) return false;
     if(f.estado==='(sin estatus)'){ if(nombresEstado.includes(c.estado||'')) return false; }
     else if(f.estado && (c.estado||'')!==f.estado) return false;
@@ -20631,7 +20714,7 @@ function _canteraTogglePanelFiltros(){
   _canteraRenderLista(document.getElementById('cantera-content'));
 }
 function _canteraLimpiarFiltros(){
-  _cantera.filtros={q:'',rol:'',nivel:'',etapa:'',depto:'',estado:'',ciudad:'',verificado:'',destreza:'',estados:[],niveles:[],destrezas:[]};
+  _cantera.filtros={q:'',rol:'',nivel:'',etapa:'',depto:'',estado:'',ciudad:'',verificado:'',destreza:'',estados:[],niveles:[],destrezas:[],seguimientos:[]};
   _cantera._multiAbierto=null;
   _canteraRenderLista(document.getElementById('cantera-content'));
 }
@@ -20751,7 +20834,7 @@ function _canteraRenderLista(cont){
       if(v==='(sin asignar)') v='Sin asignar';
       h += '<button onclick="setCanteraFiltro(\''+k+'\',\'\')" title="Quitar filtro" style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.72rem;padding:0.22rem 0.55rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font)"><span style="color:var(--text3)">'+etiquetas[k]+':</span> '+escapeHtml(v)+' <span style="color:var(--text3)">✕</span></button>';
     });
-    [['estados','Estatus','Sin estatus'],['niveles','Nivel','Sin nivel'],['destrezas','Destreza','Sin destreza']].forEach(([k,et,vac])=>{
+    [['estados','Estatus','Sin estatus'],['seguimientos','Proceso','Sin proceso'],['niveles','Nivel','Sin nivel'],['destrezas','Destreza','Sin destreza']].forEach(([k,et,vac])=>{
       if(!Array.isArray(f[k]) || !f[k].length) return;
       const txt = f[k].map(v=>v==='(vacío)'?vac:v).join(', ');
       h += '<button onclick="_canteraSoloMulti(\''+k+'\',[]);_cantera._multiAbierto=null" title="Quitar filtro" style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.72rem;padding:0.22rem 0.55rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);cursor:pointer;font-family:var(--font)"><span style="color:var(--text3)">'+et+':</span> '+escapeHtml(txt)+' <span style="color:var(--text3)">✕</span></button>';
@@ -20782,7 +20865,7 @@ function _canteraRenderLista(cont){
               + (pinfo.ctx?'<div style="font-size:0.68rem;color:var(--text3);'+_trunc+'">'+escapeHtml(pinfo.ctx)+'</div>':'')
             : '<span style="color:var(--text3)">—</span>')
         + '</td>'
-      + '<td style="font-size:0.76rem;color:var(--text2);'+_trunc+'" title="'+escapeHtml(c.rol||'')+'">'+escapeHtml(c.rol||'—')+'</td>'
+      + '<td title="'+escapeHtml(c.rol||'')+'"><div style="font-size:0.74rem;line-height:1.25;color:var(--text2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word">'+escapeHtml(c.rol||'—')+'</div></td>'
       + _cCeldasPerfil(c, _trunc)
       + '<td style="'+_trunc+'" onclick="event.stopPropagation();_canteraEditarDepto(\''+c.id+'\')" title="Clic para editar departamento">'+_canteraDeptoTxt(c)+'</td>'
       + '<td style="font-size:0.76rem;color:var(--text2);'+_trunc+'">'+escapeHtml(c.ciudad||'—')+'</td>'
@@ -20790,6 +20873,7 @@ function _canteraRenderLista(cont){
       + '<td>'+_cFitInter(c,'_base')+'</td>'
       + '<td style="'+_trunc+'">'+_cTag(c.estado, _canteraColorEstado(c.estado))+'</td>'
       + '<td style="'+_trunc+'">'+_cTag(c.destreza, _canteraColorDestreza(c.destreza))+'</td>'
+      + '<td onclick="event.stopPropagation()" style="'+_trunc+'">'+_cSeguimientoCelda(c)+'</td>'
       + '<td onclick="event.stopPropagation()">'+_cCV(c)+'</td>'
       + '</tr>';
   };
@@ -20798,18 +20882,18 @@ function _canteraRenderLista(cont){
     const flecha = s.col===campo ? (s.dir==='asc'?' ↑':' ↓') : '';
     return '<th onclick="_canteraSortBase(\''+campo+'\')" style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;'+(align?'text-align:'+align:'')+'" title="Ordenar">'+label+flecha+'</th>';
   };
-  const colgroup = '<colgroup><col style="width:3%"><col style="width:12%"><col style="width:9%"><col style="width:8%"><col style="width:10%"><col style="width:4%"><col style="width:4%"><col style="width:7%"><col style="width:6%"><col style="width:7%"><col style="width:9%"><col style="width:8%"><col style="width:5%"><col style="width:8%"></colgroup>';
+  const colgroup = '<colgroup><col style="width:3%"><col style="width:10%"><col style="width:8%"><col style="width:9%"><col style="width:7%"><col style="width:3%"><col style="width:4%"><col style="width:6%"><col style="width:6%"><col style="width:6%"><col style="width:7%"><col style="width:8%"><col style="width:6%"><col style="width:11%"><col style="width:6%"></colgroup>';
   const thBase = (lista)=> '<thead><tr>'
       + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;text-align:center;cursor:default"><input type="checkbox" '+(lista.length && lista.every(c=>_canteraSelDe('base').has(c.id))?'checked':'')+' onchange="_canteraBaseSelVarios(\''+lista.map(c=>c.id).join(',')+'\', this.checked)" title="Seleccionar todos" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></th>'
-      + _thSort('nombre','Candidato') + _thSort('proceso_texto','Proceso') + _thSort('rol','Rol')
+      + _thSort('nombre','Candidato') + _thSort('proceso_texto','Proyecto') + _thSort('rol','Rol')
       + _thSort('universidad','Universidad') + _thSort('sexo','Sexo','center') + _thSort('_edad','Edad','center')
       + _thSort('_depto','Depto') + _thSort('ciudad','Ciudad') + _thSort('fecha_inclusion','Incluido') + _thSort('fit','Fit')
-      + _thSort('estado','Estatus') + _thSort('destreza','Destreza')
+      + _thSort('estado','Estatus') + _thSort('destreza','Destreza') + _thSort('seguimiento','Proceso')
       + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">CV / Portafolio</th>'
       + '</tr></thead>';
   const tabla = (lista, resaltar, maxH)=>
     '<div class="c-tscroll" style="border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:'+maxH+';background:var(--bg-card)">'
-    + '<table class="tray-table" style="min-width:1180px;table-layout:fixed">'+colgroup+thBase(lista)+'<tbody>'
+    + '<table class="tray-table" style="min-width:1320px;table-layout:fixed">'+colgroup+thBase(lista)+'<tbody>'
     + lista.map(c=>filaBase(c, resaltar)).join('')
     + '</tbody></table></div>';
 
@@ -20961,12 +21045,13 @@ function _canteraRenderProyecto(cont){
       + '<td onclick="event.stopPropagation()" style="text-align:center"><input type="checkbox" '+(marcado?'checked':'')+' onchange="_canteraMatchSel(\''+c.id+'\', this.checked)" title="Seleccionar para re-evaluar" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></td>'
       + '<td style="'+_tr+'"><div style="font-size:0.82rem;font-weight:600;color:var(--text);'+_tr+'">'+escapeHtml(c.nombre||'—')+(c.verificado?' <span title="Verificado" style="color:#30a46c;font-size:0.72rem">✓</span>':'')+'</div>'
       + (c.actual?'<div style="font-size:0.68rem;color:var(--text3);'+_tr+'">'+escapeHtml(c.actual)+'</div>':'')+_canteraChipCoincide(c)+'</td>'
-      + '<td style="font-size:0.76rem;color:var(--text2);'+_tr+'">'+escapeHtml(c.rol||'—')+'</td>'
+      + '<td title="'+escapeHtml(c.rol||'')+'"><div style="font-size:0.74rem;line-height:1.25;color:var(--text2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word">'+escapeHtml(c.rol||'—')+'</div></td>'
       + _cCeldasPerfil(c, _tr)
       + '<td style="font-size:0.76rem;color:var(--text2);'+_tr+'">'+escapeHtml(c.nivel||'—')+'</td>'
       + '<td>'+_cFitProy(c, conv.id)+'</td>'
       + '<td style="'+_tr+'">'+_cTag(c.estado, _canteraColorEstado(c.estado))+'</td>'
       + '<td style="'+_tr+'">'+(c.destreza?_cTag(c.destreza, _canteraColorDestreza(c.destreza)):'<span style="font-size:0.74rem;color:var(--text3)">—</span>')+'</td>'
+      + '<td onclick="event.stopPropagation()" style="'+_tr+'">'+_cSeguimientoCelda(c)+'</td>'
       + '<td onclick="event.stopPropagation()">'+_cCV(c)+'</td>'
       + '<td style="text-align:right;white-space:nowrap" onclick="event.stopPropagation()">'+botonAplic+'</td>'
       + '</tr>';
@@ -20984,11 +21069,11 @@ function _canteraRenderProyecto(cont){
     if(!colapsada){
       if(lista.length){
         s += '<div class="c-tscroll" style="border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:max(520px, calc(100vh - 190px));background:var(--bg-card)">'
-          + '<table class="tray-table" style="min-width:880px;table-layout:fixed">'
-          + '<colgroup><col style="width:4%"><col style="width:16%"><col style="width:10%"><col style="width:11%"><col style="width:4%"><col style="width:4%"><col style="width:7%"><col style="width:10%"><col style="width:10%"><col style="width:9%"><col style="width:9%"><col style="width:6%"></colgroup>'
+          + '<table class="tray-table" style="min-width:1020px;table-layout:fixed">'
+          + '<colgroup><col style="width:3%"><col style="width:13%"><col style="width:11%"><col style="width:8%"><col style="width:4%"><col style="width:4%"><col style="width:6%"><col style="width:8%"><col style="width:9%"><col style="width:8%"><col style="width:13%"><col style="width:8%"><col style="width:5%"></colgroup>'
           + '<thead><tr>'
           + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;text-align:center;cursor:default"><input type="checkbox" '+(lista.length && lista.every(c=>msel.has(c.id))?'checked':'')+' onchange="_canteraMatchSelVarios(\''+lista.map(c=>c.id).join(',')+'\', this.checked)" title="Seleccionar todos de esta sección" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></th>'
-          + ['Candidato','Rol','Universidad','Sexo','Edad','Nivel','Fit','Estatus','Destreza','CV / Portafolio',''].map(t=>'<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">'+t+'</th>').join('')
+          + ['Candidato','Rol','Universidad','Sexo','Edad','Nivel','Fit','Estatus','Destreza','Proceso','CV / Portafolio',''].map(t=>'<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">'+t+'</th>').join('')
           + '</tr></thead><tbody>'+lista.map(c=>filaCand(c, conBotonAplicar)).join('')+'</tbody></table></div>';
       } else {
         s += '<div style="font-size:0.76rem;color:var(--text3);padding:0.2rem 0 0.4rem 1.1rem">'+vacio+'</div>';
@@ -21132,6 +21217,7 @@ function _canteraBarraLote(scope, conv){
     + (otros.length ? '<select onchange="_canteraLoteProceso(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Asignar a proceso…')+otros.map(cv=>opt(cv.id,cv.cargo+(cv.estado==='cerrada'?' (cerrado)':''))).join('')+'</select>' : '')
     + '<select onchange="_canteraLoteCanal(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Canal…')+_canteraCanalesUsados().map(k=>opt(k,(CANTERA_CANAL_ICONO[k]||'📥')+' '+k)).join('')+'</select>'
     + '<select onchange="_canteraLoteDepto(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Departamento…')+CANTERA_DEPTOS.map(d=>opt(d,d)).join('')+'</select>'
+    + '<select onchange="_canteraLoteSeguimiento(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Proceso…')+_canteraSeguimientos().map(d=>opt(d.nombre,d.nombre)).join('')+opt('(ninguno)','Sin proceso')+'</select>'
     + '<select onchange="_canteraLoteDestreza(\''+scope+'\',this.value);this.value=\'\'" style="'+st+'">'+opt('','Destreza…')+_canteraDestrezas().map(d=>opt(d.nombre,d.nombre)).join('')+opt('(ninguna)','Sin destreza')+'</select>'
     + '<button onclick="_canteraLoteVerificar(\''+scope+'\',true)" style="'+st+'">✓ Verificar</button>'
     + (scope==='proy'&&conv ? '<button onclick="_canteraLoteQuitarProceso(\''+scope+'\',\''+conv.id+'\')" style="'+st+'">Quitar de este proceso</button>' : '')
@@ -22803,6 +22889,7 @@ const _C_OPC = {
   estado:  { titulo:'Estatus del proceso', campo:'estado',  vacio:'sin estatus',  color:true,  lista:()=>_canteraEstados().map(e=>({nombre:e.nombre,color:e.color})) },
   nivel:   { titulo:'Niveles',             campo:'nivel',   vacio:'sin nivel',    color:false, lista:()=>_canteraNiveles().map(n=>({nombre:n})) },
   destreza:{ titulo:'Destrezas',           campo:'destreza',vacio:'sin destreza', color:true,  lista:()=>_canteraDestrezas().map(e=>({nombre:e.nombre,color:e.color})) },
+  seguimiento:{ titulo:'Proceso',          campo:'seguimiento',vacio:'sin proceso', color:true, lista:()=>_canteraSeguimientos().map(e=>({nombre:e.nombre,color:e.color})) },
 };
 function _canteraEditorOpciones(tipo){
   const cfg=_C_OPC[tipo]; if(!cfg) return;
@@ -22867,6 +22954,7 @@ async function _canteraGuardarOpciones(){
   try{
     if(ed.tipo==='estado'){ const l=items.map(e=>({nombre:e.nombre,color:e.color||'#94a3b8'})); await canteraAPI('save_estados',{estados:l}); _cantera.estados=l; }
     else if(ed.tipo==='destreza'){ const l=items.map(e=>({nombre:e.nombre,color:e.color||'#94a3b8'})); await canteraAPI('save_destrezas',{destrezas:l}); _cantera.destrezas=l; }
+    else if(ed.tipo==='seguimiento'){ appData.canteraSeguimiento = items.map(e=>({nombre:e.nombre,color:e.color||'#94a3b8'})); markLocalChange('canteraSeguimiento'); await upsert(); }
     else { appData.canteraNiveles = items.map(e=>e.nombre); markLocalChange('canteraNiveles'); await upsert(); }
   }catch(e){ showStatus('No se guardaron las opciones: '+(e.message||''), true); return; }
   window._opcEdit=null; closeTrayModal();
@@ -22874,7 +22962,7 @@ async function _canteraGuardarOpciones(){
   const campo=cfg.campo;
   const afectados = (_cantera.candidatos||[]).filter(c=>c[campo] && (renombres[c[campo]]!==undefined || borradas.includes(c[campo])));
   // filtros activos que apuntaban a nombres viejos
-  const f=_cantera.filtros; const mk={estado:'estados',nivel:'niveles',destreza:'destrezas'}[ed.tipo];
+  const f=_cantera.filtros; const mk={estado:'estados',nivel:'niveles',destreza:'destrezas',seguimiento:'seguimientos'}[ed.tipo];
   if(Array.isArray(f[mk])) f[mk]=f[mk].map(v=>renombres[v]||v).filter(v=>!borradas.includes(v));
   if(f[campo]){ if(renombres[f[campo]]) f[campo]=renombres[f[campo]]; else if(borradas.includes(f[campo])) f[campo]=''; }
   let ok=0, err=0;
@@ -22882,6 +22970,7 @@ async function _canteraGuardarOpciones(){
     const c=afectados[i]; const nuevo = renombres[c[campo]]!==undefined ? renombres[c[campo]] : '';
     _canteraBarraProgreso('Actualizando perfiles… '+(i+1)+' de '+afectados.length, (i+1)/afectados.length);
     try{
+      if(campo==='seguimiento'){ await canteraWebAPI({ action:'set_perfil', cand_id:c.id, data:{ seguimiento:nuevo } }); c[campo]=nuevo; ok++; continue; }
       const row = await canteraAPI('save_candidato', { data:{ id:c.id, rev:c.rev, nombre:c.nombre||'Sin nombre', [campo]:nuevo } });
       if(row && !row.conflict){ c[campo]=nuevo; if(row.rev!=null) c.rev=row.rev; ok++; } else err++;
     }catch(e){ console.warn('opciones', c.nombre, e); err++; }
@@ -23209,6 +23298,10 @@ function _canteraRenderFicha(esNuevo){
       ${inp('email','Email', c.email, 'correo@ejemplo.com')}
       ${inp('telefono','Teléfono', c.telefono, '09...')}
     </div>
+    ${c.id ? `<div style="margin-bottom:0.7rem">
+      <label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">📞 Proceso</label>
+      <div style="display:flex;flex-wrap:wrap;gap:0.35rem">${_canteraSeguimientos().map(o=>{ const on=(c.seguimiento||'')===o.nombre; return `<button type="button" onclick="_canteraSetSeguimiento('${c.id}', ${on?"''":"'"+_cJsq(o.nombre)+"'"});const e=window._canteraFichaEdit;if(e){e.seguimiento=${on?"''":"'"+_cJsq(o.nombre)+"'"};_canteraRenderFicha(false);}" style="font-size:0.74rem;font-weight:600;padding:0.32rem 0.7rem;border-radius:99px;border:1.5px solid ${on?o.color:'var(--border)'};background:${on?o.color+'26':'var(--bg-card)'};color:var(--text);cursor:pointer;font-family:var(--font)">${on?'✓ ':''}${escapeHtml(o.nombre)}</button>`; }).join('')}</div>
+    </div>` : ''}
     <!-- Cargo al que postula (automático desde el proyecto donde aplicó) -->
     <div style="margin-bottom:0.7rem">
       <label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">Cargo al que postula</label>
@@ -29238,7 +29331,7 @@ function _fechaHito(a){ return (a && (a.startDate || a.endDate)) || ''; }
 // Compara, para TODAS las marcas reales, la fecha de cada hito en el cronograma con la
 // fecha en que aparece en los paneles (semana/mes, próximos hitos, equipo).
 function auditarFechasPaneles(){
-  const errores=[]; let revisados=0;
+  const errores=[]; let revisados=0; const avisos={ sinMiembro:{}, pausadas:new Set() };
   _marcasReales().forEach(b=>{
     const ids=_domoAllIds(b.domo||{});
     ['aire','agua','tierra','fuego'].forEach(st=>(b.cronograma?.[st]||[]).forEach(a=>{
@@ -29246,8 +29339,11 @@ function auditarFechasPaneles(){
       revisados++;
       const esperado=a.startDate||a.endDate;
       ids.forEach(mid=>{
+        const mem=(appData.members||[]).find(m=>m.id===mid);
+        if(!mem){ (avisos.sinMiembro[b.name]=avisos.sinMiembro[b.name]||new Set()).add(mid); return; }   // id en el domo que ya no existe en Equipo
+        if(b.paused){ avisos.pausadas.add(b.name); return; }   // marca en pausa: sus hitos no se muestran (normal)
         const h=getMemberHitos(mid).find(x=>x.actId===a.id && x.type==='oficial');
-        if(!h) errores.push(b.name+' · '+a.name+': no aparece en el panel de '+mid);
+        if(!h) errores.push(b.name+' · '+a.name+': no aparece en el panel de '+(mem.apodo||mem.nombre||mid));
         else if(h.date!==esperado) errores.push(b.name+' · '+a.name+': cronograma '+esperado+' ≠ panel '+h.date);
       });
       const p=_hitosDe([b]).find(x=>x.actId===a.id);
@@ -29255,7 +29351,10 @@ function auditarFechasPaneles(){
     }));
   });
   console.log(errores.length ? '⚠️ '+errores.length+' diferencias:\n'+errores.join('\n') : '✅ '+revisados+' hitos en '+_marcasReales().length+' marcas: todas las fechas de los paneles coinciden con el cronograma');
-  return { revisados, errores };
+  const sm=Object.entries(avisos.sinMiembro);
+  if(sm.length) console.log('ℹ️ Domos con personas que ya NO están en Equipo (sus hitos no le salen a nadie con ese id):\n'+sm.map(([m,ids])=>'· '+m+': '+[...ids].join(', ')).join('\n')+'\n→ Abre esa marca → Domo y reasigna a la persona correcta.');
+  if(avisos.pausadas.size) console.log('ℹ️ Marcas en pausa (sus hitos no se muestran en los paneles, es lo esperado): '+[...avisos.pausadas].join(', '));
+  return { revisados, errores, domosConIdsViejos: Object.fromEntries(sm.map(([m,ids])=>[m,[...ids]])), pausadas:[...avisos.pausadas] };
 }
 function getMemberHitos(memberId) {
   ensureTeamData();
