@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261021-v495-HITO-EN-SU-FECHA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261021-v496-FECHAS-AUDITORIA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 495;
+const APP_VERSION = 496;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -29234,6 +29234,29 @@ async function memberDrop(event, targetId){
 // Fecha en la que se MUESTRA un hito en paneles y calendarios: la misma que se ve en el
 // cronograma (el día en que está agendado = fecha de inicio). Si no tiene, la de fin.
 function _fechaHito(a){ return (a && (a.startDate || a.endDate)) || ''; }
+// 🔍 Auditoría (consola): await auditarFechasPaneles()
+// Compara, para TODAS las marcas reales, la fecha de cada hito en el cronograma con la
+// fecha en que aparece en los paneles (semana/mes, próximos hitos, equipo).
+function auditarFechasPaneles(){
+  const errores=[]; let revisados=0;
+  _marcasReales().forEach(b=>{
+    const ids=_domoAllIds(b.domo||{});
+    ['aire','agua','tierra','fuego'].forEach(st=>(b.cronograma?.[st]||[]).forEach(a=>{
+      if(!a.isHito || !_fechaHito(a)) return;
+      revisados++;
+      const esperado=a.startDate||a.endDate;
+      ids.forEach(mid=>{
+        const h=getMemberHitos(mid).find(x=>x.actId===a.id && x.type==='oficial');
+        if(!h) errores.push(b.name+' · '+a.name+': no aparece en el panel de '+mid);
+        else if(h.date!==esperado) errores.push(b.name+' · '+a.name+': cronograma '+esperado+' ≠ panel '+h.date);
+      });
+      const p=_hitosDe([b]).find(x=>x.actId===a.id);
+      if(p && p.fecha!==esperado) errores.push(b.name+' · '+a.name+': próximos hitos '+p.fecha+' ≠ '+esperado);
+    }));
+  });
+  console.log(errores.length ? '⚠️ '+errores.length+' diferencias:\n'+errores.join('\n') : '✅ '+revisados+' hitos en '+_marcasReales().length+' marcas: todas las fechas de los paneles coinciden con el cronograma');
+  return { revisados, errores };
+}
 function getMemberHitos(memberId) {
   ensureTeamData();
   const member = appData.members.find(m => m.id === memberId);
@@ -29955,9 +29978,9 @@ function renderPmContent(){
     const key=[b.domo.m1,b.domo.m2].filter(Boolean).sort().join('_');
     if(!domoMap[key]) domoMap[key]={key,m1:b.domo.m1,m2:b.domo.m2,hitosMes:0,hitosTrim:0};
     Object.values(b.cronograma||{}).flat().forEach(a=>{
-      if(a.isHito&&a.status==='completada'&&a.endDate){
-        if(a.endDate.slice(0,7)===mesStr) domoMap[key].hitosMes++;
-        if(a.endDate>=trimStr) domoMap[key].hitosTrim++;
+      if(a.isHito&&a.status==='completada'&&_fechaHito(a)){
+        if(_fechaHito(a).slice(0,7)===mesStr) domoMap[key].hitosMes++;
+        if(_fechaHito(a)>=trimStr) domoMap[key].hitosTrim++;
       }
     });
   });
@@ -29969,9 +29992,9 @@ function renderPmContent(){
     let hitosMes=0,hitosTrim=0;
     myBrands.forEach(b=>{
       Object.values(b.cronograma||{}).flat().forEach(a=>{
-        if(a.isHito&&a.status==='completada'&&a.endDate){
-          if(a.endDate.slice(0,7)===mesStr) hitosMes++;
-          if(a.endDate>=trimStr) hitosTrim++;
+        if(a.isHito&&a.status==='completada'&&_fechaHito(a)){
+          if(_fechaHito(a).slice(0,7)===mesStr) hitosMes++;
+          if(_fechaHito(a)>=trimStr) hitosTrim++;
         }
       });
     });
@@ -30647,10 +30670,11 @@ function renderEqWeekPM(){
       ['aire','agua','tierra','fuego'].forEach(stage=>{
         (brand.cronograma?.[stage]||[]).forEach((act,idx)=>{
           if(!act.endDate) return;
-          // Calculate start date: previous act's endDate + 1 workday, or stage start
+          // Fecha de inicio: la REAL del cronograma. Solo si no tiene, se estima como antes.
           const stageActs = brand.cronograma[stage];
           let startDate = act.endDate; // fallback: same as end
-          if(idx===0){
+          if(act.startDate){ startDate = act.startDate; }
+          else if(idx===0){
             // First act: starts at beginning of stage (use endDate - duration workdays)
             startDate = shiftWD(act.endDate, -(act.days||1)+1);
           } else {
@@ -36492,7 +36516,7 @@ function exportBrandCronoXLSX(){
   const data = [];
   stages.forEach(s=>{
     (brand.cronograma?.[s]||[]).forEach(a=>{
-      data.push({ Etapa:{aire:'Aire',agua:'Agua',tierra:'Tierra',fuego:'Fuego'}[s], Hito:a.isHito?'Sí':'', Actividad:a.name, Status:{pendiente:'Pendiente','en progreso':'En progreso',completada:'Completada'}[a.status]||a.status, 'Fecha entrega':a.endDate||'', 'Días':a.days||'' });
+      data.push({ Etapa:{aire:'Aire',agua:'Agua',tierra:'Tierra',fuego:'Fuego'}[s], Hito:a.isHito?'Sí':'', Actividad:a.name, Status:{pendiente:'Pendiente','en progreso':'En progreso',completada:'Completada'}[a.status]||a.status, 'Fecha inicio':a.startDate||'', 'Fecha entrega':a.endDate||'', 'Días':a.days||'' });
     });
   });
   saveXLSX(xlsxBook([{name:'Cronograma', data}]), `Polen_Crono_${brand.name}_${new Date().toISOString().slice(0,10)}`);
@@ -36697,7 +36721,7 @@ function exportPortalPDF(){
     doc.setTextColor(...EX.white); doc.setFontSize(8); doc.setFont(undefined,'bold');
     doc.text(`${stageLabel(s)} — ${done}/${acts.length}`, 18, y+4.2);
     y+=8;
-    const rows = acts.map(a=>[ a.isHito?'★':'', a.name, {pendiente:'Pendiente','en progreso':'En progreso',completada:'✓ Completada'}[a.status]||a.status, a.endDate||'—' ]);
+    const rows = acts.map(a=>[ a.isHito?'★':'', a.name, {pendiente:'Pendiente','en progreso':'En progreso',completada:'✓ Completada'}[a.status]||a.status, _fechaHito(a)||'—' ]);
     doc.autoTable({ startY:y, margin:{left:14,right:14},
       head:[['','Actividad','Status','Fecha']],
       body:rows,
