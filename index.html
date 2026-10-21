@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261020-v490-SCROLL-TABLA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261021-v492-SIN-ESPEJOS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 490;
+const APP_VERSION = 492;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -8273,7 +8273,7 @@ function _updateHitosBadge(){
     const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const todayStr=fmtD(today), friStr=fmtD(friday);
     let count=0;
-    (appData.brands||[]).forEach(b=>{
+    _marcasReales().forEach(b=>{
       ['aire','agua','tierra','fuego'].forEach(e=>{
         (b.cronograma?.[e]||[]).forEach(a=>{
           if(a.isHito && a.status!=='completada' && a.endDate>=todayStr && a.endDate<=friStr) count++;
@@ -18322,7 +18322,7 @@ function _usuarioActual(){
 }
 
 function _misMarcas(userId){
-  return (appData.brands||[]).filter(b=>
+  return _marcasReales().filter(b=>
     !b.archivedAt && !b.deletedAt && !b.paused && !b.porIniciar &&
     b.domo && _domoHasMember(b.domo, userId)
   ).sort((a,b)=> (brandProgress(b)||0) - (brandProgress(a)||0)); // más avanzadas arriba
@@ -19682,7 +19682,7 @@ function _miTrabajoDomosLectura(user){
 // Marcas que supervisa un revisor: donde es Director Creativo (brand.director)
 // O Asistencia de Dirección (brand.asisDir).
 function _marcasSupervisadas(userId){
-  return (appData.brands||[]).filter(b=>
+  return _marcasReales().filter(b=>
     b && (b.director===userId || b.asisDir===userId) && !b.archivedAt && !b.deletedAt && !b.paused && !b.porIniciar
   );
 }
@@ -20227,6 +20227,10 @@ function _canteraAplicarRapido(lista, scope, convId){
   const qProy = scope==='proy' ? ((_cantera.filtros||{}).q||'') : '';
   let out = lista.filter(c=>{
     if(qProy && !_canteraCoincide(c, qProy)) return false;
+    if(scope==='proy'){ const ff=_cantera.filtros||{};
+      if(!_cMultiPasa(ff.estados, c.estado, estados)) return false;
+      if(!_cMultiPasa(ff.niveles, c.nivel, _canteraNiveles())) return false;
+      if(!_cMultiPasa(ff.destrezas, c.destreza, _canteraDestrezas().map(d=>d.nombre))) return false; }
     if(st.fit && fitDe(c) < st.fit) return false;
     if(st.nuevos){ const f=_cFechaInc(c); if(!f || (hoy - parseLocalDate(f).getTime()) > st.nuevos*86400000) return false; }
     const arch = Array.isArray(c.archivos)?c.archivos:[];
@@ -20274,6 +20278,14 @@ function _canteraBarraRapida(scope){
     + chip('revisar',null,'👀 Por revisar','Sin estatus o en el primer paso del proceso')
     + chip('cv',null,'📄 Con CV','Tienen el CV en PDF guardado') + chip('port',null,'🎨 Con portafolio','Portafolio en PDF o link')
     + chip('contacto',null,'📇 Con contacto','Tienen correo o teléfono')
+    + '</div>'
+    + '<div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;margin:-0.35rem 0 0.8rem">'
+    + '<span style="font-size:0.7rem;font-weight:700;color:var(--text3)">⛃ Filtrar</span>'
+    + _cMultiFiltroHTML('estados','Estatus', _canteraEstadoNombres(), _canteraColorEstado, 'estado', 'Sin estatus', _cMultiCtrl, true)
+    + _cMultiFiltroHTML('niveles','Nivel', _canteraNiveles(), null, 'nivel', 'Sin nivel', _cMultiCtrl, true)
+    + _cMultiFiltroHTML('destrezas','Destreza', _canteraDestrezas().map(d=>d.nombre), _canteraColorDestreza, 'destreza', 'Sin destreza', _cMultiCtrl, true)
+    + '<span style="flex:1"></span>'
+    + '<button onclick="_canteraMenuPropiedades()" title="Añadir, renombrar, borrar o reordenar las opciones de estatus, nivel y destreza" style="font-size:0.72rem;font-weight:700;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font)">⚙ Editar propiedades</button>'
     + (activos?'<button onclick="_canteraRapLimpiar(\''+scope+'\')" style="font-size:0.7rem;background:none;border:none;color:var(--text3);cursor:pointer;text-decoration:underline;font-family:var(--font)">Quitar filtros</button>':'')
     + '</div>';
 }
@@ -20346,11 +20358,26 @@ function _canteraToggleMulti(campo, valor, on){
   const i = l.indexOf(valor);
   if(on && i<0) l.push(valor); if(!on && i>=0) l.splice(i,1);
   f[campo] = l; _cantera._multiAbierto = campo;
-  _canteraRenderLista(document.getElementById('cantera-content'));
+  renderCantera();
 }
-function _canteraSoloMulti(campo, lista){ _cantera.filtros[campo] = lista; _cantera._multiAbierto = campo; _canteraRenderLista(document.getElementById('cantera-content')); }
+document.addEventListener('click', ev=>{
+  if(!_cantera || !_cantera._multiAbierto) return;
+  if(ev.target.closest && ev.target.closest('details')) return;
+  document.querySelectorAll('#cantera-content details[open]').forEach(d=>d.removeAttribute('open'));
+  _cantera._multiAbierto = null;
+});
+function _canteraSoloMulti(campo, lista){ _cantera.filtros[campo] = lista; _cantera._multiAbierto = campo; renderCantera(); }
 // Desplegable con casillas (varias opciones a la vez) + acceso a editar las opciones
-function _cMultiFiltroHTML(campo, label, opciones, colorDe, tipoEditor, vacioLabel, ctrl){
+const _cMultiCtrl = 'font-size:0.74rem;font-weight:600;padding:0.28rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);font-family:var(--font);gap:0.5rem';
+function _canteraMenuPropiedades(){
+  const b = (tipo, ico, t, d)=>'<button onclick="closeTrayModal();setTimeout(()=>_canteraEditorOpciones(\''+tipo+'\'),60)" style="display:flex;align-items:center;gap:0.8rem;width:100%;text-align:left;padding:0.75rem 0.9rem;margin-bottom:0.5rem;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);cursor:pointer;font-family:var(--font)"><span style="font-size:1.1rem">'+ico+'</span><span><span style="display:block;font-size:0.86rem;font-weight:700;color:var(--text)">'+t+'</span><span style="font-size:0.72rem;color:var(--text3)">'+d+'</span></span></button>';
+  openGenericModal('⚙ Editar propiedades',
+    '<div style="font-size:0.76rem;color:var(--text3);margin-bottom:0.9rem">Añade, renombra, borra o reordena las opciones. Los perfiles se actualizan solos.</div>'
+    + b('estado','🔵','Estatus', _canteraEstadoNombres().length+' pasos del proceso')
+    + b('nivel','📶','Nivel', _canteraNiveles().join(' · '))
+    + b('destreza','🎯','Destreza', _canteraDestrezas().map(d=>d.nombre).join(' · ')));
+}
+function _cMultiFiltroHTML(campo, label, opciones, colorDe, tipoEditor, vacioLabel, ctrl, compacto){
   const f=_cantera.filtros; const sel = Array.isArray(f[campo]) ? f[campo] : [];
   const abierto = _cantera._multiAbierto===campo;
   const resumen = !sel.length ? 'Todos' : (sel.length===1 ? (sel[0]==='(vacío)'?vacioLabel:sel[0]) : sel.length+' seleccionados');
@@ -20363,9 +20390,10 @@ function _cMultiFiltroHTML(campo, label, opciones, colorDe, tipoEditor, vacioLab
       + (colorDe && v!=='(vacío)' ? _cDot(colorDe(v),7) : '')
       + '<span style="flex:1;'+(v==='(vacío)'?'color:var(--text3);font-style:italic':'')+'">'+escapeHtml(t)+'</span><span style="font-size:0.66rem;color:var(--text3)">'+n+'</span></label>';
   };
-  return '<div style="display:flex;flex-direction:column;gap:0.25rem;font-size:0.66rem;color:var(--text3);font-weight:600;position:relative">'+label
+  const etiquetaSum = compacto ? '<span><span style="color:var(--text3);font-weight:600">'+label+':</span> '+escapeHtml(resumen)+'</span>' : escapeHtml(resumen);
+  return '<div style="display:flex;flex-direction:column;gap:0.25rem;font-size:0.66rem;color:var(--text3);font-weight:600;position:relative">'+(compacto?'':label)
     + '<details '+(abierto?'open':'')+' ontoggle="if(this.open){_cantera._multiAbierto=\''+campo+'\';}else if(_cantera._multiAbierto===\''+campo+'\'){_cantera._multiAbierto=null;}" style="position:relative">'
-    + '<summary style="'+ctrl+';cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;'+(sel.length?'color:var(--text);border-color:var(--text3);font-weight:600':'')+'">'+escapeHtml(resumen)+'<span style="font-size:0.6rem;opacity:0.6">▾</span></summary>'
+    + '<summary style="'+ctrl+';cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;'+(sel.length?'color:var(--text);border-color:var(--text3);font-weight:600;background:rgba(59,158,221,0.07)':'')+'">'+etiquetaSum+'<span style="font-size:0.6rem;opacity:0.6">▾</span></summary>'
     + '<div style="position:absolute;z-index:30;top:calc(100% + 4px);left:0;min-width:220px;max-height:320px;overflow:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);padding:0.4rem">'
     + '<div style="display:flex;gap:0.6rem;padding:0.15rem 0.35rem 0.4rem;border-bottom:1px solid var(--border);margin-bottom:0.3rem">'
     +   '<button onclick="_canteraSoloMulti(\''+campo+'\','+escapeHtml(JSON.stringify(opciones))+')" style="font-size:0.68rem;background:none;border:none;color:var(--text2);cursor:pointer;font-family:var(--font);text-decoration:underline">Marcar todos</button>'
@@ -20642,8 +20670,7 @@ function _canteraRenderLista(cont){
   h += '</div>';
 
   // ── Buscador + filtros + vista ──
-  const nFiltros = ['rol','nivel','etapa','depto','ciudad','verificado','destreza','canal'].filter(k=>f[k]).length
-    + ['estados','niveles','destrezas'].filter(k=>Array.isArray(f[k]) && f[k].length).length;
+  const nFiltros = ['rol','nivel','etapa','depto','ciudad','verificado','destreza','canal'].filter(k=>f[k]).length;
   const ctrl = 'font-size:0.78rem;padding:0.42rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);font-family:var(--font)';
   const segBtn = (v, label)=>{
     const on = _cantera.baseVista===v;
@@ -20671,9 +20698,6 @@ function _canteraRenderLista(cont){
       return s + '</select></label>';
     };
     h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.6rem;padding:0.8rem;border:1px solid var(--border);border-radius:10px;background:var(--bg-card);margin-bottom:0.7rem">'
-      + _cMultiFiltroHTML('estados','Estatus', _canteraEstadoNombres(), _canteraColorEstado, 'estado', 'Sin estatus', ctrl)
-      + _cMultiFiltroHTML('niveles','Nivel', _canteraNiveles(), null, 'nivel', 'Sin nivel', ctrl)
-      + _cMultiFiltroHTML('destrezas','Destreza', _canteraDestrezas().map(d=>d.nombre), _canteraColorDestreza, 'destreza', 'Sin destreza', ctrl)
       + sel('rol','Rol', roles)
       + sel('depto','Departamento', CANTERA_DEPTOS.concat([['(sin asignar)','Sin asignar']]))
       + sel('etapa','Etapa', CANTERA_ETAPAS)
@@ -23598,6 +23622,15 @@ function renderDashboard(){
   if(iframe && appData.calendarUrl){
     iframe.src = appData.calendarUrl + '&mode=WEEK&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&bgcolor=%23ffffff';
   }
+  try{
+    const dups = (_tieneRol('admin')||_tieneRol('pm')) ? _marcasDuplicadas() : [];
+    let av = document.getElementById('aviso-marcas-dup');
+    const grid0 = document.getElementById('brands-grid');
+    if(dups.length && grid0){
+      if(!av){ av=document.createElement('div'); av.id='aviso-marcas-dup'; grid0.parentElement.insertBefore(av, grid0); }
+      av.innerHTML = '<div style="display:flex;align-items:center;gap:0.7rem;padding:0.6rem 0.9rem;margin-bottom:0.8rem;border-radius:10px;background:rgba(229,72,77,0.08);border:1px solid rgba(229,72,77,0.3);font-size:0.78rem;color:var(--text)">⚠ <span style="flex:1">Hay marcas repetidas con cronogramas distintos: <b>'+dups.map(l=>escapeHtml(l[0].name)+' ('+l.length+')').join(', ')+'</b>. Puede causar fechas cruzadas en los paneles.</span><button onclick="_verMarcasDuplicadas()" style="font-size:0.74rem;font-weight:700;padding:0.3rem 0.7rem;border-radius:8px;border:none;background:#e5484d;color:#fff;cursor:pointer;font-family:var(--font)">Revisar</button></div>';
+    } else if(av){ av.remove(); }
+  }catch(e){}
   const activeNonPaused = brands.filter(b=>!b.paused && !b.porIniciar);
   const porIniciarBrands = brands.filter(b=>b.porIniciar && !b.archivedAt && !b.deletedAt);
   (document.getElementById('total-count')||{}).textContent=activeNonPaused.length;
@@ -23774,7 +23807,62 @@ function _findArchivedBrand(id){
   const fila = window._bit && _bit.archivo && _bit.archivo[id];
   return (fila && fila.snapshot && fila.snapshot.marca) ? Object.assign({}, fila.snapshot.marca, { archivedAt: fila.archivada_en }) : null;
 }
+// ══════════════════════════════════════════════════════════════════════════
+// 🔒 UNA SOLA FUENTE: las marcas REALES del dashboard.
+// Los demos (de prospectos) y las marcas archivadas se inyectan TEMPORALMENTE en
+// appData.brands para poder verlas con la página de marca. Si quedaban ahí (p. ej. al
+// confirmar un demo y saltar directo a la marca nueva sin salir de la página de marca),
+// el panel personal y la vista de equipo mostraban SUS hitos — con las fechas del demo —
+// y al hacer clic llevaban a ese "espejo" de la marca. Todo lo que calcula hitos o
+// marcas de una persona usa ahora solo las marcas reales.
+// ══════════════════════════════════════════════════════════════════════════
+function _esMarcaReal(b){
+  if(!b || !b.id) return false;
+  if(b.archivedAt || b.deletedAt) return false;
+  if(b.isDemo === true || String(b.id).indexOf('demo_')===0) return false;
+  if(window._demoViewIds && window._demoViewIds.has(b.id)) return false;
+  if(window._archivedViewIds && window._archivedViewIds.has(b.id)) return false;
+  if((appData.demos||[]).some(d=>d && d.id===b.id)) return false;
+  return true;
+}
+function _marcasReales(){ return (appData.brands||[]).filter(_esMarcaReal); }
+// Marcas reales con el MISMO nombre (copias duplicadas): para el aviso del dashboard
+function _marcasDuplicadas(){
+  const g = {};
+  _marcasReales().forEach(b=>{ const k=String(b.name||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,''); if(!k) return; (g[k]=g[k]||[]).push(b); });
+  return Object.values(g).filter(l=>l.length>1);
+}
+function _cronoResumen(b){
+  const acts=[]; ['aire','agua','tierra','fuego'].forEach(st=>(b.cronograma?.[st]||[]).forEach(a=>acts.push(a)));
+  const f=acts.map(a=>a.startDate).filter(Boolean).sort();
+  const hitos=acts.filter(a=>a.isHito && a.endDate).length;
+  return { n:acts.length, hitos, desde:f[0]||'', hasta:acts.map(a=>a.endDate).filter(Boolean).sort().pop()||'' };
+}
+function _verMarcasDuplicadas(){
+  const grupos=_marcasDuplicadas();
+  if(!grupos.length){ showStatus('No hay marcas repetidas ✓'); return; }
+  const fila = b=>{ const r=_cronoResumen(b); const dom=_domoAllIds(b.domo||{}).map(id=>{const m=(appData.members||[]).find(x=>x.id===id); return m?(m.apodo||m.nombre):'';}).filter(Boolean).join(', ');
+    return `<div style="display:flex;align-items:center;gap:0.7rem;padding:0.6rem 0.7rem;border:1px solid var(--border);border-radius:10px;margin-bottom:0.45rem;background:var(--bg-card)">
+      <div style="flex:1;min-width:0;font-size:0.74rem;color:var(--text2);line-height:1.45">
+        <div style="font-weight:700;color:var(--text);font-size:0.82rem">${escapeHtml(b.name)} ${b.porIniciar?'<span style="font-size:0.66rem;color:#5aaa35">· por iniciar</span>':''}${b.createdFromCrm?' <span style="font-size:0.66rem;color:var(--text3)">· creada desde CRM</span>':''}</div>
+        Creada ${b.createdAt?fmtDateDisplay(String(b.createdAt).slice(0,10)):'—'} · ${r.n} actividades · ${r.hitos} hitos${r.desde?' · '+fmtDateDisplay(r.desde)+' → '+fmtDateDisplay(r.hasta):' · sin fechas'}
+        <div style="font-size:0.68rem;color:var(--text3)">Domo: ${escapeHtml(dom||'—')} · id ${escapeHtml(String(b.id).slice(0,10))}</div>
+      </div>
+      <button onclick="closeTrayModal();openBrand('${b.id}')" style="font-size:0.74rem;font-weight:600;padding:0.35rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);cursor:pointer;font-family:var(--font)">Abrir</button>
+    </div>`; };
+  openGenericModal('⚠ Marcas repetidas',
+    `<div style="font-size:0.76rem;color:var(--text3);margin-bottom:0.9rem">Estas marcas existen más de una vez, cada una con su propio cronograma. Ábrelas, decide cuál es la buena y archiva la otra desde su página (así no se pierde nada: queda en la papelera).</div>`
+    + grupos.map(l=>`<div style="margin-bottom:0.9rem">${l.map(fila).join('')}</div>`).join(''));
+}
+// Quita de appData.brands los demos / archivadas inyectadas para verlas, excepto `salvoId`
+function _limpiarVistasTemporales(salvoId){
+  try{
+    if(window._demoViewIds && window._demoViewIds.size && !window._demoViewIds.has(salvoId)) _clearDemoView();
+    if(window._archivedViewIds && window._archivedViewIds.size && !window._archivedViewIds.has(salvoId)) _clearArchivedView();
+  }catch(e){ console.warn('limpiar vistas temporales:', e); }
+}
 function openBrand(id){
+  _limpiarVistasTemporales(id);
   // Si la marca no está activa, puede ser una archivada: la inyectamos TEMPORALMENTE
   // (solo para visualizar). Se excluye del guardado y se limpia al salir de la página.
   if(!(appData.brands||[]).some(b=>b.id===id)){
@@ -28507,7 +28595,7 @@ function getAreaEmoji(areaId){
 
 function getBrandIdsForMember(memberId){
   const ids = [];
-  (appData.brands||[]).forEach(b=>{
+  _marcasReales().forEach(b=>{
     const domo = b.domo;
     if(!domo) return;
     const all = [...(domo.principales||[]), ...(domo.astronautas||[])];
@@ -29067,7 +29155,7 @@ function getMemberHitos(memberId) {
   // Set de brandIds ya añadidos como DC para evitar duplicados si también está en el domo
   const dcBrandIds = new Set();
 
-  (appData.brands || []).forEach(brand => {
+  _marcasReales().forEach(brand => {
     if(brand.paused || brand.archivedAt || brand.deletedAt) return; // skip paused/archived
     const domo = brand.domo;
     const inDomo = domo && (_domoHasMember(domo, memberId));
@@ -29169,7 +29257,7 @@ function subtractWorkdays(dateStr, days) {
 
 /* ── Get member domos (brands where they appear) ── */
 function getMemberDomos(memberId) {
-  return (appData.brands || []).filter(brand => {
+  return _marcasReales().filter(brand => {
     const domo = brand.domo;
     if (!domo) return false;
     return _domoHasMember(domo, memberId);
@@ -29291,7 +29379,7 @@ function renderEquipoMiniCard(memberId){
   const m = (appData.members||[]).find(x=>x.id===memberId);
   if(!m) return;
   const grad = getMemberGradient(memberId);
-  const myBrands = (appData.brands||[]).filter(b=>b.domo && _domoHasMember(b.domo, m.id));
+  const myBrands = _marcasReales().filter(b=>b.domo && _domoHasMember(b.domo, m.id));
   const totalActs = myBrands.reduce((s,b)=>{
     return s + Object.values(b.cronograma||{}).flat().length;
   },0);
@@ -30052,7 +30140,7 @@ function setEqCardMode(mode){
 
 function _renderMemberBrands(m){
   // Marcas donde este miembro está en el domo (m1, m2, o helpers)
-  const brands = (appData.brands||[]).filter(b =>
+  const brands = _marcasReales().filter(b =>
     b.domo && _domoHasMember(b.domo, m.id)
   );
   if(!brands.length) return '<div style="font-size:0.7rem;color:var(--text3);padding:0.5rem 0.5rem 0.3rem">Sin marcas asignadas</div>';
@@ -30460,7 +30548,7 @@ function renderEqWeekPM(){
     const result = [];
     const member = (appData.members||[]).find(m=>m.id===memberId);
     if(!member) return result;
-    (appData.brands||[]).forEach(brand=>{
+    _marcasReales().forEach(brand=>{
       const inDomo = brand.domo && _domoHasMember(brand.domo, memberId);
       const isDirector = brand.director===memberId;
       if(!inDomo && !isDirector) return;
@@ -31031,7 +31119,7 @@ function renderEqDomos(){
   // Renderizar sección de asignación por roles primero
   renderRoleAssignment();
 
-  const brands = (appData.brands||[]).filter(b=>!b.archivedAt&&!b.deletedAt);
+  const brands = _marcasReales().filter(b=>!b.archivedAt&&!b.deletedAt);
   const members = appData.members||[];
 
   // ── Brands bar (all active brands) ──
@@ -31273,7 +31361,7 @@ await upsert();
 function renderDomosTab(){
   const el = document.getElementById('domos-grid');
   if(!el) return;
-  const brands = (appData.brands||[]).filter(b=>b.domo&&(b.domo.m1||b.domo.m2));
+  const brands = _marcasReales().filter(b=>b.domo&&(b.domo.m1||b.domo.m2));
   if(!brands.length){el.innerHTML='<div style="color:var(--text3);font-size:0.84rem;padding:1rem">Ninguna marca tiene domo aún.</div>';return;}
   el.innerHTML = brands.map(brand=>{
     const domo=brand.domo;
@@ -34996,7 +35084,7 @@ function renderBrandsTimeline(){
   if(!wrap) return;
   const q = (document.getElementById('brands-search-cards')?.value||'').trim().toLowerCase();
   const hidden = _tlHidden();
-  let allActive = (appData.brands||[]).filter(b=>!b.archivedAt && !b.deletedAt && !b.porIniciar);
+  let allActive = _marcasReales().filter(b=>!b.archivedAt && !b.deletedAt && !b.porIniciar);
   if(q) allActive = allActive.filter(b=>(b.name||'').toLowerCase().includes(q));
   const hiddenBrands = allActive.filter(b=>hidden.has(b.id));
   const nPausadas = allActive.filter(b=>b.paused && !hidden.has(b.id)).length;
