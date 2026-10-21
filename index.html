@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261021-v492-SIN-ESPEJOS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261021-v493-RONDAS-APROBACION -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 492;
+const APP_VERSION = 493;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -24350,14 +24350,14 @@ function renderRondas(brand){
               <div style="margin-top:0.5rem;display:flex;flex-direction:column;gap:0.4rem">
                 ${history.map(h=>{
                   const col = h.status === 'approved-with-notes' ? '#d97706' : sc.color;
-                  const lbl = h.status === 'approved-with-notes' ? 'Con observaciones' : 'Aprobado';
+                  const lbl = (h.ronda ? 'Ronda '+h.ronda+' · ' : '') + (h.status === 'approved-with-notes' ? 'Con observaciones' : 'Aprobado');
                   return `<div style="padding:0.45rem 0.6rem;background:var(--bg-card2);border-left:2px solid ${col};border-radius:5px">
                     <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap">
                       <span style="font-size:0.68rem;font-weight:700;color:var(--text)">${String(h.by||'—').replace(/</g,'&lt;')}</span>
                       <span style="font-size:0.58rem;font-weight:700;color:${col};background:${col}18;border-radius:99px;padding:0.08rem 0.4rem">${lbl}</span>
                       <span style="font-size:0.62rem;color:var(--text3);margin-left:auto">${fmtD(h.at)}</span>
                     </div>
-                    ${h.reopenedAt ? `<div style="font-size:0.6rem;color:var(--text3);margin-top:0.15rem;font-style:italic">Reabierta: ${fmtD(h.reopenedAt)}</div>` : ''}
+                    ${h.reopenedAt ? `<div style="font-size:0.6rem;color:var(--text3);margin-top:0.15rem;font-style:italic">${h.rondaManual ? 'Ronda '+(h.rondaSiguiente||'')+' abierta'+(h.abiertaPor?' por '+String(h.abiertaPor).replace(/</g,'&lt;'):'')+' · '+(h.questionsToReReply||[]).length+' pregunta'+((h.questionsToReReply||[]).length!==1?'s':'') : 'Reabierta'}: ${fmtD(h.reopenedAt)}</div>` : ''}
                     ${(h.adjustments||[]).length ? `<div style="margin-top:0.3rem;font-size:0.62rem;color:var(--text3)">${h.adjustments.length} ${h.adjustments.length===1?'punto':'puntos'} con ajustes</div>` : ''}
                   </div>`;
                 }).join('')}
@@ -24395,6 +24395,8 @@ function renderRondas(brand){
                   style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.55rem;font-size:0.68rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-weight:600;transition:all 0.15s"
                   onmouseover="this.style.borderColor='${themeCol}';this.style.color='${themeCol}'"
                   onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">✏️ Editar</button>
+                <button onclick="adminNuevaRondaAprobacion('${brand.id}','${stage}')" title="Abrir una ronda adicional de aprobación: eliges qué preguntas vuelve a contestar y firmar el cliente"
+                  style="background:${themeCol};border:1px solid ${themeCol};border-radius:7px;padding:0.3rem 0.55rem;font-size:0.68rem;color:#fff;cursor:pointer;font-family:var(--font);font-weight:700">➕ Ronda ${history.length+2}</button>
                 <button onclick="adminUnlockStageSignature('${brand.id}','${stage}')" title="Desbloquear — permitirá al cliente volver a editar y firmar"
                   style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.55rem;font-size:0.68rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-weight:600;transition:all 0.15s"
                   onmouseover="this.style.borderColor='#dc2626';this.style.color='#dc2626'"
@@ -24412,8 +24414,8 @@ function renderRondas(brand){
               <div style="display:flex;align-items:center;gap:0.6rem">
                 <span style="font-size:1rem;flex-shrink:0">🔄</span>
                 <div style="flex:1;min-width:0">
-                  <div style="font-size:0.76rem;font-weight:800;color:${sc.color};line-height:1.25">Reabierta para re-firma</div>
-                  <div style="font-size:0.66rem;color:var(--text3);margin-top:0.1rem">Esperando que el cliente vuelva a firmar esta etapa</div>
+                  <div style="font-size:0.76rem;font-weight:800;color:${sc.color};line-height:1.25">${history[history.length-1]?.rondaManual ? 'Ronda '+(history[history.length-1].rondaSiguiente||history.length+1)+' abierta' : 'Reabierta para re-firma'}</div>
+                  <div style="font-size:0.66rem;color:var(--text3);margin-top:0.1rem">Esperando que el cliente conteste ${(history[history.length-1]?.questionsToReReply||[]).length||''} pregunta${(history[history.length-1]?.questionsToReReply||[]).length===1?'':'s'} y vuelva a firmar</div>
                 </div>
               </div>
               ${historyBlockHTML}
@@ -24537,6 +24539,56 @@ async function adminEditSignature(brandId, stage){
     showStatus('Firma actualizada ✓');
   };
   setTimeout(()=>modal.querySelector('#adm-sig-name').focus(), 30);
+}
+
+// ── Admin: ronda adicional de aprobación ──
+// Se elige qué preguntas de la etapa vuelve a contestar el cliente (todas o algunas).
+// La firma actual pasa al historial como "Ronda N"; las demás respuestas se conservan.
+async function adminNuevaRondaAprobacion(brandId, stage){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  if(!brand) return;
+  const sa = brand.portalApprovals?.[stage];
+  if(!sa?._signed?.by){ showStatus('Primero el cliente debe firmar la ronda actual', true); return; }
+  const qs = getApprovalQuestions(brand, stage);
+  if(!qs.length){ showStatus('Esta etapa no tiene preguntas de aprobación', true); return; }
+  const conAjustes = new Set(getStageAdjustmentPoints(stage, sa, brand).map(p=>p.id));
+  const n = (Array.isArray(sa._signedHistory) ? sa._signedHistory.length : 0) + 2;
+  const SC_LABELS = {aire:'Aire',agua:'Agua',tierra:'Tierra',fuego:'Fuego'};
+  window._rondaSel = new Set(conAjustes.size ? [...conAjustes] : []);
+  const pintar = ()=>{
+    const filas = qs.map(q=>{
+      const on = window._rondaSel.has(q.id); const ans = sa[q.id]||'';
+      return `<label style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.6rem 0.7rem;margin-bottom:0.4rem;border-radius:10px;border:1.5px solid ${on?'var(--aire)':'var(--border)'};background:${on?'rgba(59,158,221,0.06)':'var(--bg-card)'};cursor:pointer">
+        <input type="checkbox" ${on?'checked':''} onchange="if(this.checked)window._rondaSel.add('${q.id}');else window._rondaSel.delete('${q.id}');window._rondaPintar()" style="margin-top:0.15rem;width:16px;height:16px;accent-color:var(--aire);cursor:pointer">
+        <span style="flex:1;min-width:0"><span style="display:block;font-size:0.8rem;font-weight:700;color:var(--text)">${escapeHtml(q.label)}</span>
+          <span style="display:block;font-size:0.7rem;color:var(--text3);margin-top:0.1rem">Respuesta actual: <em>${escapeHtml(ans||'—')}</em>${conAjustes.has(q.id)?' <b style="color:#d97706">· tuvo ajustes</b>':''}</span></span>
+      </label>`; }).join('');
+    const nSel = window._rondaSel.size;
+    const body = `<div style="font-size:0.76rem;color:var(--text2);line-height:1.5;margin-bottom:0.8rem">Marca las preguntas que el cliente debe volver a contestar en la <b>ronda ${n}</b>. La firma actual (${escapeHtml(sa._signed.by)}) queda guardada en el historial y sus demás respuestas se conservan.</div>
+      <div style="display:flex;gap:0.8rem;margin-bottom:0.5rem"><button onclick="window._rondaSel=new Set(${escapeHtml(JSON.stringify(qs.map(q=>q.id)))});window._rondaPintar()" style="font-size:0.72rem;background:none;border:none;color:var(--text2);text-decoration:underline;cursor:pointer;font-family:var(--font)">Marcar todas</button><button onclick="window._rondaSel=new Set();window._rondaPintar()" style="font-size:0.72rem;background:none;border:none;color:var(--text2);text-decoration:underline;cursor:pointer;font-family:var(--font)">Ninguna</button></div>
+      <div style="max-height:52vh;overflow:auto">${filas}</div>
+      <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem">
+        <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:0.82rem">Cancelar</button>
+        <button ${nSel?'':'disabled'} onclick="_confirmarNuevaRonda('${brand.id}','${stage}')" style="background:var(--aire);color:#fff;border:none;border-radius:8px;padding:0.5rem 1.1rem;cursor:${nSel?'pointer':'not-allowed'};opacity:${nSel?1:0.45};font-family:var(--font);font-size:0.82rem;font-weight:700">Abrir ronda ${n} (${nSel} pregunta${nSel!==1?'s':''})</button>
+      </div>`;
+    openGenericModal('➕ Ronda '+n+' de aprobación · Etapa '+(SC_LABELS[stage]||stage), body);
+  };
+  window._rondaPintar = pintar;
+  pintar();
+}
+async function _confirmarNuevaRonda(brandId, stage){
+  const brand = (appData.brands||[]).find(b=>b.id===brandId);
+  const ids = [...(window._rondaSel||[])];
+  if(!brand || !ids.length) return;
+  closeTrayModal();
+  try{
+    const ok = await archiveStageSignature(brand, stage, ids);
+    if(!ok){ showStatus('No había firma que pasar a la siguiente ronda', true); return; }
+    markBrandChange(brand.id); markLocalChange('brands');
+    try{ await upsert(); }catch(e){}
+    renderRondas(brand);
+    showStatus('Ronda abierta ✓ — el cliente ya puede contestar '+ids.length+' pregunta'+(ids.length!==1?'s':'')+' y firmar en su portal');
+  }catch(e){ console.error('nueva ronda:', e); showStatus('No se pudo abrir la ronda: '+(e.message||e), true); }
 }
 
 // ── Admin: desbloquear firma de una etapa (cliente vuelve a poder editar y firmar) ──
@@ -33543,7 +33595,7 @@ function getStageAdjustmentPoints(stage, stageApprovals, brand){
 // Si había observaciones, borra SOLO las respuestas de preguntas con observaciones para que
 // el cliente las vuelva a contestar (preservando las que ya estaban 100%).
 // Retorna true si hubo movimiento, false si no había firma que mover.
-async function archiveStageSignature(brand, stage){
+async function archiveStageSignature(brand, stage, preguntasRonda){
   const sa = brand?.portalApprovals?.[stage];
   if(!sa || !sa._signed?.by) return false;
   if(!Array.isArray(sa._signedHistory)) sa._signedHistory = [];
@@ -33562,9 +33614,11 @@ async function archiveStageSignature(brand, stage){
   });
 
   // Identificar preguntas con observaciones (las que hay que volver a contestar)
-  const questionsToReReply = wasWithNotes
-    ? adjustmentsSnapshot.map(p => p.id)
-    : [];
+  // Ronda adicional pedida por el equipo: re-contestar SOLO las preguntas elegidas.
+  const esRondaManual = Array.isArray(preguntasRonda);
+  const questionsToReReply = esRondaManual
+    ? preguntasRonda.filter(id=>qs.some(q=>q.id===id))
+    : (wasWithNotes ? adjustmentsSnapshot.map(p => p.id) : []);
 
   sa._signedHistory.push({
     by: sa._signed.by,
@@ -33575,6 +33629,8 @@ async function archiveStageSignature(brand, stage){
     notes: notesSnapshot,
     questionsToReReply,
     reopenedAt: new Date().toISOString(),
+    ronda: sa._signedHistory.length + 1,          // número de la ronda que se acaba de cerrar
+    ...(esRondaManual ? { rondaManual:true, rondaSiguiente: sa._signedHistory.length + 2, abiertaPor: (_usuarioActual()?.apodo||_usuarioActual()?.nombre||'') } : {}),
   });
 
   // Borrar SOLO respuestas y notas de las preguntas que tenían observaciones
@@ -34037,10 +34093,12 @@ function portalRenderAprobaciones(brand){
         <div style="margin-bottom:0.9rem;background:${sc.bg};border:1.5px solid ${sc.color};border-radius:12px;padding:0.9rem 1rem">
           <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem">
             <span style="font-size:1.05rem">🔄</span>
-            <span style="font-size:0.84rem;font-weight:800;color:${sc.color}">Etapa reabierta para tu re-firma</span>
+            <span style="font-size:0.84rem;font-weight:800;color:${sc.color}">${lastHist?.rondaManual ? 'Nueva ronda de aprobación' : 'Etapa reabierta para tu re-firma'}</span>
           </div>
           <div style="font-size:0.76rem;color:var(--text2);line-height:1.55">
-            El equipo completó las correcciones solicitadas. A continuación están <strong>solo las preguntas que tuvieron observaciones</strong> — contéstalas nuevamente según tu criterio actual. Tus demás respuestas se mantienen tal como estaban.
+            ${lastHist?.rondaManual
+              ? `<strong>Ronda ${lastHist.rondaSiguiente||history.length+1} de aprobación.</strong> El equipo te pide revisar nuevamente <strong>${reReplySet.size} pregunta${reReplySet.size!==1?'s':''}</strong> de esta etapa. Contéstalas según tu criterio actual y vuelve a firmar. Tus demás respuestas se mantienen tal como estaban.`
+              : `El equipo completó las correcciones solicitadas. A continuación están <strong>solo las preguntas que tuvieron observaciones</strong> — contéstalas nuevamente según tu criterio actual. Tus demás respuestas se mantienen tal como estaban.`}
           </div>
         </div>`;
 
