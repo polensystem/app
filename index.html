@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261021-v494-FECHAS-PANEL -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261021-v495-HITO-EN-SU-FECHA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 494;
+const APP_VERSION = 495;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -8276,7 +8276,7 @@ function _updateHitosBadge(){
     _marcasReales().forEach(b=>{
       ['aire','agua','tierra','fuego'].forEach(e=>{
         (b.cronograma?.[e]||[]).forEach(a=>{
-          if(a.isHito && a.status!=='completada' && a.endDate>=todayStr && a.endDate<=friStr) count++;
+          const fH=_fechaHito(a); if(a.isHito && a.status!=='completada' && fH>=todayStr && fH<=friStr) count++;
         });
       });
     });
@@ -9976,7 +9976,7 @@ async function toggleHitoFreeMode(brandId, stage, actId){
     delete act.revDateOverride;
     showStatus('🔗 Revisión re-vinculada al hito (−2 días)');
   } else {
-    act.revDateOverride = subtractWorkdays(act.endDate, getRevDays());
+    act.revDateOverride = subtractWorkdays(_fechaHito(act), getRevDays());
     showStatus('🔓 Modo libre activado — arrastra 🔍 independientemente');
   }
   await CronoDB.saveAct(brandId, stage, act, idx);
@@ -18335,7 +18335,7 @@ function _hitosDe(marcas, desde, hasta){
     const cr = b.cronograma||{};
     ['aire','agua','tierra','fuego'].forEach(st=>{
       (cr[st]||[]).forEach(a=>{
-        const fechaHito = a.endDate || a.startDate;   // el hito es la ENTREGA (igual que semana/mes y Equipo)
+        const fechaHito = _fechaHito(a);   // el día en que está agendado en el cronograma
         if(a.isHito && fechaHito){
           const f = parseLocalDate(fechaHito); f.setHours(0,0,0,0); if(isNaN(f)) return;
           if(desde && f < desde) return;
@@ -19513,7 +19513,7 @@ function _miTrabajoSemana(misMarcas, STAGE_COLOR){
             <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${yaPaso?'text-decoration:line-through':''}">${brand?.name||''}</span>
           </div>
           <div style="font-size:0.6rem;color:var(--text2);margin-top:0.1rem;line-height:1.2">${escapeHtml((h.name||'').replace('🔍 Rev. interna: ',''))}</div>
-          ${(h.type==='oficial' && h.inicio && h.inicio!==h.date)?`<div style="font-size:0.56rem;color:var(--text3);margin-top:0.1rem">entrega · inicia ${fmtDateDisplay(h.inicio)}</div>`:''}
+          ${(h.type==='oficial' && h.fin && h.fin!==h.date)?`<div style="font-size:0.56rem;color:var(--text3);margin-top:0.1rem">hasta ${fmtDateDisplay(h.fin)}</div>`:''}
           ${partner?`<div style="margin-top:0.25rem">${partner}</div>`:''}
         </div>`;
       });
@@ -29231,6 +29231,9 @@ async function memberDrop(event, targetId){
 }
 
 
+// Fecha en la que se MUESTRA un hito en paneles y calendarios: la misma que se ve en el
+// cronograma (el día en que está agendado = fecha de inicio). Si no tiene, la de fin.
+function _fechaHito(a){ return (a && (a.startDate || a.endDate)) || ''; }
 function getMemberHitos(memberId) {
   ensureTeamData();
   const member = appData.members.find(m => m.id === memberId);
@@ -29251,8 +29254,9 @@ function getMemberHitos(memberId) {
 
     ['aire','agua','tierra','fuego'].forEach(stage => {
       (brand.cronograma?.[stage] || []).forEach(act => {
-        if (!act.isHito || !act.endDate) return;
-        const endD = parseLocalDate(act.endDate); endD.setHours(0,0,0,0);
+        const fH = _fechaHito(act);
+        if (!act.isHito || !fH) return;
+        const endD = parseLocalDate(fH); endD.setHours(0,0,0,0);
 
         if(inDomo){
           // Official hito (miembro del domo)
@@ -29263,16 +29267,16 @@ function getMemberHitos(memberId) {
             brandId: brand.id,
             actId: act.id,
             stage,
-            date: act.endDate,
+            date: fH,
             dateObj: endD,
-            inicio: act.startDate || '',
+            fin: act.endDate || '',
             status: act.status,
             isHito: act.isHito,
           });
 
           // Internal review
           if(act.isInterno){
-            const revDate = act.revDateOverride || subtractWorkdays(act.endDate, getRevDays(brand.id));
+            const revDate = act.revDateOverride || subtractWorkdays(fH, getRevDays(brand.id));
             const revD = parseLocalDate(revDate); revD.setHours(0,0,0,0);
             results.push({
               type: 'revision',
@@ -29292,7 +29296,7 @@ function getMemberHitos(memberId) {
         // DC Review: cuando el hito tiene revisión interna (isInterno=true),
         // el director creativo también ve un evento 🎯 en esa misma fecha
         if(act.isInterno && isDirector && !inDomo){
-          const dcDate = act.revDateOverride || subtractWorkdays(act.endDate, getRevDays(brand.id));
+          const dcDate = act.revDateOverride || subtractWorkdays(fH, getRevDays(brand.id));
           const dcD = parseLocalDate(dcDate); dcD.setHours(0,0,0,0);
           results.push({
             type: 'dc_review',
@@ -29785,9 +29789,10 @@ function renderPmContent(){
     brands.forEach(b=>{
       ['aire','agua','tierra','fuego'].forEach(e=>{
         (b.cronograma?.[e]||[]).forEach(a=>{
-          if(a.isHito&&a.status!=='completada'&&a.endDate&&a.endDate>=todayStr){
-            if(!hitosByDate[a.endDate]) hitosByDate[a.endDate]=[];
-            hitosByDate[a.endDate].push({brand:b,act:a});
+          const fH=_fechaHito(a);
+          if(a.isHito&&a.status!=='completada'&&fH&&fH>=todayStr){
+            if(!hitosByDate[fH]) hitosByDate[fH]=[];
+            hitosByDate[fH].push({brand:b,act:a});
           }
         });
       });
