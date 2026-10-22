@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261021-v498-PROCESO-FILTROS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261022-v499-ELIMINAR-RONDAS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 498;
+const APP_VERSION = 499;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -24331,6 +24331,39 @@ function renderSegmentedProgress(brand){
   }
 }
 
+// Archivo de rondas eliminadas de una etapa (revisión y aprobación), con quién, cuándo y por qué
+function _archivoRondasHTML(brand, stage, sc){
+  const rev = (brand.rondasEliminadas||[]).filter(x=>x.stage===stage);
+  const apr = (brand.portalApprovals?.[stage]?._rondasEliminadas)||[];
+  const todas = rev.concat(apr).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+  if(!todas.length) return '';
+  const fmt = iso=>iso?new Date(iso).toLocaleString('es-EC',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+  const labels = {}; getApprovalQuestions(brand, stage).forEach(q=>labels[q.id]=q.label);
+  const item = x=>{
+    const esc = v=>String(v==null?'':v).replace(/</g,'&lt;');
+    let det='';
+    if(x.tipo==='aprobacion'){
+      const rs=Object.entries(x.respuestas||{}).filter(([k])=>(x.preguntas||[]).includes(k));
+      det = `<div style="font-size:0.64rem;color:var(--text3);margin-top:0.2rem">${(x.preguntas||[]).length} pregunta(s) · ${x.firma?.by?'firmada por '+esc(x.firma.by)+' el '+fmt(x.firma.at):'sin firmar'}${x.abiertaPor?' · abierta por '+esc(x.abiertaPor):''}</div>`
+        + (rs.length?`<div style="margin-top:0.25rem">${rs.map(([k,v])=>`<div style="font-size:0.64rem;color:var(--text2)">• ${esc(labels[k]||k)}: <em>${esc(v)}</em>${x.notas&&x.notas[k]?' — 💬 '+esc(x.notas[k]):''}</div>`).join('')}</div>`:'');
+    } else {
+      const r=x.ronda||{};
+      det = `<div style="font-size:0.64rem;color:var(--text3);margin-top:0.2rem">${r.done?'✓ completada':'pendiente'}${r.fecha?' · '+esc(r.fecha):''}</div>${r.notas?`<div style="font-size:0.64rem;color:var(--text2);margin-top:0.2rem;white-space:pre-wrap">💬 ${esc(r.notas)}</div>`:''}`;
+    }
+    return `<div style="padding:0.45rem 0.6rem;background:var(--bg-card2);border-left:2px solid #dc2626;border-radius:5px">
+      <div style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap">
+        <span style="font-size:0.68rem;font-weight:700;color:var(--text)">${x.tipo==='aprobacion'?'Ronda '+x.ronda+' de aprobación':'Ronda de revisión "'+esc((x.ronda||{}).label||'')+'"'}</span>
+        <span style="font-size:0.6rem;color:var(--text3);margin-left:auto">eliminada ${fmt(x.at)}${x.por?' por '+esc(x.por):''}</span>
+      </div>
+      <div style="font-size:0.66rem;color:var(--text2);margin-top:0.2rem">Razón: <em>${esc(x.razon)}</em></div>
+      ${det}
+    </div>`;
+  };
+  return `<details style="margin-top:0.55rem;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem">
+    <summary style="cursor:pointer;font-size:0.66rem;font-weight:700;color:var(--text2);user-select:none">🗃 Archivo · rondas eliminadas (${todas.length})</summary>
+    <div style="margin-top:0.5rem;display:flex;flex-direction:column;gap:0.4rem">${todas.map(item).join('')}</div>
+  </details>`;
+}
 function renderRondas(brand){
   if(!brand.rondas) brand.rondas = [];
   const wrap = document.getElementById('revisiones-wrap');
@@ -24418,7 +24451,7 @@ function renderRondas(brand){
           <option value="fuego"  ${r.stage==='fuego'?'selected':''}>🔥 Fuego</option>
           <option value="__unassigned" ${(!r.stage||!stageOrder.includes(r.stage))?'selected':''} disabled hidden>Sin etapa</option>
         </select>
-        <button class="ronda-del" onclick="event.stopPropagation();deleteRonda('${brand.id}','${r.id}')">×</button>
+        ${_esPM()?`<button class="ronda-del" title="Eliminar ronda (solo PM)" onclick="event.stopPropagation();deleteRonda('${brand.id}','${r.id}')">×</button>`:''}
       </div>
       <textarea class="ronda-notes" placeholder="Notas de esta ronda…"
         onchange="saveRondaField('${brand.id}','${r.id}','notas',this.value)"
@@ -24522,6 +24555,7 @@ function renderRondas(brand){
                   style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.55rem;font-size:0.68rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-weight:600;transition:all 0.15s"
                   onmouseover="this.style.borderColor='${themeCol}';this.style.color='${themeCol}'"
                   onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">✏️ Editar</button>
+                ${(history.length && _esPM()) ? `<button onclick="pmEliminarRondaAprobacion('${brand.id}','${stage}')" title="Eliminar la ronda ${history.length+1} (solo PM)" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.5rem;font-size:0.68rem;color:var(--text3);cursor:pointer;font-family:var(--font)" onmouseover="this.style.borderColor='#dc2626';this.style.color='#dc2626'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">🗑</button>` : ''}
                 <button onclick="adminNuevaRondaAprobacion('${brand.id}','${stage}')" title="Abrir una ronda adicional de aprobación: eliges qué preguntas vuelve a contestar y firmar el cliente"
                   style="background:${themeCol};border:1px solid ${themeCol};border-radius:7px;padding:0.3rem 0.55rem;font-size:0.68rem;color:#fff;cursor:pointer;font-family:var(--font);font-weight:700">➕ Ronda ${history.length+2}</button>
                 <button onclick="adminUnlockStageSignature('${brand.id}','${stage}')" title="Desbloquear — permitirá al cliente volver a editar y firmar"
@@ -24542,7 +24576,7 @@ function renderRondas(brand){
                 <span style="font-size:1rem;flex-shrink:0">🔄</span>
                 <div style="flex:1;min-width:0">
                   <div style="font-size:0.76rem;font-weight:800;color:${sc.color};line-height:1.25">${history[history.length-1]?.rondaManual ? 'Ronda '+(history[history.length-1].rondaSiguiente||history.length+1)+' abierta' : 'Reabierta para re-firma'}</div>
-                  <div style="font-size:0.66rem;color:var(--text3);margin-top:0.1rem">Esperando que el cliente conteste ${(history[history.length-1]?.questionsToReReply||[]).length||''} pregunta${(history[history.length-1]?.questionsToReReply||[]).length===1?'':'s'} y vuelva a firmar</div>
+                  <div style="font-size:0.66rem;color:var(--text3);margin-top:0.1rem">${_esPM()?`<button onclick="pmEliminarRondaAprobacion('${brand.id}','${stage}')" title="Eliminar esta ronda (solo PM)" style="float:right;background:none;border:1px solid var(--border);border-radius:7px;padding:0.25rem 0.5rem;font-size:0.66rem;color:var(--text3);cursor:pointer;font-family:var(--font);margin-left:0.4rem" onmouseover="this.style.borderColor='#dc2626';this.style.color='#dc2626'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">🗑 Eliminar ronda</button>`:''}Esperando que el cliente conteste ${(history[history.length-1]?.questionsToReReply||[]).length||''} pregunta${(history[history.length-1]?.questionsToReReply||[]).length===1?'':'s'} y vuelva a firmar</div>
                 </div>
               </div>
               ${historyBlockHTML}
@@ -24553,6 +24587,7 @@ function renderRondas(brand){
         })()}
         <div style="margin-top:0.8rem;display:flex;flex-direction:column;gap:0">
           ${stageRondas.map(r=>renderRondaCard(r)).join('')}
+          ${_archivoRondasHTML(brand, stage, sc)}
           <button onclick="addRondaToStage('${brand.id}','${stage}')"
             style="margin-top:0.5rem;width:100%;padding:0.4rem;border:1px dashed var(--border);border-radius:8px;background:none;font-size:0.73rem;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s"
             onmouseover="this.style.borderColor='${sc.color}';this.style.color='${sc.color}'"
@@ -24718,6 +24753,46 @@ async function _confirmarNuevaRonda(brandId, stage){
   }catch(e){ console.error('nueva ronda:', e); showStatus('No se pudo abrir la ronda: '+(e.message||e), true); }
 }
 
+// ── PM: eliminar la ronda de aprobación más reciente ──
+// La etapa vuelve exactamente a como estaba al cerrar la ronda anterior (respuestas, notas y
+// firma). Todo lo de la ronda eliminada (respuestas, firma si la hubo) queda en el archivo.
+async function pmEliminarRondaAprobacion(brandId, stage){
+  const brand=(appData.brands||[]).find(b=>b.id===brandId); if(!brand) return;
+  const sa=brand.portalApprovals?.[stage]; const hist=Array.isArray(sa?._signedHistory)?sa._signedHistory:[];
+  if(!hist.length){ showStatus('Esta etapa solo tiene la ronda 1 — no hay ronda adicional que eliminar', true); return; }
+  const n = hist.length+1; const SCL={aire:'Aire',agua:'Agua',tierra:'Tierra',fuego:'Fuego'};
+  const razon = await _pmConfirmarEliminacion('Vas a eliminar la ronda '+n+' de aprobación de la etapa '+(SCL[stage]||stage)+(sa._signed?.by?' (ya firmada por '+sa._signed.by+')':' (abierta, sin firmar)')+'. La etapa volverá a la ronda '+(n-1)+' tal como quedó firmada.');
+  if(!razon) return;
+  const last = hist[hist.length-1];
+  const qs = getApprovalQuestions(brand, stage);
+  const snap = { tipo:'aprobacion', stage, ronda:n, razon, por:_quienSoy(), at:new Date().toISOString(),
+    abiertaAt:last.reopenedAt||null, abiertaPor:last.abiertaPor||'', preguntas:last.questionsToReReply||[],
+    respuestas:{}, notas:{}, firma: sa._signed ? {...sa._signed} : null };
+  qs.forEach(q=>{ if(sa[q.id]!==undefined) snap.respuestas[q.id]=sa[q.id]; if(sa[q.id+'_note']!==undefined) snap.notas[q.id]=sa[q.id+'_note']; });
+  try{
+    // Restaurar respuestas y notas de la ronda anterior
+    for(const q of qs){
+      const pa = last.answers ? last.answers[q.id] : undefined;
+      const pn = last.notes ? last.notes[q.id] : undefined;
+      if(pa!==undefined){ sa[q.id]=pa; await PortalApprovalsDB.saveField(brand.id, stage, q.id, pa); }
+      else if(last.answers && sa[q.id]!==undefined){ delete sa[q.id]; await PortalApprovalsDB.deleteField(brand.id, stage, q.id); }
+      if(pn!==undefined){ sa[q.id+'_note']=pn; await PortalApprovalsDB.saveField(brand.id, stage, q.id+'_note', pn); }
+      else if(last.notes && sa[q.id+'_note']!==undefined){ delete sa[q.id+'_note']; await PortalApprovalsDB.deleteField(brand.id, stage, q.id+'_note'); }
+    }
+    // Restaurar la firma de la ronda anterior
+    sa._signed = { by:last.by, at:last.at, status:last.status||'approved' };
+    await PortalApprovalsDB.saveField(brand.id, stage, '_signed', sa._signed);
+    hist.pop(); sa._signedHistory = hist;
+    await PortalApprovalsDB.saveField(brand.id, stage, '_signedHistory', hist);
+    sa._rondasEliminadas = (Array.isArray(sa._rondasEliminadas)?sa._rondasEliminadas:[]).concat([snap]);
+    await PortalApprovalsDB.saveField(brand.id, stage, '_rondasEliminadas', sa._rondasEliminadas);
+    markBrandChange(brand.id); markLocalChange('brands');
+    try{ await upsert(); }catch(e){}
+    renderRondas(brand);
+    showStatus('Ronda '+n+' eliminada · la etapa volvió a la ronda '+(n-1)+' · guardada en el archivo');
+  }catch(e){ console.error('eliminar ronda:', e); showStatus('No se pudo eliminar la ronda: '+(e.message||e), true); }
+}
+
 // ── Admin: desbloquear firma de una etapa (cliente vuelve a poder editar y firmar) ──
 async function adminUnlockStageSignature(brandId, stage){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
@@ -24770,14 +24845,34 @@ async function toggleRonda(brandId,rondaId){
   await upsert();
 }
 
+// Pregunta "¿segura?" y luego la razón (obligatoria). Devuelve la razón o null si cancela.
+async function _pmConfirmarEliminacion(texto){
+  if(!_esPM()){ showStatus('Solo la Project Manager puede eliminar rondas', true); return null; }
+  const ok = await confirmModal(texto+'\n\n¿Estás segura? La ronda saldrá de la marca y quedará guardada en el archivo de rondas eliminadas.', 'Sí, eliminar', 'background:#dc2626;color:#fff;border:none', 'Cancelar');
+  if(!ok) return null;
+  for(let i=0;i<3;i++){
+    const r = await askModal({ label:'¿Por qué eliminas esta ronda? (queda registrado en el archivo)', placeholder:'Ej.: se abrió por error, el cliente la contestó por otro medio…' });
+    if(r==null) return null;
+    if(String(r).trim().length>=3) return String(r).trim();
+    showStatus('Escribe la razón para poder eliminarla', true);
+  }
+  return null;
+}
+function _quienSoy(){ const u=_usuarioActual(); return (u && (u.apodo||u.nombre)) || ''; }
 async function deleteRonda(brandId,rondaId){
-    const brand=appData.brands.find(b=>b.id===brandId);
+  const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand||!brand.rondas)return;
+  const r=brand.rondas.find(x=>x.id===rondaId); if(!r) return;
+  const SCL={aire:'Aire',agua:'Agua',tierra:'Tierra',fuego:'Fuego'};
+  const razon = await _pmConfirmarEliminacion('Vas a eliminar la ronda de revisión "'+(r.label||'Ronda')+'" de la etapa '+(SCL[r.stage]||r.stage||'')+(r.notas?' (tiene notas)':'')+'.');
+  if(!razon) return;
+  if(!Array.isArray(brand.rondasEliminadas)) brand.rondasEliminadas=[];
+  brand.rondasEliminadas.push({ tipo:'revision', stage:r.stage||'', ronda:JSON.parse(JSON.stringify(r)), razon, por:_quienSoy(), at:new Date().toISOString() });
   brand.rondas=brand.rondas.filter(x=>x.id!==rondaId);
+  markBrandChange(brand.id); markLocalChange('brands');
   renderRondas(brand);
-    markLocalChange('brands');
-await upsert();
-  showStatus('Ronda eliminada');
+  await upsert();
+  showStatus('Ronda eliminada · guardada en el archivo');
 }
 
 async function saveRondaField(brandId, rondaId, field, val){
