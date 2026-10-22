@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261022-v499-ELIMINAR-RONDAS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261022-v500-SCROLL-PANEL -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4198,7 +4198,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 499;
+const APP_VERSION = 500;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -18449,6 +18449,24 @@ async function _cronoRefrescarDesdeTabla(forzar){
 }
 function renderMiTrabajo(){
   setTimeout(()=>_cronoRefrescarDesdeTabla(false), 0);
+  // 🔒 Mantener la posición del scroll al redibujar (marcar una tarea, cambiar algo…).
+  // Antes cada clic devolvía la lista al inicio. Solo se vuelve arriba al cambiar de pestaña.
+  const _mtCont = document.getElementById('mi-trabajo-module');
+  const _mtMismaVista = window._mtVistaRender === _miTrabajoVista && window._mtVerComoRender === (window._mtVerComo||null);
+  const _mtScroll = [];
+  if(_mtCont && _mtMismaVista){ _mtCont.querySelectorAll('[style*="overflow"]').forEach(el=>_mtScroll.push([el.scrollTop, el.scrollLeft])); }
+  window._mtMantenerScroll = _mtMismaVista && _mtScroll.some(x=>x[0]||x[1]);
+  try{ _renderMiTrabajoEnvuelto(); }
+  finally{
+    window._mtVistaRender = _miTrabajoVista; window._mtVerComoRender = (window._mtVerComo||null);
+    if(window._mtMantenerScroll && _mtCont){
+      const aplicar=()=>{ const els=_mtCont.querySelectorAll('[style*="overflow"]'); _mtScroll.forEach(([t,l],i)=>{ if(els[i]){ els[i].scrollTop=t; els[i].scrollLeft=l; } }); };
+      aplicar(); requestAnimationFrame(aplicar);
+    }
+    setTimeout(()=>{ window._mtMantenerScroll=false; }, 50);
+  }
+}
+function _renderMiTrabajoEnvuelto(){
   const puede = _mtPuedeVerOtros();
   if(!puede) window._mtVerComo = null;
   const objetivo = window._mtVerComo ? (appData.members||[]).find(m=>m.id===window._mtVerComo) : null;
@@ -18611,7 +18629,7 @@ function _renderMiTrabajoInterno(){
   cont.innerHTML = h1;
 
   // Vista Mes: scroll automático hasta el día de hoy (o el primer día futuro)
-  if(_miTrabajoVista==='mes'){
+  if(_miTrabajoVista==='mes' && !window._mtMantenerScroll){
     setTimeout(()=>{
       const cont2 = document.getElementById('mi-trabajo-contenido');
       const hoyEl = document.getElementById('mi-mes-hoy');
