@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261022-v500-SCROLL-PANEL -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261024-v511-CUMPLE-60-40 -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1397,11 +1397,18 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
 /* Split en 2 columnas cuando SÍ hay cumpleañero del mes: izquierda el próximo inmediato
    (tarjeta completa), derecha los 2 siguientes en formato compacto. Evita que la caja
    crezca a lo alto y desbalancee la fila con Pausa Activa. */
-.cumple-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0.7rem;align-items:start;}
+.cumple-split{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:0.8rem;align-items:stretch;height:100%;}
 .cumple-split-col{display:flex;flex-direction:column;min-width:0;}
+@keyframes cumpleFlota{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-7px) rotate(6deg)}}
+@keyframes cumpleBrillo{0%,100%{box-shadow:0 0 0 4px rgba(236,72,153,0.12),0 12px 30px rgba(236,72,153,0.22)}50%{box-shadow:0 0 0 6px rgba(236,72,153,0.2),0 14px 36px rgba(251,146,60,0.3)}}
+.cumple-fiesta{animation:cumpleBrillo 3s ease-in-out infinite;}
+.cumple-flota{animation:cumpleFlota 3.2s ease-in-out infinite;pointer-events:none}
+.cumple-flota.d2{animation-delay:1.1s}
+@media (prefers-reduced-motion: reduce){.cumple-fiesta,.cumple-flota{animation:none}}
+.cumple-prox-cuadros{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:1fr;gap:0.4rem;flex:1;min-height:0;}
 .cumple-sig-list{display:flex;flex-direction:column;gap:0.4rem;}
 @media (max-width: 900px){ .cumple-split{grid-template-columns:1fr;gap:0.5rem;} }
-.pa-prox-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0.4rem;}
+.pa-prox-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0.3rem;}
 .domo-grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0.6rem;align-items:start;}
 @media (max-width: 900px){ .domo-grid-3{grid-template-columns:repeat(2,minmax(0,1fr));} }
 @media (max-width: 560px){
@@ -2416,7 +2423,7 @@ body.portal-mode #portal-loading-logo{display:none!important}
 
       <!-- ── CUMPLEAÑOS + PAUSA ACTIVA (mitad y mitad) ── -->
       <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin-top:1.5rem;align-items:stretch">
-        <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column" id="cumples-section">
+        <div style="flex:3 1 0;min-width:min(100%,520px);display:flex;flex-direction:column" id="cumples-section">
           <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem">
             <div style="width:32px;height:32px;background:linear-gradient(135deg,#f472b6,#fb923c);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem">🎂</div>
             <div>
@@ -2427,7 +2434,7 @@ body.portal-mode #portal-loading-logo{display:none!important}
           <div id="cumples-grid" style="flex:1;min-height:0"></div>
         </div>
 
-        <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column" id="pausa-activa-section">
+        <div style="flex:2 1 0;min-width:min(100%,320px);display:flex;flex-direction:column" id="pausa-activa-section">
           <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem">
             <div style="width:32px;height:32px;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem">🤸</div>
             <div style="flex:1">
@@ -4198,7 +4205,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 500;
+const APP_VERSION = 511;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -8061,7 +8068,7 @@ function deepMergeAppData(server, local){
   merged.banners = Array.isArray(local.banners) ? local.banners : [];
 
   // ── scalar fields: local wins if user changed them, else server ──
-  const scalarKeys = ['finanzas','calendarUrl','domoNames','pausaActiva','onboarding','canteraNiveles','canteraSeguimiento'];
+  const scalarKeys = ['finanzas','calendarUrl','domoNames','pausaActiva','onboarding','canteraNiveles','canteraSeguimiento','tortaSabores','_tortasLimpias','_deseosViejosLimpios'];
   scalarKeys.forEach(k=>{
     merged[k] = _localChangedKeys.has(k) ? local[k] : (server[k] ?? local[k]);
   });
@@ -17234,7 +17241,211 @@ function toggleStageCard(stageId){
   renderStageCards(brands);
 }
 
-// Módulo de cumpleaños del mes (lee la fecha de cumpleaños de cada miembro)
+// ── Sabores de torta (lista editable SOLO por admins; el sabor lo elige SOLO el cumpleañero) ──
+const TORTA_SABORES_DEFAULT = ['Chocolate','Vainilla','Tres leches','Red velvet','Zanahoria','Frutos rojos','Maracuyá','Limón'];
+function _tortaSabores(){ return (Array.isArray(appData.tortaSabores) && appData.tortaSabores.length) ? appData.tortaSabores : TORTA_SABORES_DEFAULT; }
+function _soyYo(memberId){ const u = (typeof _usuarioReal==='function') ? _usuarioReal() : _usuarioActual(); return !!(u && u.id && u.id===memberId); }
+function _tortaInline(m){
+  const v=_tortaDe(m); const puede=_soyYo(m.id)||_tieneRol('admin');
+  const gear=_tieneRol('admin')?`<button onclick="_editarSaboresTorta()" title="Editar la lista de sabores (admins)" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.72rem;padding:0">⚙</button>`:'';
+  if(!puede) return `<span>🍰 ${v?escapeHtml(v):escapeHtml(m.apodo||m.nombre||'')+' debe elegir su sabor de torta'}</span>`;
+  const ops=_tortaSabores(); const existe=!v||ops.includes(v);
+  return `<span style="display:inline-flex;align-items:center;gap:0.3rem">🍰<select onchange="setCumpleField('${m.id}','torta',this.value)" style="background:transparent;border:none;border-bottom:1.5px dashed #ec4899;color:${v?'var(--text)':'#ec4899'};font-family:var(--font);font-size:0.76rem;font-weight:700;cursor:pointer;outline:none;padding:0 0.1rem;max-width:220px">
+    <option value="">${_soyYo(m.id)?'Elige tu sabor de torta':escapeHtml(m.apodo||m.nombre||'')+' debe elegir su sabor'}</option>${ops.map(o=>`<option value="${escapeHtml(o)}" ${o===v?'selected':''}>${escapeHtml(o)}</option>`).join('')}${existe?'':`<option selected value="${escapeHtml(v)}">${escapeHtml(v)}</option>`}</select>${gear}</span>`;
+}
+function _tortaControl(m, tam){
+  const grande = tam==='grande';
+  const v = _tortaDe(m);
+  const base = grande ? 'width:100%;margin-top:0.55rem;padding:0.45rem 0.6rem;font-size:0.78rem;border-radius:8px' : 'width:84px;flex-shrink:0;padding:0.3rem 0.4rem;font-size:0.64rem;border-radius:7px';
+  const gear = _tieneRol('admin') ? `<button onclick="event.stopPropagation();_editarSaboresTorta()" title="Editar la lista de sabores (admins)" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:7px;cursor:pointer;color:var(--text3);font-size:${grande?'0.8rem':'0.66rem'};padding:${grande?'0.35rem 0.5rem':'0.2rem 0.35rem'};${grande?'margin-top:0.55rem':''}">⚙</button>` : '';
+  if(_soyYo(m.id) || _tieneRol('admin')){
+    const ops = _tortaSabores(); const existe = !v || ops.includes(v);
+    const sel = `<select onchange="setCumpleField('${m.id}','torta',this.value)" title="Elige tu sabor de torta" style="${base};flex:1;min-width:0;background:var(--bg-card);border:1.5px solid #f472b6;color:var(--text);font-family:var(--font);outline:none;box-sizing:border-box;cursor:pointer">
+      <option value="">🍰 ${_soyYo(m.id) ? escapeHtml(m.apodo||m.nombre||'')+', elige tu sabor de torta…' : escapeHtml(m.apodo||m.nombre||'')+' debe elegir su sabor de torta'}</option>${ops.map(o=>`<option value="${escapeHtml(o)}" ${o===v?'selected':''}>🍰 ${escapeHtml(o)}</option>`).join('')}${existe?'':`<option selected value="${escapeHtml(v)}">🍰 ${escapeHtml(v)}</option>`}</select>`;
+    return `<div style="display:flex;gap:0.35rem;align-items:center;${grande?'':'flex-shrink:0'}">${sel}${gear}</div>`;
+  }
+  const txt = v ? '🍰 '+escapeHtml(v) : '🍰 '+escapeHtml(m.apodo||m.nombre||'')+' debe elegir su sabor de torta';
+  return `<div style="display:flex;gap:0.35rem;align-items:center;${grande?'':'flex-shrink:0'}"><span title="Solo el cumpleañero (o un admin) elige el sabor" style="${base};flex:1;min-width:0;display:block;background:var(--bg-card);border:1px dashed var(--border);color:${v?'var(--text2)':'var(--text3)'};font-family:var(--font);box-sizing:border-box;${grande?'line-height:1.35':'overflow:hidden;text-overflow:ellipsis;white-space:nowrap'}">${txt}</span>${gear}</div>`;
+}
+function _editarSaboresTorta(){
+  if(!_tieneRol('admin')){ showStatus('Solo los admins pueden editar los sabores', true); return; }
+  window._saboresEdit = _tortaSabores().map(n=>({nombre:n, orig:n}));
+  _pintarSaboresTorta();
+}
+function _pintarSaboresTorta(){
+  const l = window._saboresEdit||[];
+  const uso = n=>(appData.members||[]).filter(m=>_tortaDe(m)===n).length;
+  const filas = l.map((x,i)=>`<div style="display:flex;gap:0.4rem;align-items:center;margin-bottom:0.35rem">
+      <span style="font-size:0.9rem">🍰</span>
+      <input value="${escapeHtml(x.nombre)}" oninput="window._saboresEdit[${i}].nombre=this.value" style="flex:1;padding:0.4rem 0.6rem;border-radius:7px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.82rem;font-family:var(--font);outline:none">
+      <span style="font-size:0.64rem;color:var(--text3);min-width:4.5rem;text-align:right">${x.orig?uso(x.orig)+' elegido'+(uso(x.orig)!==1?'s':''):'nuevo'}</span>
+      <button onclick="window._saboresEdit.splice(${i},1);_pintarSaboresTorta()" title="Eliminar" style="width:28px;height:28px;border-radius:6px;border:1px solid rgba(255,92,114,0.3);background:rgba(255,92,114,0.08);color:#ff5c72;cursor:pointer">✕</button>
+    </div>`).join('');
+  openGenericModal('🍰 Sabores de torta', `<div style="font-size:0.74rem;color:var(--text3);margin-bottom:0.8rem">Esta es la lista que ve cada cumpleañero para elegir su torta. Si renombras un sabor, quien lo eligió pasa al nombre nuevo; si lo eliminas, su elección queda vacía.</div>
+    <div style="max-height:55vh;overflow:auto">${filas}</div>
+    <button onclick="window._saboresEdit.push({nombre:'',orig:null});_pintarSaboresTorta();setTimeout(()=>{const ins=document.querySelectorAll('#tray-generic-modal input');const u=ins[ins.length-1];if(u)u.focus();},50)" style="margin-top:0.4rem;font-size:0.76rem;padding:0.4rem 0.9rem;border-radius:8px;border:1px dashed var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:var(--font)">+ Añadir sabor</button>
+    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem">
+      <button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:0.82rem">Cancelar</button>
+      <button onclick="_guardarSaboresTorta()" style="background:#f472b6;color:#fff;border:none;border-radius:8px;padding:0.5rem 1.1rem;cursor:pointer;font-family:var(--font);font-size:0.82rem;font-weight:700">Guardar</button>
+    </div>`);
+}
+async function _guardarSaboresTorta(){
+  const l = (window._saboresEdit||[]).map(x=>({nombre:String(x.nombre||'').replace(/\s+/g,' ').trim(), orig:x.orig})).filter(x=>x.nombre);
+  if(!l.length){ showStatus('Debe quedar al menos un sabor', true); return; }
+  const vistos=new Set(); for(const x of l){ const k=x.nombre.toLowerCase(); if(vistos.has(k)){ showStatus('Hay dos sabores llamados "'+x.nombre+'"', true); return; } vistos.add(k); }
+  const ren={}; l.forEach(x=>{ if(x.orig && x.orig!==x.nombre) ren[x.orig]=x.nombre; });
+  const quedan=new Set(l.map(x=>x.orig).filter(Boolean));
+  const borrados=_tortaSabores().filter(n=>!quedan.has(n));
+  appData.tortaSabores = l.map(x=>x.nombre);
+  markLocalChange('tortaSabores');
+  // Actualizar a quienes ya habían elegido un sabor renombrado o eliminado
+  for(const m of (appData.members||[])){
+    if(!m.torta) continue;
+    let nuevo = null;
+    if(ren[m.torta]!==undefined) nuevo = ren[m.torta]; else if(borrados.includes(m.torta)) nuevo = '';
+    if(nuevo!==null){ m.torta = nuevo; markLocalChange('members'); try{ if(window.MembersDB){ const idx=appData.members.indexOf(m); await MembersDB.saveMember(m, idx<0?0:idx); } }catch(e){} }
+  }
+  try{ await upsert(); }catch(e){}
+  closeTrayModal(); renderCumples(); showStatus('Sabores de torta guardados 🍰');
+}
+
+// ── Banner de cumpleaños (lo ven todos) + confetti (solo el cumpleañero) ──
+function _cumpleanerosHoy(){
+  const h=new Date();
+  return (appData.members||[]).filter(m=>m.active!==false && m.cumple && _cumpleCelebracion(m, h));
+}
+function renderBannerCumple(){
+  const wrap = document.getElementById('dash-banner-wrap'); if(!wrap) return;
+  let el = document.getElementById('cumple-banner');
+  const hoy = _cumpleanerosHoy();
+  if(!hoy.length){ if(el) el.remove(); return; }
+  if(!el){ el=document.createElement('div'); el.id='cumple-banner'; wrap.parentElement.insertBefore(el, wrap); }
+  const yo = hoy.find(m=>_soyYo(m.id));
+  const nombres = hoy.map(m=>escapeHtml(m.apodo||m.nombre||''));
+  const lista = nombres.length===1 ? nombres[0] : nombres.slice(0,-1).join(', ')+' y '+nombres[nombres.length-1];
+  const avs = hoy.map(m=>{ const col=m.color||'#f472b6'; return `<div style="width:52px;height:52px;border-radius:50%;border:3px solid #fff;background:${col};display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#fff;font-weight:800;overflow:hidden;margin-left:-10px;box-shadow:0 4px 14px rgba(0,0,0,0.15)">${m.photo?`<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover">`:(m.emoji||(m.apodo||m.nombre||'?').charAt(0))}</div>`; }).join('');
+  const _c0 = _cumpleCelebracion(hoy[0], new Date());
+  const _cuando = !_c0 || _c0.tipo==='hoy' ? null : (_c0.tipo==='viernes' ? 'este '+_DIAS_LARGO[_c0.fecha.getDay()] : 'el '+_DIAS_LARGO[_c0.fecha.getDay()]);
+  const titulo = yo ? `¡Feliz cumpleaños, ${escapeHtml(yo.apodo||yo.nombre||'')}! 🎂`
+    : !_cuando ? `¡Hoy ${hoy.length>1?'cumplen':'cumple'} ${lista}! 🎂`
+    : (_c0.tipo==='viernes' ? `¡${lista} ${hoy.length>1?'cumplen':'cumple'} ${_cuando}! Lo celebramos hoy 🎂` : `¡${lista} ${hoy.length>1?'cumplieron':'cumplió'} ${_cuando}! Lo celebramos hoy 🎂`);
+  const sub = yo ? 'Todo el equipo de Polen te celebra hoy. Que sea un año lleno de ideas brillantes ✨' : 'Déjale tus deseos firmados en el módulo de cumpleaños 🎉';
+  el.innerHTML = `<div ${yo?'onclick="_lanzarConfetti()" title="¡Otra vez! 🎉"':''} style="position:relative;overflow:hidden;display:flex;align-items:center;gap:1rem;padding:1rem 1.4rem 1rem 1.6rem;margin-bottom:0.9rem;border-radius:18px;background:linear-gradient(120deg,#f472b6 0%,#fb923c 55%,#facc15 100%);color:#fff;box-shadow:0 8px 28px rgba(244,114,182,0.35);${yo?'cursor:pointer':''}">
+      <div style="position:absolute;inset:0;background-image:radial-gradient(circle at 12% 30%,rgba(255,255,255,0.35) 0 3px,transparent 4px),radial-gradient(circle at 78% 20%,rgba(255,255,255,0.3) 0 4px,transparent 5px),radial-gradient(circle at 60% 80%,rgba(255,255,255,0.25) 0 3px,transparent 4px),radial-gradient(circle at 92% 70%,rgba(255,255,255,0.3) 0 2px,transparent 3px),radial-gradient(circle at 35% 75%,rgba(255,255,255,0.3) 0 2px,transparent 3px);pointer-events:none"></div>
+      <div style="display:flex;padding-left:10px;position:relative">${avs}</div>
+      <div style="position:relative;min-width:0;flex:1">
+        <div style="font-size:1.3rem;font-weight:800;letter-spacing:-0.3px;line-height:1.2;text-shadow:0 1px 2px rgba(0,0,0,0.12)">${titulo}</div>
+        <div style="font-size:0.84rem;font-weight:600;opacity:0.95;margin-top:0.2rem">${sub}</div>
+      </div>
+      <div style="position:relative;font-size:2.4rem;line-height:1">🎉</div>
+    </div>`;
+  // Confetti SOLO para el cumpleañero (una vez por sesión del día)
+  if(yo){
+    const k='polen-confetti-'+new Date().toISOString().slice(0,10)+'-'+yo.id;
+    let ya=false; try{ ya=!!sessionStorage.getItem(k); sessionStorage.setItem(k,'1'); }catch(e){}
+    if(!ya) setTimeout(_lanzarConfetti, 600);
+  }
+}
+function _lanzarConfetti(){
+  if(document.getElementById('polen-confetti')) return;
+  const cv=document.createElement('canvas'); cv.id='polen-confetti';
+  cv.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:99999';
+  document.body.appendChild(cv);
+  const ctx=cv.getContext('2d'); const W=cv.width=window.innerWidth, H=cv.height=window.innerHeight;
+  const cols=['#f472b6','#fb923c','#facc15','#3d9edd','#2dc3b3','#5aaa35','#9b8bd4','#ffffff'];
+  const ps=[]; for(let i=0;i<220;i++){ const izq=i%2===0; ps.push({ x:izq?-10:W+10, y:H*0.55+Math.random()*H*0.3, vx:(izq?1:-1)*(4+Math.random()*9), vy:-(9+Math.random()*12), r:4+Math.random()*6, c:cols[i%cols.length], a:Math.random()*Math.PI, va:(Math.random()-0.5)*0.3, f:Math.random()<0.5 }); }
+  const t0=performance.now();
+  (function paso(t){
+    const dt=Math.min(32,t-(paso._t||t))/16; paso._t=t; ctx.clearRect(0,0,W,H);
+    ps.forEach(p=>{ p.vy+=0.28*dt; p.vx*=0.992; p.x+=p.vx*dt; p.y+=p.vy*dt; p.a+=p.va*dt;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.a); ctx.fillStyle=p.c;
+      if(p.f){ ctx.fillRect(-p.r/2,-p.r/4,p.r,p.r/2); } else { ctx.beginPath(); ctx.arc(0,0,p.r/2.4,0,Math.PI*2); ctx.fill(); }
+      ctx.restore(); });
+    if(t-t0<4200) requestAnimationFrame(paso); else cv.remove();
+  })(t0);
+}
+
+// ── ¿Cuándo se celebra? El mismo día; si cae sábado o domingo, el VIERNES anterior y el LUNES siguiente ──
+function _f0(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
+function _cumpleCelebracion(m, hoy){
+  if(!m || !m.cumple) return null;
+  const p=String(m.cumple).split('-'); if(p.length<3) return null;
+  const mes=parseInt(p[1],10)-1, dia=parseInt(p[2],10); if(isNaN(mes)||isNaN(dia)) return null;
+  const h=_f0(hoy||new Date());
+  for(const y of [h.getFullYear()-1, h.getFullYear(), h.getFullYear()+1]){
+    const d=new Date(y, mes, dia); const dow=d.getDay();
+    if(d.getTime()===h.getTime()) return { tipo:'hoy', fecha:d };
+    if(dow===6 || dow===0){
+      const vie=new Date(d); vie.setDate(d.getDate()-(dow===6?1:2));
+      const lun=new Date(d); lun.setDate(d.getDate()+(dow===6?2:1));
+      if(vie.getTime()===h.getTime()) return { tipo:'viernes', fecha:d };
+      if(lun.getTime()===h.getTime()) return { tipo:'lunes', fecha:d };
+    }
+  }
+  return null;
+}
+const _DIAS_LARGO=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+function _cumpleTextoCelebracion(c){
+  if(!c) return '';
+  if(c.tipo==='hoy') return '🎉 ¡Hoy es su cumpleaños!';
+  if(c.tipo==='viernes') return '🎉 ¡Cumple este '+_DIAS_LARGO[c.fecha.getDay()]+'! Lo celebramos hoy';
+  return '🎉 ¡Cumplió el '+_DIAS_LARGO[c.fecha.getDay()]+'! Lo celebramos hoy';
+}
+// Sabor de torta: solo cuenta lo elegido del menú (lo escrito a mano antes del menú no vale)
+function _tortaDe(m){ return (m && m.torta && m.tortaElegidaAt) ? m.torta : ''; }
+// Deseos firmados (lista). Los deseos viejos sin firma se muestran como "sin firma".
+function _deseosDe(m){ return Array.isArray(m.deseosLista) ? m.deseosLista.slice() : []; }   // los viejos sin firma ya no se muestran
+window._cumpleAbiertos = window._cumpleAbiertos || {};
+// Signo zodiacal
+function _signoZodiacal(mes, dia){   // mes 0-11
+  const L=[['♑','Capricornio',19],['♒','Acuario',18],['♓','Piscis',20],['♈','Aries',19],['♉','Tauro',20],['♊','Géminis',20],['♋','Cáncer',22],['♌','Leo',22],['♍','Virgo',22],['♎','Libra',22],['♏','Escorpio',21],['♐','Sagitario',21]];
+  // L[i] = signo que termina el día L[i][2] del mes i; después empieza el siguiente
+  const i = dia <= L[mes][2] ? mes : (mes+1)%12;
+  return { emoji:L[i][0], nombre:L[i][1] };
+}
+function _signoChip(mes, dia, grande){
+  const z=_signoZodiacal(mes, dia);
+  return `<span title="Signo zodiacal" style="display:inline-flex;align-items:center;gap:0.3rem;white-space:nowrap;font-size:${grande?'0.78rem':'0.7rem'};font-weight:700;color:#9b6bd4;background:rgba(155,107,212,0.1);border:1px solid rgba(155,107,212,0.25);border-radius:99px;padding:${grande?'0.22rem 0.65rem':'0.12rem 0.5rem'}"><span style="font-size:${grande?'0.95rem':'0.8rem'}">${z.emoji}</span>${z.nombre}</span>`;
+}
+// Gorrito de cumpleaños (dibujo propio en SVG) que va sobre la foto
+function _gorritoSVG(px){
+  const w=Math.round(px*0.5), h=Math.round(px*0.62);
+  return `<svg width="${w}" height="${h}" viewBox="0 0 50 62" style="position:absolute;top:-${Math.round(h*0.62)}px;right:-${Math.round(w*0.12)}px;transform:rotate(18deg);filter:drop-shadow(0 2px 3px rgba(0,0,0,0.18));pointer-events:none">
+    <defs><clipPath id="gc"><polygon points="25,6 46,58 4,58"/></clipPath></defs>
+    <polygon points="25,6 46,58 4,58" fill="#f472b6"/>
+    <g clip-path="url(#gc)"><rect x="-10" y="18" width="80" height="7" fill="#facc15" transform="rotate(-18 25 30)"/><rect x="-10" y="34" width="80" height="7" fill="#3d9edd" transform="rotate(-18 25 40)"/><rect x="-10" y="50" width="80" height="7" fill="#facc15" transform="rotate(-18 25 52)"/></g>
+    <circle cx="14" cy="34" r="2" fill="#fff" opacity="0.8"/><circle cx="31" cy="24" r="1.6" fill="#fff" opacity="0.8"/><circle cx="34" cy="46" r="1.8" fill="#fff" opacity="0.8"/>
+    <rect x="1" y="54" width="48" height="7" rx="3.5" fill="#fff" stroke="#f472b6" stroke-width="1.5"/>
+    <circle cx="25" cy="6" r="6" fill="#fb923c"/><circle cx="23" cy="4" r="2" fill="#fff" opacity="0.6"/>
+  </svg>`;
+}
+// Deseo del equipo Polen: cambia con cada persona y cada año, y se adapta a su rol
+function _hashStr(t){ let h=0; for(let i=0;i<t.length;i++){ h=(h*31+t.charCodeAt(i))|0; } return Math.abs(h); }
+function _deseoEquipo(m){
+  const n = m.apodo||m.nombre||'';
+  const c = String(m.cargo||'').toLowerCase();
+  const tipo = /dise|ilustr|gráf|graf|arte|visual/.test(c) ? 'diseno'
+    : /redac|copy|escrit|contenido|content|verbal/.test(c) ? 'redaccion'
+    : /direc|creativ|lider|líder|head|ceo|fundador/.test(c) ? 'direccion'
+    : /comercial|venta|cuenta|negocio|client/.test(c) ? 'comercial'
+    : /project|pm|proyecto|produc/.test(c) ? 'pm'
+    : /asist|admin|operac|financ|contab/.test(c) ? 'operaciones'
+    : /video|audiovisual|edici|motion|anima|foto/.test(c) ? 'audiovisual'
+    : 'general';
+  const P = {
+    diseno:['que este año cada boceto encuentre su forma perfecta y cada paleta te salga a la primera','que tengas un año con más ideas que mesas de trabajo y más aplausos que versiones','que la inspiración te llegue sin pedirla y los ajustes de último minuto se tomen vacaciones'],
+    redaccion:['que este año las palabras te lleguen solas y cada idea encuentre su frase exacta','que nunca te falte el adjetivo justo ni las ganas de contar buenas historias','que tus textos sigan dándole voz a las marcas y este año te dé muchas historias propias'],
+    direccion:['que este año sigas abriendo caminos y contagiando al equipo con esa visión','que cada idea que guíes se convierta en algo de lo que todos estemos orgullosos','que nunca te falten las ganas de imaginar en grande ni un equipo que te siga'],
+    comercial:['que este año lleguen los mejores clientes, los proyectos soñados y los "sí" más rápidos','que cada reunión termine en abrazo y cada propuesta en un proyecto increíble','que este año abras muchas puertas nuevas y todas valgan la pena'],
+    pm:['que este año todos los cronogramas cuadren, los entregables lleguen a tiempo y te sobre tiempo para ti','que los hitos se cumplan solos y las sorpresas sean solo las buenas','que este año todo fluya como un cronograma perfecto (y que celebres cada hito)'],
+    operaciones:['que este año todo salga en orden y te sobren motivos para celebrar','gracias por sostener todo lo que hace que Polen funcione: que este año te devuelva el doble','que cada día te traiga calma, buenas noticias y cero pendientes urgentes'],
+    audiovisual:['que este año cada toma salga a la primera y cada render termine sin errores','que la luz siempre esté de tu lado y tus ideas sigan llenando pantallas','que este año grabes momentos increíbles, delante y detrás de cámara'],
+    general:['que este año esté lleno de ideas brillantes, risas de equipo y metas cumplidas','que tengas un año tan creativo como tú y tan bonito como lo que construimos juntos','que este nuevo año te traiga crecimiento, alegría y muchas razones para celebrar'],
+  };
+  const l = P[tipo]; const i = _hashStr(m.id+'-'+new Date().getFullYear()) % l.length;
+  return '¡Feliz cumpleaños, '+n+'! 🎉 Todo el equipo de Polen te desea '+l[i]+'.';
+}
+
 function renderCumples(){
   const grid = document.getElementById('cumples-grid');
   if(!grid) return;
@@ -17244,113 +17455,189 @@ function renderCumples(){
   const hoyDia = now.getDate();
   const MESES_CAP = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   if(lbl) lbl.textContent = `Quién cumple en ${MESES_CAP[mesIdx]}`;
+  const hoy0 = _f0(now);
 
-  const hoy0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const conCumple = (appData.members||[]).filter(m=>m.active!==false && m.cumple).map(m=>{
-    const parts = (m.cumple||'').split('-');
-    if(parts.length<3) return null;
+    const parts = (m.cumple||'').split('-'); if(parts.length<3) return null;
     const mes = parseInt(parts[1],10)-1, dia = parseInt(parts[2],10);
     let next = new Date(now.getFullYear(), mes, dia);
-    if(mes!==mesIdx && next < hoy0) next = new Date(now.getFullYear()+1, mes, dia);
-    return { m, mes, dia, next, esMes: mes===mesIdx, esHoy: mes===mesIdx && dia===hoyDia };
+    if(next < hoy0) next = new Date(now.getFullYear()+1, mes, dia);
+    const cel = _cumpleCelebracion(m, now);
+    return { m, mes, dia, next, esMes: mes===mesIdx, cel };
   }).filter(Boolean);
 
+  // Principal: quien se celebra hoy; si no, el próximo del mes; si ya pasaron todos, el último del mes
+  const celebrando = conCumple.filter(x=>x.cel);
   const delMes = conCumple.filter(x=>x.esMes).sort((a,b)=>a.dia-b.dia);
-  // Lista completa de meses siguientes (sin cortar): la columna derecha del split
-  // toma de acá lo que necesite. El layout clásico sigue usando solo los primeros 4.
-  const proximosAll = conCumple.filter(x=>!x.esMes).sort((a,b)=>a.next-b.next);
-  const proximos = proximosAll.slice(0,4);
+  // Solo futuros cercanos (próximos 4 meses): quien ya cumplió este año no es "próximo"
+  const prox = conCumple.filter(x=>!x.cel && x.next>hoy0 && (x.next-hoy0)/86400000 <= 300).sort((a,b)=>a.next-b.next);
+  // Protagonista SOLO en la semana del cumpleaños (lunes a domingo) o cuando se celebra.
+  // El resto del tiempo todos los próximos se ven iguales: así el momento se siente especial.
+  const finSemana = new Date(hoy0); finSemana.setDate(hoy0.getDate() + ((7 - hoy0.getDay()) % 7));   // domingo de esta semana
+  let principales = celebrando.length ? celebrando : conCumple.filter(x=>x.next>=hoy0 && x.next<=finSemana).sort((a,b)=>a.next-b.next);
+  // Una sola tarjeta grande (la más cercana); si hay más en la semana, van primeras en los cuadritos
+  const otrosSemana = principales.slice(1);
+  principales = principales.slice(0,1);
+  const idsPrin = new Set(principales.map(x=>x.m.id));
+  const proximos = [...otrosSemana, ...prox.filter(x=>!idsPrin.has(x.m.id) && !otrosSemana.includes(x))].slice(0, principales.length ? 6 : 12);   // con protagonista 2×4; sin él 4×3
 
-  // Tarjeta full-width para cumpleañeros del mes: foto·nombre·fecha + sabor de torta + deseos
-  const tarjetaMes = ({m,mes,dia,esHoy})=>{
-    const col = m.color || 'var(--aire)';
-    const av = m.photo
-      ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-      : (m.emoji || (m.apodo||m.nombre||'?').charAt(0));
-    const fechaTxt = esHoy ? '🎉 ¡Hoy es su cumpleaños!' : `🎂 ${dia} de ${MESES_CAP[mes]}`;
-    const fechaCol = esHoy ? '#f472b6' : 'var(--text2)';
-    return `<div style="background:${esHoy?'linear-gradient(135deg,rgba(244,114,182,0.12),rgba(251,146,60,0.08))':'var(--bg-card2)'};border:1.5px solid ${esHoy?'#f472b6':'var(--border)'};border-radius:14px;padding:0.7rem 0.8rem;margin-bottom:0.4rem">
-      <div style="display:flex;align-items:center;gap:0.8rem">
-        <div style="width:54px;height:54px;border-radius:50%;background:${col}22;border:2px solid ${col};display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;color:${col};overflow:hidden;flex-shrink:0">${av}</div>
+  const avatar = (m, px)=>{ const col=m.color||'var(--aire)'; return `<div style="width:${px}px;height:${px}px;border-radius:50%;background:${col}22;border:2px solid ${col};display:flex;align-items:center;justify-content:center;font-size:${px/38}rem;font-weight:700;color:${col};overflow:hidden;flex-shrink:0">${m.photo?`<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(m.emoji||(m.apodo||m.nombre||'?').charAt(0))}</div>`; };
+  const nombre = m=>escapeHtml(m.apodo||m.nombre||'');
+
+  // ── Deseos (solo para quien se celebra): lista simple + caja para escribir ──
+  const deseosHTML = (m)=>{
+    const l=_deseosDe(m); const u=_usuarioReal?_usuarioReal():_usuarioActual(); const admin=_tieneRol('admin');
+    const items = l.map(d=>{
+      const puede = admin || (u && d.porId && d.porId===u.id);
+      return `<div style="padding:0.35rem 0.6rem;background:var(--bg-card);border-radius:12px 12px 12px 4px;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+        <div style="font-size:0.8rem;color:var(--text);line-height:1.45;white-space:pre-wrap;word-break:break-word">${escapeHtml(d.texto||'')}</div>
+        <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.2rem">
+          <span style="font-size:0.68rem;font-weight:700;color:#ec4899">${escapeHtml(d.por||'')}</span>
+          ${puede?`<button onclick="_borrarDeseo('${m.id}','${d.id}')" title="Borrar deseo" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.66rem;padding:0">✕</button>`:''}
+        </div></div>`; }).join('');
+    const esYo = _soyYo(m.id);
+    return `<div style="display:flex;flex-direction:column;gap:0.3rem;flex:1;min-height:0;overflow-y:auto;margin-top:0.4rem">${items || `<div style="font-size:0.76rem;color:var(--text3);font-style:italic;padding:0.2rem 0">${esYo?'Aquí verás los deseos que te deje el equipo 💌':'Aún no hay deseos del equipo. ¡Sé el primero! 💌'}</div>`}</div>
+      ${esYo ? '' : `<div style="display:flex;gap:0.4rem;margin-top:0.4rem;flex-shrink:0">
+        <input id="deseo-${m.id}" placeholder="💌 Déjale un deseo a ${nombre(m)}…" onkeydown="if(event.key==='Enter'){event.preventDefault();_agregarDeseo('${m.id}');}" style="flex:1;min-width:0;background:var(--bg-card);border:1.5px solid rgba(236,72,153,0.35);border-radius:99px;padding:0.4rem 0.85rem;color:var(--text);font-family:var(--font);font-size:0.78rem;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#ec4899'" onblur="this.style.borderColor='rgba(236,72,153,0.35)'">
+        <button onclick="_agregarDeseo('${m.id}')" style="flex-shrink:0;background:linear-gradient(135deg,#f472b6,#fb923c);color:#fff;border:none;border-radius:99px;padding:0 1rem;font-weight:800;font-size:0.8rem;cursor:pointer;font-family:var(--font)">Enviar</button>
+      </div>`}`;
+  };
+
+  // ── Tarjeta principal ──
+  // Día normal: tarjeta tranquila con cuenta regresiva. Día de celebración (o viernes/lunes si
+  // cae en fin de semana): tarjeta especial con gorrito, confetti, brillo y cinta "Hoy celebramos".
+  // En ambos casos: deseo del Equipo Polen + deseos firmados + caja para dejar el tuyo.
+  const tarjetaPrincipal = ({m,mes,dia,cel,next})=>{
+    const fiesta=!!cel;
+    const yaPaso = !fiesta && mes===mesIdx && dia<hoyDia;
+    const faltan = (!fiesta && !yaPaso && next) ? Math.round((next-hoy0)/86400000) : null;
+    const fechaTxt = fiesta ? _cumpleTextoCelebracion(cel) : yaPaso ? `🎂 Cumplió el ${dia} de ${MESES_CAP[mes]}` : `🎂 ${dia} de ${MESES_CAP[mes]}`;
+    const z=_signoZodiacal(mes, dia);
+    const quote = `<div style="margin-top:0.4rem;font-size:0.74rem;color:var(--text2);line-height:1.4;font-style:italic;flex-shrink:0">“${escapeHtml(_deseoEquipo(m).replace(/^¡Feliz cumpleaños, [^!]*! 🎉 /,''))}” <span style="font-style:normal;font-weight:800;color:#d97706;font-size:0.72rem;white-space:nowrap">— Equipo Polen 🐝</span></div>`;
+    const cuenta = faltan!=null ? `<div style="flex-shrink:0;text-align:center;padding:0.3rem 0.55rem;border-radius:12px;background:var(--bg-card);border:1px solid var(--border)">
+        <div style="font-size:0.56rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text3);margin-bottom:0.1rem">${faltan===1?'falta':'faltan'}</div>
+        <div style="font-size:1.25rem;font-weight:800;color:#ec4899;line-height:1">${faltan}</div>
+        <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text3)">${faltan===1?'día':'días'}</div></div>` : '';
+    const fondoFiesta = `radial-gradient(circle at 8% 18%,rgba(250,204,21,0.55) 0 3px,transparent 4px),radial-gradient(circle at 92% 12%,rgba(61,158,221,0.5) 0 3px,transparent 4px),radial-gradient(circle at 85% 78%,rgba(236,72,153,0.45) 0 4px,transparent 5px),radial-gradient(circle at 46% 6%,rgba(34,197,94,0.45) 0 2.5px,transparent 3.5px),radial-gradient(circle at 70% 40%,rgba(251,146,60,0.45) 0 2.5px,transparent 3.5px),radial-gradient(circle at 20% 88%,rgba(155,107,212,0.45) 0 3px,transparent 4px),linear-gradient(135deg,#fde2f0 0%,#ffe9d6 55%,#fff6cc 100%)`;
+    return `<div class="${fiesta?'cumple-fiesta':''}" style="position:relative;background:${fiesta?fondoFiesta:'var(--bg-card2)'};border:${fiesta?'2px solid #ec4899':'1.5px solid var(--border)'};border-radius:16px;padding:0.6rem 0.8rem;display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;${fiesta?'box-shadow:0 0 0 4px rgba(236,72,153,0.12),0 12px 30px rgba(236,72,153,0.22);':''}">
+      ${fiesta?`<div style="position:absolute;top:22px;right:-48px;width:190px;text-align:center;transform:rotate(35deg);background:linear-gradient(90deg,#ec4899,#fb923c);color:#fff;font-size:0.58rem;font-weight:800;letter-spacing:0.6px;padding:0.24rem 0;box-shadow:0 2px 6px rgba(0,0,0,0.15)">HOY CELEBRAMOS</div>
+        <span class="cumple-flota" style="position:absolute;right:16%;bottom:62px;font-size:1.2rem;opacity:0.85">🎈</span><span class="cumple-flota d2" style="position:absolute;right:6%;top:42%;font-size:1rem;opacity:0.8">🎉</span>`:''}
+      <div style="display:flex;align-items:center;gap:0.95rem;position:relative">
+        <div style="position:relative;flex-shrink:0;margin-top:${fiesta?'12px':'0'}">${avatar(m,fiesta?60:54)}${fiesta?_gorritoSVG(60):''}</div>
         <div style="min-width:0;flex:1">
-          <div style="font-size:1.15rem;font-weight:800;color:var(--text);letter-spacing:-0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(m.apodo||m.nombre)}</div>
-          <div style="font-size:0.85rem;color:${fechaCol};font-weight:${esHoy?'800':'600'}">${fechaTxt}</div>
+          <div style="font-size:${fiesta?'1.3rem':'1.15rem'};font-weight:800;color:${fiesta?'#1f1235':'var(--text)'};letter-spacing:-0.5px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre(m)}</div>
+          <div style="font-size:0.8rem;color:${fiesta?'#db2777':'var(--text2)'};font-weight:800;margin-top:0.1rem">${fechaTxt}</div>
+          <div style="font-size:0.72rem;color:${fiesta?'#6b5a7a':'var(--text3)'};margin-top:0.15rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+            <span title="Signo zodiacal">${z.emoji} ${z.nombre}</span><span style="opacity:0.4">·</span>${_tortaInline(m)}
+          </div>
         </div>
+        ${cuenta}
       </div>
-      <input type="text" value="${escapeHtml(m.torta||'')}" placeholder="🍰 Sabor de torta que desea…"
-        onchange="setCumpleField('${m.id}','torta',this.value)"
-        style="width:100%;margin-top:0.55rem;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.45rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.78rem;outline:none;box-sizing:border-box">
-      <textarea placeholder="🎉 Deseos de cumpleaños…" rows="2"
-        onchange="setCumpleField('${m.id}','deseos',this.value)"
-        style="width:100%;margin-top:0.4rem;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.45rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.78rem;outline:none;box-sizing:border-box;resize:vertical;line-height:1.4">${escapeHtml(m.deseos||'')}</textarea>
+      ${quote}
+      ${deseosHTML(m)}
     </div>`;
   };
 
-  // Tarjetita horizontal para "Próximos": foto · nombre · fecha (al medio) · torta (campo largo)
-  const celdaProx = ({m,mes,dia})=>{
-    const col = m.color || 'var(--aire)';
-    const av = m.photo
-      ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-      : (m.emoji || (m.apodo||m.nombre||'?').charAt(0));
-    return `<div style="display:flex;align-items:center;gap:0.45rem;padding:0.45rem 0.55rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:11px;min-width:0">
-      <div style="width:38px;height:38px;border-radius:50%;background:${col}22;border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:${col};overflow:hidden;flex-shrink:0">${av}</div>
-      <span style="font-size:0.85rem;font-weight:800;color:var(--text);flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-0.2px">${escapeHtml(m.apodo||m.nombre)}</span>
-      <span style="font-size:0.72rem;color:var(--text2);font-weight:600;white-space:nowrap;flex:1;text-align:center">🎂 ${dia} ${MESES_CAP[mes].slice(0,3).toLowerCase()}</span>
-      <input type="text" value="${escapeHtml(m.torta||'')}" placeholder="🍰 sabor de torta" title="Sabor de torta que desea"
-        onchange="setCumpleField('${m.id}','torta',this.value)"
-        style="width:118px;flex-shrink:0;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;padding:0.3rem 0.45rem;color:var(--text3);font-family:var(--font);font-size:0.66rem;outline:none;box-sizing:border-box">
+  // ── Próximos: cuadritos (sin deseos todavía) ──
+  const filaProx = ({m,mes,dia,next}, vertical)=>{
+    const dias = Math.round((next-hoy0)/86400000);
+    const z=_signoZodiacal(mes, dia); const col=m.color||'var(--aire)';
+    const pronto = dias<=7;
+    if(vertical) return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:0.25rem;padding:0.5rem 0.4rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:14px;min-width:0;min-height:0">
+      ${avatar(m,50)}
+      <div style="font-size:0.88rem;font-weight:800;color:var(--text);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre(m)} <span title="${z.nombre}" style="font-size:0.76rem">${z.emoji}</span></div>
+      <div style="font-size:0.74rem;font-weight:700;color:var(--text2);white-space:nowrap">🎂 ${dia} ${MESES_CAP[mes].slice(0,3).toLowerCase()} <span style="font-weight:500;color:var(--text3);font-size:0.64rem">· ${dias===1?'mañana':'en '+dias+' días'}</span></div>
+    </div>`;
+    return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.5rem;background:${pronto?'linear-gradient(160deg,rgba(244,114,182,0.1),var(--bg-card2))':'var(--bg-card2)'};border:1px solid ${pronto?'rgba(236,72,153,0.35)':'var(--border)'};border-radius:14px;min-width:0;min-height:0">
+      ${avatar(m,34)}
+      <div style="min-width:0;line-height:1.2">
+        <div style="font-size:0.8rem;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre(m)} <span title="${z.nombre}" style="font-size:0.76rem">${z.emoji}</span></div>
+        <div style="font-size:0.74rem;font-weight:700;color:${pronto?'#ec4899':'var(--text2)'};white-space:nowrap">🎂 ${dia} ${MESES_CAP[mes].slice(0,3).toLowerCase()} <span style="font-weight:500;color:var(--text3);font-size:0.64rem">· ${dias===1?'mañana':'en '+dias+' días'}</span></div>
+      </div>
     </div>`;
   };
 
   let inner = '';
-  if(delMes.length){
-    // ── HAY CUMPLEAÑERO DEL MES → dos columnas ──────────────────────────────
-    // Izquierda: el próximo cumpleañero inmediato con su tarjeta completa
-    // (sabor de torta + deseos). Derecha: los 3 siguientes, compactos.
-    // Así la caja no se estira a lo alto y no desbalancea la fila con Pausa Activa.
-    const idxProx = delMes.findIndex(x=>x.dia >= hoyDia);
-    const principal = idxProx >= 0 ? delMes[idxProx] : delMes[0];
-    // Los demás del mes pasan a "siguientes" (junto con los de meses posteriores)
-    const restoMes = delMes.filter(x=>x !== principal);
-    const siguientes = [...restoMes, ...proximosAll].slice(0,3);
-
-    const colIzq = `<div class="cumple-split-col">
-        <div style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#f472b6;padding:0.2rem 0.2rem 0.4rem">🎂 Este mes</div>
-        ${tarjetaMes(principal)}
-      </div>`;
-
-    if(siguientes.length){
-      inner = `<div class="cumple-split">${colIzq}
-        <div class="cumple-split-col">
-          <div style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0.2rem 0.2rem 0.4rem">Próximos</div>
-          <div class="cumple-sig-list">${siguientes.map(celdaProx).join('')}</div>
-        </div>
-      </div>`;
-    } else {
-      inner = colIzq;
-    }
+  if(principales.length){
+    const etiqueta = celebrando.length ? '🎉 Celebramos hoy' : '🎂 Esta semana';
+    inner = `<div class="cumple-split">
+      <div class="cumple-split-col" style="gap:0.3rem">
+        <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#f472b6;padding:0 0.2rem">${etiqueta}</div>
+        ${principales.map(tarjetaPrincipal).join('')}
+      </div>
+      <div class="cumple-split-col">
+        <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0 0.2rem 0.3rem">Próximos</div>
+        ${proximos.length?`<div class="cumple-prox-cuadros">${proximos.map(x=>filaProx(x,false)).join('')}</div>`:'<div style="font-size:0.76rem;color:var(--text3)">No hay más cumpleaños próximos.</div>'}
+      </div>
+    </div>`;
   } else {
-    // ── SIN CUMPLEAÑEROS DEL MES → diagramación de siempre ──────────────────
-    inner += `<div style="padding:0.6rem 0.2rem 0.5rem;color:var(--text3);font-size:0.85rem">🎈 Nadie del equipo cumple años en ${MESES_CAP[mesIdx]}.</div>`;
+    if(!proximos.length) inner += `<div style="padding:0.6rem 0.2rem 0.5rem;color:var(--text3);font-size:0.85rem">🎈 No hay cumpleaños próximos registrados.</div>`;
     if(proximos.length){
-      inner += `<div style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0.6rem 0.2rem 0.4rem;margin-top:0.3rem;border-top:1px solid var(--border2)">Próximos</div>`;
-      inner += `<div class="cumple-prox-grid">${proximos.map(celdaProx).join('')}</div>`;
+      inner += `<div style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:0 0.2rem 0.3rem">Próximos</div>`;
+      inner += `<div class="cumple-prox-cuadros" style="grid-template-columns:repeat(4,minmax(0,1fr));height:calc(100% - 1.6rem)">${proximos.map(x=>filaProx(x,false)).join('')}</div>`;
     }
   }
 
-  grid.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:0.5rem 0.6rem;height:100%;display:flex;flex-direction:column;box-sizing:border-box">
-      <div style="flex:1;min-height:0;overflow-y:auto">${inner}</div>
+  grid.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:0.6rem 0.7rem;height:100%;min-height:280px;max-height:290px;display:flex;flex-direction:column;box-sizing:border-box">
+      <div style="flex:1;min-height:0;overflow:hidden">${inner}</div>
     </div>`;
+  // Limpieza única: los sabores escritos a mano antes del menú se borran (solo un admin la ejecuta)
+  try{ _limpiarTortasViejas(); }catch(e){}
 }
 
+async function _limpiarDeseosViejos(){
+  if(appData._deseosViejosLimpios || !_tieneRol('admin')) return;
+  appData._deseosViejosLimpios = true; markLocalChange('_deseosViejosLimpios');
+  for(const m of (appData.members||[])){ if(m.deseos){ m.deseos=''; try{ if(window.MembersDB){ const idx=appData.members.indexOf(m); await MembersDB.saveMember(m, idx<0?0:idx); } }catch(e){} } }
+  markLocalChange('members'); try{ await upsert(); }catch(e){}
+}
+async function _limpiarTortasViejas(){
+  try{ _limpiarDeseosViejos(); }catch(e){}
+  if(appData._tortasLimpias || !_tieneRol('admin')) return;
+  appData._tortasLimpias = true; markLocalChange('_tortasLimpias');
+  let n=0;
+  for(const m of (appData.members||[])){
+    if(m.torta && !m.tortaElegidaAt){
+      m.torta=''; n++;
+      try{ if(window.MembersDB){ const idx=appData.members.indexOf(m); await MembersDB.saveMember(m, idx<0?0:idx); } }catch(e){}
+    }
+  }
+  if(n){ markLocalChange('members'); console.log('[Cumples] Borrados', n, 'sabores escritos a mano antes del menú'); }
+  try{ await upsert(); }catch(e){}
+}
+
+async function _guardarMiembro(m){
+  markLocalChange('members');
+  try{ if(window.MembersDB){ const idx=appData.members.indexOf(m); await MembersDB.saveMember(m, idx<0?0:idx); } }catch(e){ console.error('[cumple]', e); }
+}
+async function _agregarDeseo(memberId){
+  const m=(appData.members||[]).find(x=>x.id===memberId); if(!m) return;
+  const ta=document.getElementById('deseo-'+memberId); const txt=(ta&&ta.value||'').trim();
+  if(!txt){ showStatus('Escribe tu deseo primero', true); return; }
+  const u=_usuarioReal?_usuarioReal():_usuarioActual();
+  if(!u || !u.id || u.id==='__master__'){ showStatus('Entra con tu usuario para firmar tu deseo', true); return; }
+  if(!Array.isArray(m.deseosLista)) m.deseosLista=[];
+  m.deseosLista.push({ id:uid(), texto:txt.slice(0,600), por:u.apodo||u.nombre||'', porId:u.id, at:new Date().toISOString() });
+  await _guardarMiembro(m);
+  renderCumples(); showStatus('Deseo enviado 🎉');
+}
+async function _borrarDeseo(memberId, deseoId){
+  const m=(appData.members||[]).find(x=>x.id===memberId); if(!m || !Array.isArray(m.deseosLista)) return;
+  const u=_usuarioReal?_usuarioReal():_usuarioActual();
+  const d=m.deseosLista.find(x=>x.id===deseoId); if(!d || !u || (d.porId!==u.id && !_tieneRol('admin'))) return;
+  if(d.porId!==u.id){ const ok=await confirmModal('¿Borrar el deseo de '+(d.por||'esta persona')+' para '+(m.apodo||m.nombre||'')+'?', 'Borrar', 'background:#dc2626;color:#fff;border:none'); if(!ok) return; }
+  m.deseosLista=m.deseosLista.filter(x=>x.id!==deseoId);
+  await _guardarMiembro(m); renderCumples(); showStatus('Deseo borrado');
+}
 async function setCumpleField(memberId, field, value){
   const m = (appData.members||[]).find(x=>x.id===memberId);
   if(!m) return;
-  m[field] = (value||'').trim();
-  markLocalChange('members');
-  try{
-    if(window.MembersDB){ const idx = appData.members.indexOf(m); await MembersDB.saveMember(m, idx<0?0:idx); }
-  }catch(e){ console.error('[cumple field]', e); }
+  if(field==='torta'){
+    if(!_soyYo(memberId) && !_tieneRol('admin')){ showStatus('Solo el cumpleañero o un admin pueden elegir el sabor', true); return; }
+    m.torta = (value||'').trim(); m.tortaElegidaAt = m.torta ? new Date().toISOString() : null;
+  } else { m[field] = (value||'').trim(); }
+  await _guardarMiembro(m);
+  renderCumples();
   showStatus(field==='deseos'?'Deseos guardados 🎉':'Sabor de torta guardado 🍰');
 }
 
@@ -17403,11 +17690,38 @@ function _paAvatarHTML(m, size){
   return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${col}22;border:2px solid ${col};display:flex;align-items:center;justify-content:center;font-size:${size>=56?'1.5rem':'0.9rem'};font-weight:700;color:${col};overflow:hidden;flex-shrink:0">${av}</div>`;
 }
 
+// Frase motivadora del día (rota cada día, igual para todo el equipo)
+const PA_FRASES = [
+  'Mover el cuerpo también es mover las ideas.','Cinco minutos de pausa valen por una hora de bloqueo creativo.',
+  'Las mejores ideas llegan cuando te levantas de la silla.','Estira el cuerpo, que la mente lo agradece.',
+  'Respira hondo: lo urgente puede esperar dos minutos.','Un equipo que se mueve junto, crea junto.',
+  'La creatividad también necesita recreo.','Hoy no se trata de ser perfecto, sino de dar el siguiente paso.',
+  'Pequeñas pausas, grandes ideas.','Hidrátate, estírate y sigue brillando.',
+  'El cansancio se va bailando (aunque sea un poquito).','Cuida tu espalda: te va a acompañar en todos los proyectos.',
+  'Lo bueno se construye un día a la vez.','Si la idea no sale, sal tú un momento.',
+  'Tu energía es parte de la marca Polen.','Sonríe: es el estiramiento más fácil del día.',
+  'Las grandes marcas empiezan con equipos que se cuidan.','Hoy es un buen día para hacer algo que te enorgullezca.',
+  'La constancia le gana al talento cuando el talento no se mueve.','Desconecta un minuto para reconectar mejor.',
+  'Celebra los avances pequeños: también cuentan.','Un respiro a tiempo evita un bloqueo creativo.',
+  'Moverte es la forma más rápida de cambiar de perspectiva.','Haz espacio en el cuerpo para que entren nuevas ideas.',
+  'El mejor brief del día: cuidarte.','Nadie crea bien con los hombros en las orejas.',
+  'Detrás de cada gran idea hay una buena pausa.','La energía del equipo se contagia: empieza tú.',
+  'Hoy elige el entusiasmo.','Pausa, respira, crea.'
+];
+function _paFraseDelDiaHTML(d){
+  const ini=new Date(d.getFullYear(),0,0); const dia=Math.floor((d-ini)/86400000);
+  const f=PA_FRASES[(dia + d.getFullYear()) % PA_FRASES.length];
+  return `<div style="position:relative;padding:0.4rem 0.7rem 0.4rem 1.9rem;border-radius:10px;background:linear-gradient(135deg,rgba(34,197,94,0.1),rgba(45,195,179,0.07));border:1px solid rgba(34,197,94,0.25)">
+    <span style="position:absolute;left:0.55rem;top:0.2rem;font-size:1.6rem;line-height:1;color:#22c55e;opacity:0.55;font-family:Georgia,serif">“</span>
+    <div style="font-size:0.84rem;font-weight:700;color:var(--text);line-height:1.35;letter-spacing:-0.1px">${escapeHtml(f)}</div>
+    <div style="font-size:0.56rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#16a34a;margin-top:0.15rem">Frase del día</div>
+  </div>`;
+}
 function renderPausaActiva(){
   const grid = document.getElementById('pausa-activa-grid');
   if(!grid) return;
   const pa = ensurePausaActiva();
-  const card = (inner)=>`<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1rem;box-sizing:border-box;height:100%;display:flex;flex-direction:column;justify-content:space-between;gap:0.8rem">${inner}</div>`;
+  const card = (inner)=>`<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:0.6rem 0.75rem;box-sizing:border-box;height:100%;min-height:280px;max-height:290px;display:flex;flex-direction:column;justify-content:space-between;gap:0.45rem;overflow:hidden">${inner}</div>`;
 
   if(!pa.secuencia.length){
     grid.innerHTML = card(`<div style="text-align:center;color:var(--text3);font-size:0.82rem;padding:0.5rem 0">
@@ -17453,13 +17767,20 @@ function renderPausaActiva(){
     } else {
       const m = est.member;
       const etiqueta = est.tipo==='override' ? 'Líder de hoy · reasignado' : 'Líder de hoy';
-      header = `<div style="display:flex;align-items:center;gap:0.85rem;padding:0.2rem 0 0">
-        ${m?_paAvatarHTML(m,56):'<div style="width:56px;height:56px;border-radius:50%;background:var(--bg-card2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center">?</div>'}
-        <div style="min-width:0">
-          <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--tierra)">${etiqueta} · ${DIAS[hoy.getDay()]}</div>
-          <div style="font-size:1.25rem;font-weight:800;color:var(--text);letter-spacing:-0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m?escapeHtml(m.apodo||m.nombre):'(sin asignar)'}</div>
+      header = `<div style="display:flex;flex-direction:column;gap:0.35rem">
+        <div style="display:flex;align-items:flex-start;gap:0.5rem">
+          <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--tierra);flex:1">${etiqueta} · ${DIAS[hoy.getDay()]}</div>
+          ${acciones}
         </div>
-        ${acciones}
+        <div style="display:flex;align-items:center;gap:1rem">
+          <div style="position:relative;flex-shrink:0">${m?_paAvatarHTML(m,56):'<div style="width:56px;height:56px;border-radius:50%;background:var(--bg-card2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center">?</div>'}
+            <span style="position:absolute;bottom:-3px;right:-5px;width:24px;height:24px;font-size:0.75rem !important;border-radius:50%;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;font-size:1.05rem;border:3px solid var(--bg-card)">🤸</span></div>
+          <div style="min-width:0">
+            <div style="font-size:1.3rem;font-weight:800;color:var(--text);letter-spacing:-0.5px;line-height:1.05;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m?escapeHtml(m.apodo||m.nombre):'(sin asignar)'}</div>
+            <div style="font-size:0.72rem;color:var(--text2);margin-top:0.15rem">dirige la pausa activa de hoy 💪</div>
+          </div>
+        </div>
+        ${_paFraseDelDiaHTML(hoy)}
       </div>`;
     }
   }
@@ -17471,7 +17792,7 @@ function renderPausaActiva(){
     const key = _paDateKey(d);
     const fechaTxt = `${DIAS[d.getDay()].slice(0,3)} ${d.getDate()} ${MESES[d.getMonth()]}`;
     if(est.tipo==='feriado'){
-      return `<div onclick="_paEditarDia('${key}')" title="Editar día" style="cursor:pointer;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:0.25rem;padding:0.55rem 0.35rem;background:var(--bg-card);border:1px dashed var(--border);border-radius:11px">
+      return `<div onclick="_paEditarDia('${key}')" title="Editar día" style="cursor:pointer;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:0.1rem;padding:0.35rem 0.2rem;background:var(--bg-card);border:1px dashed var(--border);border-radius:11px">
         <div style="width:34px;height:34px;border-radius:50%;background:var(--bg-card2);display:flex;align-items:center;justify-content:center;font-size:1rem">🚫</div>
         <span style="font-size:0.72rem;font-weight:700;color:var(--text3)">Feriado</span>
         <span style="font-size:0.64rem;color:var(--text3);white-space:nowrap">${fechaTxt}</span>
@@ -17479,17 +17800,17 @@ function renderPausaActiva(){
     }
     const m = est.member;
     const reasignado = est.tipo==='override';
-    return `<div onclick="_paEditarDia('${key}')" title="Editar día" style="cursor:pointer;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:0.25rem;padding:0.55rem 0.35rem;background:var(--bg-card2);border:1px solid ${reasignado?'var(--tierra)':'var(--border)'};border-radius:11px">
-      ${m?_paAvatarHTML(m,34):'<div style="width:34px;height:34px;border-radius:50%;background:var(--bg-card);border:1px dashed var(--border)"></div>'}
-      <span style="font-size:0.74rem;font-weight:700;color:var(--text);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m?escapeHtml(m.apodo||m.nombre):'—'}</span>
-      <span style="font-size:0.64rem;color:${reasignado?'var(--tierra)':'var(--text3)'};white-space:nowrap">${reasignado?'✏️ ':''}${fechaTxt}</span>
+    return `<div onclick="_paEditarDia('${key}')" title="Editar día" style="cursor:pointer;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:0.1rem;padding:0.35rem 0.2rem;background:var(--bg-card2);border:1px solid ${reasignado?'var(--tierra)':'var(--border)'};border-radius:11px">
+      ${m?_paAvatarHTML(m,28):'<div style="width:28px;height:28px;border-radius:50%;background:var(--bg-card);border:1px dashed var(--border)"></div>'}
+      <span style="font-size:0.68rem;font-weight:700;color:var(--text);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m?escapeHtml(m.apodo||m.nombre):'—'}</span>
+      <span style="font-size:0.58rem;color:${reasignado?'var(--tierra)':'var(--text3)'};white-space:nowrap">${reasignado?'✏️ ':''}${fechaTxt}</span>
     </div>`;
   }).join('');
 
   grid.innerHTML = card(`${header}
     <div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.45rem">
-        <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3)">Próximos · toca un día para editar</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.4rem;margin-bottom:0.45rem;flex-wrap:wrap">
+        <span style="font-size:0.58rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3)">Próximos · toca para editar</span>
         <span style="display:flex;align-items:center;gap:0.3rem">
           <span style="font-size:0.62rem;color:var(--text3)" title="Desplaza toda la rotación un lugar, manteniendo el orden">Correr secuencia</span>
           <button onclick="_paCorrerSecuencia(-1)" title="Retroceder un lugar (toda la secuencia)" style="background:none;border:1px solid var(--border);border-radius:7px;padding:0.1rem 0.45rem;font-size:0.78rem;color:var(--text2);cursor:pointer;font-family:var(--font)">⏮</button>
@@ -23746,6 +24067,7 @@ function renderDashboard(){
   const _esDemo = b => b && ( b.isDemo === true || (window._demoViewIds && window._demoViewIds.has(b.id)) );
   const brands=(appData.brands||[]).filter(b=>!_esDemo(b));
   renderBanners();
+  try{ renderBannerCumple(); }catch(e){ console.warn('banner cumple:', e); }
   try{ renderMiTrabajo(); }catch(e){ console.warn('renderMiTrabajo:', e); }
   try{ renderRinconSocial(); }catch(e){ console.warn('renderRinconSocial:', e); }
   try{ renderCobrosPM(); }catch(e){ console.warn('renderCobrosPM:', e); }
