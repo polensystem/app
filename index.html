@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261024-v511-CUMPLE-60-40 -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261025-v512-PAUSA-CENTRADA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4205,7 +4205,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 511;
+const APP_VERSION = 512;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -17744,12 +17744,11 @@ function renderPausaActiva(){
     const prox = upcoming[0];
     const est = prox ? _paLiderParaFecha(prox, pa) : {tipo:'finde'};
     const m = est.member;
-    header = `<div style="display:flex;align-items:center;gap:0.85rem;padding:0.3rem 0 0.7rem">
-      <div style="width:56px;height:56px;border-radius:50%;background:var(--bg-card2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">🌙</div>
-      <div>
-        <div style="font-size:1.05rem;font-weight:800;color:var(--text)">Fin de semana</div>
-        <div style="font-size:0.74rem;color:var(--text3)">No hay pausa activa hoy.${m?` El ${DIAS[prox.getDay()].toLowerCase()} le toca a <b style="color:var(--text2)">${escapeHtml(m.apodo||m.nombre)}</b>.`:''}</div>
-      </div>
+    header = `<div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:0.35rem">
+      <div style="width:52px;height:52px;border-radius:50%;background:var(--bg-card2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:1.4rem">🌙</div>
+      <div style="font-size:1.15rem;font-weight:800;color:var(--text)">Fin de semana</div>
+      <div style="font-size:0.78rem;color:var(--text3)">No hay pausa activa hoy.${m?` El ${DIAS[prox.getDay()].toLowerCase()} le toca a <b style="color:var(--text2)">${escapeHtml(m.apodo||m.nombre)}</b>.`:''}</div>
+      <div style="width:100%;margin-top:0.25rem;text-align:left">${_paFraseDelDiaHTML(hoy)}</div>
     </div>`;
   } else {
     const est = _paLiderParaFecha(hoy, pa);
@@ -17758,11 +17757,12 @@ function renderPausaActiva(){
       <button onclick="_paEditarDia('${hoyKey}')" title="Reasignar o marcar feriado" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.25rem 0.5rem;font-size:0.66rem;color:var(--text3);cursor:pointer;font-family:var(--font)">✏️ Editar</button>
     </div>`;
     if(est.tipo==='feriado'){
-      header = `<div style="display:flex;align-items:center;gap:0.85rem;padding:0.2rem 0 0">
-        <div style="width:56px;height:56px;border-radius:50%;background:var(--bg-card2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">🚫</div>
-        <div style="min-width:0"><div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3)">${DIAS[hoy.getDay()]}</div>
-        <div style="font-size:1.15rem;font-weight:800;color:var(--text)">Feriado · sin pausa</div></div>
-        ${acciones}
+      header = `<div style="position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:0.3rem">
+        <div style="position:absolute;top:0;right:0">${acciones}</div>
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--bg-card2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:1.4rem">🚫</div>
+        <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3)">${DIAS[hoy.getDay()]}</div>
+        <div style="font-size:1.15rem;font-weight:800;color:var(--text)">Feriado · sin pausa</div>
+        <div style="width:100%;margin-top:0.25rem;text-align:left">${_paFraseDelDiaHTML(hoy)}</div>
       </div>`;
     } else {
       const m = est.member;
@@ -17807,7 +17807,7 @@ function renderPausaActiva(){
     </div>`;
   }).join('');
 
-  grid.innerHTML = card(`${header}
+  grid.innerHTML = card(`<div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center">${header}</div>
     <div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:0.4rem;margin-bottom:0.45rem;flex-wrap:wrap">
         <span style="font-size:0.58rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3)">Próximos · toca para editar</span>
