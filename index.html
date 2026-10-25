@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261025-v512-PAUSA-CENTRADA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261025-v515-SIN-ABEJAS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1397,8 +1397,8 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
 /* Split en 2 columnas cuando SÍ hay cumpleañero del mes: izquierda el próximo inmediato
    (tarjeta completa), derecha los 2 siguientes en formato compacto. Evita que la caja
    crezca a lo alto y desbalancee la fila con Pausa Activa. */
-.cumple-split{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:0.8rem;align-items:stretch;height:100%;}
-.cumple-split-col{display:flex;flex-direction:column;min-width:0;}
+.cumple-split{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:0.8rem;align-items:stretch;height:100%;}
+.cumple-split-col{display:flex;flex-direction:column;min-width:0;min-height:0;}
 @keyframes cumpleFlota{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-7px) rotate(6deg)}}
 @keyframes cumpleBrillo{0%,100%{box-shadow:0 0 0 4px rgba(236,72,153,0.12),0 12px 30px rgba(236,72,153,0.22)}50%{box-shadow:0 0 0 6px rgba(236,72,153,0.2),0 14px 36px rgba(251,146,60,0.3)}}
 .cumple-fiesta{animation:cumpleBrillo 3s ease-in-out infinite;}
@@ -4205,7 +4205,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 512;
+const APP_VERSION = 515;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -17245,6 +17245,14 @@ function toggleStageCard(stageId){
 const TORTA_SABORES_DEFAULT = ['Chocolate','Vainilla','Tres leches','Red velvet','Zanahoria','Frutos rojos','Maracuyá','Limón'];
 function _tortaSabores(){ return (Array.isArray(appData.tortaSabores) && appData.tortaSabores.length) ? appData.tortaSabores : TORTA_SABORES_DEFAULT; }
 function _soyYo(memberId){ const u = (typeof _usuarioReal==='function') ? _usuarioReal() : _usuarioActual(); return !!(u && u.id && u.id===memberId); }
+// Versión mini para los cuadritos de próximos: el propio cumpleañero (o un admin) la elige ahí mismo
+function _tortaMini(m){
+  const v=_tortaDe(m); const puede=_soyYo(m.id)||_tieneRol('admin');
+  if(!puede) return `<div style="font-size:0.64rem;color:${v?'var(--text2)':'var(--text3)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Sabor de torta">🍰 ${v?escapeHtml(v):'sabor por elegir'}</div>`;
+  const ops=_tortaSabores(); const existe=!v||ops.includes(v);
+  return `<div style="display:flex;align-items:center;gap:0.2rem;min-width:0">🍰<select onclick="event.stopPropagation()" onchange="setCumpleField('${m.id}','torta',this.value)" title="${_soyYo(m.id)?'Elige tu sabor de torta':'Sabor de torta'}" style="min-width:0;max-width:100%;background:transparent;border:none;border-bottom:1.5px dashed #ec4899;color:${v?'var(--text)':'#ec4899'};font-family:var(--font);font-size:0.66rem;font-weight:700;cursor:pointer;outline:none;padding:0">
+    <option value="">${_soyYo(m.id)?'Elige tu torta':'por elegir'}</option>${ops.map(o=>`<option value="${escapeHtml(o)}" ${o===v?'selected':''}>${escapeHtml(o)}</option>`).join('')}${existe?'':`<option selected value="${escapeHtml(v)}">${escapeHtml(v)}</option>`}</select></div>`;
+}
 function _tortaInline(m){
   const v=_tortaDe(m); const puede=_soyYo(m.id)||_tieneRol('admin');
   const gear=_tieneRol('admin')?`<button onclick="_editarSaboresTorta()" title="Editar la lista de sabores (admins)" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.72rem;padding:0">⚙</button>`:'';
@@ -17496,7 +17504,7 @@ function renderCumples(){
           ${puede?`<button onclick="_borrarDeseo('${m.id}','${d.id}')" title="Borrar deseo" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.66rem;padding:0">✕</button>`:''}
         </div></div>`; }).join('');
     const esYo = _soyYo(m.id);
-    return `<div style="display:flex;flex-direction:column;gap:0.3rem;flex:1;min-height:0;overflow-y:auto;margin-top:0.4rem">${items || `<div style="font-size:0.76rem;color:var(--text3);font-style:italic;padding:0.2rem 0">${esYo?'Aquí verás los deseos que te deje el equipo 💌':'Aún no hay deseos del equipo. ¡Sé el primero! 💌'}</div>`}</div>
+    return `<div class="cumple-deseos-scroll" style="display:flex;flex-direction:column;gap:0.3rem;flex:1 1 0;min-height:36px;overflow-y:auto;margin-top:0.4rem;padding-right:2px;scrollbar-width:thin">${items || `<div style="font-size:0.76rem;color:var(--text3);font-style:italic;padding:0.2rem 0">${esYo?'Aquí verás los deseos que te deje el equipo 💌':'Aún no hay deseos del equipo. ¡Sé el primero! 💌'}</div>`}</div>
       ${esYo ? '' : `<div style="display:flex;gap:0.4rem;margin-top:0.4rem;flex-shrink:0">
         <input id="deseo-${m.id}" placeholder="💌 Déjale un deseo a ${nombre(m)}…" onkeydown="if(event.key==='Enter'){event.preventDefault();_agregarDeseo('${m.id}');}" style="flex:1;min-width:0;background:var(--bg-card);border:1.5px solid rgba(236,72,153,0.35);border-radius:99px;padding:0.4rem 0.85rem;color:var(--text);font-family:var(--font);font-size:0.78rem;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#ec4899'" onblur="this.style.borderColor='rgba(236,72,153,0.35)'">
         <button onclick="_agregarDeseo('${m.id}')" style="flex-shrink:0;background:linear-gradient(135deg,#f472b6,#fb923c);color:#fff;border:none;border-radius:99px;padding:0 1rem;font-weight:800;font-size:0.8rem;cursor:pointer;font-family:var(--font)">Enviar</button>
@@ -17513,7 +17521,7 @@ function renderCumples(){
     const faltan = (!fiesta && !yaPaso && next) ? Math.round((next-hoy0)/86400000) : null;
     const fechaTxt = fiesta ? _cumpleTextoCelebracion(cel) : yaPaso ? `🎂 Cumplió el ${dia} de ${MESES_CAP[mes]}` : `🎂 ${dia} de ${MESES_CAP[mes]}`;
     const z=_signoZodiacal(mes, dia);
-    const quote = `<div style="margin-top:0.4rem;font-size:0.74rem;color:var(--text2);line-height:1.4;font-style:italic;flex-shrink:0">“${escapeHtml(_deseoEquipo(m).replace(/^¡Feliz cumpleaños, [^!]*! 🎉 /,''))}” <span style="font-style:normal;font-weight:800;color:#d97706;font-size:0.72rem;white-space:nowrap">— Equipo Polen 🐝</span></div>`;
+    const quote = `<div style="margin-top:0.4rem;font-size:0.74rem;color:var(--text2);line-height:1.4;font-style:italic;flex-shrink:0">“${escapeHtml(_deseoEquipo(m).replace(/^¡Feliz cumpleaños, [^!]*! 🎉 /,''))}” <span style="font-style:normal;font-weight:800;color:#d97706;font-size:0.72rem;white-space:nowrap">— Equipo Polen 🚀</span></div>`;
     const cuenta = faltan!=null ? `<div style="flex-shrink:0;text-align:center;padding:0.3rem 0.55rem;border-radius:12px;background:var(--bg-card);border:1px solid var(--border)">
         <div style="font-size:0.56rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text3);margin-bottom:0.1rem">${faltan===1?'falta':'faltan'}</div>
         <div style="font-size:1.25rem;font-weight:800;color:#ec4899;line-height:1">${faltan}</div>
@@ -17522,7 +17530,7 @@ function renderCumples(){
     return `<div class="${fiesta?'cumple-fiesta':''}" style="position:relative;background:${fiesta?fondoFiesta:'var(--bg-card2)'};border:${fiesta?'2px solid #ec4899':'1.5px solid var(--border)'};border-radius:16px;padding:0.6rem 0.8rem;display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;${fiesta?'box-shadow:0 0 0 4px rgba(236,72,153,0.12),0 12px 30px rgba(236,72,153,0.22);':''}">
       ${fiesta?`<div style="position:absolute;top:22px;right:-48px;width:190px;text-align:center;transform:rotate(35deg);background:linear-gradient(90deg,#ec4899,#fb923c);color:#fff;font-size:0.58rem;font-weight:800;letter-spacing:0.6px;padding:0.24rem 0;box-shadow:0 2px 6px rgba(0,0,0,0.15)">HOY CELEBRAMOS</div>
         <span class="cumple-flota" style="position:absolute;right:16%;bottom:62px;font-size:1.2rem;opacity:0.85">🎈</span><span class="cumple-flota d2" style="position:absolute;right:6%;top:42%;font-size:1rem;opacity:0.8">🎉</span>`:''}
-      <div style="display:flex;align-items:center;gap:0.95rem;position:relative">
+      <div style="display:flex;align-items:center;gap:0.95rem;position:relative;flex-shrink:0">
         <div style="position:relative;flex-shrink:0;margin-top:${fiesta?'12px':'0'}">${avatar(m,fiesta?60:54)}${fiesta?_gorritoSVG(60):''}</div>
         <div style="min-width:0;flex:1">
           <div style="font-size:${fiesta?'1.3rem':'1.15rem'};font-weight:800;color:${fiesta?'#1f1235':'var(--text)'};letter-spacing:-0.5px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre(m)}</div>
@@ -17553,6 +17561,7 @@ function renderCumples(){
       <div style="min-width:0;line-height:1.2">
         <div style="font-size:0.8rem;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nombre(m)} <span title="${z.nombre}" style="font-size:0.76rem">${z.emoji}</span></div>
         <div style="font-size:0.74rem;font-weight:700;color:${pronto?'#ec4899':'var(--text2)'};white-space:nowrap">🎂 ${dia} ${MESES_CAP[mes].slice(0,3).toLowerCase()} <span style="font-weight:500;color:var(--text3);font-size:0.64rem">· ${dias===1?'mañana':'en '+dias+' días'}</span></div>
+        ${_tortaMini(m)}
       </div>
     </div>`;
   };
