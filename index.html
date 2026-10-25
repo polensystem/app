@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261025-v515-SIN-ABEJAS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261025-v516-FILTRO-CANAL -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4205,7 +4205,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 515;
+const APP_VERSION = 516;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -20650,7 +20650,8 @@ function _canteraAplicarRapido(lista, scope, convId){
       if(!_cMultiPasa(ff.estados, c.estado, estados)) return false;
       if(!_cMultiPasa(ff.niveles, c.nivel, _canteraNiveles())) return false;
       if(!_cMultiPasa(ff.destrezas, c.destreza, _canteraDestrezas().map(d=>d.nombre))) return false;
-      if(!_cMultiPasa(ff.seguimientos, c.seguimiento, _canteraSeguimientos().map(x=>x.nombre))) return false; }
+      if(!_cMultiPasa(ff.seguimientos, c.seguimiento, _canteraSeguimientos().map(x=>x.nombre))) return false;
+      if(!_cMultiPasa(ff.canales, _canteraCanal(c), _canteraCanalesUsados())) return false; }
     if(st.fit && fitDe(c) < st.fit) return false;
     if(st.nuevos){ const f=_cFechaInc(c); if(!f || (hoy - parseLocalDate(f).getTime()) > st.nuevos*86400000) return false; }
     const arch = Array.isArray(c.archivos)?c.archivos:[];
@@ -20701,8 +20702,8 @@ function _canteraBarraRapida(scope){
     + '</div>'
     + '<div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;margin:-0.35rem 0 0.8rem">'
     + '<span style="font-size:0.7rem;font-weight:700;color:var(--text3)">⛃ Filtrar</span>'
-    + _cMultiFiltroHTML('estados') + _cMultiFiltroHTML('seguimientos') + _cMultiFiltroHTML('niveles') + _cMultiFiltroHTML('destrezas')
-    + (['estados','seguimientos','niveles','destrezas'].some(k=>(_cantera.filtros[k]||[]).length)?'<button onclick="[\'estados\',\'seguimientos\',\'niveles\',\'destrezas\'].forEach(k=>_cantera.filtros[k]=[]);_cFiltroCerrar();renderCantera()" style="font-size:0.7rem;background:none;border:none;color:var(--text3);cursor:pointer;text-decoration:underline;font-family:var(--font)">Limpiar</button>':'')
+    + _cMultiFiltroHTML('estados') + _cMultiFiltroHTML('seguimientos') + _cMultiFiltroHTML('canales') + _cMultiFiltroHTML('niveles') + _cMultiFiltroHTML('destrezas')
+    + (['estados','seguimientos','canales','niveles','destrezas'].some(k=>(_cantera.filtros[k]||[]).length)?'<button onclick="[\'estados\',\'seguimientos\',\'canales\',\'niveles\',\'destrezas\'].forEach(k=>_cantera.filtros[k]=[]);_cFiltroCerrar();renderCantera()" style="font-size:0.7rem;background:none;border:none;color:var(--text3);cursor:pointer;text-decoration:underline;font-family:var(--font)">Limpiar</button>':'')
     + '<span style="flex:1"></span>'
     + '<button onclick="_canteraMenuPropiedades()" title="Añadir, renombrar, borrar o reordenar las opciones de estatus, nivel y destreza" style="font-size:0.72rem;font-weight:700;padding:0.3rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font)">⚙ Editar propiedades</button>'
     + (activos?'<button onclick="_canteraRapLimpiar(\''+scope+'\')" style="font-size:0.7rem;background:none;border:none;color:var(--text3);cursor:pointer;text-decoration:underline;font-family:var(--font)">Quitar filtros</button>':'')
@@ -20778,6 +20779,7 @@ function _cMultiPasa(sel, valor, validos){
 // Se cierra al hacer clic en cualquier lugar fuera, con Esc o con "Listo".
 const _C_FILTROS = {
   estados:     { label:'Estatus',  campo:'estado',     vacio:'Sin estatus',  editor:'estado',     opciones:()=>_canteraEstadoNombres(), color:n=>_canteraColorEstado(n) },
+  canales:     { label:'Canal',    campo:'canal',      vacio:'Sin canal',    editor:null,         opciones:()=>_canteraCanalesUsados(), color:null, valor:c=>_canteraCanal(c) },
   seguimientos:{ label:'Proceso',  campo:'seguimiento',vacio:'Sin proceso',  editor:'seguimiento',opciones:()=>_canteraSeguimientos().map(x=>x.nombre), color:n=>_canteraColorSeguimiento(n) },
   niveles:     { label:'Nivel',    campo:'nivel',      vacio:'Sin nivel',    editor:'nivel',      opciones:()=>_canteraNiveles(), color:null },
   destrezas:   { label:'Destreza', campo:'destreza',   vacio:'Sin destreza', editor:'destreza',   opciones:()=>_canteraDestrezas().map(d=>d.nombre), color:n=>_canteraColorDestreza(n) },
@@ -20818,7 +20820,7 @@ function _cFiltroPopHTML(campo){
   const ops=cfg.opciones(); const todas=ops.concat(['(vacío)']);
   const fila=v=>{
     const t=v==='(vacío)'?cfg.vacio:v; const on=sel.includes(v);
-    const n=(_cantera.candidatos||[]).filter(c=>_cMultiPasa([v], c[cfg.campo], ops)).length;
+    const n=(_cantera.candidatos||[]).filter(c=>_cMultiPasa([v], cfg.valor?cfg.valor(c):c[cfg.campo], ops)).length;
     return '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.38rem 0.45rem;border-radius:7px;cursor:pointer;font-size:0.78rem;color:var(--text);font-weight:500;'+(on?'background:rgba(59,158,221,0.08)':'')+'" onmouseover="if(!this.querySelector(\'input\').checked)this.style.background=\'var(--bg-card2)\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.background=\'none\'">'
       + '<input type="checkbox" '+(on?'checked':'')+' onchange="_canteraToggleMulti(\''+campo+'\',\''+_cJsq(v)+'\',this.checked)" style="accent-color:var(--aire);width:15px;height:15px;cursor:pointer;margin:0">'
       + (cfg.color && v!=='(vacío)' ? _cDot(cfg.color(v),8) : '')
@@ -20832,7 +20834,7 @@ function _cFiltroPopHTML(campo){
     + '</div>'
     + todas.map(fila).join('')
     + '<div style="display:flex;align-items:center;gap:0.4rem;border-top:1px solid var(--border);margin-top:0.35rem;padding:0.45rem 0.3rem 0.1rem">'
-    + '<button onclick="_cFiltroCerrar();_canteraEditorOpciones(\''+cfg.editor+'\')" style="'+lk+';color:var(--aire);font-weight:700">⚙ Editar opciones</button>'
+    + (cfg.editor?'<button onclick="_cFiltroCerrar();_canteraEditorOpciones(\''+cfg.editor+'\')" style="'+lk+';color:var(--aire);font-weight:700">⚙ Editar opciones</button>':'')
     + '<span style="flex:1"></span>'
     + '<button onclick="_cFiltroCerrar()" style="font-size:0.72rem;font-weight:700;padding:0.3rem 0.8rem;border-radius:7px;border:none;background:var(--text);color:var(--bg-card);cursor:pointer;font-family:var(--font)">Listo</button>'
     + '</div>';
@@ -20879,6 +20881,7 @@ function _canteraFiltrados(){
     if(!_cMultiPasa(f.niveles, c.nivel, _canteraNiveles())) return false;
     if(!_cMultiPasa(f.destrezas, c.destreza, _canteraDestrezas().map(d=>d.nombre))) return false;
     if(!_cMultiPasa(f.seguimientos, c.seguimiento, _canteraSeguimientos().map(x=>x.nombre))) return false;
+    if(!_cMultiPasa(f.canales, _canteraCanal(c), _canteraCanalesUsados())) return false;
     if(f.etapa && (c.etapa||'')!==f.etapa) return false;
     if(f.estado==='(sin estatus)'){ if(nombresEstado.includes(c.estado||'')) return false; }
     else if(f.estado && (c.estado||'')!==f.estado) return false;
@@ -21062,7 +21065,7 @@ function _canteraTogglePanelFiltros(){
   _canteraRenderLista(document.getElementById('cantera-content'));
 }
 function _canteraLimpiarFiltros(){
-  _cantera.filtros={q:'',rol:'',nivel:'',etapa:'',depto:'',estado:'',ciudad:'',verificado:'',destreza:'',estados:[],niveles:[],destrezas:[],seguimientos:[]};
+  _cantera.filtros={q:'',rol:'',nivel:'',etapa:'',depto:'',estado:'',ciudad:'',verificado:'',destreza:'',estados:[],niveles:[],destrezas:[],seguimientos:[],canales:[]};
   _cantera._multiAbierto=null;
   _canteraRenderLista(document.getElementById('cantera-content'));
 }
@@ -21168,7 +21171,6 @@ function _canteraRenderLista(cont){
       + sel('etapa','Etapa', CANTERA_ETAPAS)
       + sel('ciudad','Ciudad', ciudades)
       + sel('verificado','Verificado', [['si','Verificados'],['no','Sin verificar']])
-      + sel('canal','Canal', _canteraCanalesUsados().concat([['(sin canal)','Sin canal']]))
       + '</div>';
   }
   // Chips de filtros activos
@@ -21182,7 +21184,7 @@ function _canteraRenderLista(cont){
       if(v==='(sin asignar)') v='Sin asignar';
       h += '<button onclick="setCanteraFiltro(\''+k+'\',\'\')" title="Quitar filtro" style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.72rem;padding:0.22rem 0.55rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-family:var(--font)"><span style="color:var(--text3)">'+etiquetas[k]+':</span> '+escapeHtml(v)+' <span style="color:var(--text3)">✕</span></button>';
     });
-    [['estados','Estatus','Sin estatus'],['seguimientos','Proceso','Sin proceso'],['niveles','Nivel','Sin nivel'],['destrezas','Destreza','Sin destreza']].forEach(([k,et,vac])=>{
+    [['estados','Estatus','Sin estatus'],['seguimientos','Proceso','Sin proceso'],['canales','Canal','Sin canal'],['niveles','Nivel','Sin nivel'],['destrezas','Destreza','Sin destreza']].forEach(([k,et,vac])=>{
       if(!Array.isArray(f[k]) || !f[k].length) return;
       const txt = f[k].map(v=>v==='(vacío)'?vac:v).join(', ');
       h += '<button onclick="_canteraSoloMulti(\''+k+'\',[]);_cantera._multiAbierto=null" title="Quitar filtro" style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.72rem;padding:0.22rem 0.55rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);cursor:pointer;font-family:var(--font)"><span style="color:var(--text3)">'+et+':</span> '+escapeHtml(txt)+' <span style="color:var(--text3)">✕</span></button>';
