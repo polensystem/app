@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261025-v516-FILTRO-CANAL -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261026-v518-AVISO-PESO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4205,7 +4205,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 516;
+const APP_VERSION = 518;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -4507,6 +4507,41 @@ function defaultApprovalsForTemplate(){
 
 /* ═══ STATUS ═══ */
 let _st=null;
+// ══ Aviso de archivos pesados (> 3 MB): no bloquea la subida, solo avisa. Aplica a todo el sistema ══
+const _PESO_AVISO_MB = 3;
+function _pesoFmt(b){ return (b/1048576).toFixed(1).replace('.',',')+' MB'; }
+function _avisoArchivosPesados(files){
+  const pesados = [...(files||[])].filter(f=>f && f.size > _PESO_AVISO_MB*1048576);
+  if(!pesados.length) return;
+  let el = document.getElementById('polen-aviso-peso');
+  if(!el){
+    el = document.createElement('div'); el.id='polen-aviso-peso';
+    el.style.cssText='position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:2147483000;max-width:min(560px,calc(100vw - 32px));background:#fff7ed;color:#7c2d12;border:1.5px solid #fb923c;border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,0.18);padding:0.8rem 2.4rem 0.8rem 1rem;font-family:var(--font,system-ui);font-size:0.82rem;line-height:1.45';
+    document.body.appendChild(el);
+  }
+  const lista = pesados.map(f=>'<li><b>'+escapeHtml(f.name||'archivo')+'</b> — '+_pesoFmt(f.size)+'</li>').join('');
+  el.innerHTML = '<div style="font-weight:800;margin-bottom:0.2rem">⚠️ '+(pesados.length===1?'Este documento pesa':'Estos documentos pesan')+' más de '+_PESO_AVISO_MB+' MB</div>'
+    + '<ul style="margin:0.2rem 0 0.35rem;padding-left:1.1rem">'+lista+'</ul>'
+    + '<div style="font-size:0.74rem;color:#9a3412">Se '+(pesados.length===1?'sube':'suben')+' igual, pero conviene comprimir'+(pesados.length===1?'lo':'los')+' para que cargue'+(pesados.length===1?'':'n')+' más rápido y no llene el almacenamiento.</div>'
+    + '<button onclick="this.parentNode.style.display=\'none\'" title="Cerrar" style="position:absolute;top:8px;right:10px;background:none;border:none;color:#9a3412;font-size:1rem;cursor:pointer">✕</button>';
+  el.style.display='block';
+  clearTimeout(el._t); el._t = setTimeout(()=>{ el.style.display='none'; }, 10000);
+}
+// Inputs de archivo que están en la página (captura: corre antes de que el handler limpie el input)
+document.addEventListener('change', e=>{ const t=e.target; if(t && t.tagName==='INPUT' && t.type==='file' && t.isConnected) _avisoArchivosPesados(t.files); }, true);
+// Archivos arrastrados y soltados
+document.addEventListener('drop', e=>{ if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) _avisoArchivosPesados(e.dataTransfer.files); }, true);
+// Inputs creados al vuelo que no están en la página (ej. importar Excel)
+(function(){
+  const clickOrig = HTMLInputElement.prototype.click;
+  HTMLInputElement.prototype.click = function(){
+    if(this.type==='file' && !this.isConnected && !this._avisoPeso && !/json/i.test(this.accept||'')){
+      this._avisoPeso = true;
+      this.addEventListener('change', ()=>_avisoArchivosPesados(this.files), true);
+    }
+    return clickOrig.apply(this, arguments);
+  };
+})();
 function showStatus(msg,err=false){
   // Toast mejorado
   const toast=document.getElementById('polen-toast');
@@ -20626,7 +20661,8 @@ async function _canteraGuardarClave(){
 // ══ Orden y filtros rápidos de las tablas de candidatos (base y proyectos) ══
 function _canteraRapState(scope){
   const k = scope==='proy' ? 'rapProy' : 'rapBase';
-  if(!_cantera[k]) _cantera[k] = { orden: scope==='proy' ? 'match' : 'recientes', fit:0, nuevos:0, cv:false, port:false, revisar:false, contacto:false };
+  if(!_cantera[k]) _cantera[k] = { orden: scope==='proy' ? 'match' : 'recientes', fit:0, nuevos:0, cv:false, port:false, caso:false, revisar:false, contacto:false };
+  if(typeof _cantera[k].caso!=='boolean') _cantera[k].caso=false;
   return _cantera[k];
 }
 function _canteraRap(scope, key, val){
@@ -20657,6 +20693,7 @@ function _canteraAplicarRapido(lista, scope, convId){
     const arch = Array.isArray(c.archivos)?c.archivos:[];
     if(st.cv && !arch.some(a=>_cArchTipo(a)==='cv')) return false;
     if(st.port && !(arch.some(a=>_cArchTipo(a)==='portafolio') || (c.links && (c.links.portafolio||c.links.behance||c.links.dribbble)))) return false;
+    if(st.caso && !_cTieneCaso(c)) return false;
     if(st.revisar && c.estado && c.estado!==estados[0]) return false;
     if(st.contacto && !(c.email||c.telefono)) return false;
     return true;
@@ -20684,7 +20721,7 @@ function _canteraBarraRapida(scope){
   const opts = [['recientes','Agregados recientemente'],['antiguos','Más antiguos primero'],['mas_estrellas','Más estrellas'],['menos_estrellas','Menos estrellas'],['estatus','Por estatus del proceso'],['nombre','Nombre A–Z']];
   if(scope==='proy') opts.unshift(['match','Mejor match con el puesto']);
   const usandoEncabezado = scope==='base' && _cantera.baseSort && _cantera.baseSort.col;
-  const activos = ['fit','nuevos','cv','port','revisar','contacto'].filter(k=>st[k]).length;
+  const activos = ['fit','nuevos','cv','port','caso','revisar','contacto'].filter(k=>st[k]).length;
   const buscador = scope==='proy' ? '<input id="cantera-q-proy" value="'+escapeHtml((_cantera.filtros||{}).q||'')+'" oninput="_canteraBuscarProy(this.value)" placeholder="🔎 Buscar en este proyecto: nombre, universidad, agencia…" style="font-size:0.76rem;padding:0.4rem 0.65rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-family:var(--font);outline:none;flex:1;min-width:220px;max-width:420px">' : '';
   return (buscador?'<div style="display:flex;gap:0.5rem;margin:0 0 0.5rem">'+buscador+'</div>':'')
     + '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin:0 0 0.8rem">'
@@ -20697,7 +20734,7 @@ function _canteraBarraRapida(scope){
     + chip('fit',5,'★★★★★','Solo 5 estrellas') + chip('fit',4,'★4+','4 estrellas o más') + chip('fit',3,'★3+','3 estrellas o más')
     + chip('nuevos',7,'🆕 Últimos 7 días','Agregados en los últimos 7 días') + chip('nuevos',30,'Últimos 30 días','Agregados en los últimos 30 días')
     + chip('revisar',null,'👀 Por revisar','Sin estatus o en el primer paso del proceso')
-    + chip('cv',null,'📄 Con CV','Tienen el CV en PDF guardado') + chip('port',null,'🎨 Con portafolio','Portafolio en PDF o link')
+    + chip('cv',null,'📄 Con CV','Tienen el CV en PDF guardado') + chip('port',null,'🎨 Con portafolio','Portafolio en PDF o link') + chip('caso',null,'🧩 Con caso','Entregaron el caso (PDF o link)')
     + chip('contacto',null,'📇 Con contacto','Tienen correo o teléfono')
     + '</div>'
     + '<div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;margin:-0.35rem 0 0.8rem">'
@@ -20713,7 +20750,7 @@ function _canteraBuscarProy(v){
   _cantera.filtros = _cantera.filtros || {}; _cantera.filtros.q = v; renderCantera();
   const i=document.getElementById('cantera-q-proy'); if(i){ i.focus(); const n=i.value.length; try{ i.setSelectionRange(n,n); }catch(e){} }
 }
-function _canteraRapLimpiar(scope){ const st=_canteraRapState(scope); Object.assign(st,{fit:0,nuevos:0,cv:false,port:false,revisar:false,contacto:false}); renderCantera(); }
+function _canteraRapLimpiar(scope){ const st=_canteraRapState(scope); Object.assign(st,{fit:0,nuevos:0,cv:false,port:false,caso:false,revisar:false,contacto:false}); renderCantera(); }
 
 // ══ Búsqueda por palabras clave en TODO el perfil (nombre, universidad, empresas, notas, análisis IA, correo…) ══
 const _CANTERA_CAMPOS_BUSQUEDA = [
@@ -21239,7 +21276,7 @@ function _canteraRenderLista(cont){
       + _thSort('universidad','Universidad') + _thSort('sexo','Sexo','center') + _thSort('_edad','Edad','center')
       + _thSort('_depto','Depto') + _thSort('ciudad','Ciudad') + _thSort('fecha_inclusion','Incluido') + _thSort('fit','Fit')
       + _thSort('estado','Estatus') + _thSort('destreza','Destreza') + _thSort('seguimiento','Proceso')
-      + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">CV / Portafolio</th>'
+      + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">Archivos</th>'
       + '</tr></thead>';
   const tabla = (lista, resaltar, maxH)=>
     '<div class="c-tscroll" style="border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:'+maxH+';background:var(--bg-card)">'
@@ -21423,7 +21460,7 @@ function _canteraRenderProyecto(cont){
           + '<colgroup><col style="width:3%"><col style="width:13%"><col style="width:11%"><col style="width:8%"><col style="width:4%"><col style="width:4%"><col style="width:6%"><col style="width:8%"><col style="width:9%"><col style="width:8%"><col style="width:13%"><col style="width:8%"><col style="width:5%"></colgroup>'
           + '<thead><tr>'
           + '<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;text-align:center;cursor:default"><input type="checkbox" '+(lista.length && lista.every(c=>msel.has(c.id))?'checked':'')+' onchange="_canteraMatchSelVarios(\''+lista.map(c=>c.id).join(',')+'\', this.checked)" title="Seleccionar todos de esta sección" style="width:15px;height:15px;cursor:pointer;accent-color:var(--aire)"></th>'
-          + ['Candidato','Rol','Universidad','Sexo','Edad','Nivel','Fit','Estatus','Destreza','Proceso','CV / Portafolio',''].map(t=>'<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">'+t+'</th>').join('')
+          + ['Candidato','Rol','Universidad','Sexo','Edad','Nivel','Fit','Estatus','Destreza','Proceso','Archivos',''].map(t=>'<th style="position:sticky;top:0;background:var(--bg-card);z-index:2;font-weight:600;text-transform:none;letter-spacing:0;font-size:0.7rem;cursor:default">'+t+'</th>').join('')
           + '</tr></thead><tbody>'+lista.map(c=>filaCand(c, conBotonAplicar)).join('')+'</tbody></table></div>';
       } else {
         s += '<div style="font-size:0.76rem;color:var(--text3);padding:0.2rem 0 0.4rem 1.1rem">'+vacio+'</div>';
@@ -21947,8 +21984,10 @@ function _canteraContactoDeTexto(ficha, texto){
   return ficha;
 }
 
-// Tipo de archivo guardado: 'portafolio' o 'cv' (los viejos sin tipo son CV)
-function _cArchTipo(a){ return (a && a.tipo==='portafolio') ? 'portafolio' : 'cv'; }
+// Tipo de archivo guardado: 'portafolio', 'caso' o 'cv' (los viejos sin tipo son CV)
+function _cArchTipo(a){ return (a && (a.tipo==='portafolio'||a.tipo==='caso')) ? a.tipo : 'cv'; }
+function _cArchLabel(a){ const t=_cArchTipo(a); return t==='portafolio'?'portafolio':t==='caso'?'caso':'CV'; }
+function _cTieneCaso(c){ return (Array.isArray(c.archivos) && c.archivos.some(a=>_cArchTipo(a)==='caso')) || !!(c.links && c.links.caso); }
 // Celda "Archivos" de las tablas: chips clicables por CV y portafolio en PDF
 function _cCV(c){
   const arch = Array.isArray(c.archivos) ? c.archivos : [];
@@ -21962,6 +22001,12 @@ function _cCV(c){
   else if(linkPort){
     const url = /^https?:\/\//i.test(linkPort) ? linkPort : 'https://'+linkPort;
     h += '<a href="'+escapeHtml(url)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="'+escapeHtml(url)+'" style="display:inline-flex;align-items:center;gap:0.2rem;padding:0.12rem 0.45rem;border-radius:99px;border:1px solid #7c5cc455;background:rgba(124,92,196,0.09);color:#7c5cc4;font-size:0.64rem;font-weight:700;text-decoration:none;white-space:nowrap">🔗 Port. web</a>';
+  }
+  const iCa = arch.findIndex(a=>_cArchTipo(a)==='caso');
+  if(iCa>=0) h += chipBtn("_canteraVerCV('"+c.id+"',"+iCa+")", '🧩 Caso', '#0f8a6b', 'rgba(16,160,120,0.09)', 'Abrir el caso que entregó (PDF)');
+  else if(L.caso){
+    const uc = /^https?:\/\//i.test(L.caso) ? L.caso : 'https://'+L.caso;
+    h += '<a href="'+escapeHtml(uc)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="'+escapeHtml(uc)+'" style="display:inline-flex;align-items:center;gap:0.2rem;padding:0.12rem 0.45rem;border-radius:99px;border:1px solid #0f8a6b55;background:rgba(16,160,120,0.09);color:#0f8a6b;font-size:0.64rem;font-weight:700;text-decoration:none;white-space:nowrap">🧩 Caso ↗</a>';
   }
   if(!h) return '<span style="color:var(--text3);font-size:0.74rem">—</span>';
   return '<span style="display:inline-flex;gap:0.25rem;flex-wrap:wrap">'+h+'</span>';
@@ -22090,7 +22135,7 @@ async function _canteraVerCV(candId, idx){
   const arch = (c && Array.isArray(c.archivos)) ? c.archivos : [];
   const a = arch[idx||0];
   if(!a || !a.path){ showStatus('Este candidato no tiene un PDF guardado', true); return; }
-  const _lbl = _cArchTipo(a)==='portafolio' ? 'portafolio' : 'CV';
+  const _lbl = _cArchLabel(a);
   const w = window.open('', '_blank');   // abrir ya (evita bloqueo de pop-ups) y luego cargar el PDF
   if(w){ try{ w.document.write('<title>Abriendo '+_lbl+'…</title><body style="font-family:-apple-system,Helvetica,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#666">Abriendo '+_lbl+'…</body>'); }catch(e){} }
   try{
@@ -22104,11 +22149,12 @@ async function _canteraVerCV(candId, idx){
 }
 // ── Adjuntar el PDF del CV a una ficha que ya existe ──
 async function _canteraAdjuntarCV(file, tipo){
-  tipo = tipo==='portafolio' ? 'portafolio' : 'cv';
+  tipo = (tipo==='portafolio'||tipo==='caso') ? tipo : 'cv';
+  const _lblT = tipo==='portafolio'?'Portafolio':tipo==='caso'?'Caso':'CV';
   const e = window._canteraFichaEdit; if(!file || !e) return;
   if(!(file.type==='application/pdf' || /\.pdf$/i.test(file.name))){ showStatus('Solo PDF', true); return; }
   if(file.size > 50*1024*1024){ showStatus('El PDF pesa más de 50 MB. Comprímelo y vuelve a intentar.', true); return; }
-  showStatus(tipo==='portafolio'?'Subiendo portafolio…':'Subiendo CV…');
+  showStatus('Subiendo '+_lblT.toLowerCase()+'…');
   try{
     const path = await _canteraSubirPDF(file);
     e.archivos = (Array.isArray(e.archivos)?e.archivos:[]).concat([{ path, nombre:file.name||('documento-'+Date.now()+'.pdf'), tipo }]);
@@ -22118,7 +22164,7 @@ async function _canteraAdjuntarCV(file, tipo){
       if(row && row.conflict) throw new Error('otro admin editó esta ficha; ciérrala, recarga y vuelve a intentar');
       if(row && !row.conflict){ if(orig){ orig.archivos = e.archivos; if(row.rev!=null) orig.rev = row.rev; } e.rev = row.rev!=null?row.rev:e.rev; }
     }
-    _canteraRenderFicha(!window._canteraFichaId); showStatus(tipo==='portafolio'?'Portafolio adjuntado ✓':'CV adjuntado ✓');
+    _canteraRenderFicha(!window._canteraFichaId); showStatus(_lblT+' adjuntado ✓');
   }catch(err){
     if(/maximum allowed size|too large|413|exceed/i.test(err.message||'')) _canteraAvisoPesados([file.name+' ('+Math.round(file.size/1048576)+' MB)']);
     else showStatus('No se pudo subir el PDF: '+(err.message||''), true);
@@ -23564,9 +23610,10 @@ function _canteraRenderFicha(esNuevo){
 
     <!-- Archivos originales (CV y portafolio en PDF) -->
     <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;margin:-0.4rem 0 1rem">
-      ${(Array.isArray(c.archivos)?c.archivos:[]).map((a,i)=>{ const po=_cArchTipo(a)==='portafolio'; return `<button type="button" onclick="_canteraVerCV(null,${i})" title="${escapeHtml(a.nombre||'archivo.pdf')}" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.75rem;border-radius:9px;border:none;background:${po?'#7c5cc4':'var(--text)'};color:${po?'#fff':'var(--bg)'};font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font)">${po?'🎨 Ver portafolio':'📄 Ver CV original'} ↗</button>`; }).join('')}
+      ${(Array.isArray(c.archivos)?c.archivos:[]).map((a,i)=>{ const t=_cArchTipo(a), po=t==='portafolio', ca=t==='caso'; return `<button type="button" onclick="_canteraVerCV(null,${i})" title="${escapeHtml(a.nombre||'archivo.pdf')}" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.75rem;border-radius:9px;border:none;background:${po?'#7c5cc4':ca?'#0f8a6b':'var(--text)'};color:${(po||ca)?'#fff':'var(--bg)'};font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font)">${po?'🎨 Ver portafolio':ca?'🧩 Ver caso':'📄 Ver CV original'} ↗</button>`; }).join('')}
       <label title="Subir el CV en PDF a esta ficha" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.4rem 0.7rem;border-radius:9px;border:1px dashed var(--border);color:var(--text3);font-size:0.72rem;cursor:pointer">📎 CV en PDF<input type="file" accept="application/pdf,.pdf" style="display:none" onchange="_canteraAdjuntarCV(this.files[0],'cv');this.value=''"></label>
       <label title="Subir el portafolio en PDF a esta ficha" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.4rem 0.7rem;border-radius:9px;border:1px dashed var(--border);color:var(--text3);font-size:0.72rem;cursor:pointer">🎨 Portafolio en PDF<input type="file" accept="application/pdf,.pdf" style="display:none" onchange="_canteraAdjuntarCV(this.files[0],'portafolio');this.value=''"></label>
+      <label title="Subir el caso que entregó (PDF)" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.4rem 0.7rem;border-radius:9px;border:1px dashed #0f8a6b88;color:#0f8a6b;font-size:0.72rem;cursor:pointer">🧩 Caso en PDF<input type="file" accept="application/pdf,.pdf" style="display:none" onchange="_canteraAdjuntarCV(this.files[0],'caso');this.value=''"></label>
     </div>
 
     <!-- Fit (estrellas clicables) -->
@@ -23674,6 +23721,11 @@ function _canteraRenderFicha(esNuevo){
         <input value="${String(c.links?.portafolio||'').replace(/"/g,'&quot;')}" oninput="_canteraFichaSetLink('portafolio', this.value)" placeholder="Link al portafolio…" style="flex:1;box-sizing:border-box;padding:0.45rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.78rem;font-family:var(--font);outline:none">
         <button onclick="_canteraAbrirDrive()" title="Abrir mi carpeta de Drive" style="padding:0.45rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-size:0.72rem;white-space:nowrap">📁 Drive</button>
       </div>
+    </div>
+
+    <div style="margin-bottom:0.6rem">
+      <label style="font-size:0.64rem;color:var(--text3);display:block;margin-bottom:0.2rem">🧩 Caso (link, si lo entregó en Drive/Figma/web) ${c.links?.caso?`<a href="${escapeHtml(/^https?:\/\//i.test(c.links.caso)?c.links.caso:'https://'+c.links.caso)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--aire);text-decoration:none;font-size:0.6rem">↗ abrir</a>`:''}</label>
+      <input value="${String(c.links?.caso||'').replace(/"/g,'&quot;')}" oninput="_canteraFichaSetLink('caso', this.value)" placeholder="Link al caso…" style="width:100%;box-sizing:border-box;padding:0.45rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.78rem;font-family:var(--font);outline:none">
     </div>
 
     ${_canteraFichaOtrosLinksHTML(c)}
