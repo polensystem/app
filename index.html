@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261027-v522-CXC-FORMATO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261027-v523-CXC-SIN-SIGNO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4206,7 +4206,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 522;
+const APP_VERSION = 523;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -37704,7 +37704,7 @@ async function exportCuentasPorCobrarXLSX(){
   aoa.push([null, Math.round(total*100)/100, null, 'Total por cerrar']);
   const wsF = XLSX.utils.aoa_to_sheet(aoa, { cellDates:true });
   for(let r=1;r<aoa.length;r++){
-    const m = wsF[XLSX.utils.encode_cell({r,c:1})]; if(m && m.t==='n') m.z = '_-"$"* #,##0.00_-;-"$"* #,##0.00_-;_-"$"* "-"??_-;_-@_-';
+    const m = wsF[XLSX.utils.encode_cell({r,c:1})]; if(m && m.t==='n') m.z = '#,##0.00';   // número puro, sin "$": tu Drive lo muestra 1.500,00 y lo puede convertir en moneda
     const d = wsF[XLSX.utils.encode_cell({r,c:2})]; if(d) d.z = 'd/mm/yy';
   }
   wsF['!cols'] = [{wch:16},{wch:16},{wch:12},{wch:Math.min(70, Math.max(30, ...aoa.map(r=>String(r[3]||'').length+2)))}];
@@ -37716,7 +37716,7 @@ async function exportCuentasPorCobrarXLSX(){
     const rng = XLSX.utils.decode_range(ws['!ref']);
     ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:rng.e.r - (nombre==='Detalle'?1:0), c:rng.e.c} }) };
     for(let r=1;r<=rng.e.r;r++){
-      (colMoneda||[]).forEach(k=>{ const c=keys.indexOf(k); const cell=ws[XLSX.utils.encode_cell({r,c})]; if(cell && cell.t==='n') cell.z='"$"#,##0.00'; });
+      (colMoneda||[]).forEach(k=>{ const c=keys.indexOf(k); const cell=ws[XLSX.utils.encode_cell({r,c})]; if(cell && cell.t==='n') cell.z='#,##0.00'; });
       (colFecha||[]).forEach(k=>{ const c=keys.indexOf(k); const cell=ws[XLSX.utils.encode_cell({r,c})]; if(cell && (cell.t==='d'||cell.t==='n')) cell.z='dd/mm/yyyy'; });
     }
     XLSX.utils.book_append_sheet(wb, ws, nombre);
