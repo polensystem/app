@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261027-v521-CXC-SIMPLE -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261027-v522-CXC-FORMATO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4206,7 +4206,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 521;
+const APP_VERSION = 522;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -37686,19 +37686,42 @@ async function exportCuentasPorCobrarXLSX(){
   const mensual = Object.keys(porMes).sort((a,b)=>a-b).map(k=>{ const o=porMes[k]; return { 'Mes estimado':o['Mes estimado'], 'Pagos':o.Pagos, 'Total (USD)':Math.round(o['Total (USD)']*100)/100, 'Marcas':[...o.Marcas].join(', ') }; });
 
   const wb = XLSX.utils.book_new();
+  // Hoja 1 con el formato del control de Polen: Cobrado | Por cerrar | Fecha | Detalle
+  const ORD = ['Primer','Segundo','Tercer','Cuarto','Quinto','Sexto','Séptimo','Octavo','Noveno','Décimo'];
+  const esPagoNumerado = n => !n || /^\s*(pago\s*#?\s*\d+|\d+\s*(er|ro|do|to|vo|no|mo)?\.?\s*pago|(primer|segundo|tercer|cuarto|quinto|sexto|s[eé]ptimo|octavo|noveno|d[eé]cimo)o?\s+pago)\b/i.test(n);
+  const detalleDe = f=>{
+    const marca = f.b.name||'', nom = (f.p.nombre||'').trim();
+    if(esPagoNumerado(nom)){
+      // número del pago: el que diga el nombre ("Pago 3", "Tercer pago"); si no dice, su posición
+      let k = f.i+1; const mN = nom.match(/\d+/); const mO = nom.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').match(/^(primer|segundo|tercer|cuarto|quinto|sexto|septimo|octavo|noveno|decimo)/);
+      if(mN) k = parseInt(mN[0],10); else if(mO) k = ['primer','segundo','tercer','cuarto','quinto','sexto','septimo','octavo','noveno','decimo'].indexOf(mO[1])+1;
+      const N = Math.max(f.n, k);
+      return (ORD[k-1] ? ORD[k-1]+' pago ' : 'Pago '+k+' ')+marca+' ('+k+'/'+N+')';
+    }
+    return nom+' '+marca;
+  };
+  const aoa = [['Cobrado','Por cerrar','Fecha','Detalle']].concat(filas.map(f=>[null, f.monto, f.fD||null, detalleDe(f)]));
+  aoa.push([null, Math.round(total*100)/100, null, 'Total por cerrar']);
+  const wsF = XLSX.utils.aoa_to_sheet(aoa, { cellDates:true });
+  for(let r=1;r<aoa.length;r++){
+    const m = wsF[XLSX.utils.encode_cell({r,c:1})]; if(m && m.t==='n') m.z = '_-"$"* #,##0.00_-;-"$"* #,##0.00_-;_-"$"* "-"??_-;_-@_-';
+    const d = wsF[XLSX.utils.encode_cell({r,c:2})]; if(d) d.z = 'd/mm/yy';
+  }
+  wsF['!cols'] = [{wch:16},{wch:16},{wch:12},{wch:Math.min(70, Math.max(30, ...aoa.map(r=>String(r[3]||'').length+2)))}];
+  XLSX.utils.book_append_sheet(wb, wsF, 'Por cerrar');
   const hoja = (data, nombre, colMoneda, colFecha)=>{
     const ws = XLSX.utils.json_to_sheet(data, { cellDates:true, dateNF:'dd/mm/yyyy' });
     const keys = Object.keys(data[0]);
     ws['!cols'] = keys.map(k=>({ wch: Math.min(48, Math.max(k.length, ...data.map(r=>{ const v=r[k]; return v instanceof Date ? 10 : String(v==null?'':v).length; })) + 2) }));
     const rng = XLSX.utils.decode_range(ws['!ref']);
-    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:rng.e.r - (nombre==='Cuentas por cobrar'?1:0), c:rng.e.c} }) };
+    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:rng.e.r - (nombre==='Detalle'?1:0), c:rng.e.c} }) };
     for(let r=1;r<=rng.e.r;r++){
       (colMoneda||[]).forEach(k=>{ const c=keys.indexOf(k); const cell=ws[XLSX.utils.encode_cell({r,c})]; if(cell && cell.t==='n') cell.z='"$"#,##0.00'; });
       (colFecha||[]).forEach(k=>{ const c=keys.indexOf(k); const cell=ws[XLSX.utils.encode_cell({r,c})]; if(cell && (cell.t==='d'||cell.t==='n')) cell.z='dd/mm/yyyy'; });
     }
     XLSX.utils.book_append_sheet(wb, ws, nombre);
   };
-  hoja(detalle, 'Cuentas por cobrar', ['Monto (USD)'], ['Fecha estimada de cobro']);
+  hoja(detalle, 'Detalle', ['Monto (USD)'], ['Fecha estimada de cobro']);
   hoja(resumen, 'Resumen por marca', ['Total por cobrar (USD)','Vencido (USD)'], ['Próxima fecha estimada']);
   hoja(mensual, 'Por mes', ['Total (USD)'], []);
   saveXLSX(wb, 'Polen_Cuentas_por_cobrar_'+todayStr());
