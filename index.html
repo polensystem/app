@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261026-v518-AVISO-PESO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261027-v521-CXC-SIMPLE -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -421,7 +421,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .modal-tpl-preview span{color:var(--text2);font-weight:600;}
 
 /* ── ASK MODAL (reemplaza prompt nativo) ── */
-.ask-modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:1.5rem;animation:fadeIn 0.15s ease;}
+.ask-modal-overlay{position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,0.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:1.5rem;animation:fadeIn 0.15s ease;}
 .ask-modal-overlay.hidden{display:none;}
 .ask-modal{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;box-shadow:0 32px 80px rgba(0,0,0,0.5);padding:1.7rem 2rem 1.5rem;width:100%;max-width:380px;animation:slideUp 0.18s ease;}
 .ask-modal-label{font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:0.65rem;line-height:1.45;}
@@ -525,7 +525,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
 .status-bar.show{opacity:1;}
 .status-bar.error{color:#ff5c72;border-color:rgba(255,92,114,0.3);}
 /* Toast */
-#polen-toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(20px);background:#1a1a2e;color:#fff;border-radius:14px;padding:0.7rem 1.4rem;font-size:0.82rem;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,0.25);z-index:9999;opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none;display:flex;align-items:center;gap:0.6rem;white-space:nowrap;}
+#polen-toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(20px);background:#1a1a2e;color:#fff;border-radius:14px;padding:0.7rem 1.4rem;font-size:0.82rem;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,0.25);z-index:10060;opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none;display:flex;align-items:center;gap:0.6rem;white-space:nowrap;}
 #polen-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 #polen-toast.error{background:#7f1d1d;}
 /* Dot conexión */
@@ -3431,6 +3431,7 @@ body.portal-mode #portal-loading-logo{display:none!important}
               <div class="export-dropdown">
                 <button class="export-opt" onclick="runExport('cob_pdf')">📄 PDF</button>
                 <button class="export-opt" onclick="runExport('cob_xlsx')">📊 Excel</button>
+                <button class="export-opt" onclick="exportCuentasPorCobrarXLSX()">📊 Cuentas por cobrar</button>
               </div>
             </div>
           </div>
@@ -4205,7 +4206,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 518;
+const APP_VERSION = 521;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -4527,17 +4528,50 @@ function _avisoArchivosPesados(files){
   el.style.display='block';
   clearTimeout(el._t); el._t = setTimeout(()=>{ el.style.display='none'; }, 10000);
 }
-// Inputs de archivo que están en la página (captura: corre antes de que el handler limpie el input)
-document.addEventListener('change', e=>{ const t=e.target; if(t && t.tagName==='INPUT' && t.type==='file' && t.isConnected) _avisoArchivosPesados(t.files); }, true);
+// Si hay archivos de más de 3 MB, NO se suben de una: se frena el evento, se avisa y se pide confirmar.
+// Al confirmar se vuelve a lanzar el mismo evento (ahora sí llega al handler normal y se sube).
+function _pesadosDe(files){ return [...(files||[])].filter(f=>f && f.size > _PESO_AVISO_MB*1048576); }
+async function _confirmarPesados(pesados){
+  const uno = pesados.length===1;
+  const pr = confirmModal('⚠️ '+(uno?'Este documento pesa':'Estos documentos pesan')+' más de '+_PESO_AVISO_MB+' MB', 'Sí, subir igual', 'background:#ea580c;color:#fff;border:none', 'No subir');
+  const body = document.getElementById('ask-modal-body');
+  if(body) body.innerHTML = '<ul style="margin:0 0 0.6rem;padding-left:1.1rem;font-size:0.84rem;line-height:1.6">'
+    + pesados.map(f=>'<li><b>'+escapeHtml(f.name||'archivo')+'</b> — '+_pesoFmt(f.size)+'</li>').join('') + '</ul>'
+    + '<div style="font-size:0.8rem;color:var(--text2);line-height:1.5">'+(uno?'Todavía no se ha subido.':'Todavía no se han subido.')+' Lo ideal es comprimir'+(uno?'lo':'los')+' (por ejemplo en ilovepdf.com) para que cargue'+(uno?'':'n')+' más rápido y no llene el almacenamiento.<br><b>¿Realmente deseas subir'+(uno?'lo':'los')+' así?</b></div>';
+  return !!(await pr);
+}
+function _frenarSiPesado(e, files, relanzar, cancelar){
+  if(e._pesoOk) return;
+  const pesados = _pesadosDe(files); if(!pesados.length) return;
+  e.stopImmediatePropagation(); e.stopPropagation(); if(e.cancelable) e.preventDefault();
+  _confirmarPesados(pesados).then(ok=>{
+    if(ok) relanzar();
+    else { try{ cancelar && cancelar(); }catch(_){} showStatus('No se subió '+(pesados.length===1?'el documento':'los documentos')+' pesado'+(pesados.length===1?'':'s'), true); }
+  });
+}
+function _relanzarChange(t){ const ev=new Event('change',{bubbles:true}); ev._pesoOk=true; t.dispatchEvent(ev); }
+// Inputs de archivo de la página (captura en document: corre antes que el onchange del input)
+document.addEventListener('change', e=>{ const t=e.target;
+  if(t && t.tagName==='INPUT' && t.type==='file' && t.isConnected && !/json/i.test(t.accept||''))
+    _frenarSiPesado(e, t.files, ()=>_relanzarChange(t), ()=>{ t.value=''; });
+}, true);
 // Archivos arrastrados y soltados
-document.addEventListener('drop', e=>{ if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) _avisoArchivosPesados(e.dataTransfer.files); }, true);
+document.addEventListener('drop', e=>{
+  const dt=e.dataTransfer; if(!dt || !dt.files || !dt.files.length) return;
+  const files=[...dt.files], target=e.target, x=e.clientX, y=e.clientY;
+  _frenarSiPesado(e, files, ()=>{
+    const d=new DataTransfer(); files.forEach(f=>d.items.add(f));
+    const ev=new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:d,clientX:x,clientY:y}); ev._pesoOk=true;
+    (target && target.isConnected ? target : document.body).dispatchEvent(ev);
+  });
+}, true);
 // Inputs creados al vuelo que no están en la página (ej. importar Excel)
 (function(){
   const clickOrig = HTMLInputElement.prototype.click;
   HTMLInputElement.prototype.click = function(){
     if(this.type==='file' && !this.isConnected && !this._avisoPeso && !/json/i.test(this.accept||'')){
-      this._avisoPeso = true;
-      this.addEventListener('change', ()=>_avisoArchivosPesados(this.files), true);
+      this._avisoPeso = true; const t=this;
+      t.addEventListener('change', e=>_frenarSiPesado(e, t.files, ()=>_relanzarChange(t), ()=>{ t.value=''; }), true);
     }
     return clickOrig.apply(this, arguments);
   };
@@ -10597,6 +10631,7 @@ function renderCobCartera(){
       <span style="font-size:1rem">💼</span>
       <span style="font-size:1rem;font-weight:800;color:var(--text)">Cartera de cuentas por cobrar</span>
       <span style="font-size:0.66rem;color:var(--text3)">— sin contar incobrables</span>
+      <button onclick="exportCuentasPorCobrarXLSX()" title="Descarga un Excel con cada pago pendiente: marca, concepto, monto y fecha estimada (del cronograma)" style="margin-left:auto;display:inline-flex;align-items:center;gap:0.35rem;font-size:0.74rem;font-weight:700;padding:0.4rem 0.85rem;border-radius:9px;border:1px solid #1f7a4d55;background:rgba(31,122,77,0.08);color:#1f7a4d;cursor:pointer;font-family:var(--font)">📊 Exportar cuentas por cobrar (Excel)</button>
     </div>
     <div style="display:flex;gap:0.7rem;flex-wrap:wrap">
       ${stat('Por cobrar', totalPorCobrar, 'var(--fuego)', `${nPorCobrar} pago${nPorCobrar!==1?'s':''} pendiente${nPorCobrar!==1?'s':''}`)}
@@ -22910,10 +22945,51 @@ function _canteraFichaAgregarLinks(txt){
   _canteraMezclarLinks(e, ls);
   _canteraRenderFicha(!window._canteraFichaId);
 }
-function _canteraFichaQuitarOtro(i){
+async function _canteraFichaQuitarOtro(i){
   const e = window._canteraFichaEdit; if(!e || !e.links || !Array.isArray(e.links.otros)) return;
-  e.links.otros.splice(i,1);
-  _canteraRenderFicha(!window._canteraFichaId);
+  const o = e.links.otros[i]; if(!o) return;
+  if(!(await confirmModal('¿Quitar este link del perfil?', 'Quitar', 'background:#dc2626;color:#fff;border:none'))) return;
+  const otros = e.links.otros.filter((_,j)=>j!==i);
+  await _canteraGuardarLinks(e, l=>{ l.otros = otros; }, 'Link quitado ✓');
+}
+// Guarda solo los links del perfil (sin tocar lo demás que estés editando)
+async function _canteraGuardarLinks(e, mutar, ok){
+  const orig = e.id ? (_cantera.candidatos||[]).find(x=>x.id===e.id) : null;
+  e.links = Object.assign({}, e.links||{}); mutar(e.links);
+  if(orig && window._canteraFichaId){
+    const links = Object.assign({}, orig.links||{}); mutar(links);
+    try{
+      const row = await canteraAPI('save_candidato', { data:{ id:e.id, rev:orig.rev!=null?orig.rev:e.rev, nombre:orig.nombre||e.nombre||'Sin nombre', links } });
+      if(!row || row.conflict) throw new Error('otro admin editó esta ficha; ciérrala, recarga y vuelve a intentar');
+      orig.links = links; if(row.rev!=null){ orig.rev=row.rev; e.rev=row.rev; }
+    }catch(err){ showStatus('No se pudo quitar: '+(err.message||''), true); _canteraRenderFicha(!window._canteraFichaId); return; }
+  }
+  _canteraRenderFicha(!window._canteraFichaId); if(ok) showStatus(ok); try{ renderCantera(); }catch(_){}
+}
+async function _canteraQuitarLink(k, nom){
+  const e = window._canteraFichaEdit; if(!e || !e.links || !e.links[k]) return;
+  if(!(await confirmModal('¿Quitar el link de '+(nom||k)+' de este perfil?', 'Quitar', 'background:#dc2626;color:#fff;border:none'))) return;
+  await _canteraGuardarLinks(e, l=>{ delete l[k]; }, (nom||'Link')+' quitado ✓');
+}
+// Eliminar un CV / portafolio / caso del perfil
+async function _canteraQuitarArchivo(i){
+  const e = window._canteraFichaEdit; if(!e || !Array.isArray(e.archivos) || !e.archivos[i]) return;
+  const a = e.archivos[i], lbl = _cArchLabel(a);
+  const pr = confirmModal('¿Eliminar este '+lbl+' del perfil de '+(e.nombre||'este candidato')+'?', 'Eliminar', 'background:#dc2626;color:#fff;border:none');
+  const body = document.getElementById('ask-modal-body');
+  if(body) body.innerHTML = '<div style="font-size:0.82rem;color:var(--text2)">📎 <b>'+escapeHtml(a.nombre||'archivo.pdf')+'</b></div>';
+  if(!(await pr)) return;
+  const archivos = e.archivos.filter((_,j)=>j!==i);
+  const orig = e.id ? (_cantera.candidatos||[]).find(x=>x.id===e.id) : null;
+  if(orig && window._canteraFichaId){
+    try{
+      const row = await canteraAPI('save_candidato', { data:{ id:e.id, rev:orig.rev!=null?orig.rev:e.rev, nombre:orig.nombre||e.nombre||'Sin nombre', archivos } });
+      if(!row || row.conflict) throw new Error('otro admin editó esta ficha; ciérrala, recarga y vuelve a intentar');
+      orig.archivos = archivos; if(row.rev!=null){ orig.rev=row.rev; e.rev=row.rev; }
+    }catch(err){ showStatus('No se pudo eliminar: '+(err.message||''), true); return; }
+  }
+  e.archivos = archivos;
+  _canteraRenderFicha(!window._canteraFichaId); showStatus(lbl.charAt(0).toUpperCase()+lbl.slice(1)+' eliminado ✓'); try{ renderCantera(); }catch(_){}
 }
 
 // ── Importar Excel: lee el archivo con SheetJS y la IA extrae los perfiles ──
@@ -23575,8 +23651,9 @@ function _canteraRenderFicha(esNuevo){
     <label style="font-size:0.66rem;color:var(--text3);display:block;margin-bottom:0.25rem">${label}</label>
     <input value="${String(val||'').replace(/"/g,'&quot;')}" oninput="_canteraFichaSet('${campo}', this.value)" placeholder="${ph||''}" style="width:100%;box-sizing:border-box;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.82rem;font-family:var(--font);outline:none">
   </div>`;
+  const quitarLk = (k,val,nom)=> val?`<button type="button" onclick="_canteraQuitarLink('${k}','${nom}')" title="Quitar este link del perfil" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:0.6rem;font-weight:700;padding:0;margin-left:0.35rem;font-family:var(--font)">✕ quitar</button>`:'';
   const linkInp = (k, label, val)=>`<div style="margin-bottom:0.6rem">
-    <label style="font-size:0.64rem;color:var(--text3);display:block;margin-bottom:0.2rem">${label} ${val?`<a href="${val}" target="_blank" onclick="event.stopPropagation()" style="color:var(--aire);text-decoration:none;font-size:0.6rem">↗ abrir</a>`:''}</label>
+    <label style="font-size:0.64rem;color:var(--text3);display:block;margin-bottom:0.2rem">${label} ${val?`<a href="${val}" target="_blank" onclick="event.stopPropagation()" style="color:var(--aire);text-decoration:none;font-size:0.6rem">↗ abrir</a>`:''}${quitarLk(k,val,label)}</label>
     <input value="${String(val||'').replace(/"/g,'&quot;')}" oninput="_canteraFichaSetLink('${k}', this.value)" placeholder="https://…" style="width:100%;box-sizing:border-box;padding:0.45rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.78rem;font-family:var(--font);outline:none">
   </div>`;
   const sel = (campo, label, opts, val)=>`<div style="margin-bottom:0.7rem">
@@ -23610,7 +23687,7 @@ function _canteraRenderFicha(esNuevo){
 
     <!-- Archivos originales (CV y portafolio en PDF) -->
     <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;margin:-0.4rem 0 1rem">
-      ${(Array.isArray(c.archivos)?c.archivos:[]).map((a,i)=>{ const t=_cArchTipo(a), po=t==='portafolio', ca=t==='caso'; return `<button type="button" onclick="_canteraVerCV(null,${i})" title="${escapeHtml(a.nombre||'archivo.pdf')}" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.75rem;border-radius:9px;border:none;background:${po?'#7c5cc4':ca?'#0f8a6b':'var(--text)'};color:${(po||ca)?'#fff':'var(--bg)'};font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font)">${po?'🎨 Ver portafolio':ca?'🧩 Ver caso':'📄 Ver CV original'} ↗</button>`; }).join('')}
+      ${(Array.isArray(c.archivos)?c.archivos:[]).map((a,i)=>{ const t=_cArchTipo(a), po=t==='portafolio', ca=t==='caso'; const bg=po?'#7c5cc4':ca?'#0f8a6b':'var(--text)', fg=(po||ca)?'#fff':'var(--bg)'; return `<span style="display:inline-flex;align-items:stretch;border-radius:9px;overflow:hidden;background:${bg}"><button type="button" onclick="_canteraVerCV(null,${i})" title="${escapeHtml(a.nombre||'archivo.pdf')}" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.6rem 0.4rem 0.75rem;border:none;background:transparent;color:${fg};font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font)">${po?'🎨 Ver portafolio':ca?'🧩 Ver caso':'📄 Ver CV original'} ↗</button><button type="button" onclick="_canteraQuitarArchivo(${i})" title="Eliminar este ${_cArchLabel(a)} del perfil" style="border:none;border-left:1px solid rgba(255,255,255,0.25);background:rgba(0,0,0,0.12);color:${fg};padding:0 0.55rem;cursor:pointer;font-size:0.72rem;font-family:var(--font)">✕</button></span>`; }).join('')}
       <label title="Subir el CV en PDF a esta ficha" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.4rem 0.7rem;border-radius:9px;border:1px dashed var(--border);color:var(--text3);font-size:0.72rem;cursor:pointer">📎 CV en PDF<input type="file" accept="application/pdf,.pdf" style="display:none" onchange="_canteraAdjuntarCV(this.files[0],'cv');this.value=''"></label>
       <label title="Subir el portafolio en PDF a esta ficha" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.4rem 0.7rem;border-radius:9px;border:1px dashed var(--border);color:var(--text3);font-size:0.72rem;cursor:pointer">🎨 Portafolio en PDF<input type="file" accept="application/pdf,.pdf" style="display:none" onchange="_canteraAdjuntarCV(this.files[0],'portafolio');this.value=''"></label>
       <label title="Subir el caso que entregó (PDF)" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.4rem 0.7rem;border-radius:9px;border:1px dashed #0f8a6b88;color:#0f8a6b;font-size:0.72rem;cursor:pointer">🧩 Caso en PDF<input type="file" accept="application/pdf,.pdf" style="display:none" onchange="_canteraAdjuntarCV(this.files[0],'caso');this.value=''"></label>
@@ -23716,7 +23793,7 @@ function _canteraRenderFicha(esNuevo){
     ${linkInp('instagram','Instagram', c.links?.instagram)}
     <!-- Portafolio en tu Drive -->
     <div style="margin-bottom:0.6rem">
-      <label style="font-size:0.64rem;color:var(--text3);display:block;margin-bottom:0.2rem">📁 Portafolio (tu Drive) ${c.links?.portafolio?`<a href="${c.links.portafolio}" target="_blank" onclick="event.stopPropagation()" style="color:var(--aire);text-decoration:none;font-size:0.6rem">↗ abrir</a>`:''}</label>
+      <label style="font-size:0.64rem;color:var(--text3);display:block;margin-bottom:0.2rem">📁 Portafolio (tu Drive) ${c.links?.portafolio?`<a href="${c.links.portafolio}" target="_blank" onclick="event.stopPropagation()" style="color:var(--aire);text-decoration:none;font-size:0.6rem">↗ abrir</a>`:''}${quitarLk('portafolio',c.links?.portafolio,'Portafolio')}</label>
       <div style="display:flex;gap:0.4rem">
         <input value="${String(c.links?.portafolio||'').replace(/"/g,'&quot;')}" oninput="_canteraFichaSetLink('portafolio', this.value)" placeholder="Link al portafolio…" style="flex:1;box-sizing:border-box;padding:0.45rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.78rem;font-family:var(--font);outline:none">
         <button onclick="_canteraAbrirDrive()" title="Abrir mi carpeta de Drive" style="padding:0.45rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-size:0.72rem;white-space:nowrap">📁 Drive</button>
@@ -23724,7 +23801,7 @@ function _canteraRenderFicha(esNuevo){
     </div>
 
     <div style="margin-bottom:0.6rem">
-      <label style="font-size:0.64rem;color:var(--text3);display:block;margin-bottom:0.2rem">🧩 Caso (link, si lo entregó en Drive/Figma/web) ${c.links?.caso?`<a href="${escapeHtml(/^https?:\/\//i.test(c.links.caso)?c.links.caso:'https://'+c.links.caso)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--aire);text-decoration:none;font-size:0.6rem">↗ abrir</a>`:''}</label>
+      <label style="font-size:0.64rem;color:var(--text3);display:block;margin-bottom:0.2rem">🧩 Caso (link, si lo entregó en Drive/Figma/web) ${c.links?.caso?`<a href="${escapeHtml(/^https?:\/\//i.test(c.links.caso)?c.links.caso:'https://'+c.links.caso)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--aire);text-decoration:none;font-size:0.6rem">↗ abrir</a>`:''}${quitarLk('caso',c.links?.caso,'Caso')}</label>
       <input value="${String(c.links?.caso||'').replace(/"/g,'&quot;')}" oninput="_canteraFichaSetLink('caso', this.value)" placeholder="Link al caso…" style="width:100%;box-sizing:border-box;padding:0.45rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.78rem;font-family:var(--font);outline:none">
     </div>
 
@@ -37525,6 +37602,107 @@ function exportCobPDF(){
     },
   });
   savePDF(doc, `Polen_Cobranzas_${new Date().toISOString().slice(0,10)}`);
+}
+
+// ══ Excel de cuentas por cobrar: un renglón por pago pendiente, con la fecha estimada sacada del cronograma ══
+async function exportCuentasPorCobrarXLSX(){
+  showStatus('Preparando cuentas por cobrar…');
+  try{ await _asegurarCronoHidratado(); }catch(e){}
+  ensureCobrosData();
+  const deletedIds = new Set([
+    ...((appData._deletedBrandIds)||[]),
+    ...((appData.papelera||[]).filter(x=>x.type==='brand'||x.type==='brand-archived').map(x=>x.id))
+  ]);
+  const brands = (appData.brands||[]).filter(b=>b && !deletedIds.has(b.id) && !b.deletedAt && !b.archivedAt && !b.isDemo);
+  const ETAPA = {aire:'Aire', agua:'Agua', tierra:'Tierra', fuego:'Fuego'};
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const ESTADO_ACT = {completada:'Completada','en progreso':'En progreso',pendiente:'Pendiente'};
+  const hoy = parseLocalDate(todayStr());
+  const miembro = id=>{ const m=(appData.members||[]).find(x=>x.id===id); return m ? (m.apodo||m.nombre||'') : ''; };
+  const filas = [];
+  brands.forEach(b=>{
+    const cob = appData.cobros[b.id]; if(!cob) return;
+    const pagos = cob.pagos||[];
+    const montoInd = cob.useTotal && pagos.length ? Math.round(((cob.valorTotal||0)/pagos.length)*100)/100 : null;
+    // actividades del cronograma en orden, con su etapa
+    const acts = []; ['aire','agua','tierra','fuego'].forEach(st=>(b.cronograma?.[st]||[]).forEach(a=>acts.push({a, st})));
+    pagos.forEach((p,i)=>{
+      if(p.cobrado || p.incobrable) return;
+      let idx = p.triggerActId ? acts.findIndex(x=>x.a.id===p.triggerActId) : -1;
+      if(idx<0){ const nom=(p.triggerActName||p.nombre||'').trim().toLowerCase(); if(nom) idx=acts.findIndex(x=>(x.a.name||'').trim().toLowerCase()===nom); }
+      const hito = idx>=0 ? acts[idx] : null;
+      let ti = idx-1; while(ti>=0 && _actIsPago(acts[ti].a)) ti--;
+      const entrega = (idx>=0 && ti>=0) ? acts[ti] : null;
+      const fCrono = hito ? (hito.a.endDate||hito.a.startDate||'') : '';
+      const fecha = fCrono || p.fechaProyectada || '';
+      const origen = fCrono ? 'Cronograma de marca' : (p.fechaProyectada ? 'Tabla de cobros (manual)' : 'Sin fecha');
+      const fD = fecha ? parseLocalDate(fecha) : null;
+      const dias = fD ? Math.round((fD-hoy)/86400000) : null;
+      const situacion = dias==null ? 'Sin fecha' : dias<0 ? 'Vencido' : dias<=7 ? 'Esta semana'
+        : (fD.getMonth()===hoy.getMonth() && fD.getFullYear()===hoy.getFullYear()) ? 'Este mes' : 'Próximos meses';
+      const st = cobStatus(p, pagos, b);
+      const monto = montoInd!=null ? montoInd : (parseFloat(p.monto)||0);
+      filas.push({ b, p, i, n:pagos.length, hito, entrega, fecha, fD, origen, dias, situacion, st, monto,
+        difiere: (fCrono && p.fechaProyectada && fCrono!==p.fechaProyectada) ? p.fechaProyectada : '' });
+    });
+  });
+  if(!filas.length){ showStatus('No hay cuentas por cobrar pendientes', true); return; }
+  filas.sort((x,y)=>(x.fecha||'9999').localeCompare(y.fecha||'9999') || (x.b.name||'').localeCompare(y.b.name||'') || x.i-y.i);
+
+  const detalle = filas.map((f,k)=>({
+    '#': k+1,
+    'Marca': f.b.name||'',
+    'Estado de la marca': f.b.paused ? 'Pausada' : (f.b.porIniciar ? 'Por iniciar' : 'Activa'),
+    'Concepto': f.p.nombre||('Pago '+(f.i+1)),
+    'N° de pago': (f.i+1)+' de '+f.n,
+    'Monto (USD)': f.monto,
+    'Fecha estimada de cobro': f.fD || '',
+    'Mes estimado': f.fD ? MESES[f.fD.getMonth()]+' '+f.fD.getFullYear() : 'Sin fecha',
+    'Situación': f.situacion,
+    'Días (− = atraso)': f.dias==null ? '' : f.dias,
+    '¿Listo para cobrar?': f.st.cls==='acobrar' ? 'Sí' : 'Aún no',
+    'Último seguimiento': f.p.ultimoSeguimiento||'',
+    'Notas': f.p.nota||'',
+    'Aviso': f.difiere ? 'La tabla de cobros tenía otra fecha ('+f.difiere+')' : ''
+  }));
+  const total = filas.reduce((a,f)=>a+f.monto,0);
+  detalle.push({ '#':'', 'Marca':'TOTAL POR COBRAR', 'Monto (USD)': Math.round(total*100)/100 });
+
+  const porMarca = {};
+  filas.forEach(f=>{
+    const k=f.b.id; const o = porMarca[k] || (porMarca[k] = { 'Marca':f.b.name||'', 'Estado de la marca': f.b.paused?'Pausada':'Activa', 'Pagos pendientes':0, 'Total por cobrar (USD)':0, 'Vencido (USD)':0, 'Próxima fecha estimada':'', 'Próximo concepto':'' });
+    o['Pagos pendientes']++; o['Total por cobrar (USD)'] += f.monto; if(f.situacion==='Vencido') o['Vencido (USD)'] += f.monto;
+    if(f.fD && !o['Próxima fecha estimada']){ o['Próxima fecha estimada']=f.fD; o['Próximo concepto']=f.p.nombre||''; }
+  });
+  const resumen = Object.values(porMarca).sort((a,b)=>b['Total por cobrar (USD)']-a['Total por cobrar (USD)']);
+  resumen.forEach(o=>{ o['Total por cobrar (USD)']=Math.round(o['Total por cobrar (USD)']*100)/100; o['Vencido (USD)']=Math.round(o['Vencido (USD)']*100)/100; });
+
+  const porMes = {};
+  filas.forEach(f=>{
+    const k = f.fD ? f.fD.getFullYear()*100+f.fD.getMonth() : 999999;
+    const o = porMes[k] || (porMes[k] = { 'Mes estimado': f.fD ? MESES[f.fD.getMonth()]+' '+f.fD.getFullYear() : 'Sin fecha', 'Pagos':0, 'Total (USD)':0, 'Marcas':new Set() });
+    o.Pagos++; o['Total (USD)']+=f.monto; o.Marcas.add(f.b.name||'');
+  });
+  const mensual = Object.keys(porMes).sort((a,b)=>a-b).map(k=>{ const o=porMes[k]; return { 'Mes estimado':o['Mes estimado'], 'Pagos':o.Pagos, 'Total (USD)':Math.round(o['Total (USD)']*100)/100, 'Marcas':[...o.Marcas].join(', ') }; });
+
+  const wb = XLSX.utils.book_new();
+  const hoja = (data, nombre, colMoneda, colFecha)=>{
+    const ws = XLSX.utils.json_to_sheet(data, { cellDates:true, dateNF:'dd/mm/yyyy' });
+    const keys = Object.keys(data[0]);
+    ws['!cols'] = keys.map(k=>({ wch: Math.min(48, Math.max(k.length, ...data.map(r=>{ const v=r[k]; return v instanceof Date ? 10 : String(v==null?'':v).length; })) + 2) }));
+    const rng = XLSX.utils.decode_range(ws['!ref']);
+    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:rng.e.r - (nombre==='Cuentas por cobrar'?1:0), c:rng.e.c} }) };
+    for(let r=1;r<=rng.e.r;r++){
+      (colMoneda||[]).forEach(k=>{ const c=keys.indexOf(k); const cell=ws[XLSX.utils.encode_cell({r,c})]; if(cell && cell.t==='n') cell.z='"$"#,##0.00'; });
+      (colFecha||[]).forEach(k=>{ const c=keys.indexOf(k); const cell=ws[XLSX.utils.encode_cell({r,c})]; if(cell && (cell.t==='d'||cell.t==='n')) cell.z='dd/mm/yyyy'; });
+    }
+    XLSX.utils.book_append_sheet(wb, ws, nombre);
+  };
+  hoja(detalle, 'Cuentas por cobrar', ['Monto (USD)'], ['Fecha estimada de cobro']);
+  hoja(resumen, 'Resumen por marca', ['Total por cobrar (USD)','Vencido (USD)'], ['Próxima fecha estimada']);
+  hoja(mensual, 'Por mes', ['Total (USD)'], []);
+  saveXLSX(wb, 'Polen_Cuentas_por_cobrar_'+todayStr());
+  showStatus(filas.length+' pagos pendientes exportados · '+fmt$(total));
 }
 
 function exportCobXLSX(){
