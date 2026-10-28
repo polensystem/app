@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261027-v524-CXC-COMA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261028-v525-DRAG-SEMANA-TORTAS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1276,6 +1276,7 @@ body.portal-mode #loading-skip-btn{ display:none!important; }
 
 .cal-draggable{transition:opacity 0.15s;}
 .cal-draggable:active{opacity:0.5;}
+.mi-sem-dia.cal-drag-over{background:rgba(59,158,221,0.08)!important;outline:2px dashed var(--aire);outline-offset:-2px;}
 .eq-month-day.cal-drag-over{background:rgba(59,158,221,0.08)!important;outline:2px dashed var(--aire);outline-offset:-2px;}
 
 /* Single member view: card fills available height */
@@ -4206,7 +4207,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 524;
+const APP_VERSION = 525;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -8137,7 +8138,7 @@ function deepMergeAppData(server, local){
   merged.banners = Array.isArray(local.banners) ? local.banners : [];
 
   // ── scalar fields: local wins if user changed them, else server ──
-  const scalarKeys = ['finanzas','calendarUrl','domoNames','pausaActiva','onboarding','canteraNiveles','canteraSeguimiento','tortaSabores','_tortasLimpias','_deseosViejosLimpios'];
+  const scalarKeys = ['finanzas','calendarUrl','domoNames','pausaActiva','onboarding','canteraNiveles','canteraSeguimiento','tortaSabores','tortaSaboresBasicos','_tortasLimpias','_deseosViejosLimpios'];
   scalarKeys.forEach(k=>{
     merged[k] = _localChangedKeys.has(k) ? local[k] : (server[k] ?? local[k]);
   });
@@ -9926,81 +9927,106 @@ function calDragStart(event, brandId, stage, actId, type){
   }, {once: true});
 }
 
+// ══ Arrastrar un evento en la vista semanal/mensual = mover su actividad en el CRONOGRAMA MADRE ══
+// · Hito (⭐): la actividad empieza el día donde se soltó (conserva su duración). Luego SIEMPRE pregunta
+//   si se mueven también todas las actividades posteriores del cronograma la misma cantidad de días hábiles.
+// · Revisión interna (🔍): solo cambia la fecha de esa revisión (queda guardada en la misma actividad).
+// Se guarda en la tabla del cronograma, se sincroniza la fecha proyectada de cobranzas y queda en la bitácora.
+function _calRefrescarVistas(brand){
+  try{ if(brand && currentBrandId===brand.id) renderBrandCrono(brand); }catch(e){}
+  try{ if(currentPage==='equipo'){ if(window._eqTab==='week') renderEqWeek(); else if(window._eqTab==='month') renderEqMonth(); } }catch(e){}
+  try{ if(document.getElementById('mi-trabajo-module')) renderMiTrabajo(); }catch(e){}
+}
+function _cronoFilasTodas(brand){
+  const rows=[]; ['aire','agua','tierra','fuego','_sinUbicar'].forEach(st=>(brand.cronograma[st]||[]).forEach((a,i)=>rows.push(CronoDB.actToRow(brand.id, st, a, i))));
+  return rows;
+}
+async function _cronoSyncCobrosFechas(brand){
+  try{
+    const cob = appData.cobros && appData.cobros[brand.id]; if(!cob || !Array.isArray(cob.pagos)) return;
+    const acts={}; ['aire','agua','tierra','fuego'].forEach(st=>(brand.cronograma[st]||[]).forEach(a=>{ acts[a.id]=a; }));
+    for(const p of cob.pagos){
+      const a = p.triggerActId && acts[p.triggerActId]; if(!a || p.cobrado) continue;
+      const f = a.endDate||a.startDate||''; if(f && f!==p.fechaProyectada){ p.fechaProyectada=f; if(window.CobrosDB){ try{ await CobrosDB.savePago(brand.id, p); }catch(e){} } }
+    }
+    try{ syncCobrosToFin(); }catch(e){}
+  }catch(e){ console.warn('sync cobros:', e); }
+}
 async function calDrop(event, newDateStr){
   event.preventDefault();
-
   const dragActId   = _calDragActId;
   const dragBrandId = _calDragBrandId;
   const dragStage   = _calDragStage;
   const dragType    = _calDragType;
   _calDragActId = null; _calDragBrandId = null; _calDragStage = null; _calDragType = null;
-
-  if(!dragActId || !dragBrandId || !dragStage) return;
+  if(!dragActId || !dragBrandId || !dragStage || !newDateStr) return;
+  if(window._calMoviendo){ showStatus('Espera, se está guardando el movimiento anterior…', true); return; }
 
   const brand = (appData.brands||[]).find(b=>b.id===dragBrandId);
   if(!brand?.cronograma?.[dragStage]) return;
   const acts = brand.cronograma[dragStage];
   const actIdx = acts.findIndex(a=>a.id===dragActId);
-  if(actIdx<0) return;
+  if(actIdx<0){ showStatus('No encontré esa actividad en el cronograma de '+(brand.name||'la marca'), true); return; }
   const act = acts[actIdx];
+  if(esDiaNoHabil(parseLocalDate(newDateStr))){ showStatus('Ese día no es hábil; suéltalo en un día laborable', true); return; }
 
-
-  if(dragType === 'revision'){
-    act.revDateOverride = newDateStr;
-
-  } else {
-    const oldEndDate = act.endDate;
-    const oldDays = act.days || 1;
-    act.endDate = newDateStr;
-    act.startDate = shiftWD(newDateStr, -(oldDays - 1));
-
-    if(_calFreeMode){
-      if(!act.revDateOverride) act.revDateOverride = shiftWD(oldEndDate, -getRevDays());
-    } else {
-      if(act.revDateOverride) delete act.revDateOverride;
+  window._calMoviendo = true;
+  const before = _cronoSnapshot(brand);
+  try{
+    if(dragType === 'revision'){
+      const actual = act.revDateOverride || (_fechaHito(act) ? subtractWorkdays(_fechaHito(act), getRevDays(brand.id)) : '');
+      if(actual === newDateStr) return;
+      act.revDateOverride = newDateStr;
+      if(!(await _cronoGuardarFilas(_cronoFilasTodas(brand)))){ act.revDateOverride = actual || undefined; if(!actual) delete act.revDateOverride; return; }
+      _calRefrescarVistas(brand);
+      showStatus('Revisión interna de "'+(act.name||'')+'" movida al '+fmtDateDisplay(newDateStr)+' ✓');
+      return;
     }
 
-    if(oldEndDate && oldEndDate !== newDateStr){
-      const wdDelta = wdDeltaBetween(oldEndDate, newDateStr);
+    // ── Hito: mover la actividad madre ──
+    const oldShown = _fechaHito(act);
+    if(oldShown === newDateStr) return;
+    const prev = { startDate:act.startDate, endDate:act.endDate };
+    const delta = oldShown ? wdDeltaBetween(oldShown, newDateStr) : 0;
+    if(act.startDate){
+      const dur = act.endDate ? wdDeltaBetween(act.startDate, act.endDate) : 0;
+      act.startDate = newDateStr;
+      if(act.endDate) act.endDate = dur>0 ? shiftWD(newDateStr, dur) : newDateStr;
+    } else {
+      act.startDate = newDateStr;
+      act.endDate = addWorkdays(newDateStr, Math.max((act.days||1)-1, 0));
+    }
+    // 1) Guardar el movimiento de esta actividad (si falla, se deshace)
+    if(!(await _cronoGuardarFilas(_cronoFilasTodas(brand)))){ act.startDate=prev.startDate; act.endDate=prev.endDate; _calRefrescarVistas(brand); return; }
+    _calRefrescarVistas(brand);
 
-      if(wdDelta !== 0){
-        const hasLater = ['aire','agua','tierra','fuego'].some(st=>
-          (brand.cronograma[st]||[]).some(a=> a.id!==dragActId && a.endDate && a.endDate > oldEndDate)
-        );
-
-        // Render immediately so user sees the moved event
-        if(currentBrandId===brand.id) renderBrandCrono(brand);
-        const activeTab = window._eqTab;
-        if(activeTab==='week') renderEqWeek(); else renderEqMonth();
-
-        if(hasLater && !_calFreeMode){
-          const cascade = await confirmModal(
-            `¿Ajustar también las fechas de todas las actividades posteriores a esta (${wdDelta>0?'+':''}${wdDelta} días hábiles)?`,
-            'Sí, cambiar',
-            'background:var(--aire);color:#fff;border:none',
-            'No'
-          );
-          if(cascade){
-            cascadeAfterDate(brand, oldEndDate, wdDelta, dragActId);
-            showStatus('Fechas del cronograma actualizadas ✓');
-          }
+    // 2) Preguntar SIEMPRE por las posteriores (orden del cronograma: resto de la etapa y etapas siguientes)
+    const ORD = ['aire','agua','tierra','fuego'], si = ORD.indexOf(dragStage);
+    const posteriores = ORD.flatMap((st,k)=> k<si ? [] : (brand.cronograma[st]||[]).filter((a,i)=> !(st===dragStage && i<=actIdx) && (a.startDate||a.endDate)));
+    let cascada = false;
+    if(posteriores.length && delta!==0){
+      await new Promise(r=>setTimeout(r, 60));
+      const n = Math.abs(delta);
+      cascada = await confirmModal(
+        `Moviste "${act.name||''}" de ${brand.name||''} ${n} día${n!==1?'s':''} hábil${n!==1?'es':''} ${delta>0?'más tarde':'antes'} (${fmtDateDisplay(oldShown)} → ${fmtDateDisplay(newDateStr)}). Ya cambió también en su cronograma.\n\n¿Mover también ${posteriores.length===1?'la actividad posterior':'las '+posteriores.length+' actividades posteriores'} la misma cantidad de días?`,
+        'Sí, mover todas', 'background:var(--aire);color:#fff;border:none', 'Solo esta');
+      if(cascada){
+        const snap = posteriores.map(a=>({a, s:a.startDate, e:a.endDate, r:a.revDateOverride}));
+        _cascadeFrom(brand, dragStage, actIdx+1, delta);
+        if(!(await _cronoGuardarFilas(_cronoFilasTodas(brand)))){
+          snap.forEach(x=>{ x.a.startDate=x.s; x.a.endDate=x.e; if(x.r) x.a.revDateOverride=x.r; else delete x.a.revDateOverride; });
+          cascada = false;
         }
+        _calRefrescarVistas(brand);
       }
     }
+    await _cronoSyncCobrosFechas(brand);
+    showStatus(cascada ? ('Cronograma de '+(brand.name||'')+' actualizado: '+(posteriores.length+1)+' actividades movidas ✓') : ('"'+(act.name||'')+'" movida al '+fmtDateDisplay(newDateStr)+' en el cronograma ✓'));
+    // 3) Bitácora / log de cambios del cronograma (la razón es opcional)
+    try{ await _registrarCambioCrono(brand, _cronoDiff(brand, before)); }catch(e){ console.warn('log crono:', e); }
+  } finally {
+    window._calMoviendo = false;
   }
-
-  // Render and save
-  if(currentBrandId===brand.id) renderBrandCrono(brand);
-  const activeTab2 = window._eqTab;
-  if(activeTab2==='week') renderEqWeek(); else renderEqMonth();
-  // 🔒 Guardar cronograma en tabla (batch todas las stages por si hubo cascade)
-  const allRows = [];
-  ['aire','agua','tierra','fuego','_sinUbicar'].forEach(st=>{
-    (brand.cronograma[st]||[]).forEach((a, i)=>{
-      allRows.push(CronoDB.actToRow(dragBrandId, st, a, i));
-    });
-  });
-  CronoDB.saveActsBatch(allRows).then(ok=>{ if(!ok) showStatus('Error al guardar ❌', true); });
 }
 
 async function moveSinUbicar(brandId, actId, stage){
@@ -17314,20 +17340,40 @@ function toggleStageCard(stageId){
 // ── Sabores de torta (lista editable SOLO por admins; el sabor lo elige SOLO el cumpleañero) ──
 const TORTA_SABORES_DEFAULT = ['Chocolate','Vainilla','Tres leches','Red velvet','Zanahoria','Frutos rojos','Maracuyá','Limón'];
 function _tortaSabores(){ return (Array.isArray(appData.tortaSabores) && appData.tortaSabores.length) ? appData.tortaSabores : TORTA_SABORES_DEFAULT; }
+// Dos menús: los PRÓXIMOS 5 cumpleañeros eligen del menú especial (tortaSabores);
+// el resto elige del menú básico (tortaSaboresBasicos). Ambos los editan solo admins.
+const TORTA_SABORES_BASICOS_DEFAULT = ['Chocolate','Vainilla','Manjar','Frutas','Marmoleada','Limón','Naranja','Vainilla con topping de chocolate'];
+function _tortaSaboresBasicos(){ return (Array.isArray(appData.tortaSaboresBasicos) && appData.tortaSaboresBasicos.length) ? appData.tortaSaboresBasicos : TORTA_SABORES_BASICOS_DEFAULT; }
+function _cumpleDiasPara(m, hoy){
+  if(!m || !m.cumple) return null;
+  const h=_f0(hoy||new Date());
+  if(_cumpleCelebracion(m, h)) return 0;              // se celebra hoy (o viernes/lunes por fin de semana)
+  const p=String(m.cumple).split('-'); if(p.length<3) return null;
+  const mes=parseInt(p[1],10)-1, dia=parseInt(p[2],10); if(isNaN(mes)||isNaN(dia)) return null;
+  let d=new Date(h.getFullYear(), mes, dia); if(d<h) d=new Date(h.getFullYear()+1, mes, dia);
+  return Math.round((d-h)/86400000);
+}
+function _proximos5CumpleIds(){
+  return new Set((appData.members||[]).filter(m=>m.active!==false && m.cumple)
+    .map(m=>({id:m.id, d:_cumpleDiasPara(m)})).filter(x=>x.d!=null)
+    .sort((a,b)=>a.d-b.d).slice(0,5).map(x=>x.id));
+}
+function _tortaListaDe(m){ return _proximos5CumpleIds().has(m.id) ? 'especial' : 'basico'; }
+function _tortaOpcionesDe(m){ return _tortaListaDe(m)==='especial' ? _tortaSabores() : _tortaSaboresBasicos(); }
 function _soyYo(memberId){ const u = (typeof _usuarioReal==='function') ? _usuarioReal() : _usuarioActual(); return !!(u && u.id && u.id===memberId); }
 // Versión mini para los cuadritos de próximos: el propio cumpleañero (o un admin) la elige ahí mismo
 function _tortaMini(m){
   const v=_tortaDe(m); const puede=_soyYo(m.id)||_tieneRol('admin');
   if(!puede) return `<div style="font-size:0.64rem;color:${v?'var(--text2)':'var(--text3)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Sabor de torta">🍰 ${v?escapeHtml(v):'sabor por elegir'}</div>`;
-  const ops=_tortaSabores(); const existe=!v||ops.includes(v);
+  const ops=_tortaOpcionesDe(m); const existe=!v||ops.includes(v);
   return `<div style="display:flex;align-items:center;gap:0.2rem;min-width:0">🍰<select onclick="event.stopPropagation()" onchange="setCumpleField('${m.id}','torta',this.value)" title="${_soyYo(m.id)?'Elige tu sabor de torta':'Sabor de torta'}" style="min-width:0;max-width:100%;background:transparent;border:none;border-bottom:1.5px dashed #ec4899;color:${v?'var(--text)':'#ec4899'};font-family:var(--font);font-size:0.66rem;font-weight:700;cursor:pointer;outline:none;padding:0">
     <option value="">${_soyYo(m.id)?'Elige tu torta':'por elegir'}</option>${ops.map(o=>`<option value="${escapeHtml(o)}" ${o===v?'selected':''}>${escapeHtml(o)}</option>`).join('')}${existe?'':`<option selected value="${escapeHtml(v)}">${escapeHtml(v)}</option>`}</select></div>`;
 }
 function _tortaInline(m){
   const v=_tortaDe(m); const puede=_soyYo(m.id)||_tieneRol('admin');
-  const gear=_tieneRol('admin')?`<button onclick="_editarSaboresTorta()" title="Editar la lista de sabores (admins)" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.72rem;padding:0">⚙</button>`:'';
+  const gear=_tieneRol('admin')?`<button onclick="_editarSaboresTorta('${_tortaListaDe(m)}')" title="Editar los menús de torta (admins)" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.72rem;padding:0">⚙</button>`:'';
   if(!puede) return `<span>🍰 ${v?escapeHtml(v):escapeHtml(m.apodo||m.nombre||'')+' debe elegir su sabor de torta'}</span>`;
-  const ops=_tortaSabores(); const existe=!v||ops.includes(v);
+  const ops=_tortaOpcionesDe(m); const existe=!v||ops.includes(v);
   return `<span style="display:inline-flex;align-items:center;gap:0.3rem">🍰<select onchange="setCumpleField('${m.id}','torta',this.value)" style="background:transparent;border:none;border-bottom:1.5px dashed #ec4899;color:${v?'var(--text)':'#ec4899'};font-family:var(--font);font-size:0.76rem;font-weight:700;cursor:pointer;outline:none;padding:0 0.1rem;max-width:220px">
     <option value="">${_soyYo(m.id)?'Elige tu sabor de torta':escapeHtml(m.apodo||m.nombre||'')+' debe elegir su sabor'}</option>${ops.map(o=>`<option value="${escapeHtml(o)}" ${o===v?'selected':''}>${escapeHtml(o)}</option>`).join('')}${existe?'':`<option selected value="${escapeHtml(v)}">${escapeHtml(v)}</option>`}</select>${gear}</span>`;
 }
@@ -17335,9 +17381,9 @@ function _tortaControl(m, tam){
   const grande = tam==='grande';
   const v = _tortaDe(m);
   const base = grande ? 'width:100%;margin-top:0.55rem;padding:0.45rem 0.6rem;font-size:0.78rem;border-radius:8px' : 'width:84px;flex-shrink:0;padding:0.3rem 0.4rem;font-size:0.64rem;border-radius:7px';
-  const gear = _tieneRol('admin') ? `<button onclick="event.stopPropagation();_editarSaboresTorta()" title="Editar la lista de sabores (admins)" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:7px;cursor:pointer;color:var(--text3);font-size:${grande?'0.8rem':'0.66rem'};padding:${grande?'0.35rem 0.5rem':'0.2rem 0.35rem'};${grande?'margin-top:0.55rem':''}">⚙</button>` : '';
+  const gear = _tieneRol('admin') ? `<button onclick="event.stopPropagation();_editarSaboresTorta('${_tortaListaDe(m)}')" title="Editar los menús de torta (admins)" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:7px;cursor:pointer;color:var(--text3);font-size:${grande?'0.8rem':'0.66rem'};padding:${grande?'0.35rem 0.5rem':'0.2rem 0.35rem'};${grande?'margin-top:0.55rem':''}">⚙</button>` : '';
   if(_soyYo(m.id) || _tieneRol('admin')){
-    const ops = _tortaSabores(); const existe = !v || ops.includes(v);
+    const ops = _tortaOpcionesDe(m); const existe = !v || ops.includes(v);
     const sel = `<select onchange="setCumpleField('${m.id}','torta',this.value)" title="Elige tu sabor de torta" style="${base};flex:1;min-width:0;background:var(--bg-card);border:1.5px solid #f472b6;color:var(--text);font-family:var(--font);outline:none;box-sizing:border-box;cursor:pointer">
       <option value="">🍰 ${_soyYo(m.id) ? escapeHtml(m.apodo||m.nombre||'')+', elige tu sabor de torta…' : escapeHtml(m.apodo||m.nombre||'')+' debe elegir su sabor de torta'}</option>${ops.map(o=>`<option value="${escapeHtml(o)}" ${o===v?'selected':''}>🍰 ${escapeHtml(o)}</option>`).join('')}${existe?'':`<option selected value="${escapeHtml(v)}">🍰 ${escapeHtml(v)}</option>`}</select>`;
     return `<div style="display:flex;gap:0.35rem;align-items:center;${grande?'':'flex-shrink:0'}">${sel}${gear}</div>`;
@@ -17345,21 +17391,25 @@ function _tortaControl(m, tam){
   const txt = v ? '🍰 '+escapeHtml(v) : '🍰 '+escapeHtml(m.apodo||m.nombre||'')+' debe elegir su sabor de torta';
   return `<div style="display:flex;gap:0.35rem;align-items:center;${grande?'':'flex-shrink:0'}"><span title="Solo el cumpleañero (o un admin) elige el sabor" style="${base};flex:1;min-width:0;display:block;background:var(--bg-card);border:1px dashed var(--border);color:${v?'var(--text2)':'var(--text3)'};font-family:var(--font);box-sizing:border-box;${grande?'line-height:1.35':'overflow:hidden;text-overflow:ellipsis;white-space:nowrap'}">${txt}</span>${gear}</div>`;
 }
-function _editarSaboresTorta(){
+function _editarSaboresTorta(lista){
   if(!_tieneRol('admin')){ showStatus('Solo los admins pueden editar los sabores', true); return; }
-  window._saboresEdit = _tortaSabores().map(n=>({nombre:n, orig:n}));
+  window._saboresLista = lista==='basico' ? 'basico' : 'especial';
+  window._saboresEdit = (window._saboresLista==='basico' ? _tortaSaboresBasicos() : _tortaSabores()).map(n=>({nombre:n, orig:n}));
   _pintarSaboresTorta();
 }
 function _pintarSaboresTorta(){
   const l = window._saboresEdit||[];
-  const uso = n=>(appData.members||[]).filter(m=>_tortaDe(m)===n).length;
+  const lista = window._saboresLista||'especial';
+  const uso = n=>(appData.members||[]).filter(m=>_tortaDe(m)===n && _tortaListaDe(m)===lista).length;
+  const tab = (k,txt)=>`<button onclick="_editarSaboresTorta('${k}')" style="flex:1;padding:0.45rem 0.6rem;border-radius:8px;border:1.5px solid ${lista===k?'#f472b6':'var(--border)'};background:${lista===k?'rgba(244,114,182,0.12)':'transparent'};color:${lista===k?'#db2777':'var(--text2)'};font-size:0.76rem;font-weight:700;cursor:pointer;font-family:var(--font)">${txt}</button>`;
   const filas = l.map((x,i)=>`<div style="display:flex;gap:0.4rem;align-items:center;margin-bottom:0.35rem">
       <span style="font-size:0.9rem">🍰</span>
       <input value="${escapeHtml(x.nombre)}" oninput="window._saboresEdit[${i}].nombre=this.value" style="flex:1;padding:0.4rem 0.6rem;border-radius:7px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.82rem;font-family:var(--font);outline:none">
       <span style="font-size:0.64rem;color:var(--text3);min-width:4.5rem;text-align:right">${x.orig?uso(x.orig)+' elegido'+(uso(x.orig)!==1?'s':''):'nuevo'}</span>
       <button onclick="window._saboresEdit.splice(${i},1);_pintarSaboresTorta()" title="Eliminar" style="width:28px;height:28px;border-radius:6px;border:1px solid rgba(255,92,114,0.3);background:rgba(255,92,114,0.08);color:#ff5c72;cursor:pointer">✕</button>
     </div>`).join('');
-  openGenericModal('🍰 Sabores de torta', `<div style="font-size:0.74rem;color:var(--text3);margin-bottom:0.8rem">Esta es la lista que ve cada cumpleañero para elegir su torta. Si renombras un sabor, quien lo eligió pasa al nombre nuevo; si lo eliminas, su elección queda vacía.</div>
+  openGenericModal('🍰 Sabores de torta', `<div style="display:flex;gap:0.4rem;margin-bottom:0.7rem">${tab('especial','⭐ Menú especial · próximos 5')}${tab('basico','🍰 Menú para los demás')}</div>
+    <div style="font-size:0.74rem;color:var(--text3);margin-bottom:0.8rem">${lista==='especial'?'Lo ven los <b>próximos 5 cumpleañeros</b>.':'Lo ven todos los que <b>no</b> están entre los próximos 5 cumpleañeros.'} Si renombras un sabor, quien lo eligió pasa al nombre nuevo; si lo eliminas, su elección queda vacía.</div>
     <div style="max-height:55vh;overflow:auto">${filas}</div>
     <button onclick="window._saboresEdit.push({nombre:'',orig:null});_pintarSaboresTorta();setTimeout(()=>{const ins=document.querySelectorAll('#tray-generic-modal input');const u=ins[ins.length-1];if(u)u.focus();},50)" style="margin-top:0.4rem;font-size:0.76rem;padding:0.4rem 0.9rem;border-radius:8px;border:1px dashed var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:var(--font)">+ Añadir sabor</button>
     <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem">
@@ -17373,12 +17423,13 @@ async function _guardarSaboresTorta(){
   const vistos=new Set(); for(const x of l){ const k=x.nombre.toLowerCase(); if(vistos.has(k)){ showStatus('Hay dos sabores llamados "'+x.nombre+'"', true); return; } vistos.add(k); }
   const ren={}; l.forEach(x=>{ if(x.orig && x.orig!==x.nombre) ren[x.orig]=x.nombre; });
   const quedan=new Set(l.map(x=>x.orig).filter(Boolean));
-  const borrados=_tortaSabores().filter(n=>!quedan.has(n));
-  appData.tortaSabores = l.map(x=>x.nombre);
-  markLocalChange('tortaSabores');
+  const lista = window._saboresLista||'especial';
+  const borrados=(lista==='basico'?_tortaSaboresBasicos():_tortaSabores()).filter(n=>!quedan.has(n));
+  if(lista==='basico'){ appData.tortaSaboresBasicos = l.map(x=>x.nombre); markLocalChange('tortaSaboresBasicos'); }
+  else { appData.tortaSabores = l.map(x=>x.nombre); markLocalChange('tortaSabores'); }
   // Actualizar a quienes ya habían elegido un sabor renombrado o eliminado
   for(const m of (appData.members||[])){
-    if(!m.torta) continue;
+    if(!m.torta || _tortaListaDe(m)!==lista) continue;   // solo quienes eligen de ESTE menú
     let nuevo = null;
     if(ren[m.torta]!==undefined) nuevo = ren[m.torta]; else if(borrados.includes(m.torta)) nuevo = '';
     if(nuevo!==null){ m.torta = nuevo; markLocalChange('members'); try{ if(window.MembersDB){ const idx=appData.members.indexOf(m); await MembersDB.saveMember(m, idx<0?0:idx); } }catch(e){} }
@@ -19908,7 +19959,7 @@ function _miTrabajoSemana(misMarcas, STAGE_COLOR){
     const isToday = dayStr===fmtDate(today);
     const evs = hitos.filter(h=>h.date===dayStr);
 
-    h1 += `<div style="border-radius:10px;padding:0.5rem;background:${isToday?'var(--bg-card2)':'transparent'};border:1px solid ${isToday?'var(--aire)':'var(--border)'};min-height:130px">
+    h1 += `<div class="mi-sem-dia" ondragover="event.preventDefault();event.dataTransfer.dropEffect='move';this.classList.add('cal-drag-over')" ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('cal-drag-over')" ondrop="this.classList.remove('cal-drag-over');calDrop(event,'${dayStr}')" style="border-radius:10px;padding:0.5rem;background:${isToday?'var(--bg-card2)':'transparent'};border:1px solid ${isToday?'var(--aire)':'var(--border)'};min-height:130px;transition:background 0.12s,border-color 0.12s">
       <div style="font-size:0.6rem;font-weight:700;color:${isToday?'var(--aire)':'var(--text3)'};text-transform:uppercase;text-align:center;margin-bottom:0.5rem">${dayNames[i]} ${day.getDate()}${isToday?' <span style="background:var(--aire);color:#fff;border-radius:99px;padding:0.05rem 0.35rem;font-size:0.52rem">HOY</span>':''}</div>`;
 
     if(evs.length){
@@ -19924,8 +19975,10 @@ function _miTrabajoSemana(misMarcas, STAGE_COLOR){
           ? `repeating-linear-gradient(-45deg,rgba(${r},${g},${bv},0.07) 0,rgba(${r},${g},${bv},0.07) 5px,rgba(${r},${g},${bv},0.02) 5px,rgba(${r},${g},${bv},0.02) 10px)`
           : `rgba(${r},${g},${bv},0.18)`;
         const borde = esRevision ? `1.5px dashed rgba(${r},${g},${bv},0.45)` : 'none';
+        const arrastrable = (h.type==='oficial' || h.type==='revision') && h.actId && h.stage;
         h1 += `<div onclick="openBrand('${h.brandId}');setTimeout(()=>switchTab('crono'),100)"
-          style="background:${bg};border:${borde};border-left:4px solid rgb(${r},${g},${bv});border-radius:0 7px 7px 0;padding:0.4rem 0.5rem;margin-bottom:0.35rem;cursor:pointer;${yaPaso?'opacity:0.45':''}">
+          ${arrastrable?`draggable="true" ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','${h.type}')" title="${h.type==='revision'?'Arrastra a otro día para mover esta revisión interna':'Arrastra a otro día para moverla (también se mueve en el cronograma)'}"`:''}
+          class="${arrastrable?'cal-draggable':''}" style="background:${bg};border:${borde};border-left:4px solid rgb(${r},${g},${bv});border-radius:0 7px 7px 0;padding:0.4rem 0.5rem;margin-bottom:0.35rem;cursor:${arrastrable?'grab':'pointer'};${yaPaso?'opacity:0.45':''}">
           <div style="font-size:0.68rem;font-weight:800;color:var(--text);line-height:1.2;display:flex;align-items:center;gap:0.25rem">
             <span style="font-size:0.62rem">${icono}</span>
             <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${yaPaso?'text-decoration:line-through':''}">${brand?.name||''}</span>
