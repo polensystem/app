@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261028-v525-DRAG-SEMANA-TORTAS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261028-v526-SEMANAS-PERMISOS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -424,7 +424,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .ask-modal-overlay{position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,0.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:1.5rem;animation:fadeIn 0.15s ease;}
 .ask-modal-overlay.hidden{display:none;}
 .ask-modal{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;box-shadow:0 32px 80px rgba(0,0,0,0.5);padding:1.7rem 2rem 1.5rem;width:100%;max-width:380px;animation:slideUp 0.18s ease;}
-.ask-modal-label{font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:0.65rem;line-height:1.45;}
+.ask-modal-label{font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:0.65rem;line-height:1.45;white-space:pre-line;}
 .ask-modal-input{background:var(--input-bg);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:0.65rem 0.9rem;color:var(--text);font-family:var(--font);font-size:0.95rem;outline:none;transition:all var(--transition);width:100%;}
 .ask-modal-input:focus{border-color:rgba(176,106,255,0.6);box-shadow:0 0 0 3px rgba(176,106,255,0.08);}
 .ask-modal-footer{display:flex;gap:0.7rem;justify-content:flex-end;margin-top:1.2rem;}
@@ -3927,6 +3927,22 @@ body.portal-mode #portal-loading-logo{display:none!important}
       <label class="form-label">Branding Points asignados a esta marca</label>
       <input class="form-input" id="input-bp-total" type="number" min="1" value="15" oninput="updateModalPreview()" style="max-width:120px;font-weight:700;font-size:1rem">
     </div>
+    <!-- Duración total en semanas (opcional, solo PM/admin) -->
+    <div id="modal-semanas-row" style="margin:0.4rem 0 0.5rem">
+      <div class="naming-toggle-row" style="margin:0">
+        <span>⏱</span>
+        <span class="naming-toggle-lbl" style="font-size:0.82rem">Definir duración total del proyecto</span>
+        <label class="toggle-pill">
+          <input type="checkbox" id="nb-semanas-on" onchange="toggleSemanasNuevaMarca(this.checked)">
+          <div class="toggle-track"></div>
+        </label>
+      </div>
+      <div id="nb-semanas-wrap" style="display:none;align-items:center;gap:0.5rem;margin-top:0.45rem;flex-wrap:wrap">
+        <input class="form-input" id="nb-semanas" type="number" min="1" max="104" style="max-width:90px;font-weight:700;font-size:1rem">
+        <span style="font-size:0.78rem;color:var(--text2);font-weight:600">semanas</span>
+        <span style="font-size:0.68rem;color:var(--text3);flex-basis:100%;line-height:1.4">Las actividades se estiran o encogen manteniendo su % del proceso. Pagos, reuniones, presentaciones y entregas quedan en 1 día; el feedback del cliente, máximo 3 días.</span>
+      </div>
+    </div>
 
     <!-- ── MARCA EN CURSO / IMPORTAR CALENDARIO ── -->
     <div style="border-top:1px solid var(--border);margin:0.8rem 0 0.6rem;padding-top:0.8rem" id="modal-import-section">
@@ -4207,7 +4223,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 525;
+const APP_VERSION = 526;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -9193,6 +9209,137 @@ function nextWorkday(dateStr){
   return fmtLocalDate(d);
 }
 
+// ══ DURACIÓN TOTAL DEL PROYECTO EN SEMANAS ══
+// Reparte las actividades en N semanas manteniendo el % que cada una ocupa en el proceso.
+// Reglas: pagos, reuniones, presentaciones y entregas = 1 día fijo · feedback del cliente = máx. 3 días ·
+// el resto se estira o encoge proporcionalmente (mín. 1 día). Las actividades COMPLETADAS no se tocan.
+// Las semanas se cuentan desde la Reunión de onboarding (igual que la duración que se muestra en el cronograma).
+function _cronoTipoAct(a){
+  const n = String(a&&a.name||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if(/\bpagos?\b/.test(n) || /^(reunion|presentacion|kick ?off|llamada|entrega parcial|link y entrega|entrega final|entrega de)/.test(n)) return 'puntual';
+  if(/^feedback|retroalimentacion|feedback (del )?cliente/.test(n)) return 'feedback';
+  return 'normal';
+}
+function _wdEntre(desdeStr, hastaStr){   // días hábiles entre dos fechas, ambas inclusive
+  if(!desdeStr || !hastaStr || hastaStr < desdeStr) return 0;
+  let n=0; const d=parseLocalDate(desdeStr), h=parseLocalDate(hastaStr);
+  for(let i=0;i<2000 && d<=h;i++){ if(!esDiaNoHabil(d)) n++; d.setDate(d.getDate()+1); }
+  return n;
+}
+function _cronoDurActual(a){ return (a.startDate && a.endDate) ? Math.max(1, _wdEntre(a.startDate, a.endDate)) : Math.max(1, Math.round(Number(a.days)||1)); }
+function _cronoSemanasDe(crono){
+  const acts=['aire','agua','tierra','fuego'].flatMap(st=>crono?.[st]||[]);
+  const onb = acts.filter(a=>a.startDate && /onboarding/i.test(a.name||'')).map(a=>a.startDate).sort()[0];
+  const ini = onb || acts.map(a=>a.startDate).filter(Boolean).sort()[0];
+  const fin = acts.map(a=>a.endDate||a.startDate).filter(Boolean).sort().pop();
+  if(!ini || !fin) return null;
+  const dias = Math.round((parseLocalDate(fin)-parseLocalDate(ini))/86400000)+1;
+  return { ini, fin, dias, semanas: Math.max(1, Math.round(dias/7)) };
+}
+// Devuelve el plan (sin aplicarlo): [{a, start, end, dur}] o {error}
+function _cronoPlanSemanas(crono, semanas, inicioStr){
+  semanas = Math.round(Number(semanas)||0);
+  if(semanas<1 || semanas>104) return { error:'Escribe un número de semanas entre 1 y 104.' };
+  const seq = ['aire','agua','tierra','fuego'].flatMap(st=>(crono?.[st]||[]).map(a=>({a, st})));
+  if(!seq.length) return { error:'El cronograma no tiene actividades.' };
+  let ultimaHecha = -1; seq.forEach((x,i)=>{ if(x.a.status==='completada') ultimaHecha=i; });
+  const fijas = seq.slice(0, ultimaHecha+1), resto = seq.slice(ultimaHecha+1);
+  if(!resto.length) return { error:'Todas las actividades están completadas; no hay nada que adaptar.' };
+  // Inicio de lo que se va a re-agendar
+  let desde;
+  if(fijas.length){ const finFijas = fijas.map(x=>x.a.endDate||x.a.startDate).filter(Boolean).sort().pop(); desde = finFijas ? addWorkdaysStr(finFijas, 1) : null; }
+  if(!desde) desde = inicioStr || seq.map(x=>x.a.startDate).filter(Boolean).sort()[0] || todayStr();
+  { const d=parseLocalDate(desde); while(esDiaNoHabil(d)) d.setDate(d.getDate()+1); desde=fmtLocalDate(d); }
+  // Ancla de las semanas: la reunión de onboarding (si ya pasó, su fecha real; si no, donde caerá)
+  const iOnb = seq.findIndex(x=>/onboarding/i.test(x.a.name||''));
+  let ancla = desde;
+  if(iOnb>=0){
+    if(iOnb<=ultimaHecha) ancla = seq[iOnb].a.startDate || desde;
+    else { const previas = resto.slice(0, iOnb-(ultimaHecha+1)); ancla = previas.length ? addWorkdaysStr(desde, previas.length) : desde; }
+  } else if(fijas.length){ ancla = seq[0].a.startDate || desde; }
+  const finCal = (()=>{ const d=parseLocalDate(ancla); d.setDate(d.getDate()+semanas*7-1); return fmtLocalDate(d); })();
+  const T = _wdEntre(desde, finCal);
+  const tipos = resto.map(x=>_cronoTipoAct(x.a));
+  const minimo = resto.length;   // cada actividad dura al menos 1 día
+  if(T < minimo){
+    const sobran = minimo - T;
+    return { error:`En ${semanas} semana${semanas!==1?'s':''} no caben las ${resto.length} actividades pendientes (cada una necesita al menos 1 día). Faltan unos ${sobran} días hábiles: prueba con ${semanas+Math.ceil(sobran/5)} semanas o más.` };
+  }
+  // Duraciones: puntuales 1; el resto proporcional a su duración actual, feedback máx. 3
+  const dur = resto.map((x,i)=> tipos[i]==='puntual' ? 1 : null);
+  const base = resto.map(x=>_cronoDurActual(x.a));
+  let libres = resto.map((x,i)=>i).filter(i=>dur[i]==null);
+  let R = T - dur.reduce((s,v)=>s+(v||0),0);
+  for(let vuelta=0; vuelta<50 && libres.length; vuelta++){
+    const suma = libres.reduce((s,i)=>s+base[i],0);
+    const k = R / suma;
+    const fijarAhora = libres.filter(i=> (tipos[i]==='feedback' && base[i]*k>3) || base[i]*k<1);
+    if(!fijarAhora.length){
+      // reparto final con redondeo exacto (mayores residuos)
+      const crudo = libres.map(i=>({i, v:base[i]*k}));
+      crudo.forEach(c=>{ dur[c.i]=Math.max(1, Math.floor(c.v)); });
+      let falta = R - libres.reduce((s,i)=>s+dur[i],0);
+      const orden = crudo.slice().sort((a,b)=>(b.v-Math.floor(b.v))-(a.v-Math.floor(a.v)));
+      for(let j=0; falta>0 && j<orden.length*3; j++){ const c=orden[j%orden.length]; if(tipos[c.i]==='feedback' && dur[c.i]>=3) continue; dur[c.i]++; falta--; }
+      for(let j=0; falta<0 && j<orden.length*3; j++){ const c=orden[orden.length-1-(j%orden.length)]; if(dur[c.i]>1){ dur[c.i]--; falta++; } }
+      libres = [];
+      break;
+    }
+    fijarAhora.forEach(i=>{ dur[i] = (tipos[i]==='feedback' && base[i]*k>3) ? 3 : 1; R -= dur[i]; });
+    libres = libres.filter(i=>!fijarAhora.includes(i));
+    if(R < libres.length){ libres.forEach(i=>{ dur[i]=1; }); libres=[]; }
+  }
+  dur.forEach((v,i)=>{ if(v==null) dur[i]=1; });
+  // Agendar en secuencia, una tras otra
+  let cursor = desde; const plan = [];
+  resto.forEach((x,i)=>{ const start=cursor, end=addWorkdaysStr(start, dur[i]-1); plan.push({a:x.a, st:x.st, start, end, dur:dur[i], tipo:tipos[i]}); cursor=addWorkdaysStr(end,1); });
+  return { plan, semanas, desde, finCal, fin: plan[plan.length-1].end, completadas: fijas.length, ancla };
+}
+function _cronoAplicarPlan(r){
+  r.plan.forEach(p=>{
+    const viejo = p.a.startDate;
+    if(p.a.revDateOverride && viejo){ try{ p.a.revDateOverride = shiftWD(p.a.revDateOverride, wdDeltaBetween(viejo, p.start)); }catch(e){} }
+    p.a.startDate = p.start; p.a.endDate = p.end; p.a.days = p.dur;
+  });
+}
+// ✏️ Desde el cronograma de una marca: cambiar la duración total y adaptar todas las fechas
+async function editarSemanasCrono(brandId){
+  if(_sinPermisoFechas()) return;
+  const brand = (appData.brands||[]).find(b=>b.id===brandId); if(!brand?.cronograma) return;
+  const act = _cronoSemanasDe(brand.cronograma);
+  const v = await askModal({ label:'⏱ Duración total del proyecto (en semanas)\n\nHoy dura '+(act?act.semanas+' semana'+(act.semanas!==1?'s':'')+' ('+fmtDateDisplay(act.ini)+' → '+fmtDateDisplay(act.fin)+')':'—')+'. Escribe la nueva duración:', placeholder:'Ej: 12', type:'number', defaultValue: act?String(act.semanas):'' });
+  if(v==null || String(v).trim()==='') return;
+  const r = _cronoPlanSemanas(brand.cronograma, parseInt(v,10));
+  if(r.error){ showStatus(r.error, true); await confirmModal('⚠️ '+r.error, 'Entendido', 'background:var(--aire);color:#fff;border:none'); return; }
+  const cambian = r.plan.filter(p=>p.a.startDate!==p.start || p.a.endDate!==p.end).length;
+  const nP = r.plan.filter(p=>p.tipo==='puntual').length, nF = r.plan.filter(p=>p.tipo==='feedback').length;
+  const ok = await confirmModal(
+    `⚠️ Vas a adaptar TODO el cronograma de ${brand.name} a ${r.semanas} semana${r.semanas!==1?'s':''}.\n\n`
+    + `· Se recalculan las fechas y duraciones de ${r.plan.length} actividades (${cambian} cambian de fecha)${r.completadas?'; las '+r.completadas+' ya completadas no se tocan':''}.\n`
+    + `· ${nP} puntuales (pagos, reuniones, presentaciones, entregas) quedan en 1 día; ${nF} de feedback del cliente, máximo 3 días; el resto se ajusta proporcionalmente.\n`
+    + `· Nuevo rango: ${fmtDateDisplay(r.plan[0].start)} → ${fmtDateDisplay(r.fin)}.\n\n`
+    + `También se actualizan las fechas estimadas de cobro. ¿Adaptar el cronograma?`,
+    'Sí, adaptar todo', 'background:#ea580c;color:#fff;border:none', 'Cancelar');
+  if(!ok) return;
+  const before = _cronoSnapshot(brand);
+  const respaldo = r.plan.map(p=>({a:p.a, s:p.a.startDate, e:p.a.endDate, d:p.a.days, r:p.a.revDateOverride}));
+  _cronoAplicarPlan(r);
+  if(!(await _cronoGuardarFilas(_cronoFilasTodas(brand)))){
+    respaldo.forEach(x=>{ x.a.startDate=x.s; x.a.endDate=x.e; x.a.days=x.d; if(x.r) x.a.revDateOverride=x.r; else delete x.a.revDateOverride; });
+    _calRefrescarVistas(brand); return;
+  }
+  try{ markBrandChange(brand.id); }catch(e){}
+  await _cronoSyncCobrosFechas(brand);
+  _calRefrescarVistas(brand);
+  showStatus('Cronograma adaptado a '+r.semanas+' semanas ✓');
+  try{ await _registrarCambioCrono(brand, _cronoDiff(brand, before)); }catch(e){}
+}
+// Crear marca: mostrar/ocultar el campo de semanas
+function toggleSemanasNuevaMarca(on){
+  const w=document.getElementById('nb-semanas-wrap'); if(w) w.style.display = on ? 'flex' : 'none';
+  if(on){ const i=document.getElementById('nb-semanas'); if(i){ if(!i.value){ try{ const tpl=appData.template||defaultTemplate(); const c=buildCronoFromTemplate({...tpl, includeNaming:document.getElementById('input-naming').checked}, todayStr()); const x=_cronoSemanasDe(c); i.value = x?x.semanas:12; }catch(e){ i.value=12; } } i.focus(); } }
+}
+
 /* ═══ BUILD BRAND DATA FROM TEMPLATE ═══ */
 function buildCronoFromTemplate(tpl,startDateStr){
   const crono={};
@@ -9911,6 +10058,7 @@ function toggleCalFreeMode(checked){
 }
 
 function calDragStart(event, brandId, stage, actId, type){
+  if(!_puedeEditarFechas()){ event.preventDefault(); _sinPermisoFechas(); return; }
   _calDragActId = actId;
   _calDragBrandId = brandId;
   _calDragStage = stage;
@@ -9960,6 +10108,7 @@ async function calDrop(event, newDateStr){
   const dragType    = _calDragType;
   _calDragActId = null; _calDragBrandId = null; _calDragStage = null; _calDragType = null;
   if(!dragActId || !dragBrandId || !dragStage || !newDateStr) return;
+  if(_sinPermisoFechas()) return;
   if(window._calMoviendo){ showStatus('Espera, se está guardando el movimiento anterior…', true); return; }
 
   const brand = (appData.brands||[]).find(b=>b.id===dragBrandId);
@@ -10068,6 +10217,7 @@ async function deleteSinUbicar(brandId, actId){
 
 
 async function toggleHitoFreeMode(brandId, stage, actId){
+  if(_sinPermisoFechas()) return;
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand) return;
   const acts = brand.cronograma?.[stage] || [];
@@ -18148,6 +18298,9 @@ function _rolActual(){
 function _tieneRol(rol){ return _rolesActuales().includes(rol); }
 // Atajos de rol
 function _esPM(){ return _tieneRol('pm'); }
+// Solo la PM y los admins pueden mover fechas del cronograma (arrastrar, editar fechas/duración, correr todo, reordenar)
+function _puedeEditarFechas(){ return _esPM() || _tieneRol('admin'); }
+function _sinPermisoFechas(){ if(_puedeEditarFechas()) return false; showStatus('Solo la PM o un admin pueden cambiar fechas del cronograma', true); return true; }
 function _esAsistente(){ return _tieneRol('asistente'); }
 function _esComercial(){ return _tieneRol('comercial'); }
 function _esRevisor(){ return _tieneRol('revisor'); }
@@ -19975,7 +20128,7 @@ function _miTrabajoSemana(misMarcas, STAGE_COLOR){
           ? `repeating-linear-gradient(-45deg,rgba(${r},${g},${bv},0.07) 0,rgba(${r},${g},${bv},0.07) 5px,rgba(${r},${g},${bv},0.02) 5px,rgba(${r},${g},${bv},0.02) 10px)`
           : `rgba(${r},${g},${bv},0.18)`;
         const borde = esRevision ? `1.5px dashed rgba(${r},${g},${bv},0.45)` : 'none';
-        const arrastrable = (h.type==='oficial' || h.type==='revision') && h.actId && h.stage;
+        const arrastrable = (h.type==='oficial' || h.type==='revision') && h.actId && h.stage && _puedeEditarFechas();
         h1 += `<div onclick="openBrand('${h.brandId}');setTimeout(()=>switchTab('crono'),100)"
           ${arrastrable?`draggable="true" ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','${h.type}')" title="${h.type==='revision'?'Arrastra a otro día para mover esta revisión interna':'Arrastra a otro día para moverla (también se mueve en el cronograma)'}"`:''}
           class="${arrastrable?'cal-draggable':''}" style="background:${bg};border:${borde};border-left:4px solid rgb(${r},${g},${bv});border-radius:0 7px 7px 0;padding:0.4rem 0.5rem;margin-bottom:0.35rem;cursor:${arrastrable?'grab':'pointer'};${yaPaso?'opacity:0.45':''}">
@@ -26133,7 +26286,8 @@ function renderBrandCrono(brand){
   // Texto de duración claro: "X semanas y Y días (Z días hábiles en total)"
   const durTxt = fmtDuracionTotal(firstDate, lastDate, totalDays);
   const rangeLabel=(firstDate&&lastDate)?` · <span style="color:var(--text2)">${fmtDateDisplay(firstDate)} → ${fmtDateDisplay(lastDate)}</span>`:'';
-  (document.getElementById('brand-crono-summary')||{innerHTML:''}).innerHTML=`${chips}<span class="crono-total-label">⏱ ${durTxt}${rangeLabel}</span>`;
+  const _lapizSem = (_puedeEditarFechas() && firstDate && lastDate) ? `<button onclick="editarSemanasCrono('${brand.id}')" title="Cambiar la duración total del proyecto (en semanas) y adaptar todas las fechas" style="margin-left:0.5rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.2rem 0.55rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font);white-space:nowrap">✏️ Duración total</button>` : '';
+  (document.getElementById('brand-crono-summary')||{innerHTML:''}).innerHTML=`${chips}<span class="crono-total-label">⏱ ${durTxt}${rangeLabel}</span>${_lapizSem}`;
   try{ renderCronoLog(brand); }catch(e){ console.warn('renderCronoLog:', e); }
 }
 
@@ -26183,6 +26337,7 @@ function renderCronoLog(brand){
 let _actDragId = null, _actDragBrand = null, _actDragStage = null;
 
 function actDragStart(event, brandId, stage, actId){
+  if(!_puedeEditarFechas()){ event.preventDefault(); _sinPermisoFechas(); return; }
   _actDragId = actId; _actDragBrand = brandId; _actDragStage = stage;
   event.dataTransfer.effectAllowed = 'move';
   event.stopPropagation();
@@ -26206,6 +26361,7 @@ function actDragEnd(){
 }
 async function actDrop(event, brandId, targetStage, targetId){
   event.preventDefault();
+  if(_sinPermisoFechas()) return;
   document.querySelectorAll('.act-item').forEach(el=>{ el.style.outline='none'; el.style.opacity=''; });
   if(!_actDragId || _actDragId === targetId || _actDragBrand !== brandId) return;
   const brand = appData.brands.find(b=>b.id===brandId);
@@ -26251,6 +26407,7 @@ async function actDrop(event, brandId, targetStage, targetId){
 
 // Soltar al FINAL de una etapa (zona debajo de las actividades)
 async function actDropToStage(event, brandId, targetStage){
+  if(!_puedeEditarFechas()){ event.preventDefault(); _sinPermisoFechas(); return; }
   event.preventDefault();
   event.stopPropagation();
   const btn = document.getElementById('add-act-btn-'+targetStage+'-'+brandId);
@@ -26569,6 +26726,7 @@ async function deleteCronoActivity(brandId, stage, actId){
 
 
 function startInlineDays(e, brandId, stage, actId){
+  if(_sinPermisoFechas()) return;
   e.stopPropagation();
   const badge = document.getElementById('days-badge-'+actId);
   if(!badge || badge.classList.contains('editing')) return;
@@ -26805,6 +26963,7 @@ function wdDeltaBetween(oldDateStr, newDateStr){
 }
 
 function editDate(e,brandId,stage,actId,field){
+  if(_sinPermisoFechas()) return;
   const span=e.currentTarget;
   const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand)return;
@@ -26928,6 +27087,7 @@ function editDate(e,brandId,stage,actId,field){
 
 /* ── Shift ALL dates by N workdays ── */
 async function shiftAllDates(brandId,delta){
+  if(_sinPermisoFechas()) return;
   const brand=appData.brands.find(b=>b.id===brandId);
   if(!brand)return;
   const rowsToSave = [];
@@ -27512,6 +27672,8 @@ function openModal(){
   (document.getElementById('input-bp-total')||{}).value = appData.template?.brandingPoints?.total || 15;
   (document.getElementById('modal-bp-row')||{style:{}}).style.display = '';
   (document.getElementById('modal-naming-row')||{style:{}}).style.display = '';
+  (document.getElementById('modal-semanas-row')||{style:{}}).style.display = _puedeEditarFechas() ? '' : 'none';
+  { const t=document.getElementById('nb-semanas-on'); if(t) t.checked=false; const i=document.getElementById('nb-semanas'); if(i) i.value=''; toggleSemanasNuevaMarca(false); }
   renderBrandColorPicker('');
   updateModalPreview();
   // Reset import calendar section
@@ -27540,6 +27702,7 @@ function openEditBrandModal(){
   (document.getElementById('tpl-preview-box')||{innerHTML:''}).innerHTML='';
   (document.getElementById('modal-naming-row')||{style:{}}).style.display='none';
   (document.getElementById('modal-bp-row')||{style:{}}).style.display='none';
+  (document.getElementById('modal-semanas-row')||{style:{}}).style.display='none';
   const e=document.getElementById('modal-err');e.style.display='none';e.textContent='';
   fillDomoSelects('input-domo-m1','input-domo-m2',brand.domo?.m1||'',brand.domo?.m2||'');
   renderBrandColorPicker(brand.color||'');
@@ -27719,6 +27882,13 @@ async function saveBrand(){
     const cronograma = usingImport
       ? buildCronoFromImport()
       : buildCronoFromTemplate(tplWithNaming, todayStr());
+    // ⏱ Duración total elegida (opcional): adaptar las fechas a esas semanas
+    const _semOn = document.getElementById('nb-semanas-on');
+    if(_semOn && _semOn.checked && !usingImport && _puedeEditarFechas()){
+      const r = _cronoPlanSemanas(cronograma, parseInt(document.getElementById('nb-semanas').value,10), todayStr());
+      if(r.error){ const ed=document.getElementById('modal-err'); ed.textContent='⏱ '+r.error; ed.style.display='block'; btn.disabled=false; btn.textContent='Crear marca'; return; }
+      _cronoAplicarPlan(r);
+    }
 
     const newBrand={
       id:uid(),name,
@@ -31564,7 +31734,7 @@ function renderEqWeek(){
           const partnerPillW = domoPartnerPill(h.brandId, currentMemberId||null);
           return `<div class="eq-event cal-draggable" 
             style="background:repeating-linear-gradient(-45deg,rgba(${r},${g},${bv},0.07) 0,rgba(${r},${g},${bv},0.07) 5px,rgba(${r},${g},${bv},0.02) 5px,rgba(${r},${g},${bv},0.02) 10px);border:1.5px dashed rgba(${r},${g},${bv},0.45);border-left:4px solid rgb(${r},${g},${bv});border-radius:0 7px 7px 0;cursor:grab"
-            draggable="true"
+            draggable="${_puedeEditarFechas()?'true':'false'}"
             ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','revision')"
             onclick="openBrand('${h.brandId}');setTimeout(()=>switchTab('crono'),100)"
             title="Arrastra para mover solo esta revisión interna">
@@ -31589,7 +31759,7 @@ function renderEqWeek(){
           const _dcMark = _wActData?.isDCReview ? '<span style="font-size:0.58rem;color:var(--aire);font-weight:600">🎯 DC</span>' : '';
           return `<div class="eq-event cal-draggable"
             style="background:rgba(${r},${g},${bv},0.2);border-left:4px solid rgb(${r},${g},${bv});cursor:grab"
-            draggable="true"
+            draggable="${_puedeEditarFechas()?'true':'false'}"
             onclick="openBrand('${h.brandId}');setTimeout(()=>switchTab('crono'),100)"
             ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','oficial')">
             <div style="display:flex;align-items:center;gap:0.3rem">
@@ -31682,7 +31852,7 @@ function renderEqMonth(){
             const partnerPillM = domoPartnerPill(h.brandId, currentMemberId||null);
             return `<div class="eq-event cal-draggable"
               style="background:repeating-linear-gradient(-45deg,rgba(${r2},${g2},${b2},0.07) 0px,rgba(${r2},${g2},${b2},0.07) 5px,rgba(${r2},${g2},${b2},0.02) 5px,rgba(${r2},${g2},${b2},0.02) 10px);border:1.5px dashed rgba(${r2},${g2},${b2},0.45);border-left:4px solid rgb(${r2},${g2},${b2});border-radius:0 7px 7px 0;cursor:grab"
-              draggable="true"
+              draggable="${_puedeEditarFechas()?'true':'false'}"
               onclick="openBrand('${h.brandId}');setTimeout(()=>switchTab('crono'),100)"
               ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','revision')"
               title="Arrastra para mover solo esta revisión interna">
@@ -31696,7 +31866,7 @@ function renderEqMonth(){
             const partnerPillM2 = domoPartnerPill(h.brandId, currentMemberId||null);
             return `<div class="eq-event cal-draggable" 
               style="background:rgba(${r2},${g2},${b2},0.2);border-left:4px solid rgb(${r2},${g2},${b2});cursor:grab;position:relative"
-              draggable="true"
+              draggable="${_puedeEditarFechas()?'true':'false'}"
               onclick="openBrand('${h.brandId}');setTimeout(()=>switchTab('crono'),100)"
               ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','oficial')"
               title="Arrastra para cambiar fecha">
