@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261104-v528-MIEMBROS-INACTIVOS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261104-v529-TODO-COMERCIAL-DASH -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4223,7 +4223,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 528;
+const APP_VERSION = 529;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -12196,8 +12196,31 @@ async function saveCrmTareaEdit(id){
   markLocalChange('crmTareas');
   closeTrayModal();
   renderCrmTareas();
+  try{ if(document.getElementById('mi-trabajo-module')) renderMiTrabajo(); }catch(e){}
   await upsert();
   showStatus('To-do actualizado ✓');
+}
+// Agregar to-do comercial desde el dashboard de Gerente Comercial (misma lista que el CRM)
+async function _comercialAddTarea(){
+  const inp = document.getElementById('com-tarea-input');
+  const titulo = (inp?.value||'').trim();
+  if(!titulo){ if(inp) inp.focus(); return; }
+  ensureCrmTareas();
+  const responsableId = document.getElementById('com-tarea-resp')?.value||'';
+  const deadline = document.getElementById('com-tarea-deadline')?.value||'';
+  const nueva = { id: uid(), titulo, done:false, responsableId, deadline, createdAt: new Date().toISOString() };
+  appData.crmTareas.unshift(nueva);
+  if(window.CrmTareasDB) CrmTareasDB.saveOne(nueva);
+  markLocalChange('crmTareas');
+  try{ renderMiTrabajo(); }catch(e){}
+  try{ renderCrmTareas(); }catch(e){}
+  setTimeout(()=>{ const i=document.getElementById('com-tarea-input'); if(i) i.focus(); }, 50);
+  const u=_usuarioActual();
+  if(responsableId && u && responsableId!==u.id){
+    const m=(appData.members||[]).find(x=>x.id===responsableId);
+    showStatus('To-do agregado para '+(m?(m.apodo||m.nombre):'otra persona')+' (lo verás en el CRM) ✓');
+  } else showStatus('To-do agregado ✓');
+  await upsert();
 }
 async function addCrmTarea(){
   const inp = document.getElementById('crm-tarea-input');
@@ -19632,14 +19655,28 @@ function _miTrabajoResumenComercial(user){
   // To-dos
   const tareas = (appData.crmTareas||[]).filter(t=>!t.done && (!t.responsableId || t.responsableId===user.id))
     .sort((a,b)=> (a.deadline||'9999').localeCompare(b.deadline||'9999')).slice(0,7);
-  h += `<div>`+_comT('Mis to-dos comerciales');
+  h += `<div>`+_comT('Mis to-dos comerciales', `<a onclick="goToCRM()" style="font-size:0.66rem;color:var(--aire);cursor:pointer">Ver todos en CRM →</a>`);
+  // Agregar un to-do comercial aquí mismo (se guarda en la misma lista del CRM)
+  {
+    const comerciales = _crmComercialMembers();
+    const yoEsCom = comerciales.some(m=>m.id===user.id);
+    const respOpts = '<option value="">Sin asignar</option>' + (yoEsCom?'':`<option value="${user.id}" selected>${user.emoji||'👤'} ${escapeHtml(user.apodo||user.nombre||'Yo')} (yo)</option>`)
+      + comerciales.map(m=>`<option value="${m.id}" ${m.id===user.id?'selected':''}>${m.emoji||'👤'} ${escapeHtml(m.apodo||m.nombre)}${m.id===user.id?' (yo)':''}</option>`).join('');
+    const css = 'min-width:0;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.55rem;color:var(--text);font-family:var(--font);font-size:0.76rem;outline:none';
+    h += `<div style="display:flex;flex-wrap:wrap;gap:0.35rem;margin-bottom:0.55rem">
+      <input id="com-tarea-input" type="text" placeholder="+ Nuevo to-do comercial…" onkeydown="if(event.key==='Enter'){event.preventDefault();_comercialAddTarea();}" style="${css};flex:1 1 100%">
+      <select id="com-tarea-resp" title="Responsable" style="${css};flex:1 1 120px;cursor:pointer;color:var(--text2)">${respOpts}</select>
+      <input id="com-tarea-deadline" type="date" title="Deadline" style="${css};flex:1 1 120px;color:var(--text2)">
+      <button onclick="_comercialAddTarea()" style="background:var(--tierra);color:#fff;border:none;border-radius:8px;padding:0.4rem 0.85rem;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:var(--font);flex-shrink:0">Agregar</button>
+    </div>`;
+  }
   if(!tareas.length) h += `<div style="font-size:0.76rem;color:var(--text3);padding:0.6rem 0">Sin pendientes.</div>`;
   else {
     h += `<div style="display:flex;flex-direction:column;gap:0.35rem">`;
     tareas.forEach(t=>{
       h += `<div style="display:flex;align-items:flex-start;gap:0.55rem;padding:0.45rem 0.6rem;border-radius:9px;background:var(--bg-card2)">
         <div onclick="_comercialToggleTarea('${t.id}')" title="Marcar como hecha" style="width:16px;height:16px;border-radius:5px;border:2px solid var(--border);cursor:pointer;flex-shrink:0;margin-top:2px"></div>
-        <div style="flex:1;min-width:0;font-size:0.78rem;font-weight:600;color:var(--text);line-height:1.35">${escapeHtml(t.titulo||'')}${t.deadline?`<div style="margin-top:0.2rem">${_crmTareaDeadlineChip(t.deadline)}</div>`:''}</div>
+        <div onclick="editCrmTarea('${t.id}')" title="Editar" style="flex:1;min-width:0;font-size:0.78rem;font-weight:600;color:var(--text);line-height:1.35;cursor:pointer">${escapeHtml(t.titulo||'')}${t.deadline?`<div style="margin-top:0.2rem">${_crmTareaDeadlineChip(t.deadline)}</div>`:''}</div>
       </div>`;
     });
     h += `</div>`;
