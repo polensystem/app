@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261028-v526-SEMANAS-PERMISOS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261104-v528-MIEMBROS-INACTIVOS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4223,7 +4223,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 526;
+const APP_VERSION = 528;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -12098,7 +12098,7 @@ function toggleCrmTareasPanel(){
   renderCrmTareas();
 }
 function _crmComercialMembers(){
-  return (appData.members||[]).filter(m=>{
+  return _miembrosPresentes().filter(m=>{
     const areas = (m.areas && m.areas.length ? m.areas : (m.area ? [m.area] : [])).map(a=>(''+a).toLowerCase());
     return areas.includes('comercial');
   });
@@ -18298,6 +18298,14 @@ function _rolActual(){
 function _tieneRol(rol){ return _rolesActuales().includes(rol); }
 // Atajos de rol
 function _esPM(){ return _tieneRol('pm'); }
+// Miembros "presentes" (activos). Los inactivos siguen en appData.members para que su historial
+// (domos pasados, eventos, stats, nombres) se siga leyendo, pero no aparecen en nada del día a día.
+// mantenerIds: ids que deben seguir apareciendo aunque estén inactivos (ej. el valor actual de un select).
+function _miembrosPresentes(...mantenerIds){
+  const keep = new Set(mantenerIds.flat().filter(Boolean));
+  return (appData.members||[]).filter(m=>m && (m.active!==false || keep.has(m.id)));
+}
+function _miembroInactivo(id){ const m=(appData.members||[]).find(x=>x.id===id); return !!(m && m.active===false); }
 // Solo la PM y los admins pueden mover fechas del cronograma (arrastrar, editar fechas/duración, correr todo, reordenar)
 function _puedeEditarFechas(){ return _esPM() || _tieneRol('admin'); }
 function _sinPermisoFechas(){ if(_puedeEditarFechas()) return false; showStatus('Solo la PM o un admin pueden cambiar fechas del cronograma', true); return true; }
@@ -18777,7 +18785,9 @@ function renderRinconSocial(){
     + '<div style="padding:0.85rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:0.8rem;flex-wrap:wrap">'
     + '<div><div style="font-size:0.95rem;font-weight:700;color:var(--text);letter-spacing:-0.01em">Tripulación</div>'
     + '<div style="font-size:0.72rem;color:var(--text3);margin-top:0.1rem">'+miembros.length+' a bordo</div></div>'
-    + '<div class="trip-live" id="trip-online"><i></i><span></span></div>'
+    + '<div style="display:flex;align-items:center;gap:0.6rem">'
+    + (_tieneRol('admin') ? '<button onclick="abrirUsoSistema()" title="Accesos y tiempo de uso de cada persona (últimos 5 días hábiles)" style="font-size:0.72rem;font-weight:700;padding:0.32rem 0.7rem;border-radius:99px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);cursor:pointer;font-family:var(--font)">📊 Uso del sistema</button>' : '')
+    + '<div class="trip-live" id="trip-online"><i></i><span></span></div></div>'
     + '</div><div class="trip-grid">';
 
   miembros.forEach(m=>{
@@ -19146,7 +19156,7 @@ function _renderMiTrabajoInterno(){
         </div>`;
   } else if(_esPM()){
     // Contadores de la PM: reuniones cliente de la semana + revisiones pendientes
-    let _allH=[]; try{ _allH = deduplicateHitos((appData.members||[]).flatMap(m=>getMemberHitos(m.id))); }catch(e){}
+    let _allH=[]; try{ _allH = deduplicateHitos(_miembrosPresentes().flatMap(m=>getMemberHitos(m.id))); }catch(e){}
     const _hoy=new Date(); _hoy.setHours(0,0,0,0);
     const _dow=_hoy.getDay(); const _mon=new Date(_hoy); _mon.setDate(_hoy.getDate()-(_dow===0?6:_dow-1));
     const _fri=new Date(_mon); _fri.setDate(_mon.getDate()+4);
@@ -19954,7 +19964,7 @@ function _miTrabajoResumenPM(STAGE_COLOR, fmtF, diffLabel, diffColor){
   // Todos los hitos del equipo (deduplicados)
   let allHitos = [];
   try{
-    const raw = (appData.members||[]).flatMap(m=>getMemberHitos(m.id).map(h=>({...h})));
+    const raw = _miembrosPresentes().flatMap(m=>getMemberHitos(m.id).map(h=>({...h})));
     allHitos = deduplicateHitos(raw);
   }catch(e){ allHitos = []; }
 
@@ -20043,7 +20053,7 @@ function _miTrabajoResumenPM(STAGE_COLOR, fmtF, diffLabel, diffColor){
 function _hitosParaVista(user){
   try{
     if(_esPM()){
-      return deduplicateHitos((appData.members||[]).flatMap(m=>getMemberHitos(m.id)));
+      return deduplicateHitos(_miembrosPresentes().flatMap(m=>getMemberHitos(m.id)));
     }
     return getMemberHitos(user.id) || [];
   }catch(e){ return []; }
@@ -24318,13 +24328,105 @@ function renderGestionRoles(){
           return `<button onclick="_authCrearCuenta('${m.id}')" title="Crear cuenta de acceso" style="display:flex;align-items:center;gap:0.3rem;padding:0 0.6rem;height:32px;border-radius:8px;border:1px dashed var(--border);background:transparent;color:var(--text3);cursor:pointer;font-size:0.68rem;font-weight:700;font-family:var(--font);white-space:nowrap">+ cuenta</button>`;
         })()}
         <button onclick="currentMemberId='${m.id}';openEditMemberModal()" title="Editar datos" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-size:0.85rem">✏️</button>
-        <button onclick="currentMemberId='${m.id}';deleteMemberCurrent()" title="Eliminar" style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(255,92,114,0.3);background:rgba(255,92,114,0.08);color:#ff5c72;cursor:pointer;font-size:0.85rem">🗑</button>
+        <button onclick="_desactivarMiembro('${m.id}')" title="Desactivar (se va al archivo de miembros inactivos; su historial se conserva)" style="height:32px;padding:0 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-size:0.68rem;font-weight:700;font-family:var(--font);white-space:nowrap">📦 Desactivar</button>
+        <button onclick="currentMemberId='${m.id}';deleteMemberCurrent()" title="Eliminar definitivamente (mejor usa Desactivar para conservar su historial)" style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(255,92,114,0.3);background:rgba(255,92,114,0.08);color:#ff5c72;cursor:pointer;font-size:0.85rem">🗑</button>
       </div>
     </div>`;
   });
-  h += `</div></div>`;
+  h += `</div>`;
+  h += _seccionInactivosHTML();
+  h += `</div>`;
   cont.innerHTML = h;
   try{ _presRefrescarUI(); }catch(e){}
+}
+
+// ══ DESACTIVAR MIEMBRO (no se borra nada) ══
+// · Queda en appData.members con active:false → su historial (domos pasados, eventos, participaciones,
+//   stats, archivo de marcas, uso) sigue intacto y con su nombre.
+// · Desaparece del presente: dashboard, tripulación, pausas, cumpleaños, selects de domo/tareas, Equipo…
+// · Sale de los domos de las marcas EN CURSO (la bitácora registra su salida con fecha). Las archivadas no se tocan.
+// · Ya no puede entrar al sistema con su cuenta.
+function _marcasEnCursoDe(memberId){
+  return (appData.brands||[]).filter(b=>b && !b.archivedAt && !b.deletedAt && (b.director===memberId || (b.domo && _domoHasMember(b.domo, memberId))));
+}
+async function _desactivarMiembro(memberId){
+  if(!_tieneRol('admin')){ showStatus('Solo los admins pueden desactivar miembros', true); return; }
+  const m = (appData.members||[]).find(x=>x.id===memberId); if(!m) return;
+  const yo = _usuarioActual(); if(yo && yo.id===memberId){ showStatus('No puedes desactivarte a ti mismo', true); return; }
+  const marcas = _marcasEnCursoDe(memberId);
+  const nombre = m.apodo||m.nombre||'';
+  const pr = confirmModal(`¿Desactivar a ${nombre}?`, 'Desactivar', 'background:#64748b;color:#fff;border:none');
+  const body = document.getElementById('ask-modal-body');
+  if(body) body.innerHTML = `<div style="font-size:0.8rem;color:var(--text2);line-height:1.55">
+      <div style="margin-bottom:0.5rem">✅ <b>Se conserva todo su historial:</b> domos en los que participó, intervenciones, stats y marcas archivadas.</div>
+      <div style="margin-bottom:0.5rem">🚫 <b>Deja de aparecer</b> en el dashboard, la tripulación, las pausas activas, cumpleaños, Equipo y como opción para asignar domos o tareas. Tampoco podrá entrar al sistema.</div>
+      ${marcas.length?`<div style="margin-bottom:0.5rem">🔄 <b>Sale de ${marcas.length} domo${marcas.length!==1?'s':''} en curso</b> (queda registrado en la bitácora de cada marca): <span style="color:var(--text)">${marcas.map(b=>escapeHtml(b.name||'')).join(', ')}</span>. Recuerda asignar a alguien en su lugar.</div>`:''}
+      <div>📦 Lo encuentras en <b>Gestión del equipo → Miembros inactivos</b>, desde donde puedes reactivarlo.</div></div>`;
+  if(!(await pr)) return;
+  // Salir de los domos en curso
+  for(const b of marcas){
+    const d = b.domo || {};
+    if(d.m1===memberId) d.m1='';
+    if(d.m2===memberId) d.m2='';
+    if(Array.isArray(d.helpers)) d.helpers = d.helpers.filter(x=>x!==memberId);
+    if(Array.isArray(d.principales)) d.principales = d.principales.filter(x=>x!==memberId);
+    if(Array.isArray(d.astronautas)) d.astronautas = d.astronautas.filter(x=>x!==memberId);
+    if(b.director===memberId) b.director='';
+    try{ markBrandChange(b.id); }catch(e){}
+  }
+  m.active = false;
+  m.desactivadoAt = new Date().toISOString();
+  try{ const u=_usuarioActual(); m.desactivadoPor = u ? (u.apodo||u.nombre||'') : ''; }catch(e){}
+  markLocalChange('members');
+  try{ if(window.MembersDB){ const idx=appData.members.indexOf(m); await MembersDB.saveMember(m, idx<0?0:idx); } }catch(e){ console.warn('desactivar:', e); }
+  try{ if(marcas.length) markLocalChange('brands'); await upsert(); }catch(e){}
+  try{ if(typeof _bitDetectar==='function') _bitDetectar(); }catch(e){}
+  renderGestionRoles();
+  showStatus(nombre+' desactivado · su historial queda guardado 📦');
+}
+async function _reactivarMiembro(memberId){
+  if(!_tieneRol('admin')) return;
+  const m = (appData.members||[]).find(x=>x.id===memberId); if(!m) return;
+  const ok = await confirmModal(`¿Reactivar a ${m.apodo||m.nombre||''}? Vuelve a aparecer en el equipo y podrá entrar al sistema. (Los domos de los que salió no se restauran solos.)`, 'Reactivar', 'background:var(--tierra);color:#fff;border:none');
+  if(!ok) return;
+  m.active = true; m.reactivadoAt = new Date().toISOString();
+  markLocalChange('members');
+  try{ if(window.MembersDB){ const idx=appData.members.indexOf(m); await MembersDB.saveMember(m, idx<0?0:idx); } }catch(e){}
+  try{ await upsert(); }catch(e){}
+  renderGestionRoles(); showStatus((m.apodo||m.nombre)+' reactivado ✓');
+}
+function _seccionInactivosHTML(){
+  const inactivos = (appData.members||[]).filter(m=>m && m.active===false);
+  if(!inactivos.length) return '';
+  const abierto = !!window._inactivosAbierto;
+  const fmt = iso=>{ try{ return new Date(iso).toLocaleDateString('es-EC',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return ''; } };
+  let h = `<div style="margin-top:1.6rem;border:1px solid var(--border);border-radius:14px;overflow:hidden">
+    <button onclick="window._inactivosAbierto=!window._inactivosAbierto;renderGestionRoles()" style="width:100%;display:flex;align-items:center;gap:0.6rem;padding:0.8rem 1rem;background:var(--bg-card2);border:none;cursor:pointer;font-family:var(--font);text-align:left">
+      <span style="font-size:1rem">📦</span>
+      <span style="font-size:0.9rem;font-weight:800;color:var(--text)">Miembros inactivos</span>
+      <span style="font-size:0.72rem;font-weight:800;color:var(--text3);background:var(--bg-card);border-radius:99px;padding:0.1rem 0.55rem">${inactivos.length}</span>
+      <span style="font-size:0.7rem;color:var(--text3);margin-left:0.3rem">Archivo · su historial se conserva completo</span>
+      <span style="margin-left:auto;color:var(--text3)">${abierto?'▴':'▾'}</span>
+    </button>`;
+  if(abierto){
+    h += `<div style="display:flex;flex-direction:column">`;
+    inactivos.forEach(m=>{
+      const marcas = (appData.brands||[]).filter(b=>b && (b.director===m.id || (b.domo && _domoHasMember(b.domo, m.id))));
+      const col = m.color||'#94a3b8';
+      const av = m.photo ? `<img src="${m.photo}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;filter:grayscale(1);opacity:0.75">` : `<div style="width:36px;height:36px;border-radius:50%;background:${col};opacity:0.5;display:flex;align-items:center;justify-content:center;color:#fff">${m.emoji||'👤'}</div>`;
+      h += `<div style="display:flex;align-items:center;gap:0.8rem;padding:0.65rem 1rem;border-top:1px solid var(--border)">
+        ${av}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.86rem;font-weight:700;color:var(--text2)">${escapeHtml(m.apodo||m.nombre||'')} <span style="font-weight:500;color:var(--text3);font-size:0.72rem">${escapeHtml(m.cargo||'')}</span></div>
+          <div style="font-size:0.68rem;color:var(--text3)">${m.desactivadoAt?'Inactivo desde '+fmt(m.desactivadoAt)+(m.desactivadoPor?' · por '+escapeHtml(m.desactivadoPor):''):'Inactivo'}${marcas.length?' · aparece en '+marcas.length+' marca'+(marcas.length!==1?'s':'')+' del historial':''}</div>
+        </div>
+        <button onclick="bitacoraHistorialPersona('${m.id}')" style="padding:0.35rem 0.7rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text2);cursor:pointer;font-size:0.7rem;font-weight:700;font-family:var(--font);white-space:nowrap">📜 Historial</button>
+        <button onclick="_reactivarMiembro('${m.id}')" style="padding:0.35rem 0.7rem;border-radius:8px;border:1px solid rgba(34,197,94,0.35);background:rgba(34,197,94,0.08);color:#16a34a;cursor:pointer;font-size:0.7rem;font-weight:700;font-family:var(--font);white-space:nowrap">↩ Reactivar</button>
+      </div>`;
+    });
+    h += `</div>`;
+  }
+  return h + `</div>`;
 }
 
 // Popup para gestionar los roles de un miembro (rol principal + adicionales)
@@ -27213,7 +27315,7 @@ window._domoEditPrincipales = [];
 window._domoEditAstronautas = [];
 
 function _domoMemberSelectHTML(value, kind, idx){
-  const members = appData.members||[];
+  const members = _miembrosPresentes(value);
   const opts = '<option value="">— Sin asignar —</option>' +
     members.map(m=>`<option value="${m.id}" ${value===m.id?'selected':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
   const m = members.find(x=>x.id===value);
@@ -27293,7 +27395,7 @@ function renderBrandDomo(){
   const brand = appData.brands.find(b=>b.id===currentBrandId);
   if(!brand) return;
   const domo = brand.domo || {};
-  const members = appData.members||[];
+  const members = _miembrosPresentes(brand.director, domo.m1, domo.m2, domo.principales||[], domo.astronautas||[], domo.helpers||[]);
 
   // Director select
   const dirSel = document.getElementById('domo-director');
@@ -27711,7 +27813,7 @@ function openEditBrandModal(){
 }
 
 function fillDomoSelects(m1Id, m2Id, currentM1, currentM2){
-  const members = appData.members || [];
+  const members = _miembrosPresentes(currentM1, currentM2);
   const opts = '<option value="">— Sin asignar —</option>' +
     members.map(m=>`<option value="${m.id}" ${m.id===currentM1||m.id===currentM2?'':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
   const s1=document.getElementById(m1Id);
@@ -27723,7 +27825,7 @@ function fillDomoSelects(m1Id, m2Id, currentM1, currentM2){
 function fillResponsableSelect(selId,currentVal){
   const sel=document.getElementById(selId);
   if(!sel)return;
-  const members=appData.members||[];
+  const members=_miembrosPresentes(currentVal);
   sel.innerHTML='<option value="">Sin asignar</option>'+members.map(m=>`<option value="${m.id}" ${currentVal===m.id?'selected':''}>${m.apodo||m.nombre}</option>`).join('');
 }
 
@@ -28081,7 +28183,7 @@ function renderTemplate(){
   (document.getElementById('tpl-notas')||{}).value=t.notas||'';
   (document.getElementById('tpl-rev-days')||{}).value=t.revDaysDefault||2;
   // Domo por defecto
-  const members=appData.members||[];
+  const members=_miembrosPresentes((appData.template||{}).domoM1, (appData.template||{}).domoM2);
   const memberOpts='<option value="">— Sin asignar —</option>'+members.map(m=>`<option value="${m.id}">${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
   const s1=document.getElementById('tpl-domo-m1');
   if(!s1) return;
@@ -30316,7 +30418,7 @@ function renderEquipo(){
 }
 
 function renderEquipoDropdown(){
-  const members = appData.members||[];
+  const members = _miembrosPresentes();
   const badge = document.getElementById('member-count-badge');
   if(badge) badge.textContent = members.length + (members.length===1?' persona':' personas');
   const list = document.getElementById('member-dropdown-list');
@@ -30603,7 +30705,7 @@ window.setPmPeriodo = setPmPeriodo;
 
 function renderPmContent(){
   const brands=appData.brands||[];
-  const members=appData.members||[];
+  const members=_miembrosPresentes();
   const today=new Date(); today.setHours(0,0,0,0);
   const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const todayStr=fmtD(today);
@@ -30911,7 +31013,7 @@ function renderPmEntregas(){
   const elM=document.getElementById('pm-entregas-miembro');
   const elD=document.getElementById('pm-entregas-domo');
   if(!elM && !elD) return;
-  const members=appData.members||[];
+  const members=_miembrosPresentes();
   const entregas=_marcasHistoricas()
     .map(b=>({b,ent:_marcaEntrega(b)}))
     .filter(x=>x.ent && _pmEnPeriodo(x.ent));
@@ -31043,7 +31145,7 @@ function renderWorkload(){
   const wrap = document.getElementById('eq-workload');
   const bars = document.getElementById('eq-workload-bars');
   if(!wrap||!bars) return;
-  const members = appData.members||[];
+  const members = _miembrosPresentes();
   if(!members.length){ wrap.style.display='none'; return; }
   const today=new Date(); today.setHours(0,0,0,0);
   const dow=today.getDay();
@@ -31247,7 +31349,7 @@ function showRichToolbar(memberId){
 function renderMembersGrid(){
   const grid = document.getElementById('eq-all-grid') || document.getElementById('team-grid');
   if(!grid) return;
-  const members = appData.members||[];
+  const members = _miembrosPresentes();
   if(!members.length){
     grid.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><div>No hay miembros. Haz clic en <strong>+ Miembro</strong>.</div></div>';
     return;
@@ -31383,7 +31485,7 @@ function renderEqWeekByMember(){
   const days = Array.from({length:5},(_,i)=>{ const d=new Date(monday); d.setDate(monday.getDate()+i); return d; });
   const membersToShow = currentMemberId
     ? [(appData.members||[]).find(m=>m.id===currentMemberId)].filter(Boolean)
-    : (appData.members||[]);
+    : _miembrosPresentes();
 
   const grid = document.getElementById('eq-week-grid');
   if(!grid) return;
@@ -31541,7 +31643,7 @@ function renderEqWeekPM(){
   const days = Array.from({length:5},(_,i)=>{ const d=new Date(monday); d.setDate(monday.getDate()+i); return d; });
   const membersToShow = currentMemberId
     ? [(appData.members||[]).find(m=>m.id===currentMemberId)].filter(Boolean)
-    : (appData.members||[]);
+    : _miembrosPresentes();
 
   const grid = document.getElementById('eq-week-grid');
   if(!grid) return;
@@ -31689,14 +31791,14 @@ function renderEqWeek(){
   if(titleEl) titleEl.textContent = weekLabel;
   if(subEl) subEl.textContent = `${fmt(monday)} — ${fmt(friday)}`;
 
-  const membersToShow = currentMemberId ? [(appData.members||[]).find(m=>m.id===currentMemberId)].filter(Boolean) : (appData.members||[]);
+  const membersToShow = currentMemberId ? [(appData.members||[]).find(m=>m.id===currentMemberId)].filter(Boolean) : _miembrosPresentes();
   const allHitosRaw = membersToShow.flatMap(m=>getMemberHitos(m.id).map(h=>({...h,member:m})));
   let allHitos = currentMemberId ? allHitosRaw : deduplicateHitos(allHitosRaw);
   // Apply filter
   if(_eqWeekFilter==='cliente') allHitos = allHitos.filter(h=>h.type==='oficial');
   else if(_eqWeekFilter==='interno') allHitos = allHitos.filter(h=>h.type==='revision'||h.type==='dc_review');
   // Add manual tareas
-  const tareasMemberIds = currentMemberId ? [currentMemberId] : (appData.members||[]).map(m=>m.id);
+  const tareasMemberIds = currentMemberId ? [currentMemberId] : _miembrosPresentes().map(m=>m.id);
   const allTareas = _eqWeekFilter==='interno' ? [] : (appData.tareas||[]).filter(t=> tareasMemberIds.some(id=>t.r1===id||t.r2===id));
   // getMemberHitos already returns separate oficial + revision objects with correct date
 
@@ -31784,11 +31886,11 @@ function eqShiftMonth(d){ _eqMonthOffset+=d; renderEqMonth(); }
 
 function renderEqMonth(){
   const today = new Date(); today.setHours(0,0,0,0);
-  const membersToShow = currentMemberId ? [(appData.members||[]).find(m=>m.id===currentMemberId)].filter(Boolean) : (appData.members||[]);
+  const membersToShow = currentMemberId ? [(appData.members||[]).find(m=>m.id===currentMemberId)].filter(Boolean) : _miembrosPresentes();
   const allHitosRaw2 = membersToShow.flatMap(m=>getMemberHitos(m.id).map(h=>({...h,member:m})));
   const allHitos = currentMemberId ? allHitosRaw2 : deduplicateHitos(allHitosRaw2);
   const allTareasM = (appData.tareas||[]).filter(t=>{
-    const ids = currentMemberId ? [currentMemberId] : (appData.members||[]).map(m=>m.id);
+    const ids = currentMemberId ? [currentMemberId] : _miembrosPresentes().map(m=>m.id);
     return ids.some(id=>t.r1===id||t.r2===id);
   });
   const fmt = d=>{const ms=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return `${d.getDate()} ${ms[d.getMonth()]}`;};
@@ -31935,7 +32037,7 @@ function getMemberRoleTypes(m){
 
 function renderRoleAssignment(){
   const brands = (appData.brands||[]).filter(b=>!b.archivedAt&&!b.deletedAt);
-  const members = appData.members||[];
+  const members = _miembrosPresentes();
 
   const dirs = members.filter(m=>getMemberRoleTypes(m).includes('dir'));
   const reds = members.filter(m=>getMemberRoleTypes(m).includes('red'));
@@ -32133,7 +32235,7 @@ function renderEqDomos(){
   renderRoleAssignment();
 
   const brands = _marcasReales().filter(b=>!b.archivedAt&&!b.deletedAt);
-  const members = appData.members||[];
+  const members = _miembrosPresentes();
 
   // ── Brands bar (all active brands) ──
   const bar = document.getElementById('domos-brands-bar');
@@ -32332,7 +32434,7 @@ await upsert();
 }
 
 async function createDomo(){
-  const members = appData.members||[];
+  const members = _miembrosPresentes();
   if(members.length < 2){ showStatus('Necesitas al menos dos miembros', true); return; }
   const options = members.map(m=>`${m.emoji||'👤'} ${m.apodo||m.nombre} — ${m.cargo||'—'}`);
   const pick1 = await askModal({ label:'Elige el Miembro Principal 1', type:'select', options });
@@ -32461,6 +32563,9 @@ async function deleteMemberCurrent(){
   const m = (appData.members||[]).find(x=>x.id===currentMemberId);
   if(!m) return;
 
+  // ¿Seguro que no quieres solo desactivarlo? Eliminar lo saca de todos los domos y del equipo
+  { const prefiere = await confirmModal(`Eliminar a "${m.apodo||m.nombre}" lo borra del equipo. Si ya no trabaja en Polen, lo recomendado es DESACTIVARLO: no aparece más en el día a día pero su historial queda intacto.\n\n¿Qué quieres hacer?`, 'Eliminar igual', 'background:#dc2626;color:#fff;border:none', 'Mejor desactivar');
+    if(!prefiere){ await _desactivarMiembro(m.id); return; } }
   // PIN protection
   const pin = await askModal({ label:`🔒 Ingresa el PIN para eliminar a "${m.apodo||m.nombre}"`, placeholder:'••••', defaultValue:'' });
   if(pin===null) return;
@@ -32546,7 +32651,7 @@ function openBrandDomoModal(brandId){
   _domoModalBrandId = brandId;
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand) return;
-  const members = appData.members||[];
+  const members = _miembrosPresentes(brand.domo&&brand.domo.m1, brand.domo&&brand.domo.m2, (brand.domo&&brand.domo.helpers)||[]);
   const domo = brand.domo||{};
 
   // Poblar nombre
@@ -32602,7 +32707,7 @@ async function saveBrandDomoModal(){
 function addDomoModalAstronaut(){
   const wrap = document.getElementById('domo-helpers-wrap-modal');
   if(!wrap) return;
-  const members = appData.members||[];
+  const members = _miembrosPresentes();
   const opts = '<option value="">— Sin asignar —</option>' +
     members.map(m=>`<option value="${m.id}">${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
   const div = document.createElement('div');
@@ -32688,10 +32793,143 @@ function _presIniciar(){
 
   _presLatido();
   _presCargarUltimas();
+  try{ _usoIniciar(id); }catch(e){ console.warn('[Uso]', e); }
   _presencia.timer = setInterval(()=>{ if(_presActivo()) _presLatido(); }, 60000);
   _presencia.timerLect = setInterval(()=>{ if(_tieneRol('admin')||_tieneRol('pm')) _presCargarUltimas(); else _presRefrescarUI(); }, 120000);
   document.addEventListener('visibilitychange', ()=>{ _presTrack(); if(_presActivo()) _presLatido(); });
   window.addEventListener('pagehide', ()=>{ _presLatido(); });
+}
+
+// ══ USO DEL SISTEMA: historial de accesos + minutos activos por día (tablas polen_accesos / polen_uso_diario) ══
+// · Acceso: se registra 1 vez por pestaña (login con contraseña o apertura con sesión ya iniciada).
+// · Minuto activo: cada 60 s, si la pestaña está visible y hubo mouse/teclado en los últimos 5 min.
+// Solo los admins ven el reporte (botón "📊 Uso del sistema" en Tripulación).
+window._uso = window._uso || { ultimoInput: Date.now(), timer:null, sinTabla:false };
+function _usoHoyStr(){ return fmtLocalDate(new Date()); }
+function _usoSeccion(){ const pg = (typeof currentPage!=='undefined' && currentPage) || 'dashboard'; return (pg==='brand' || pg==='template') ? 'marcas' : pg; }
+async function _usoLatido(id, minutos, apertura){
+  if(_uso.sinTabla) return;
+  const s=_sesion()||{};
+  try{
+    const { error } = await sb.rpc('polen_uso_latido', { p_miembro:id, p_nombre:s.nombre||s.usuario||'', p_fecha:_usoHoyStr(), p_minutos:minutos, p_apertura:apertura, p_seccion: minutos>0 ? _usoSeccion() : null });
+    if(error && /function|does not exist|schema cache/i.test(error.message||'')){ _uso.sinTabla = true; console.warn('[Uso] falta correr fase-P2-uso.sql'); }
+  }catch(e){}
+}
+function _usoIniciar(id){
+  if(_uso.iniciadoPara===id) return; _uso.iniciadoPara = id;
+  const marcar = ()=>{ _uso.ultimoInput = Date.now(); };
+  ['mousemove','mousedown','keydown','scroll','touchstart','wheel'].forEach(ev=>window.addEventListener(ev, marcar, { passive:true, capture:true }));
+  // Registrar el acceso (una vez por pestaña)
+  let ya=false; try{ ya = sessionStorage.getItem('polen-uso-registrado')==='1'; }catch(e){}
+  if(!ya){
+    let tipo='apertura'; try{ if(sessionStorage.getItem('polen-uso-login')==='1') tipo='login'; sessionStorage.setItem('polen-uso-registrado','1'); sessionStorage.removeItem('polen-uso-login'); }catch(e){}
+    const s=_sesion()||{};
+    const ua = navigator.userAgent||''; const disp = (/iPhone|Android.+Mobile/i.test(ua)?'Celular':/iPad|Tablet|Android/i.test(ua)?'Tablet':'Computadora')+' · '+(/Edg\//.test(ua)?'Edge':/Chrome\//.test(ua)?'Chrome':/Safari\//.test(ua)?'Safari':/Firefox\//.test(ua)?'Firefox':'Navegador');
+    try{ sb.from('polen_accesos').insert({ miembro_id:id, nombre:s.nombre||s.usuario||'', tipo, dispositivo:disp }).then(r=>{ if(r && r.error) console.warn('[Uso] accesos:', r.error.message); }); }catch(e){}
+    _usoLatido(id, 0, 1);
+  }
+  _uso.timer = setInterval(()=>{
+    if(document.hidden) return;
+    if(Date.now() - _uso.ultimoInput > 5*60000) return;   // abierto pero sin usarse: no cuenta
+    _usoLatido(id, 1, 0);
+  }, 60000);
+}
+// Últimos N días hábiles (incluye hoy si es hábil), del más antiguo al más reciente
+function _usoDiasHabiles(n){
+  const out=[]; const d=new Date(); d.setHours(0,0,0,0);
+  for(let i=0; i<40 && out.length<n; i++){ if(!esDiaNoHabil(d)) out.unshift(fmtLocalDate(d)); d.setDate(d.getDate()-1); }
+  return out;
+}
+function _usoFmtMin(m){ m=Math.round(m||0); if(!m) return '—'; const h=Math.floor(m/60), r=m%60; return h ? (h+' h'+(r?' '+r+' min':'')) : (r+' min'); }
+const _USO_SECCIONES = { dashboard:'Dashboard', marcas:'Marcas', equipo:'Equipo', cantera:'Reclutamiento', cobranzas:'Cobranzas', finanzas:'Data', crm:'CRM', contactos:'Contactos', trayectoria:'Trayectoria', metas:'Metas', sugerencias:'Buzón', reportes:'Reportes', archivo:'Archivo' };
+async function abrirUsoSistema(){
+  if(!_tieneRol('admin')){ showStatus('Solo los admins pueden ver el uso del sistema', true); return; }
+  window._usoVer = window._usoVer || 'todos';
+  openGenericModal('📊 Uso del sistema', '<div style="padding:2rem;text-align:center;color:var(--text3);font-size:0.85rem">Cargando…</div>');
+  const dias = _usoDiasHabiles(5);
+  let uso=[], acc=[], err='';
+  try{
+    const r1 = await sb.from('polen_uso_diario').select('*').gte('fecha', dias[0]).lte('fecha', dias[dias.length-1]);
+    if(r1.error) throw r1.error; uso = r1.data||[];
+    const desde = parseLocalDate(dias[0]); 
+    const r2 = await sb.from('polen_accesos').select('*').gte('ts', desde.toISOString()).order('ts',{ascending:false}).limit(1000);
+    if(r2.error) throw r2.error; acc = r2.data||[];
+  }catch(e){ err = e.message||String(e); }
+  window._usoDatos = { dias, uso, acc, err };
+  _pintarUsoSistema();
+}
+function _pintarUsoSistema(){
+  const { dias, uso, acc, err } = window._usoDatos||{};
+  const modal = document.getElementById('tray-generic-modal');
+  if(modal && modal.firstElementChild) modal.firstElementChild.style.maxWidth = '1040px';
+  if(err){
+    openGenericModal('📊 Uso del sistema', `<div style="font-size:0.84rem;color:var(--text2);line-height:1.55">Todavía no está activado el registro de uso.<br><br>Corre en Supabase → SQL Editor el archivo <b>fase-P2-uso.sql</b>. Desde ese momento el sistema empieza a guardar cada acceso y el tiempo activo de cada persona.<div style="margin-top:0.8rem;font-size:0.7rem;color:var(--text3)">Detalle: ${escapeHtml(err)}</div></div>`);
+    return;
+  }
+  const MS=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'], DS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const lblDia = f=>{ const d=parseLocalDate(f); return DS[d.getDay()]+' '+d.getDate()+' '+MS[d.getMonth()]; };
+  const hoy=_usoHoyStr();
+  const miembros = (appData.members||[]).filter(m=>m.active!==false);
+  const porId = {}; uso.forEach(u=>{ (porId[u.miembro_id]=porId[u.miembro_id]||{})[u.fecha]=u; });
+  const accPor = {}; acc.forEach(a=>{ (accPor[a.miembro_id]=accPor[a.miembro_id]||[]).push(a); });
+  const ultimoDe = id=>{ const xs=[...(accPor[id]||[]).map(a=>a.ts), ...Object.values(porId[id]||{}).map(u=>u.ultima)].filter(Boolean).sort(); return xs.pop()||(window._presencia&&_presencia.ultima[id])||''; };
+  const filas = miembros.map(m=>{
+    const d = porId[m.id]||{};
+    const total = dias.reduce((s,f)=>s+((d[f]&&d[f].minutos)||0),0);
+    const diasEntro = dias.filter(f=>d[f] && ((d[f].minutos||0)>0 || (d[f].aperturas||0)>0)).length;
+    const entradas = (accPor[m.id]||[]).filter(a=>a.ts.slice(0,10)>=dias[0]).length;
+    const secc = {}; dias.forEach(f=>{ const sc=(d[f]&&d[f].secciones)||{}; Object.keys(sc).forEach(k=>{ secc[k]=(secc[k]||0)+(+sc[k]||0); }); });
+    const top = Object.entries(secc).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k,v])=>(_USO_SECCIONES[k]||k)+' '+Math.round(v/Math.max(total,1)*100)+'%').join(' · ');
+    return { m, d, total, diasEntro, entradas, top, ultimo: ultimoDe(m.id) };
+  }).sort((a,b)=>b.total-a.total || b.entradas-a.entradas);
+  const maxMin = Math.max(60, ...filas.flatMap(f=>dias.map(x=>(f.d[x]&&f.d[x].minutos)||0)));
+  const celda = u=>{
+    if(!u || (!(u.minutos>0) && !(u.aperturas>0))) return `<td style="padding:0.45rem 0.4rem;text-align:center;color:var(--text3);font-size:0.72rem">—</td>`;
+    const pct = Math.min(1,(u.minutos||0)/maxMin);
+    const hI = new Date(u.primera).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit',hour12:false}), hF = new Date(u.ultima).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit',hour12:false});
+    return `<td title="${u.aperturas||0} entrada(s) · de ${hI} a ${hF}" style="padding:0.4rem;text-align:center"><div style="border-radius:8px;padding:0.3rem 0.2rem;background:rgba(59,158,221,${(0.08+pct*0.45).toFixed(2)})"><div style="font-size:0.74rem;font-weight:800;color:var(--text)">${_usoFmtMin(u.minutos)}</div><div style="font-size:0.6rem;color:var(--text2)">${hI}–${hF}</div></div></td>`;
+  };
+  const tabla = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-family:var(--font)">
+    <thead><tr style="border-bottom:1px solid var(--border)">
+      <th style="text-align:left;padding:0.4rem;font-size:0.66rem;color:var(--text3);font-weight:700">Persona</th>
+      ${dias.map(f=>`<th style="padding:0.4rem;font-size:0.66rem;color:${f===hoy?'var(--aire)':'var(--text3)'};font-weight:700;white-space:nowrap">${lblDia(f)}${f===hoy?' · hoy':''}</th>`).join('')}
+      <th style="padding:0.4rem;font-size:0.66rem;color:var(--text3);font-weight:700">Días</th>
+      <th style="padding:0.4rem;font-size:0.66rem;color:var(--text3);font-weight:700">Entradas</th>
+      <th style="padding:0.4rem;font-size:0.66rem;color:var(--text3);font-weight:700">Tiempo activo</th>
+      <th style="text-align:left;padding:0.4rem;font-size:0.66rem;color:var(--text3);font-weight:700">Dónde pasa más tiempo</th>
+      <th style="text-align:left;padding:0.4rem;font-size:0.66rem;color:var(--text3);font-weight:700">Último acceso</th>
+    </tr></thead><tbody>
+    ${filas.map(f=>`<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="window._usoVer='${f.m.id}';_pintarUsoSistema()">
+      <td style="padding:0.45rem 0.4rem;font-size:0.8rem;font-weight:700;color:var(--text);white-space:nowrap">${escapeHtml(f.m.apodo||f.m.nombre||'')}</td>
+      ${dias.map(x=>celda(f.d[x])).join('')}
+      <td style="text-align:center;font-size:0.8rem;font-weight:800;color:${f.diasEntro?'var(--text)':'#ef4444'}">${f.diasEntro}/${dias.length}</td>
+      <td style="text-align:center;font-size:0.8rem;color:var(--text2)">${f.entradas||'—'}</td>
+      <td style="text-align:center;font-size:0.8rem;font-weight:800;color:var(--text)">${_usoFmtMin(f.total)}</td>
+      <td style="font-size:0.7rem;color:var(--text2)">${f.top||'—'}</td>
+      <td style="font-size:0.7rem;color:var(--text3);white-space:nowrap">${f.ultimo?_presHace(f.ultimo):'—'}</td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
+  // Historial de accesos (todos o de una persona)
+  const ver = window._usoVer||'todos';
+  const lista = acc.filter(a=>ver==='todos'||a.miembro_id===ver).slice(0,150);
+  const nomDe = a=>{ const m=(appData.members||[]).find(x=>x.id===a.miembro_id); return m?(m.apodo||m.nombre):(a.nombre||a.miembro_id); };
+  const hist = `<div style="display:flex;align-items:center;gap:0.5rem;margin:1.2rem 0 0.5rem;flex-wrap:wrap">
+      <div style="font-size:0.88rem;font-weight:800;color:var(--text)">🔑 Historial de accesos</div>
+      <select onchange="window._usoVer=this.value;_pintarUsoSistema()" style="margin-left:auto;font-size:0.74rem;padding:0.3rem 0.5rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-family:var(--font)">
+        <option value="todos">Todas las personas</option>${miembros.map(m=>`<option value="${m.id}" ${ver===m.id?'selected':''}>${escapeHtml(m.apodo||m.nombre||'')}</option>`).join('')}
+      </select></div>
+    <div style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:10px">
+      ${lista.length ? lista.map(a=>{ const d=new Date(a.ts); return `<div style="display:flex;gap:0.7rem;align-items:center;padding:0.4rem 0.7rem;border-bottom:1px solid var(--border);font-size:0.76rem">
+        <span style="width:9.5rem;color:var(--text3);white-space:nowrap">${DS[d.getDay()]} ${d.getDate()} ${MS[d.getMonth()]} · ${d.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit',hour12:false})}</span>
+        <span style="font-weight:700;color:var(--text);flex:1">${escapeHtml(nomDe(a))}</span>
+        <span style="font-size:0.66rem;font-weight:700;padding:0.1rem 0.5rem;border-radius:99px;background:${a.tipo==='login'?'rgba(48,164,108,0.12)':'var(--bg-card2)'};color:${a.tipo==='login'?'#30a46c':'var(--text2)'}">${a.tipo==='login'?'Inició sesión':'Abrió el sistema'}</span>
+        <span style="font-size:0.66rem;color:var(--text3);width:8.5rem;text-align:right">${escapeHtml(a.dispositivo||'')}</span></div>`; }).join('')
+        : '<div style="padding:1rem;text-align:center;font-size:0.76rem;color:var(--text3)">Sin accesos registrados en estos días.</div>'}
+    </div>`;
+  const primeraFecha = [...uso.map(u=>u.fecha)].sort()[0];
+  const nota = `<div style="font-size:0.7rem;color:var(--text3);margin:-0.4rem 0 0.9rem;line-height:1.45">Últimos 5 días hábiles. <b>Tiempo activo</b> = minutos con la pestaña visible y uso de mouse o teclado (si se queda abierto sin tocar, no cuenta). <b>Entradas</b> = inicios de sesión o pestañas nuevas.${(!primeraFecha || primeraFecha>dias[0])?' El registro empezó '+(primeraFecha?'el '+lblDia(primeraFecha):'recién')+', así que los días anteriores aparecen vacíos.':''}</div>`;
+  openGenericModal('📊 Uso del sistema', nota + tabla + hist + `<div style="display:flex;justify-content:flex-end;margin-top:1rem"><button onclick="closeTrayModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.45rem 1rem;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:0.8rem">Cerrar</button></div>`);
+  const m2 = document.getElementById('tray-generic-modal'); if(m2 && m2.firstElementChild) m2.firstElementChild.style.maxWidth = '1040px';
 }
 
 // Estado de una persona → { nivel:'activo'|'ausente'|'off', txt }
@@ -33230,11 +33468,14 @@ function _sesion(){ try{ return JSON.parse(sessionStorage.getItem(LOGIN_KEY)||'n
 function _guardarSesion(s){ try{ sessionStorage.setItem(LOGIN_KEY, JSON.stringify(s)); }catch(e){} }
 function isAuthenticated(){ return !!_sesion(); }
 function logout(){ try{ sessionStorage.removeItem(LOGIN_KEY); }catch(e){} location.reload(); }
+// Mensaje pendiente para la pantalla de login (ej. usuario desactivado)
+window.addEventListener('load', ()=>{ try{ const msg=sessionStorage.getItem('polen-msg-login'); if(msg){ const el=document.getElementById('login-error'); if(el){ el.textContent=msg; el.style.display='block'; } } }catch(e){} });
 
 async function checkLogin(){
   const user = (document.getElementById('login-user')||{}).value||'';
   const pass = (document.getElementById('login-password')||{}).value||'';
   const errEl = document.getElementById('login-error');
+  try{ sessionStorage.removeItem('polen-msg-login'); }catch(e){}
   const btn = document.getElementById('login-btn');
   if(!user.trim() || !pass){ if(errEl){ errEl.textContent='Escribe usuario y contraseña'; errEl.style.display='block'; } return; }
   if(btn){ btn.textContent='Entrando…'; btn.disabled=true; }
@@ -33259,6 +33500,7 @@ async function checkLogin(){
     const d = await authAPI('login', { usuario:user.trim().toLowerCase(), pass });
     if(d.ok){
       _guardarSesion({ id:d.id, usuario:d.usuario, nombre:d.nombre, debe_cambiar:!!d.debe_cambiar });
+      try{ sessionStorage.setItem('polen-uso-login','1'); sessionStorage.removeItem('polen-uso-registrado'); }catch(e){}
       window._passLoginTemporal = d.debe_cambiar ? pass : null; // solo en memoria, para no pedirla otra vez
       document.getElementById('login-screen').style.display='none';
       fin();
@@ -33279,6 +33521,8 @@ async function checkLogin(){
 // Actualiza el pie del sidebar con el usuario logueado
 function _actualizarPieUsuario(){
   _polenTrasCarga(()=>{ try{ _presIniciar(); }catch(e){} try{ _bitIniciar(); }catch(e){} }, 4000);
+  // Un miembro desactivado no puede seguir usando el sistema
+  _polenTrasCarga(()=>{ try{ const s=_sesion(); if(s && s.id && !s.master && _miembroInactivo(s.id)){ try{ sessionStorage.setItem('polen-msg-login','Tu usuario está desactivado. Si crees que es un error, habla con un administrador.'); }catch(e){} logout(); } }catch(e){} }, 1500);
   const foot = document.getElementById('sidebar-user-footer');
   const nameEl = document.getElementById('sidebar-user-name');
   const s = _sesion();
@@ -35974,7 +36218,7 @@ function setBrandsStageFilter(stg){
 function syncBrandsMemberDropdown(){
   const sel = document.getElementById('brands-member-filter');
   if(!sel) return;
-  const members = appData.members || [];
+  const members = _miembrosPresentes();
   const cur = sel.value;
   sel.innerHTML = '<option value="">👥 Todos</option>' +
     members.map(m=>`<option value="${m.id}" ${m.id===cur?'selected':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
@@ -36857,7 +37101,7 @@ function renderBrandsMiembro(){
   const el = document.getElementById('brands-view-miembro');
   if(!el) return;
   const brands = appData.brands||[];
-  const members = appData.members||[];
+  const members = _miembrosPresentes();
   const SC = {aire:'🌬️',agua:'💧',tierra:'🌱',fuego:'🔥'};
   const SCOL = {aire:'var(--aire)',agua:'var(--agua)',tierra:'var(--tierra)',fuego:'var(--fuego)'};
 
@@ -37969,7 +38213,7 @@ function exportCobXLSX(){
    EQUIPO
 ════════════════════════════ */
 function exportEquipoPDF(){
-  const members = appData.members||[];
+  const members = _miembrosPresentes();
   const doc = newPDF('Equipo', `${members.length} miembros`);
   const today = new Date(); today.setHours(0,0,0,0);
 
@@ -37993,7 +38237,7 @@ function exportEquipoPDF(){
 }
 
 function exportEquipoXLSX(){
-  const members = appData.members||[];
+  const members = _miembrosPresentes();
   const today = new Date(); today.setHours(0,0,0,0);
   const data = members.map(m=>{
     const hitos = getMemberHitos(m.id).filter(h=>new Date(h.date+'T00:00:00')>=today).sort((a,b)=>a.date.localeCompare(b.date));
@@ -38912,7 +39156,7 @@ function openHubComments(noteId){
   const authSel = document.getElementById('hub-comment-author');
   if(!authSel) return;
   if(authSel){
-    const members = appData.members||[];
+    const members = _miembrosPresentes();
     authSel.innerHTML = '<option value="">— Selecciona tu miembro —</option>' +
       members.map(m=>`<option value="${m.apodo||m.nombre}">${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
     // Remember last used author
@@ -39331,7 +39575,7 @@ function renderHubCommentsList(note){
 function renderHubMemberChips(){
   const wrap = document.getElementById('hub-member-chips');
   if(!wrap) return;
-  const members = appData.members || [];
+  const members = _miembrosPresentes();
   if(!members.length){ wrap.innerHTML='<span style="font-size:0.72rem;color:var(--text3)">Sin miembros en el equipo</span>'; return; }
   wrap.innerHTML = members.map(m=>{
     const col = m.color || 'var(--aire)';
@@ -39447,7 +39691,7 @@ function setHubMemberFilter(val){ _hubMemberFilter = val; renderClientHub(); }
 function syncHubMemberDropdown(){
   const sel = document.getElementById('hub-member-filter');
   if(!sel) return;
-  const members = appData.members || [];
+  const members = _miembrosPresentes();
   const cur = sel.value;
   sel.innerHTML = '<option value="">👥 Todos</option>' +
     members.map(m=>`<option value="${m.id}" ${m.id===cur?'selected':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`).join('');
@@ -39586,7 +39830,7 @@ function openTareaModal(editId){
   if(err) err.style.display='none';
 
   // Populate member dropdowns
-  const members = appData.members||[];
+  const members = _miembrosPresentes(...(editId ? (()=>{ const t=(appData.tareas||[]).find(x=>x.id===editId); return t?[t.r1,t.r2]:[]; })() : []));
   ['tarea-r1','tarea-r2'].forEach(id=>{
     const sel = document.getElementById(id);
     if(!sel) return;
