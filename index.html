@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261104-v529-TODO-COMERCIAL-DASH -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261105-v531-DEMO-CONVERTIDO-REAL -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4223,7 +4223,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 529;
+const APP_VERSION = 531;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -8369,7 +8369,7 @@ function _updateHitosBadge(){
     _marcasReales().forEach(b=>{
       ['aire','agua','tierra','fuego'].forEach(e=>{
         (b.cronograma?.[e]||[]).forEach(a=>{
-          const fH=_fechaHito(a); if(a.isHito && a.status!=='completada' && fH>=todayStr && fH<=friStr) count++;
+          const fH=_fechaHito(a); if(_actEnAgenda(a) && a.status!=='completada' && fH>=todayStr && fH<=friStr) count++;
         });
       });
     });
@@ -13350,7 +13350,8 @@ async function crmCrearMarcaDesdeTrato(crmId){
 function _esDemoMarca(b){
   if(!b) return false;
   if(b.isDemo === true) return true;
-  if(String(b.id||'').indexOf('demo_')===0) return true;
+  // OJO: un demo que se convirtió en proyecto real conserva su id "demo_…" → el id NO decide.
+  // Demo = isDemo:true o inyectado temporalmente para verlo (_demoViewIds). Igual que el dashboard.
   if(window._demoViewIds && window._demoViewIds.has(b.id)) return true;
   return false;
 }
@@ -13466,7 +13467,7 @@ async function crmConfirmarProyecto(crmId){
 async function limpiarCobrosDeDemos(){
   const ids = Object.keys(appData.cobros||{}).filter(id=>{
     const b = (appData.brands||[]).find(x=>x.id===id) || (appData.demos||[]).find(x=>x.id===id);
-    return String(id).indexOf('demo_')===0 || (b && _esDemoMarca(b));
+    return b ? _esDemoMarca(b) : String(id).indexOf('demo_')===0;
   });
   for(const id of ids){
     const pagos = (appData.cobros[id] && appData.cobros[id].pagos) || [];
@@ -18973,7 +18974,7 @@ function _hitosDe(marcas, desde, hasta){
     ['aire','agua','tierra','fuego'].forEach(st=>{
       (cr[st]||[]).forEach(a=>{
         const fechaHito = _fechaHito(a);   // el día en que está agendado en el cronograma
-        if(a.isHito && fechaHito){
+        if(_actEnAgenda(a) && fechaHito){
           const f = parseLocalDate(fechaHito); f.setHours(0,0,0,0); if(isNaN(f)) return;
           if(desde && f < desde) return;
           if(hasta && f > hasta) return;
@@ -20168,7 +20169,7 @@ function _miTrabajoSemana(misMarcas, STAGE_COLOR){
         let col='#3b9edd'; try{ col=getBrandColor(brand); }catch(e){}
         const r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),bv=parseInt(col.slice(5,7),16);
         const esRevision = h.type==='revision'||h.type==='dc_review';
-        const icono = esRevision?'🔍':'⭐';
+        const icono = esRevision?'🔍':(h.isHito?'⭐':'📅');
         const yaPaso = h.date < fmtDate(today); // hito de días anteriores
         let partner=''; try{ partner = _esPM() ? (_todosParticipantesPill(h.brandId)||'') : (domoPartnerPill(h.brandId, user.id)||''); }catch(e){}
         const bg = esRevision
@@ -20247,7 +20248,7 @@ function _miTrabajoMes(misMarcas, STAGE_COLOR){
         let col='#3b9edd'; try{ col=getBrandColor(brand); }catch(e){}
         const r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),bv=parseInt(col.slice(5,7),16);
         const esRevision = h.type==='revision'||h.type==='dc_review';
-        const icono = esRevision?'🔍':'⭐';
+        const icono = esRevision?'🔍':(h.isHito?'⭐':'📅');
         const yaPaso = h.date < fmtDate(hoy);
         let partner=''; try{ partner = _esPM() ? (_todosParticipantesPill(h.brandId)||'') : (domoPartnerPill(h.brandId, user.id)||''); }catch(e){}
         const bg = esRevision
@@ -24771,10 +24772,11 @@ function _findArchivedBrand(id){
 function _esMarcaReal(b){
   if(!b || !b.id) return false;
   if(b.archivedAt || b.deletedAt) return false;
-  if(b.isDemo === true || String(b.id).indexOf('demo_')===0) return false;
+  if(b.isDemo === true) return false;
   if(window._demoViewIds && window._demoViewIds.has(b.id)) return false;
   if(window._archivedViewIds && window._archivedViewIds.has(b.id)) return false;
-  if((appData.demos||[]).some(d=>d && d.id===b.id)) return false;
+  // Demo convertido en proyecto real: conserva el id "demo_…" → el id NO decide (igual que el dashboard).
+  // Antes estas marcas quedaban fuera de los paneles del domo, de Equipo y de Cobranzas.
   return true;
 }
 function _marcasReales(){ return (appData.brands||[]).filter(_esMarcaReal); }
@@ -30264,6 +30266,16 @@ async function memberDrop(event, targetId){
 // Fecha en la que se MUESTRA un hito en paneles y calendarios: la misma que se ve en el
 // cronograma (el día en que está agendado = fecha de inicio). Si no tiene, la de fin.
 function _fechaHito(a){ return (a && (a.startDate || a.endDate)) || ''; }
+// ¿La actividad sale en la agenda del domo (próximos pendientes, semana, mes, Equipo)?
+// Sí: todo hito ⭐ y, aunque no esté marcado como hito, todo evento con el cliente o del equipo
+// que ocurre en una fecha: presentaciones, reuniones, entregas, kick-off, sesiones, llamadas.
+// (No: "Ajustes… y presentación interna", períodos de trabajo, pagos.)
+function _actEnAgenda(a){
+  if(!a) return false;
+  if(a.isHito) return true;
+  const n = String(a.name||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  return /^(presentacion|reunion|kick ?off|sesion|llamada|entrega|link y entrega|workshop|taller con)/.test(n);
+}
 // 🔍 Auditoría (consola): await auditarFechasPaneles()
 // Compara, para TODAS las marcas reales, la fecha de cada hito en el cronograma con la
 // fecha en que aparece en los paneles (semana/mes, próximos hitos, equipo).
@@ -30272,7 +30284,7 @@ function auditarFechasPaneles(){
   _marcasReales().forEach(b=>{
     const ids=_domoAllIds(b.domo||{});
     ['aire','agua','tierra','fuego'].forEach(st=>(b.cronograma?.[st]||[]).forEach(a=>{
-      if(!a.isHito || !_fechaHito(a)) return;
+      if(!_actEnAgenda(a) || !_fechaHito(a)) return;
       revisados++;
       const esperado=a.startDate||a.endDate;
       ids.forEach(mid=>{
@@ -30314,7 +30326,7 @@ function getMemberHitos(memberId) {
     ['aire','agua','tierra','fuego'].forEach(stage => {
       (brand.cronograma?.[stage] || []).forEach(act => {
         const fH = _fechaHito(act);
-        if (!act.isHito || !fH) return;
+        if (!_actEnAgenda(act) || !fH) return;
         const endD = parseLocalDate(fH); endD.setHours(0,0,0,0);
 
         if(inDomo){
@@ -30849,7 +30861,7 @@ function renderPmContent(){
       ['aire','agua','tierra','fuego'].forEach(e=>{
         (b.cronograma?.[e]||[]).forEach(a=>{
           const fH=_fechaHito(a);
-          if(a.isHito&&a.status!=='completada'&&fH&&fH>=todayStr){
+          if(_actEnAgenda(a)&&a.status!=='completada'&&fH&&fH>=todayStr){
             if(!hitosByDate[fH]) hitosByDate[fH]=[];
             hitosByDate[fH].push({brand:b,act:a});
           }
@@ -31902,7 +31914,7 @@ function renderEqWeek(){
             onclick="openBrand('${h.brandId}');setTimeout(()=>switchTab('crono'),100)"
             ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','oficial')">
             <div style="display:flex;align-items:center;gap:0.3rem">
-              <span>⭐</span>
+              <span>${h.isHito?'⭐':'📅'}</span>
               <span class="eq-event-brand" style="color:var(--text);flex:1">${brand?.name||''}</span>
               ${_dcMark}
               <span class="eq-free-toggle" onclick="event.stopPropagation();toggleHitoFreeMode('${h.brandId}','${h.stage}','${h.actId}')" style="font-size:0.6rem;cursor:pointer;opacity:0.7">${_wFree?'🔓':'🔗'}</span>
@@ -32010,7 +32022,7 @@ function renderEqMonth(){
               ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','oficial')"
               title="Arrastra para cambiar fecha">
               <div style="display:flex;align-items:center;gap:0.3rem">
-                <span>⭐</span>
+                <span>${h.isHito?'⭐':'📅'}</span>
                 <span class="eq-event-brand" style="color:var(--text);flex:1">${brand?.name||''}</span>
                 <span class="eq-free-toggle" onclick="event.stopPropagation();toggleHitoFreeMode('${h.brandId}','${h.stage}','${h.actId}')" 
                   title="${_isFree?'Modo libre — click para re-linkear':'Vinculado — click para modo libre'}"
