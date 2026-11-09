@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261105-v531-DEMO-CONVERTIDO-REAL -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261106-v533-PAUSA-AUTO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2442,7 +2442,7 @@ body.portal-mode #portal-loading-logo{display:none!important}
               <div style="font-size:0.9rem;font-weight:800;color:var(--text);letter-spacing:-0.2px">Pausa Activa</div>
               <div style="font-size:0.65rem;color:var(--text3);margin-top:0.05rem">Líder de la pausa activa del día</div>
             </div>
-            <button onclick="configurarPausaActiva()" title="Configurar secuencia de líderes" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;font-size:0.7rem;color:var(--text3);cursor:pointer;font-family:var(--font)">⚙️</button>
+            <button onclick="configurarPausaActiva()" title="Ver la rotación de líderes" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;font-size:0.7rem;color:var(--text3);cursor:pointer;font-family:var(--font)">⚙️</button>
           </div>
           <div id="pausa-activa-grid" style="flex:1;min-height:0"></div>
         </div>
@@ -4223,7 +4223,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 531;
+const APP_VERSION = 533;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -17955,7 +17955,28 @@ function ensurePausaActiva(){
   if(!appData.pausaActiva.overrides || typeof appData.pausaActiva.overrides!=='object') appData.pausaActiva.overrides = {}; // fecha → memberId
   if(!Array.isArray(appData.pausaActiva.holidays)) appData.pausaActiva.holidays = []; // fechas sin pausa (saltan turno)
   if(typeof appData.pausaActiva.offset !== 'number') appData.pausaActiva.offset = 0; // corrimiento global de la rotación
+  if(!Array.isArray(appData.pausaActiva.excluidos)) appData.pausaActiva.excluidos = []; // quitados a propósito: no se re-agregan solos
   return appData.pausaActiva;
+}
+// La secuencia YA NO se arma a mano: son los miembros ACTIVOS del Polen System, en el orden del equipo.
+// Quien se desactiva sale sola; quien entra al equipo entra sola. Al cambiar el equipo, el líder de HOY se mantiene.
+function _paSecuenciaActiva(){ return (appData.members||[]).filter(m=>m && m.id && m.active!==false).map(m=>m.id); }
+function _paSincronizarSecuencia(pa){
+  const miembros = appData.members||[];
+  if(miembros.length < 3) return false;                    // datos aún cargando: no tocar nada
+  const nueva = _paSecuenciaActiva();
+  const igual = nueva.length===pa.secuencia.length && nueva.every((id,i)=>id===pa.secuencia[i]);
+  if(igual) return false;
+  // Líder de hoy con la secuencia vieja (si sigue activo, que siga siéndolo)
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  let liderHoy = null;
+  if(!_paEsFinde(hoy)){ const i=_paLiderIndexFor(hoy, pa); if(i>=0) liderHoy = pa.secuencia[i]; }
+  pa.secuencia = nueva;
+  if(liderHoy && nueva.includes(liderHoy) && !_paEsFinde(hoy)){
+    const actual = _paLiderIndexFor(hoy, pa), quiero = nueva.indexOf(liderHoy);
+    if(actual>=0) pa.offset = (Number(pa.offset)||0) + (quiero - actual);
+  }
+  return true;
 }
 function _paEsFinde(d){ const wd=d.getDay(); return wd===0||wd===6; }
 function _paDateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
@@ -17982,7 +18003,7 @@ function _paLiderParaFecha(fecha, pa){
   if(_paEsFinde(fecha)) return { tipo:'finde' };
   const key = _paDateKey(fecha);
   if((pa.holidays||[]).includes(key)) return { tipo:'feriado' };
-  if(pa.overrides && pa.overrides[key]) return { tipo:'override', member:_paMemberById(pa.overrides[key]) };
+  if(pa.overrides && pa.overrides[key]){ const mo=_paMemberById(pa.overrides[key]); if(mo && mo.active!==false) return { tipo:'override', member:mo }; }
   const idx = _paLiderIndexFor(fecha, pa);
   return { tipo:'auto', member: idx>=0 ? _paMemberById(pa.secuencia[idx]) : null };
 }
@@ -18025,12 +18046,12 @@ function renderPausaActiva(){
   const grid = document.getElementById('pausa-activa-grid');
   if(!grid) return;
   const pa = ensurePausaActiva();
+  try{ if(_paSincronizarSecuencia(pa)){ markLocalChange('pausaActiva'); setTimeout(()=>{ try{ upsert(); }catch(e){} }, 0); } }catch(e){ console.warn('pausa sync:', e); }
   const card = (inner)=>`<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:0.6rem 0.75rem;box-sizing:border-box;height:100%;min-height:280px;max-height:290px;display:flex;flex-direction:column;justify-content:space-between;gap:0.45rem;overflow:hidden">${inner}</div>`;
 
   if(!pa.secuencia.length){
     grid.innerHTML = card(`<div style="text-align:center;color:var(--text3);font-size:0.82rem;padding:0.5rem 0">
-      🤸 Aún no hay secuencia de líderes.<br>
-      <button onclick="configurarPausaActiva()" style="margin-top:0.6rem;background:var(--tierra);color:#fff;border:none;border-radius:8px;padding:0.45rem 0.9rem;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font)">Configurar secuencia</button>
+      🤸 Cargando al equipo…
     </div>`);
     return;
   }
@@ -18148,7 +18169,7 @@ function _paEditarDia(fechaKey){
   const autoEst = d ? _paLiderParaFecha(d, {...pa, holidays:(pa.holidays||[]).filter(h=>h!==fechaKey), overrides:{}}) : null;
   const autoNombre = autoEst && autoEst.member ? (autoEst.member.apodo||autoEst.member.nombre) : '—';
   const opts = '<option value="">— Elegir miembro —</option>' +
-    pa.secuencia.map(id=>{const m=_paMemberById(id);return m?`<option value="${id}" ${overrideId===id?'selected':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`:''}).join('');
+    pa.secuencia.map(id=>{const m=_paMemberById(id);return (m && m.active!==false)?`<option value="${id}" ${overrideId===id?'selected':''}>${m.emoji||'👤'} ${m.apodo||m.nombre}</option>`:''}).join('');
 
   const html = `<div>
     <p style="font-size:0.78rem;color:var(--text3);line-height:1.5;margin:0 0 0.9rem">Por defecto le toca a <b style="color:var(--text2)">${escapeHtml(autoNombre)}</b> (rotación automática).</p>
@@ -18200,41 +18221,27 @@ function _paSetDiaFeriado(fechaKey){
 
 // ── Configuración de la secuencia (modal) ──
 function configurarPausaActiva(){
-  ensurePausaActiva();
-  if(!window._paEdit) window._paEdit = JSON.parse(JSON.stringify(appData.pausaActiva));
+  const _pa = ensurePausaActiva();
+  try{ if(_paSincronizarSecuencia(_pa)) markLocalChange('pausaActiva'); }catch(e){}
+  window._paEdit = JSON.parse(JSON.stringify(appData.pausaActiva));
   _paAbrirModal();
 }
 function _paAbrirModal(){
   const pa = window._paEdit;
-  const activos = (appData.members||[]).filter(m=>m.active!==false);
-  const enSec = new Set(pa.secuencia);
-  const disponibles = activos.filter(m=>!enSec.has(m.id));
-
-  const secHTML = pa.secuencia.length ? pa.secuencia.map((id,i)=>{
+  const seq = _paSecuenciaActiva();
+  const secHTML = seq.length ? seq.map((id,i)=>{
     const m=_paMemberById(id);
     return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.5rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:9px;margin-bottom:0.35rem">
       <span style="font-size:0.7rem;font-weight:800;color:var(--text3);width:18px;text-align:center">${i+1}</span>
       ${m?_paAvatarHTML(m,26):''}
-      <span style="flex:1;min-width:0;font-size:0.8rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m?escapeHtml(m.apodo||m.nombre):'(eliminado)'}</span>
-      <button onclick="_paMover('${id}',-1)" ${i===0?'disabled':''} title="Subir" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.85rem;padding:0 0.2rem;${i===0?'opacity:0.3':''}">▲</button>
-      <button onclick="_paMover('${id}',1)" ${i===pa.secuencia.length-1?'disabled':''} title="Bajar" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.85rem;padding:0 0.2rem;${i===pa.secuencia.length-1?'opacity:0.3':''}">▼</button>
-      <button onclick="_paQuitar('${id}')" title="Quitar" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:0.8rem;padding:0 0.2rem">✕</button>
+      <span style="flex:1;min-width:0;font-size:0.8rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m?escapeHtml(m.apodo||m.nombre):''}</span>
     </div>`;
-  }).join('') : '<div style="color:var(--text3);font-size:0.78rem;padding:0.5rem 0;text-align:center">Agrega miembros para armar la secuencia.</div>';
-
-  const dispHTML = disponibles.length ? disponibles.map(m=>`
-    <button onclick="_paAgregar('${m.id}')" style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0.6rem;background:var(--bg-card);border:1px solid var(--border);border-radius:99px;cursor:pointer;font-family:var(--font);font-size:0.74rem;color:var(--text2)">
-      ${_paAvatarHTML(m,22)}<span>${escapeHtml(m.apodo||m.nombre)}</span><span style="color:var(--tierra);font-weight:700">＋</span>
-    </button>`).join('') : '<div style="color:var(--text3);font-size:0.72rem">Todos los miembros activos ya están en la secuencia.</div>';
-
+  }).join('') : '<div style="color:var(--text3);font-size:0.78rem;padding:0.5rem 0;text-align:center">No hay miembros activos.</div>';
   const anclaVal = pa.ancla || todayStr();
-
   const html = `<div style="max-height:70vh;overflow-y:auto">
-    <p style="font-size:0.78rem;color:var(--text3);line-height:1.5;margin:0 0 0.8rem">El orden define la rotación del líder de la pausa activa. Solo cuentan los días hábiles (lunes a viernes); al terminar la lista, vuelve a empezar.</p>
-    <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.4rem">Secuencia</div>
+    <p style="font-size:0.78rem;color:var(--text3);line-height:1.5;margin:0 0 0.8rem">La rotación la forman <b>todos los miembros activos</b> del Polen System, en el orden del equipo. Quien entra al equipo entra solo a la rotación y quien se desactiva sale solo. Solo cuentan los días hábiles (lunes a viernes); al terminar la lista, vuelve a empezar.<br><span style="font-size:0.72rem">Para cambiar a un líder un día puntual o marcar un feriado, haz clic en ese día en el módulo.</span></p>
+    <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.4rem">Rotación (${seq.length})</div>
     ${secHTML}
-    <div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin:0.9rem 0 0.4rem">Agregar miembro</div>
-    <div style="display:flex;flex-wrap:wrap;gap:0.4rem">${dispHTML}</div>
     <div style="margin-top:1rem;border-top:1px solid var(--border2);padding-top:0.8rem">
       <label style="font-size:0.72rem;color:var(--text2);font-weight:600;display:block;margin-bottom:0.3rem">Fecha de inicio de la rotación (el #1 lidera ese día)</label>
       <input type="date" id="pa-ancla" value="${anclaVal}" onchange="_paSetAncla(this.value)" style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.6rem;color:var(--text);font-family:var(--font);font-size:0.8rem;outline:none">
@@ -18244,20 +18251,15 @@ function _paAbrirModal(){
       <button onclick="guardarPausaActiva()" style="background:var(--tierra);color:#fff;border:none;border-radius:8px;padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:var(--font)">Guardar</button>
     </div>
   </div>`;
-  openGenericModal('🤸 Configurar Pausa Activa', html);
-}
-function _paAgregar(id){ window._paEdit.secuencia.push(id); _paAbrirModal(); }
-function _paQuitar(id){ window._paEdit.secuencia = window._paEdit.secuencia.filter(x=>x!==id); _paAbrirModal(); }
-function _paMover(id,dir){
-  const s=window._paEdit.secuencia; const i=s.indexOf(id); const j=i+dir;
-  if(i<0||j<0||j>=s.length) return;
-  [s[i],s[j]]=[s[j],s[i]]; _paAbrirModal();
+  openGenericModal('🤸 Pausa Activa', html);
 }
 function _paSetAncla(v){ window._paEdit.ancla = v; }
 async function guardarPausaActiva(){
   ensurePausaActiva();
   if(!window._paEdit.ancla) window._paEdit.ancla = todayStr();
-  appData.pausaActiva = JSON.parse(JSON.stringify(window._paEdit));
+  const nuevaAncla = window._paEdit.ancla;
+  if(nuevaAncla !== appData.pausaActiva.ancla){ appData.pausaActiva.ancla = nuevaAncla; appData.pausaActiva.offset = 0; } // nueva fecha de inicio: el #1 lidera ese día
+  _paSincronizarSecuencia(appData.pausaActiva);
   window._paEdit = null;
   markLocalChange('pausaActiva');
   await upsert();
