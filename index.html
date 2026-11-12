@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261112-v534-DEMOS-CONTROL -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261112-v535-ASISTENTE-GENERAL -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4225,7 +4225,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 534;
+const APP_VERSION = 535;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -8117,6 +8117,18 @@ function deepMergeAppData(server, local){
   localTareas.forEach(t=>{ if(t?.id && !allDeletedTareaIds.has(t.id)) tareaMap[t.id]={...t}; }); // local wins para ediciones
   merged.tareas = Object.values(tareaMap);
   merged._deletedTareaIds = [...persistedDeletedTareaIds];
+
+  // ── pendientes (gestor del asistente general): unión por id; gana la versión más reciente (updatedAt) ──
+  {
+    const sp = Array.isArray(server.pendientes) ? server.pendientes : [];
+    const lp = Array.isArray(local.pendientes) ? local.pendientes : [];
+    const borr = new Set([...(local._deletedPendienteIds||[]), ...(server._deletedPendienteIds||[])]);
+    const mp = {};
+    sp.forEach(x=>{ if(x && x.id) mp[x.id] = x; });
+    lp.forEach(x=>{ if(!x || !x.id) return; const o=mp[x.id]; if(!o || String(x.updatedAt||'') >= String(o.updatedAt||'')) mp[x.id] = x; });
+    merged.pendientes = Object.values(mp).filter(x=>!borr.has(x.id) && !x.deletedAt);
+    merged._deletedPendienteIds = [...borr];
+  }
 
   // ── crmTareas (to-dos comerciales) ──
   if(window.CrmTareasDB && CrmTareasDB.isAvailable()===true){
@@ -18290,6 +18302,7 @@ function _normRol(r){
   if(['asistente','asistente administrativo','asistente administrativa'].includes(r)) return 'asistente';
   if(['comercial','gerente comercial','director comercial','directora comercial','ventas'].includes(r)) return 'comercial';
   if(['revisor','director creativo','dc'].includes(r)) return 'revisor';
+  if(['general','asistente general','asistente_general'].includes(r)) return 'general';
   if(['regular','ejecutor','ejecutora'].includes(r)) return 'regular';
   return '';
 }
@@ -18306,7 +18319,7 @@ function _rolesDe(m){
 // Rol PRINCIPAL (mayor jerarquía): admin > pm > asistente > revisor > regular.
 function _rolDe(m){
   const roles = _rolesDe(m);
-  const prioridad = ['admin','pm','comercial','asistente','revisor','regular'];
+  const prioridad = ['admin','pm','comercial','asistente','general','revisor','regular'];
   for(const p of prioridad){ if(roles.includes(p)) return p; }
   return 'regular';
 }
@@ -18318,7 +18331,7 @@ function _rolesActuales(){
 // Rol principal del usuario actual (compatibilidad).
 function _rolActual(){
   const roles = _rolesActuales();
-  const prioridad = ['admin','pm','comercial','asistente','revisor','regular'];
+  const prioridad = ['admin','pm','comercial','asistente','general','revisor','regular'];
   for(const p of prioridad){ if(roles.includes(p)) return p; }
   return 'regular';
 }
@@ -19145,6 +19158,8 @@ function _renderMiTrabajoInterno(){
   try{ _restaurarDomosPM(); }catch(e){}
   const user = _usuarioActual();
   if(!user){ cont.innerHTML=''; return; }
+  window._pOwnerId = user.id;   // dueño de los pendientes que se ven/crean en este panel
+  const _modoGeneral = _esGeneral() && !_esPM() && !_tieneRol('admin');
 
   const nombre = user.apodo || user.nombre || 'Colega';
   const emoji = user.emoji || '👤';
@@ -19174,10 +19189,24 @@ function _renderMiTrabajoInterno(){
       <div style="flex:1;min-width:150px">
         <div style="font-size:0.72rem;color:var(--text3);font-weight:600;letter-spacing:0.3px">${saludo},</div>
         <div style="font-size:1.35rem;font-weight:800;color:var(--text);letter-spacing:-0.5px;line-height:1.1">${escapeHtml(nombre)} ${emoji}</div>
-        <div style="font-size:0.72rem;color:var(--text2);margin-top:0.2rem">${_esPM()?'Lo que coordinas esta semana':(_esComercial()?'Tu radar comercial de hoy':'Tu trabajo de un vistazo')}</div>
+        <div style="font-size:0.72rem;color:var(--text2);margin-top:0.2rem">${_modoGeneral ? (()=>{ const hoy=_pHoy(); const ab=_pDe(user.id).filter(p=>!p.done); const v=ab.filter(p=>_pFecha(p)&&_pFecha(p)<hoy).length, d=ab.filter(p=>_pFecha(p)===hoy).length, e=ab.filter(p=>p.aprob&&p.aprob.estado==='pendiente').length; return 'Hoy tienes <b style="color:var(--text)">'+d+' cosa'+(d!==1?'s':'')+'</b>'+(v?' · <b style="color:#d12f2f">'+v+' vencida'+(v!==1?'s':'')+'</b>':'')+(e?' · '+e+' esperando aprobación':''); })() : (_esPM()?'Lo que coordinas esta semana':(_esComercial()?'Tu radar comercial de hoy':'Tu trabajo de un vistazo'))}</div>
       </div>
       <div style="display:flex;gap:1.4rem;text-align:center">`;
-  if(_esComercial() && !_esPM()){
+  if(_modoGeneral){
+    const _hoyP=_pHoy(); const _d0=new Date(); _d0.setHours(0,0,0,0); const _lun=new Date(_d0); _lun.setDate(_d0.getDate()-((_d0.getDay()+6)%7));
+    const _mis=_pDe(user.id);
+    const _hechasSem=_mis.filter(p=>p.done && p.doneAt && new Date(p.doneAt)>=_lun).length + _mis.reduce((s,p)=>s+(p.pasos||[]).filter(x=>x.done && x.doneAt && new Date(x.doneAt)>=_lun).length,0);
+    const _paraHoy=_mis.filter(p=>!p.done && _pFecha(p)===_hoyP).length;
+    h1 += `
+        <div>
+          <div style="font-size:1.6rem;font-weight:800;color:${color};line-height:1">${_paraHoy}</div>
+          <div style="font-size:0.62rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Para hoy</div>
+        </div>
+        <div style="padding:0.3rem 0.7rem;border-radius:12px;background:#dcf5e5">
+          <div style="font-size:1.6rem;font-weight:800;color:#1c8a4a;line-height:1">${_hechasSem}</div>
+          <div style="font-size:0.62rem;color:#1c8a4a;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Hechas esta semana</div>
+        </div>`;
+  } else if(_esComercial() && !_esPM()){
     const _pc = _comercialStats();
     h1 += `
         <div>
@@ -19226,7 +19255,11 @@ function _renderMiTrabajoInterno(){
   // ¿Supervisa marcas? (director o asistencia de dirección en alguna) → pestaña extra
   const _superv = (_esRevisor() && user) ? _marcasSupervisadas(user.id) : [];
   const _tieneSuperv = _superv.length > 0;
-  if(_esAsistente()){
+  if(_modoGeneral){
+    // Asistente general: su panel ES su gestor de pendientes
+    tabs = [['p_hoy','🎯 Hoy'],['p_todo','📋 Todo'],['p_proy','🗂 Proyectos'],['p_semana','📅 Semana'],['p_mes','🗓 Mes']];
+    if(!tabs.map(t=>t[0]).includes(_miTrabajoVista)) _miTrabajoVista='p_hoy';
+  } else if(_esAsistente()){
     // El asistente no ejecuta marcas: sus pestañas son Resumen (cobros) y Nuevos proyectos
     tabs = [['resumen','Resumen']];
     if(_tieneSuperv) tabs.push(['superviso','Superviso']);
@@ -19254,8 +19287,14 @@ function _renderMiTrabajoInterno(){
 
   // ── Contenido según la vista (tope de altura con scroll interno: el módulo NUNCA crece infinito) ──
   const expandido = _miTrabajoVista==='domos' && _esPM() && window._domosExpandido;
-  h1 += `<div id="mi-trabajo-contenido" style="padding:0;${expandido?'':'max-height:400px;overflow-y:auto;'}scrollbar-width:thin">`;
-  if(_miTrabajoVista==='resumen'){
+  try{ h1 += _pBloqueAprobacionesAdmin(); }catch(e){}
+  h1 += `<div id="mi-trabajo-contenido" style="padding:0;${expandido?'':(_modoGeneral?'max-height:720px;overflow-y:auto;':'max-height:400px;overflow-y:auto;')}scrollbar-width:thin">`;
+  if(_miTrabajoVista==='p_hoy') h1 += _pVistaHoy();
+  else if(_miTrabajoVista==='p_todo') h1 += _pVistaTodo();
+  else if(_miTrabajoVista==='p_proy') h1 += _pVistaProyectos();
+  else if(_miTrabajoVista==='p_semana') h1 += _pVistaSemana();
+  else if(_miTrabajoVista==='p_mes') h1 += _pVistaMes();
+  else if(_miTrabajoVista==='resumen'){
     // Resumen base según el rol PRINCIPAL (mayor jerarquía)
     const rolPrincipal = _rolActual();
     if(_esComercial() && !_esPM())  h1 += _miTrabajoResumenComercial(user);
@@ -19286,6 +19325,387 @@ function _renderMiTrabajoInterno(){
       }
     }, 30);
   }}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 🧰 GESTOR DE PENDIENTES · rol "Asistente general"
+// Pensado para TDAH: anotar en 2 segundos, una pantalla "Hoy", el SIGUIENTE paso a la vista,
+// "lo que me falta", deadlines en semana/mes, aprobaciones de admins y links (Canva/Sheets).
+// Datos: appData.pendientes (se guarda en el JSON compartido; merge por id + updatedAt).
+// ═════════════════════════════════════════════════════════════════════════════
+function _esGeneral(){ return _tieneRol('general'); }
+function _pUid(){ return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function _pLista(){ if(!Array.isArray(appData.pendientes)) appData.pendientes = []; return appData.pendientes; }
+function _pDueño(){ return window._pOwnerId || (_usuarioActual()||{}).id || ''; }
+function _pYo(){ const u = (typeof _usuarioReal==='function' ? _usuarioReal() : null) || _usuarioActual() || {}; return { id:u.id||'', nombre:u.apodo||u.nombre||'' }; }
+function _pNombre(id){ const m=(appData.members||[]).find(x=>x.id===id); return m ? (m.apodo||m.nombre||'') : ''; }
+function _pDe(ownerId){ return _pLista().filter(p=>p && !p.deletedAt && p.ownerId===ownerId); }
+function _pHoy(){ return fmtLocalDate(new Date()); }
+function _pAdd(n, dias){ const d=parseLocalDate(n); d.setDate(d.getDate()+dias); return fmtLocalDate(d); }
+let _pTimer=null;
+function _pGuardar(p){
+  if(p) p.updatedAt = new Date().toISOString();
+  markLocalChange('pendientes');
+  clearTimeout(_pTimer); _pTimer = setTimeout(()=>{ try{ upsert(); }catch(e){} }, 600);
+}
+function _pRender(){ try{ renderMiTrabajo(); }catch(e){} if(document.getElementById('p-modal-body')) _pPintarModal(); }
+
+// ── Fecha "efectiva" para la agenda: el siguiente paso (proyectos) o el deadline ──
+function _pSiguientePaso(p){ return (p.pasos||[]).find(s=>!s.done) || null; }
+function _pFecha(p){
+  if(p.tipo==='proyecto'){ const s=_pSiguientePaso(p); if(s && s.deadline) return s.deadline; }
+  return p.deadline || '';
+}
+function _pProgreso(p){ const t=(p.pasos||[]).length, d=(p.pasos||[]).filter(s=>s.done).length; return {t,d}; }
+
+// ── Fechas escritas en lenguaje natural al anotar ("comprar tóner para el viernes") ──
+function _pParseFecha(txt){
+  const DIAS=['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
+  const norm = s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const t = norm(txt);
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  let m, fecha=null, quitar=null;
+  if((m = t.match(/\s*(para\s+)?(hoy)\s*$/))){ fecha=new Date(hoy); quitar=m[0]; }
+  else if((m = t.match(/\s*(para\s+)?(pasado\s+manana)\s*$/))){ fecha=new Date(hoy); fecha.setDate(fecha.getDate()+2); quitar=m[0]; }
+  else if((m = t.match(/\s*(para\s+)?(manana)\s*$/))){ fecha=new Date(hoy); fecha.setDate(fecha.getDate()+1); quitar=m[0]; }
+  else if((m = t.match(/\s*(para\s+)?(el\s+)?(este\s+|proximo\s+)?(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\s*$/))){
+    const target = DIAS.indexOf(m[4]); fecha=new Date(hoy); let dd=(target-fecha.getDay()+7)%7; if(dd===0) dd=7; fecha.setDate(fecha.getDate()+dd); quitar=m[0];
+  }
+  else if((m = t.match(/\s*(para\s+)?(el\s+)?(\d{1,2})[\/\-](\d{1,2})\s*$/))){ fecha=new Date(hoy.getFullYear(), +m[4]-1, +m[3]); if(fecha<hoy) fecha.setFullYear(fecha.getFullYear()+1); quitar=m[0]; }
+  else if((m = t.match(/\s*(para\s+)?el\s+(\d{1,2})\s*$/))){ fecha=new Date(hoy.getFullYear(), hoy.getMonth(), +m[2]); if(fecha<hoy) fecha.setMonth(fecha.getMonth()+1); quitar=m[0]; }
+  else if((m = t.match(/\s*(para\s+)?la\s+(proxima|otra)\s+semana\s*$/))){ fecha=new Date(hoy); fecha.setDate(fecha.getDate()+((8-fecha.getDay())%7||7)); quitar=m[0]; }
+  if(!fecha) return { titulo: txt.trim(), fecha:'' };
+  return { titulo: txt.slice(0, txt.length - quitar.length).trim() || txt.trim(), fecha: fmtLocalDate(fecha) };
+}
+
+// ── Acciones ──
+function _pCapturar(inputId){
+  const inp = document.getElementById(inputId||'p-captura'); if(!inp) return;
+  const raw = (inp.value||'').trim(); if(!raw) { inp.focus(); return; }
+  const { titulo, fecha } = _pParseFecha(raw);
+  const yo = _pYo();
+  const p = { id:_pUid(), titulo, tipo:'simple', ownerId:_pDueño(), creadoPor:yo.id, creadoPorNombre:yo.nombre, createdAt:new Date().toISOString(), deadline:fecha, pasos:[], falta:[], links:[], nota:'', done:false };
+  _pLista().unshift(p); _pGuardar(p);
+  inp.value='';
+  showStatus(fecha ? '✍️ Anotado para el '+fmtDateDisplay(fecha) : '✍️ Anotado · ponle fecha para no olvidarlo');
+  _pRender();
+  setTimeout(()=>{ const i=document.getElementById(inputId||'p-captura'); if(i) i.focus(); }, 30);
+}
+function _pBuscar(id){ return _pLista().find(p=>p.id===id); }
+function _pToggle(id){
+  const p=_pBuscar(id); if(!p) return;
+  if(p.tipo==='proyecto' && !p.done){
+    const s=_pSiguientePaso(p);
+    if(s){ s.done=true; s.doneAt=new Date().toISOString(); _pGuardar(p);
+      const quedan=(p.pasos||[]).filter(x=>!x.done).length;
+      if(!quedan){ p.done=true; p.doneAt=new Date().toISOString(); _pCelebrar('¡Proyecto terminado! 🚀'); } else showStatus('✓ Paso hecho · siguiente: '+(_pSiguientePaso(p)||{}).texto);
+      _pRender(); return; }
+  }
+  p.done=!p.done; p.doneAt = p.done ? new Date().toISOString() : null; _pGuardar(p);
+  if(p.done) _pCelebrar(); _pRender();
+}
+function _pCelebrar(msg){
+  showStatus(msg || ['¡Listo! 🚀','¡Uno menos! ✨','¡Bien ahí! 🌟','¡Hecho! 🪐'][Math.floor(Math.random()*4)]);
+  try{ if(typeof _lanzarConfetti==='function' && Math.random()<0.35) _lanzarConfetti(); }catch(e){}
+}
+function _pReprogramar(id, cuando){
+  const p=_pBuscar(id); if(!p) return;
+  const hoy=_pHoy(); let f=cuando;
+  if(cuando==='manana') f=_pAdd(hoy,1);
+  else if(cuando==='lunes'){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+(((8-d.getDay())%7)||7)); f=fmtLocalDate(d); }
+  else if(cuando==='semana') f=_pAdd(hoy,7);
+  if(p.tipo==='proyecto'){ const s=_pSiguientePaso(p); if(s && s.deadline && s.deadline<hoy) s.deadline=f; else p.deadline=f; } else p.deadline=f;
+  _pGuardar(p); showStatus('📅 Movido al '+fmtDateDisplay(f)); _pRender();
+}
+function _pPonerFecha(id, val){ const p=_pBuscar(id); if(!p||!val) return; p.deadline=val; _pGuardar(p); _pRender(); }
+
+// ── Tarjeta de un pendiente ──
+function _pTarjeta(p, ctx){
+  const hoy=_pHoy(); const f=_pFecha(p);
+  const venc = !p.done && f && f<hoy;
+  const MS=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'], DS=['dom','lun','mar','mié','jue','vie','sáb'];
+  let chip='';
+  if(p.done) chip=`<span style="font-size:0.66rem;font-weight:700;border-radius:99px;padding:0.15rem 0.55rem;background:#dcf5e5;color:#1c8a4a;white-space:nowrap">✓ Hecho</span>`;
+  else if(f){
+    const d=parseLocalDate(f); const dif=Math.round((d-parseLocalDate(hoy))/86400000);
+    const txt = dif<0 ? (dif===-1?'Ayer':'Hace '+(-dif)+' días') : dif===0 ? 'Hoy'+(p.hora?' '+p.hora:'') : dif===1 ? 'Mañana' : dif<7 ? DS[d.getDay()].charAt(0).toUpperCase()+DS[d.getDay()].slice(1)+' '+d.getDate() : d.getDate()+' '+MS[d.getMonth()];
+    const col = dif<0?['#ffe1e0','#d12f2f']:dif===0?['#ffedd8','#c2600c']:dif<=2?['#fff4d6','#a16207']:['#e2f1fd','#2a7fbf'];
+    chip=`<span style="font-size:0.66rem;font-weight:700;border-radius:99px;padding:0.15rem 0.55rem;background:${col[0]};color:${col[1]};white-space:nowrap">${txt}</span>`;
+  } else chip=`<label onclick="event.stopPropagation()" style="position:relative;font-size:0.66rem;font-weight:700;border-radius:99px;padding:0.15rem 0.55rem;background:var(--bg-card2);color:var(--text3);white-space:nowrap;cursor:pointer;border:1px dashed var(--border)">+ fecha<input type="date" onchange="_pPonerFecha('${p.id}',this.value)" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>`;
+  const pr=_pProgreso(p); const sig=_pSiguientePaso(p);
+  const tagProy = p.tipo==='proyecto' ? `<span style="font-size:0.62rem;font-weight:700;border-radius:99px;padding:0.1rem 0.45rem;background:#ece7fb;color:#6a4fc4;margin-left:0.35rem;white-space:nowrap">🗂 ${pr.d}/${pr.t} pasos</span>` : '';
+  const faltan=(p.falta||[]).filter(x=>!x.done);
+  const links=(p.links||[]).slice(0,2).map(l=>_pIconoLink(l.url)+' '+escapeHtml(l.titulo||_pTipoLink(l.url))).join(' · ');
+  let sub=[];
+  if(p.tipo==='proyecto' && sig && !p.done) sub.push('👉 Siguiente: <b style="color:var(--text)">'+escapeHtml(sig.texto||'')+'</b>');
+  if(faltan.length && !p.done) sub.push('⏳ Me falta: <b style="color:var(--text)">'+escapeHtml(faltan[0].texto)+'</b>'+(faltan.length>1?' +'+(faltan.length-1):''));
+  if(p.aprob && p.aprob.estado==='pendiente') sub.push('✋ Esperando aprobación');
+  if(links) sub.push(links);
+  if(p.creadoPor && p.creadoPor!==p.ownerId && p.creadoPorNombre) sub.push('Pedido por '+escapeHtml(p.creadoPorNombre));
+  if(venc && ctx==='hoy') sub.push(`<span onclick="event.stopPropagation()">Mover a: <a onclick="_pReprogramar('${p.id}','manana')" style="color:var(--aire);cursor:pointer">mañana</a> · <a onclick="_pReprogramar('${p.id}','lunes')" style="color:var(--aire);cursor:pointer">lunes</a> · <a onclick="_pReprogramar('${p.id}','semana')" style="color:var(--aire);cursor:pointer">+1 semana</a></span>`);
+  const borde = venc ? 'border:1px solid #ffc9c6;background:#fff6f5' : 'border:1px solid var(--border);background:var(--bg-card2)';
+  return `<div onclick="_pAbrir('${p.id}')" style="display:flex;align-items:center;gap:0.7rem;${borde};border-radius:12px;padding:0.6rem 0.75rem;margin-bottom:0.45rem;cursor:pointer">
+    <div onclick="event.stopPropagation();_pToggle('${p.id}')" title="${p.tipo==='proyecto'&&sig?'Marcar el siguiente paso como hecho':'Marcar como hecho'}" style="width:22px;height:22px;border-radius:7px;flex-shrink:0;border:2px solid ${p.done?'#1c8a4a':'var(--border)'};background:${p.done?'#1c8a4a':'transparent'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.8rem;cursor:pointer">${p.done?'✓':''}</div>
+    <div style="flex:1;min-width:0;${p.done?'opacity:0.5':''}">
+      <div style="font-size:0.88rem;font-weight:700;color:var(--text);line-height:1.3;${p.done?'text-decoration:line-through':''}">${escapeHtml(p.titulo||'')}${tagProy}</div>
+      ${sub.length?`<div style="font-size:0.7rem;color:var(--text3);margin-top:0.15rem;line-height:1.45">${sub.join(' · ')}</div>`:''}
+    </div>${chip}</div>`;
+}
+function _pTipoLink(u){ u=String(u||''); return /docs\.google\.com\/spreadsheets|sheets\.google/.test(u)?'Google Sheets':/canva\.com/.test(u)?'Canva':/docs\.google\.com\/document/.test(u)?'Google Docs':/docs\.google\.com\/presentation/.test(u)?'Google Slides':/drive\.google/.test(u)?'Drive':/figma\.com/.test(u)?'Figma':'Link'; }
+function _pIconoLink(u){ return {'Google Sheets':'📊','Canva':'🎨','Google Docs':'📄','Google Slides':'📽️','Drive':'📁','Figma':'🖌️'}[_pTipoLink(u)] || '🔗'; }
+
+// ── Pestañas del panel ──
+function _pSec(txt, color, n, extra){ return `<div style="font-size:0.66rem;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:${color};margin:0.9rem 0 0.45rem">${txt}${n!=null?' · '+n:''}${extra||''}</div>`; }
+function _pCaptura(){
+  return `<div style="display:flex;gap:0.5rem;margin-bottom:0.3rem">
+    <input id="p-captura" placeholder="✍️ Anota lo que tienes que hacer y presiona Enter…  (ej: comprar tóner para el viernes)" onkeydown="if(event.key==='Enter'){event.preventDefault();_pCapturar();}" style="flex:1;min-width:0;box-sizing:border-box;border:2px solid var(--aire);border-radius:12px;padding:0.7rem 0.9rem;font-size:0.9rem;background:var(--bg-card);color:var(--text);outline:none;font-family:var(--font)">
+    <button onclick="_pCapturar()" style="background:var(--aire);color:#fff;border:none;border-radius:12px;padding:0 1rem;font-weight:800;font-size:0.82rem;cursor:pointer;font-family:var(--font);white-space:nowrap">+ Agregar</button>
+    <button onclick="_pNuevoProyecto()" title="Algo con varios pasos" style="background:#ece7fb;color:#6a4fc4;border:none;border-radius:12px;padding:0 0.9rem;font-weight:800;font-size:0.8rem;cursor:pointer;font-family:var(--font);white-space:nowrap">🗂 Proyecto</button>
+  </div><div style="font-size:0.64rem;color:var(--text3);margin-bottom:0.2rem">Tip: si escribes “hoy”, “mañana”, “viernes” o “el 20” al final, ya queda con fecha.</div>`;
+}
+function _pVistaHoy(){
+  const yo=_pDueño(); const hoy=_pHoy(); const lim=_pAdd(hoy,7);
+  const abiertos=_pDe(yo).filter(p=>!p.done);
+  const venc=abiertos.filter(p=>_pFecha(p) && _pFecha(p)<hoy).sort((a,b)=>_pFecha(a).localeCompare(_pFecha(b)));
+  const deHoy=abiertos.filter(p=>_pFecha(p)===hoy);
+  const hechasHoy=_pDe(yo).filter(p=>p.done && p.doneAt && fmtLocalDate(new Date(p.doneAt))===hoy);
+  const prox=abiertos.filter(p=>_pFecha(p)>hoy && _pFecha(p)<=lim).sort((a,b)=>_pFecha(a).localeCompare(_pFecha(b)));
+  const sinFecha=abiertos.filter(p=>!_pFecha(p));
+  const esperando=abiertos.filter(p=>p.aprob && p.aprob.estado==='pendiente');
+  const respuestas=_pDe(yo).filter(p=>p.aprob && p.aprob.estado!=='pendiente' && p.aprob.respondidoAt && (Date.now()-new Date(p.aprob.respondidoAt).getTime())<5*86400000);
+  let izq='', der='';
+  if(venc.length) izq += _pSec('🔴 Se pasó la fecha','#d12f2f',venc.length) + venc.map(p=>_pTarjeta(p,'hoy')).join('');
+  izq += _pSec('🟠 Para hoy','#c2600c',deHoy.length) + (deHoy.length||hechasHoy.length ? deHoy.map(p=>_pTarjeta(p,'hoy')).join('')+hechasHoy.map(p=>_pTarjeta(p,'hoy')).join('') : `<div style="font-size:0.78rem;color:var(--text3);padding:0.4rem 0">Nada para hoy. ${prox.length?'Puedes adelantar algo de abajo 🚀':'¡Día libre de pendientes! 🪐'}</div>`);
+  if(prox.length) izq += _pSec('🔵 Próximos 7 días','#2a7fbf',prox.length) + prox.map(p=>_pTarjeta(p,'hoy')).join('');
+  if(esperando.length) der += _pSec('✋ Esperando aprobación','#6a4fc4',esperando.length) + esperando.map(p=>`<div onclick="_pAbrir('${p.id}')" style="cursor:pointer;border-radius:12px;padding:0.55rem 0.75rem;margin-bottom:0.45rem;border:1px solid #e3dbfb;background:#f7f4ff"><div style="font-size:0.84rem;font-weight:700;color:var(--text)">📝 ${escapeHtml(p.titulo)}</div><div style="font-size:0.7rem;color:var(--text3)">Pedido ${_presHace?_presHace(p.aprob.pedidoAt):''}${p.aprob.mensaje?' · “'+escapeHtml(p.aprob.mensaje)+'”':''}</div></div>`).join('');
+  if(respuestas.length) der += _pSec('📬 Respuestas de aprobación','#1c8a4a',respuestas.length) + respuestas.map(p=>{ const ok=p.aprob.estado==='aprobado'; return `<div onclick="_pAbrir('${p.id}')" style="cursor:pointer;border-radius:12px;padding:0.6rem 0.75rem;margin-bottom:0.45rem;border:1px solid ${ok?'#cdeed9':'#ffc9c6'};background:${ok?'#f2fbf5':'#fff6f5'}"><div style="font-size:0.84rem;font-weight:700;color:var(--text)">${ok?'✅':'❌'} ${escapeHtml(p.titulo)}</div><div style="font-size:0.7rem;color:var(--text3)">${ok?'Aprobado':'No aprobado'} por ${escapeHtml(p.aprob.porNombre||'')}${p.aprob.respuesta?' · “'+escapeHtml(p.aprob.respuesta)+'”':''}</div></div>`; }).join('');
+  der += _pSec('📥 Sin fecha','#6b6585',sinFecha.length,' <span style="font-weight:600;text-transform:none;letter-spacing:0">(ponles fecha para no olvidarlas)</span>') + (sinFecha.length ? sinFecha.map(p=>_pTarjeta(p,'hoy')).join('') : '<div style="font-size:0.74rem;color:var(--text3)">Todo tiene fecha 👌</div>');
+  return `<div style="padding:0.9rem 1.2rem">${_pCaptura()}<div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:1.1rem">${'<div>'+izq+'</div><div>'+der+'</div>'}</div></div>`;
+}
+function _pVistaTodo(){
+  const yo=_pDueño(); window._pFiltro = window._pFiltro || 'abiertos';
+  const f=window._pFiltro; const hoy=_pHoy();
+  let l=_pDe(yo);
+  if(f==='abiertos') l=l.filter(p=>!p.done);
+  else if(f==='proyectos') l=l.filter(p=>!p.done && p.tipo==='proyecto');
+  else if(f==='simples') l=l.filter(p=>!p.done && p.tipo!=='proyecto');
+  else if(f==='esperando') l=l.filter(p=>!p.done && ((p.aprob&&p.aprob.estado==='pendiente') || (p.falta||[]).some(x=>!x.done)));
+  else if(f==='hechos') l=l.filter(p=>p.done).sort((a,b)=>String(b.doneAt||'').localeCompare(String(a.doneAt||''))).slice(0,40);
+  if(f!=='hechos') l.sort((a,b)=>(_pFecha(a)||'9999').localeCompare(_pFecha(b)||'9999'));
+  const chip=(k,t)=>`<button onclick="window._pFiltro='${k}';renderMiTrabajo()" style="font-size:0.72rem;font-weight:700;padding:0.3rem 0.7rem;border-radius:99px;border:1px solid ${f===k?'var(--aire)':'var(--border)'};background:${f===k?'rgba(59,158,221,0.12)':'var(--bg-card)'};color:${f===k?'var(--aire)':'var(--text2)'};cursor:pointer;font-family:var(--font)">${t}</button>`;
+  return `<div style="padding:0.9rem 1.2rem">${_pCaptura()}
+    <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin:0.6rem 0 0.4rem">${chip('abiertos','Todo lo abierto')}${chip('simples','Pendientes')}${chip('proyectos','🗂 Proyectos')}${chip('esperando','⏳ Trabado / esperando')}${chip('hechos','✓ Hechos')}</div>
+    ${l.length ? l.map(p=>_pTarjeta(p,'todo')).join('') : '<div style="font-size:0.8rem;color:var(--text3);padding:1rem 0">Nada por aquí.</div>'}</div>`;
+}
+function _pVistaProyectos(){
+  const yo=_pDueño();
+  const l=_pDe(yo).filter(p=>p.tipo==='proyecto').sort((a,b)=>(a.done-b.done) || (_pFecha(a)||'9999').localeCompare(_pFecha(b)||'9999'));
+  const card=p=>{ const pr=_pProgreso(p); const pct=pr.t?Math.round(pr.d/pr.t*100):0; const sig=_pSiguientePaso(p);
+    return `<div onclick="_pAbrir('${p.id}')" style="cursor:pointer;border:1px solid var(--border);background:var(--bg-card2);border-radius:14px;padding:0.8rem 0.9rem;${p.done?'opacity:0.55':''}">
+      <div style="display:flex;align-items:center;gap:0.5rem"><div style="font-size:0.92rem;font-weight:800;color:var(--text);flex:1;min-width:0">${escapeHtml(p.titulo)}</div>${p.deadline?`<span style="font-size:0.64rem;font-weight:700;border-radius:99px;padding:0.15rem 0.5rem;background:${p.deadline<_pHoy()&&!p.done?'#ffe1e0':'#ffedd8'};color:${p.deadline<_pHoy()&&!p.done?'#d12f2f':'#c2600c'}">🏁 ${fmtDateDisplay(p.deadline)}</span>`:''}</div>
+      <div style="height:7px;border-radius:9px;background:var(--border);overflow:hidden;margin:0.5rem 0 0.3rem"><div style="width:${pct}%;height:100%;background:#22a35a"></div></div>
+      <div style="font-size:0.7rem;color:var(--text3)">${pr.d} de ${pr.t} pasos${sig&&!p.done?' · 👉 '+escapeHtml(sig.texto):''}${p.done?' · ✓ terminado':''}</div></div>`; };
+  return `<div style="padding:0.9rem 1.2rem"><div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem"><div style="font-size:0.8rem;color:var(--text3);flex:1">Proyectos = cosas con varios pasos. En “Hoy” solo verás el siguiente paso de cada uno.</div><button onclick="_pNuevoProyecto()" style="background:#6a4fc4;color:#fff;border:none;border-radius:10px;padding:0.5rem 0.9rem;font-weight:800;font-size:0.78rem;cursor:pointer;font-family:var(--font)">+ Nuevo proyecto</button></div>
+    ${l.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.7rem">${l.map(card).join('')}</div>`:'<div style="font-size:0.8rem;color:var(--text3);padding:1rem 0">Aún no hay proyectos.</div>'}</div>`;
+}
+// Eventos de agenda (para Semana y Mes): deadline de pendientes, pasos con fecha y deadline final de proyectos
+function _pEventos(ownerId){
+  const ev=[];
+  _pDe(ownerId).forEach(p=>{
+    if(p.tipo==='proyecto'){
+      (p.pasos||[]).forEach(s=>{ if(s.deadline) ev.push({ fecha:s.deadline, texto:(s.texto||''), proyecto:p.titulo, id:p.id, done:!!s.done, tipo:'paso' }); });
+      if(p.deadline) ev.push({ fecha:p.deadline, texto:p.titulo, id:p.id, done:!!p.done, tipo:'fin' });
+    } else if(p.deadline) ev.push({ fecha:p.deadline, texto:p.titulo, id:p.id, done:!!p.done, tipo:'simple' });
+  });
+  return ev;
+}
+function _pEvChip(e){
+  const hoy=_pHoy(); const venc=!e.done && e.fecha<hoy;
+  const col = e.done?['#dcf5e5','#1c8a4a']: venc?['#ffe1e0','#d12f2f']: e.tipo==='fin'?['#ece7fb','#6a4fc4']: e.fecha===hoy?['#ffedd8','#c2600c']:['#e2f1fd','#2a7fbf'];
+  const pre = e.done?'✓ ': e.tipo==='fin'?'🏁 ': e.tipo==='paso'?'🗂 ':'';
+  return `<div onclick="_pAbrir('${e.id}')" title="${escapeHtml((e.proyecto?e.proyecto+' · ':'')+e.texto)}" style="cursor:pointer;border-radius:8px;padding:0.35rem 0.45rem;margin-bottom:0.3rem;background:${col[0]};color:${col[1]};font-size:0.7rem;font-weight:700;line-height:1.3;${e.done?'text-decoration:line-through;opacity:0.7':''}">${pre}${escapeHtml(e.texto)}${e.proyecto?`<div style="font-weight:500;opacity:0.8">${escapeHtml(e.proyecto)}</div>`:''}</div>`;
+}
+function _pVistaSemana(){
+  window._pSemOff = window._pSemOff||0;
+  const hoy=new Date(); hoy.setHours(0,0,0,0); const dow=hoy.getDay();
+  const lun=new Date(hoy); lun.setDate(hoy.getDate()-(dow===0?6:dow-1)+window._pSemOff*7);
+  const ev=_pEventos(_pDueño()); const DN=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  const hs=fmtLocalDate(hoy);
+  const dias=[...Array(7)].map((_,i)=>{ const d=new Date(lun); d.setDate(lun.getDate()+i); return d; });
+  const conFinde = dias.slice(5).some(d=>ev.some(e=>e.fecha===fmtLocalDate(d)));
+  const usar = conFinde ? dias : dias.slice(0,5);
+  const vencidas = window._pSemOff===0 ? ev.filter(e=>!e.done && e.fecha<fmtLocalDate(lun)) : [];
+  return `<div style="padding:0.9rem 1.2rem">
+    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem"><button onclick="window._pSemOff--;renderMiTrabajo()" style="width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);cursor:pointer">←</button>
+    <div style="font-size:0.8rem;font-weight:800;color:var(--text)">${window._pSemOff===0?'Esta semana':window._pSemOff===1?'Próxima semana':window._pSemOff===-1?'Semana pasada':(window._pSemOff>0?'En '+window._pSemOff+' semanas':'Hace '+(-window._pSemOff)+' semanas')}</div>
+    <button onclick="window._pSemOff++;renderMiTrabajo()" style="width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);cursor:pointer">→</button>
+    ${window._pSemOff?`<button onclick="window._pSemOff=0;renderMiTrabajo()" style="background:none;border:none;color:var(--aire);cursor:pointer;font-size:0.72rem;font-weight:700">hoy</button>`:''}</div>
+    ${vencidas.length?`<div style="margin-bottom:0.6rem;font-size:0.72rem;color:#d12f2f;font-weight:700">🔴 ${vencidas.length} vencida${vencidas.length!==1?'s':''} de antes: ${vencidas.slice(0,4).map(e=>`<a onclick="_pAbrir('${e.id}')" style="cursor:pointer;text-decoration:underline">${escapeHtml(e.texto)}</a>`).join(', ')}</div>`:''}
+    <div style="display:grid;grid-template-columns:repeat(${usar.length},minmax(0,1fr));gap:0.5rem">${usar.map((d,i)=>{ const k=fmtLocalDate(d); const es=ev.filter(e=>e.fecha===k); return `<div style="border-radius:10px;padding:0.45rem;min-height:120px;border:1px solid ${k===hs?'var(--aire)':'var(--border)'};background:${k===hs?'var(--bg-card2)':'transparent'}"><div style="font-size:0.62rem;font-weight:800;text-transform:uppercase;text-align:center;margin-bottom:0.4rem;color:${k===hs?'var(--aire)':'var(--text3)'}">${DN[i]} ${d.getDate()}${k===hs?' · hoy':''}</div>${es.map(_pEvChip).join('')||'<div style="text-align:center;color:var(--text3);font-size:0.7rem;opacity:0.5">—</div>'}</div>`; }).join('')}</div></div>`;
+}
+function _pVistaMes(){
+  window._pMesOff = window._pMesOff||0;
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const ref=new Date(hoy.getFullYear(), hoy.getMonth()+window._pMesOff, 1);
+  const fin=new Date(ref.getFullYear(), ref.getMonth()+1, 0);
+  const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const ev=_pEventos(_pDueño()).filter(e=>e.fecha>=fmtLocalDate(ref) && e.fecha<=fmtLocalDate(fin));
+  const ini=new Date(ref); ini.setDate(ref.getDate()-((ref.getDay()+6)%7));
+  const celdas=[]; for(let d=new Date(ini); d<=fin || celdas.length%7; d.setDate(d.getDate()+1)) celdas.push(new Date(d));
+  const hs=fmtLocalDate(hoy);
+  return `<div style="padding:0.9rem 1.2rem">
+    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem"><button onclick="window._pMesOff--;renderMiTrabajo()" style="width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);cursor:pointer">←</button>
+    <div style="font-size:0.85rem;font-weight:800;color:var(--text)">${MESES[ref.getMonth()]} ${ref.getFullYear()}</div>
+    <button onclick="window._pMesOff++;renderMiTrabajo()" style="width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);cursor:pointer">→</button>
+    <span style="font-size:0.7rem;color:var(--text3)">${ev.length} deadline${ev.length!==1?'s':''}</span></div>
+    <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(x=>`<div style="font-size:0.6rem;font-weight:800;color:var(--text3);text-align:center;text-transform:uppercase">${x}</div>`).join('')}
+    ${celdas.map(d=>{ const k=fmtLocalDate(d); const fuera=d.getMonth()!==ref.getMonth(); const es=ev.filter(e=>e.fecha===k); return `<div style="min-height:70px;border-radius:8px;padding:0.25rem;border:1px solid ${k===hs?'var(--aire)':'var(--border)'};opacity:${fuera?0.35:1}"><div style="font-size:0.62rem;font-weight:800;color:${k===hs?'var(--aire)':'var(--text3)'};margin-bottom:0.2rem">${d.getDate()}</div>${es.slice(0,3).map(_pEvChip).join('')}${es.length>3?`<div style="font-size:0.6rem;color:var(--text3)">+${es.length-3} más</div>`:''}</div>`; }).join('')}</div></div>`;
+}
+
+// ── Proyecto nuevo ──
+async function _pNuevoProyecto(){
+  const t = await askModal({ label:'🗂 Nuevo proyecto\n\n¿Qué quieres lograr? (después le agregas los pasos)', placeholder:'Ej: Cotizar sillas para la oficina' });
+  if(!t || !String(t).trim()) return;
+  const yo=_pYo();
+  const p = { id:_pUid(), titulo:String(t).trim(), tipo:'proyecto', ownerId:_pDueño(), creadoPor:yo.id, creadoPorNombre:yo.nombre, createdAt:new Date().toISOString(), deadline:'', pasos:[], falta:[], links:[], nota:'', done:false };
+  _pLista().unshift(p); _pGuardar(p); _pRender(); _pAbrir(p.id);
+}
+
+// ── Detalle / edición (se guarda solo, sin botón de guardar) ──
+function _pAbrir(id){ window._pAbiertoId = id; openGenericModal('', '<div id="p-modal-body"></div>'); const m=document.getElementById('tray-generic-modal'); if(m && m.firstElementChild){ m.firstElementChild.style.maxWidth='720px'; const tt=m.firstElementChild.firstElementChild; if(tt && !tt.id) tt.style.display='none'; } _pPintarModal(); }
+function _pSet(campo, val){ const p=_pBuscar(window._pAbiertoId); if(!p) return; p[campo]=val; _pGuardar(p); _pRender(); }
+function _pSetSilencioso(campo, val){ const p=_pBuscar(window._pAbiertoId); if(!p) return; p[campo]=val; _pGuardar(p); try{ renderMiTrabajo(); }catch(e){} }
+function _pListaAdd(lista, inputId){ const p=_pBuscar(window._pAbiertoId); const i=document.getElementById(inputId); if(!p||!i) return; const v=(i.value||'').trim(); if(!v) return;
+  if(lista==='pasos'){ const { titulo, fecha } = _pParseFecha(v); (p.pasos=p.pasos||[]).push({ id:_pUid(), texto:titulo, done:false, deadline:fecha }); }
+  else if(lista==='falta') (p.falta=p.falta||[]).push({ id:_pUid(), texto:v, done:false });
+  else if(lista==='links'){ let url=v; if(!/^https?:\/\//i.test(url)) url='https://'+url; const n=document.getElementById('p-link-nombre'); (p.links=p.links||[]).push({ url, titulo:(n&&n.value.trim())||'' }); if(n) n.value=''; }
+  i.value=''; _pGuardar(p); _pRender(); setTimeout(()=>{ const j=document.getElementById(inputId); if(j) j.focus(); }, 30); }
+function _pListaToggle(lista, sid){ const p=_pBuscar(window._pAbiertoId); if(!p) return; const x=(p[lista]||[]).find(s=>s.id===sid); if(!x) return; x.done=!x.done; x.doneAt=x.done?new Date().toISOString():null;
+  if(lista==='pasos' && p.pasos.length && p.pasos.every(s=>s.done) && !p.done){ p.done=true; p.doneAt=new Date().toISOString(); _pCelebrar('¡Proyecto terminado! 🚀'); } else if(lista==='pasos' && x.done) _pCelebrar();
+  if(lista==='pasos' && !x.done && p.done){ p.done=false; p.doneAt=null; }
+  _pGuardar(p); _pRender(); }
+function _pListaQuitar(lista, sid){ const p=_pBuscar(window._pAbiertoId); if(!p) return; p[lista]=(p[lista]||[]).filter(s=>s.id!==sid); _pGuardar(p); _pRender(); }
+function _pListaFecha(sid, val){ const p=_pBuscar(window._pAbiertoId); if(!p) return; const x=(p.pasos||[]).find(s=>s.id===sid); if(x){ x.deadline=val; _pGuardar(p); _pRender(); } }
+function _pListaTexto(lista, sid, val){ const p=_pBuscar(window._pAbiertoId); if(!p) return; const x=(p[lista]||[]).find(s=>s.id===sid); if(x){ x.texto=val; _pGuardar(p); try{ renderMiTrabajo(); }catch(e){} } }
+async function _pBorrar(){ const p=_pBuscar(window._pAbiertoId); if(!p) return; if(!(await confirmModal('¿Borrar “'+p.titulo+'”?', 'Borrar', 'background:#dc2626;color:#fff;border:none'))) return;
+  p.deletedAt=new Date().toISOString(); appData._deletedPendienteIds=[...new Set([...(appData._deletedPendienteIds||[]), p.id])]; markLocalChange('_deletedPendienteIds');
+  _pGuardar(p); closeTrayModal(); window._pAbiertoId=null; showStatus('Borrado'); try{ renderMiTrabajo(); }catch(e){} }
+async function _pPedirAprobacion(){
+  const p=_pBuscar(window._pAbiertoId); if(!p) return;
+  const msg = await askModal({ label:'✋ Pedir aprobación a los admins\n\n¿Qué necesitas que aprueben? (ej: “Comprar sillas del Proveedor B por $1.240, es la más barata con garantía”)', placeholder:'Escribe tu pedido…', defaultValue:'' });
+  if(msg===null) return;
+  const yo=_pYo();
+  p.aprob = { estado:'pendiente', mensaje:String(msg||'').trim(), pedidoAt:new Date().toISOString(), pedidoPor:yo.id, pedidoPorNombre:yo.nombre };
+  _pGuardar(p); showStatus('✋ Pedido enviado a los admins'); _pRender(); _pAbrir(p.id);
+}
+function _pCancelarAprobacion(){ const p=_pBuscar(window._pAbiertoId); if(!p) return; delete p.aprob; _pGuardar(p); _pRender(); }
+async function _pResponderAprobacion(id, ok){
+  if(!_tieneRol('admin')){ showStatus('Solo los admins aprueban', true); return; }
+  const p=_pBuscar(id); if(!p || !p.aprob) return;
+  const inp=document.getElementById('p-resp-'+id); const resp=inp?inp.value.trim():'';
+  const yo=_pYo();
+  Object.assign(p.aprob, { estado: ok?'aprobado':'rechazado', respuesta:resp, porId:yo.id, porNombre:yo.nombre, respondidoAt:new Date().toISOString() });
+  _pGuardar(p); showStatus(ok?'✓ Aprobado':'Marcado como no aprobado'); _pRender();
+}
+function _pPintarModal(){
+  const box=document.getElementById('p-modal-body'); const p=_pBuscar(window._pAbiertoId);
+  if(!box) return; if(!p){ box.innerHTML='<div style="color:var(--text3)">Este pendiente ya no existe.</div>'; return; }
+  const esProy=p.tipo==='proyecto'; const pr=_pProgreso(p); const pct=pr.t?Math.round(pr.d/pr.t*100):0;
+  const inp='box-sizing:border-box;border:1px solid var(--border);border-radius:9px;padding:0.45rem 0.6rem;background:var(--bg-card);color:var(--text);font-family:var(--font);font-size:0.82rem;outline:none';
+  const lbl=t=>`<div style="font-size:0.66rem;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text2);margin:0.9rem 0 0.4rem">${t}</div>`;
+  const filaCheck=(lista,s,extra)=>`<div style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.5rem;border:1px solid var(--border);border-radius:9px;margin-bottom:0.3rem;background:var(--bg-card2)">
+    <div onclick="_pListaToggle('${lista}','${s.id}')" style="width:20px;height:20px;border-radius:6px;flex-shrink:0;cursor:pointer;border:2px solid ${s.done?'#1c8a4a':'var(--border)'};background:${s.done?'#1c8a4a':'transparent'};color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center">${s.done?'✓':''}</div>
+    <input value="${escapeHtml(s.texto||'')}" onchange="_pListaTexto('${lista}','${s.id}',this.value)" style="flex:1;min-width:0;border:none;background:transparent;color:var(--text);font-size:0.84rem;font-family:var(--font);outline:none;${s.done?'text-decoration:line-through;opacity:0.5':''}">
+    ${extra||''}<button onclick="_pListaQuitar('${lista}','${s.id}')" title="Quitar" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.8rem">✕</button></div>`;
+  const generales=(appData.members||[]).filter(m=>m.active!==false && _rolesDe(m).includes('general'));
+  const puedeAsignar = _mtPuedeVerOtros();
+  let h = `<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem">
+      <div style="display:flex;background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:2px">
+        <button onclick="_pSet('tipo','simple')" style="border:none;border-radius:99px;padding:0.25rem 0.7rem;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:var(--font);background:${!esProy?'var(--aire)':'transparent'};color:${!esProy?'#fff':'var(--text2)'}">Pendiente</button>
+        <button onclick="_pSet('tipo','proyecto')" style="border:none;border-radius:99px;padding:0.25rem 0.7rem;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:var(--font);background:${esProy?'#6a4fc4':'transparent'};color:${esProy?'#fff':'var(--text2)'}">🗂 Proyecto con pasos</button></div>
+      <span style="flex:1"></span>
+      ${p.creadoPor && p.creadoPor!==p.ownerId && p.creadoPorNombre?`<span style="font-size:0.7rem;color:var(--text3)">Pedido por ${escapeHtml(p.creadoPorNombre)}</span>`:''}
+      <span style="font-size:0.64rem;color:#16a34a">● se guarda solo</span>
+      <button onclick="closeTrayModal();window._pAbiertoId=null" style="background:none;border:none;font-size:1.1rem;color:var(--text3);cursor:pointer">✕</button>
+    </div>
+    <input value="${escapeHtml(p.titulo||'')}" onchange="_pSetSilencioso('titulo', this.value.trim()||'Sin título')" style="width:100%;${inp};font-size:1.25rem;font-weight:800;border:none;padding:0.2rem 0;background:transparent">
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;margin-top:0.3rem">
+      <label style="font-size:0.74rem;color:var(--text2);font-weight:700">📅 ${esProy?'Deadline final':'Deadline'} <input type="date" value="${p.deadline||''}" onchange="_pSet('deadline', this.value)" style="${inp};margin-left:0.3rem"></label>
+      <label style="font-size:0.74rem;color:var(--text2);font-weight:700">🕐 Hora <input type="time" value="${p.hora||''}" onchange="_pSet('hora', this.value)" style="${inp};margin-left:0.3rem"></label>
+      ${puedeAsignar && generales.length>1?`<label style="font-size:0.74rem;color:var(--text2);font-weight:700">👤 Para <select onchange="_pSet('ownerId', this.value)" style="${inp};margin-left:0.3rem">${generales.map(m=>`<option value="${m.id}" ${m.id===p.ownerId?'selected':''}>${escapeHtml(m.apodo||m.nombre)}</option>`).join('')}</select></label>`:''}
+    </div>`;
+  if(esProy){
+    h += `<div style="height:7px;border-radius:9px;background:var(--border);overflow:hidden;margin:0.8rem 0 0.2rem"><div style="width:${pct}%;height:100%;background:#22a35a"></div></div><div style="font-size:0.7rem;color:var(--text3)">${pr.d} de ${pr.t} pasos</div>`;
+    h += lbl('Pasos') + (p.pasos||[]).map(s=>filaCheck('pasos', s, `<input type="date" value="${s.deadline||''}" onchange="_pListaFecha('${s.id}',this.value)" title="Fecha de este paso" style="${inp};padding:0.2rem 0.35rem;font-size:0.72rem;width:128px">`)).join('')
+      + `<input id="p-paso-nuevo" placeholder="+ Agregar paso y Enter… (puedes terminar con “viernes”, “mañana”…)" onkeydown="if(event.key==='Enter'){event.preventDefault();_pListaAdd('pasos','p-paso-nuevo');}" style="width:100%;${inp}">`;
+  }
+  h += lbl('⏳ Lo que me falta para avanzar') + `<div style="background:#fff8ec;border:1px solid #ffe1b3;border-radius:12px;padding:0.5rem">`
+    + (p.falta||[]).map(s=>filaCheck('falta', s)).join('')
+    + `<input id="p-falta-nueva" placeholder="+ Ej: la dirección exacta (pedírsela a Kath) y Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();_pListaAdd('falta','p-falta-nueva');}" style="width:100%;${inp};background:transparent"></div>`;
+  h += lbl('🔗 Documentos (Canva, Google Sheets, Drive…)') + `<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.4rem">`
+    + (p.links||[]).map((l,i)=>`<span style="display:inline-flex;align-items:center;gap:0.35rem;border:1px solid var(--border);background:var(--bg-card2);border-radius:10px;padding:0.35rem 0.6rem"><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener" style="text-decoration:none;color:var(--text);font-size:0.8rem;font-weight:700">${_pIconoLink(l.url)} ${escapeHtml(l.titulo||_pTipoLink(l.url))} ↗</a><span style="font-size:0.66rem;color:var(--text3)">${_pTipoLink(l.url)}</span><button onclick="(function(){const p=_pBuscar(window._pAbiertoId);p.links.splice(${i},1);_pGuardar(p);_pRender();})()" style="background:none;border:none;color:var(--text3);cursor:pointer">✕</button></span>`).join('')
+    + `</div><div style="display:flex;gap:0.4rem"><input id="p-link-nuevo" placeholder="Pega el link…" onkeydown="if(event.key==='Enter'){event.preventDefault();_pListaAdd('links','p-link-nuevo');}" style="flex:2;min-width:0;${inp}"><input id="p-link-nombre" placeholder="Nombre (opcional)" onkeydown="if(event.key==='Enter'){event.preventDefault();_pListaAdd('links','p-link-nuevo');}" style="flex:1;min-width:0;${inp}"><button onclick="_pListaAdd('links','p-link-nuevo')" style="border:none;border-radius:9px;background:var(--aire);color:#fff;font-weight:700;padding:0 0.8rem;cursor:pointer;font-family:var(--font)">Agregar</button></div>`;
+  h += lbl('📝 Notas') + `<textarea onchange="_pSetSilencioso('nota', this.value)" rows="2" placeholder="Detalles, contactos, lo que sea útil…" style="width:100%;${inp};resize:vertical">${escapeHtml(p.nota||'')}</textarea>`;
+  // Aprobación
+  const a=p.aprob;
+  h += lbl('✋ Aprobación');
+  if(!a) h += `<button onclick="_pPedirAprobacion()" style="background:#6a4fc4;color:#fff;border:none;border-radius:10px;padding:0.55rem 1rem;font-weight:800;font-size:0.8rem;cursor:pointer;font-family:var(--font)">✋ Pedir aprobación a los admins</button>`;
+  else if(a.estado==='pendiente') h += `<div style="border:1px solid #e3dbfb;background:#f7f4ff;border-radius:12px;padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text)">⏳ Esperando respuesta de un admin · pedido ${fmtDateDisplay(fmtLocalDate(new Date(a.pedidoAt)))}${a.mensaje?`<div style="color:var(--text2);margin-top:0.2rem">“${escapeHtml(a.mensaje)}”</div>`:''}${_tieneRol('admin')?`<div style="display:flex;gap:0.4rem;margin-top:0.5rem"><input id="p-resp-${p.id}" placeholder="Comentario (opcional)" style="flex:1;${inp}"><button onclick="_pResponderAprobacion('${p.id}',true)" style="background:#22a35a;color:#fff;border:none;border-radius:9px;padding:0 0.8rem;font-weight:800;cursor:pointer">✓ Aprobar</button><button onclick="_pResponderAprobacion('${p.id}',false)" style="background:#fff;color:#d12f2f;border:1px solid #f3b4b0;border-radius:9px;padding:0 0.8rem;font-weight:800;cursor:pointer">✕ No</button></div>`:`<div style="margin-top:0.4rem"><a onclick="_pCancelarAprobacion()" style="font-size:0.7rem;color:var(--text3);cursor:pointer;text-decoration:underline">Cancelar el pedido</a></div>`}</div>`;
+  else h += `<div style="border:1px solid ${a.estado==='aprobado'?'#cdeed9':'#ffc9c6'};background:${a.estado==='aprobado'?'#f2fbf5':'#fff6f5'};border-radius:12px;padding:0.6rem 0.75rem;font-size:0.82rem;color:var(--text)">${a.estado==='aprobado'?'✅ Aprobado':'❌ No aprobado'} por <b>${escapeHtml(a.porNombre||'')}</b>${a.respuesta?` · “${escapeHtml(a.respuesta)}”`:''}<div style="margin-top:0.3rem"><a onclick="_pPedirAprobacion()" style="font-size:0.7rem;color:var(--aire);cursor:pointer">Pedir otra aprobación</a></div></div>`;
+  h += `<div style="display:flex;gap:0.5rem;margin-top:1.2rem;align-items:center"><button onclick="_pBorrar()" style="background:none;border:1px solid rgba(220,38,38,0.35);color:#dc2626;border-radius:10px;padding:0.5rem 0.9rem;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:var(--font)">🗑 Borrar</button><span style="flex:1"></span>
+    <button onclick="(function(){const p=_pBuscar(window._pAbiertoId); if(!p) return; if(p.tipo==='proyecto'){(p.pasos||[]).forEach(s=>{if(!s.done){s.done=true;s.doneAt=new Date().toISOString();}});} p.done=!p.done; p.doneAt=p.done?new Date().toISOString():null; _pGuardar(p); if(p.done){_pCelebrar(); closeTrayModal(); window._pAbiertoId=null;} _pRender();})()" style="background:${p.done?'var(--bg-card2)':'#22a35a'};color:${p.done?'var(--text2)':'#fff'};border:${p.done?'1px solid var(--border)':'none'};border-radius:10px;padding:0.55rem 1.1rem;font-size:0.8rem;font-weight:800;cursor:pointer;font-family:var(--font)">${p.done?'↩ Reabrir':'✓ Marcar '+(esProy?'todo ':'')+'como hecho'}</button></div>`;
+  box.innerHTML = h;
+}
+
+// ── Aprobaciones pendientes (bloque en el panel de los admins) ──
+function _pAprobacionesPendientes(){ return _pLista().filter(p=>p && !p.deletedAt && p.aprob && p.aprob.estado==='pendiente'); }
+function _pBloqueAprobacionesAdmin(){
+  if(!_tieneRol('admin')) return '';
+  const l=_pAprobacionesPendientes(); if(!l.length) return '';
+  const inp='box-sizing:border-box;border:1px solid var(--border);border-radius:9px;padding:0.4rem 0.6rem;background:var(--bg-card);color:var(--text);font-family:var(--font);font-size:0.78rem;outline:none';
+  return `<div style="margin:0.9rem 1.4rem 0;border:1.5px solid #d9cff8;background:#f7f4ff;border-radius:14px;padding:0.75rem 0.9rem">
+    <div style="font-size:0.82rem;font-weight:800;color:#5b3fb8;margin-bottom:0.5rem">✋ Aprobaciones pendientes · ${l.length}</div>
+    ${l.map(p=>`<div style="background:var(--bg-card);border:1px solid #e3dbfb;border-radius:12px;padding:0.6rem 0.75rem;margin-bottom:0.4rem">
+      <div style="font-size:0.7rem;color:var(--text3)">${escapeHtml(p.aprob.pedidoPorNombre||_pNombre(p.ownerId))} pide aprobación · ${_presHace ? _presHace(p.aprob.pedidoAt) : ''}</div>
+      <div style="font-size:0.88rem;font-weight:800;color:var(--text);margin:0.15rem 0">${escapeHtml(p.titulo)}</div>
+      ${p.aprob.mensaje?`<div style="font-size:0.78rem;color:var(--text2);margin-bottom:0.3rem">“${escapeHtml(p.aprob.mensaje)}”</div>`:''}
+      ${(p.links||[]).length?`<div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-bottom:0.35rem">${p.links.map(l=>`<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener" style="font-size:0.7rem;font-weight:700;color:var(--text2);background:var(--bg-card2);border:1px solid var(--border);border-radius:99px;padding:0.15rem 0.55rem;text-decoration:none">${_pIconoLink(l.url)} ${escapeHtml(l.titulo||_pTipoLink(l.url))} ↗</a>`).join('')}</div>`:''}
+      <div style="display:flex;gap:0.4rem"><input id="p-resp-${p.id}" placeholder="Comentario (opcional)" style="flex:1;min-width:0;${inp}">
+        <button onclick="_pResponderAprobacion('${p.id}',true)" style="background:#22a35a;color:#fff;border:none;border-radius:9px;padding:0 0.85rem;font-weight:800;font-size:0.76rem;cursor:pointer;font-family:var(--font)">✓ Aprobar</button>
+        <button onclick="_pResponderAprobacion('${p.id}',false)" style="background:#fff;color:#d12f2f;border:1px solid #f3b4b0;border-radius:9px;padding:0 0.85rem;font-weight:800;font-size:0.76rem;cursor:pointer;font-family:var(--font)">✕ No aprobar</button></div></div>`).join('')}</div>`;
+}
+
+// ── Aviso al entrar (una vez por día) ──
+function _pAvisoAlEntrar(){
+  try{
+    const u=_usuarioActual(); if(!u || window._simUserId || window._mtVerComo) return;
+    // Si hay otra ventana abierta (ej. editando un pendiente), esperar y volver a intentar
+    const _mAb=document.getElementById('tray-generic-modal');
+    const _askAb=document.getElementById('ask-modal-overlay');
+    if((_mAb && _mAb.style.display!=='none' && _mAb.innerHTML) || (_askAb && !_askAb.classList.contains('hidden'))){ setTimeout(_pAvisoAlEntrar, 20000); return; }
+    const hoy=_pHoy(); const k='polen-aviso-p-'+u.id;
+    let visto=''; try{ visto=localStorage.getItem(k)||''; }catch(e){}
+    if(visto===hoy) return;
+    let titulo='', html='';
+    if(_rolesDe(u).includes('general')){
+      const ab=_pDe(u.id).filter(p=>!p.done);
+      const venc=ab.filter(p=>_pFecha(p) && _pFecha(p)<hoy).length, deHoy=ab.filter(p=>_pFecha(p)===hoy).length;
+      const resp=_pDe(u.id).filter(p=>p.aprob && p.aprob.estado!=='pendiente' && p.aprob.respondidoAt && (Date.now()-new Date(p.aprob.respondidoAt).getTime())<2*86400000).length;
+      const sinF=ab.filter(p=>!_pFecha(p)).length;
+      if(!venc && !deHoy && !resp && !sinF) return;
+      titulo='🧑‍🚀 Tu día de hoy';
+      html=`<div style="display:flex;flex-direction:column;gap:0.45rem;font-size:0.92rem;color:var(--text)">
+        ${deHoy?`<div>🟠 <b>${deHoy}</b> cosa${deHoy!==1?'s':''} para hoy</div>`:''}
+        ${venc?`<div>🔴 <b>${venc}</b> se ${venc!==1?'pasaron':'pasó'} de fecha</div>`:''}
+        ${resp?`<div>📬 <b>${resp}</b> respuesta${resp!==1?'s':''} de aprobación</div>`:''}
+        ${sinF?`<div>📥 <b>${sinF}</b> sin fecha (ponles una)</div>`:''}</div>`;
+    } else if(_rolesDe(u).includes('admin')){
+      const n=_pAprobacionesPendientes().length; if(!n) return;
+      titulo='✋ Aprobaciones pendientes'; html=`<div style="font-size:0.92rem;color:var(--text)">Tienes <b>${n}</b> pedido${n!==1?'s':''} de aprobación esperando respuesta. Los ves arriba en tu panel.</div>`;
+    } else return;
+    try{ localStorage.setItem(k, hoy); }catch(e){}
+    openGenericModal(titulo, html + `<div style="display:flex;justify-content:flex-end;margin-top:1rem"><button onclick="closeTrayModal();${_rolesDe(u).includes('general')?"setMiTrabajoVista('p_hoy');":''}document.getElementById('mi-trabajo-module')&&document.getElementById('mi-trabajo-module').scrollIntoView({behavior:'smooth',block:'start'})" style="background:var(--aire);color:#fff;border:none;border-radius:10px;padding:0.55rem 1.1rem;font-weight:800;cursor:pointer;font-family:var(--font)">Ver ahora</button></div>`);
+  }catch(e){ console.warn('aviso pendientes:', e); }
+}
 
 // ── Vista RESUMEN (marcas + próximos hitos, dos columnas) ──
 function _miTrabajoResumen(misMarcas, proximosHitos, STAGE_COLOR, fmtF, diffLabel, diffColor){
@@ -20476,10 +20896,11 @@ const _ROLES_INFO = {
   pm:        { label:'Project Manager', emoji:'🎯', desc:'Coordinación de proyectos.', color:'#3d9edd' },
   comercial: { label:'Gerente Comercial', emoji:'💼', desc:'Pipeline, seguimientos, metas y cobros.', color:'#e29578' },
   asistente: { label:'Asistente Administrativo', emoji:'💰', desc:'Cobros, finanzas, nuevos proyectos.', color:'#81b29a' },
+  general:   { label:'Asistente general', emoji:'🧰', desc:'Pendientes, proyectos y gestiones del estudio.', color:'#3d9edd' },
   revisor:   { label:'Revisor / Dirección Creativa', emoji:'🎬', desc:'Supervisa marcas asignadas.', color:'#e6a817' },
   regular:   { label:'Regular', emoji:'👤', desc:'Su trabajo, notas y tareas.', color:'#7d9bc1' }
 };
-const _ROLES_ORDEN = ['admin','pm','comercial','asistente','revisor','regular'];
+const _ROLES_ORDEN = ['admin','pm','comercial','asistente','general','revisor','regular'];
 
 async function _cambiarRolMiembro(memberId, nuevoRol){
   const m = (appData.members||[]).find(x=>x.id===memberId);
@@ -33620,6 +34041,7 @@ async function checkLogin(){
 // Actualiza el pie del sidebar con el usuario logueado
 function _actualizarPieUsuario(){
   _polenTrasCarga(()=>{ try{ _presIniciar(); }catch(e){} try{ _bitIniciar(); }catch(e){} }, 4000);
+  _polenTrasCarga(()=>{ try{ _pAvisoAlEntrar(); }catch(e){} }, 2500);
   // Un miembro desactivado no puede seguir usando el sistema
   _polenTrasCarga(()=>{ try{ const s=_sesion(); if(s && s.id && !s.master && _miembroInactivo(s.id)){ try{ sessionStorage.setItem('polen-msg-login','Tu usuario está desactivado. Si crees que es un error, habla con un administrador.'); }catch(e){} logout(); } }catch(e){} }, 1500);
   const foot = document.getElementById('sidebar-user-footer');
