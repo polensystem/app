@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261112-v535-ASISTENTE-GENERAL -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261112-v536-PENDIENTES-LOG -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4225,7 +4225,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 535;
+const APP_VERSION = 536;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -8126,7 +8126,7 @@ function deepMergeAppData(server, local){
     const mp = {};
     sp.forEach(x=>{ if(x && x.id) mp[x.id] = x; });
     lp.forEach(x=>{ if(!x || !x.id) return; const o=mp[x.id]; if(!o || String(x.updatedAt||'') >= String(o.updatedAt||'')) mp[x.id] = x; });
-    merged.pendientes = Object.values(mp).filter(x=>!borr.has(x.id) && !x.deletedAt);
+    merged.pendientes = Object.values(mp).filter(x=>!borr.has(x.id));   // los borrados quedan (con deletedAt) para el registro
     merged._deletedPendienteIds = [...borr];
   }
 
@@ -19413,10 +19413,29 @@ function _pReprogramar(id, cuando){
   if(cuando==='manana') f=_pAdd(hoy,1);
   else if(cuando==='lunes'){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+(((8-d.getDay())%7)||7)); f=fmtLocalDate(d); }
   else if(cuando==='semana') f=_pAdd(hoy,7);
-  if(p.tipo==='proyecto'){ const s=_pSiguientePaso(p); if(s && s.deadline && s.deadline<hoy) s.deadline=f; else p.deadline=f; } else p.deadline=f;
-  _pGuardar(p); showStatus('📅 Movido al '+fmtDateDisplay(f)); _pRender();
+  if(p.tipo==='proyecto'){ const s=_pSiguientePaso(p); if(s && s.deadline && s.deadline<hoy){ _pCambiarFecha(p, s.id, f); return; } }
+  _pCambiarFecha(p, null, f);
 }
-function _pPonerFecha(id, val){ const p=_pBuscar(id); if(!p||!val) return; p.deadline=val; _pGuardar(p); _pRender(); }
+function _pPonerFecha(id, val){ const p=_pBuscar(id); if(!p||!val) return; if(p.deadline){ _pCambiarFecha(p, null, val); return; } p.deadline=val; _pGuardar(p); _pRender(); }
+// Cambiar una fecha YA puesta (deadline, hora o fecha de un paso) exige una razón y queda registrado.
+// Poner la primera fecha a algo que no tenía, no. No hay forma de mover deadlines sin dejar rastro.
+async function _pCambiarFecha(p, pasoId, nueva, campo){
+  campo = campo || 'deadline';
+  const paso = pasoId ? (p.pasos||[]).find(s=>s.id===pasoId) : null;
+  const antes = paso ? (paso.deadline||'') : (p[campo]||'');
+  nueva = nueva || '';
+  if(antes===nueva) return true;
+  if(!antes){ if(paso) paso.deadline=nueva; else p[campo]=nueva; _pGuardar(p); _pRender(); return true; }
+  const fmt = v => v ? (campo==='hora' ? v : fmtDateDisplay(v)) : 'sin fecha';
+  const que = paso ? 'la fecha del paso “'+(paso.texto||'')+'”' : (campo==='hora'?'la hora':'el deadline')+(p.titulo?' de “'+p.titulo+'”':'');
+  const r = await askModal({ label:'📅 Vas a cambiar '+que+'\n'+fmt(antes)+'  →  '+fmt(nueva)+'\n\n¿Por qué se cambia? (obligatorio: queda registrado y lo ven los admins)', placeholder:'Ej: el proveedor responde recién el lunes', defaultValue:'' });
+  const razon = String(r||'').trim();
+  if(r===null || !razon){ showStatus(r===null?'No se cambió la fecha':'Sin razón no se puede cambiar la fecha', true); _pRender(); return false; }
+  if(paso) paso.deadline=nueva; else p[campo]=nueva;
+  const yo=_pYo();
+  (p.fechasLog = p.fechasLog||[]).push({ at:new Date().toISOString(), porId:yo.id, porNombre:yo.nombre, que: paso?'paso':campo, paso: paso?(paso.texto||''):'', de:antes, a:nueva, razon });
+  _pGuardar(p); showStatus('📅 Fecha cambiada · quedó registrado'); _pRender(); return true;
+}
 
 // ── Tarjeta de un pendiente ──
 function _pTarjeta(p, ctx){
@@ -19441,6 +19460,7 @@ function _pTarjeta(p, ctx){
   if(p.aprob && p.aprob.estado==='pendiente') sub.push('✋ Esperando aprobación');
   if(links) sub.push(links);
   if(p.creadoPor && p.creadoPor!==p.ownerId && p.creadoPorNombre) sub.push('Pedido por '+escapeHtml(p.creadoPorNombre));
+  { const nc=(p.fechasLog||[]).filter(x=>x.que==='deadline'||x.que==='paso'||x.que==='hora').length; if(nc) sub.push('<span style="color:#c2600c;font-weight:700" title="Veces que se cambió una fecha">🔁 fecha cambiada '+nc+' vez'+(nc!==1?'es':'')+'</span>'); }
   if(venc && ctx==='hoy') sub.push(`<span onclick="event.stopPropagation()">Mover a: <a onclick="_pReprogramar('${p.id}','manana')" style="color:var(--aire);cursor:pointer">mañana</a> · <a onclick="_pReprogramar('${p.id}','lunes')" style="color:var(--aire);cursor:pointer">lunes</a> · <a onclick="_pReprogramar('${p.id}','semana')" style="color:var(--aire);cursor:pointer">+1 semana</a></span>`);
   const borde = venc ? 'border:1px solid #ffc9c6;background:#fff6f5' : 'border:1px solid var(--border);background:var(--bg-card2)';
   return `<div onclick="_pAbrir('${p.id}')" style="display:flex;align-items:center;gap:0.7rem;${borde};border-radius:12px;padding:0.6rem 0.75rem;margin-bottom:0.45rem;cursor:pointer">
@@ -19490,11 +19510,13 @@ function _pVistaTodo(){
   else if(f==='simples') l=l.filter(p=>!p.done && p.tipo!=='proyecto');
   else if(f==='esperando') l=l.filter(p=>!p.done && ((p.aprob&&p.aprob.estado==='pendiente') || (p.falta||[]).some(x=>!x.done)));
   else if(f==='hechos') l=l.filter(p=>p.done).sort((a,b)=>String(b.doneAt||'').localeCompare(String(a.doneAt||''))).slice(0,40);
+  else if(f==='cambios') l=l.filter(p=>(p.fechasLog||[]).length).sort((a,b)=>String((b.fechasLog||[]).slice(-1)[0].at).localeCompare(String((a.fechasLog||[]).slice(-1)[0].at)));
+  else if(f==='borrados') l=_pLista().filter(p=>p && p.deletedAt && p.ownerId===yo).sort((a,b)=>String(b.deletedAt).localeCompare(String(a.deletedAt)));
   if(f!=='hechos') l.sort((a,b)=>(_pFecha(a)||'9999').localeCompare(_pFecha(b)||'9999'));
   const chip=(k,t)=>`<button onclick="window._pFiltro='${k}';renderMiTrabajo()" style="font-size:0.72rem;font-weight:700;padding:0.3rem 0.7rem;border-radius:99px;border:1px solid ${f===k?'var(--aire)':'var(--border)'};background:${f===k?'rgba(59,158,221,0.12)':'var(--bg-card)'};color:${f===k?'var(--aire)':'var(--text2)'};cursor:pointer;font-family:var(--font)">${t}</button>`;
   return `<div style="padding:0.9rem 1.2rem">${_pCaptura()}
-    <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin:0.6rem 0 0.4rem">${chip('abiertos','Todo lo abierto')}${chip('simples','Pendientes')}${chip('proyectos','🗂 Proyectos')}${chip('esperando','⏳ Trabado / esperando')}${chip('hechos','✓ Hechos')}</div>
-    ${l.length ? l.map(p=>_pTarjeta(p,'todo')).join('') : '<div style="font-size:0.8rem;color:var(--text3);padding:1rem 0">Nada por aquí.</div>'}</div>`;
+    <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin:0.6rem 0 0.4rem">${chip('abiertos','Todo lo abierto')}${chip('simples','Pendientes')}${chip('proyectos','🗂 Proyectos')}${chip('esperando','⏳ Trabado / esperando')}${chip('hechos','✓ Hechos')}${chip('cambios','🔁 Fechas cambiadas')}${_mtPuedeVerOtros()?chip('borrados','🗑 Borrados'):''}</div>
+    ${l.length ? (f==='borrados' ? l.map(p=>`<div style="display:flex;align-items:center;gap:0.6rem;border:1px solid var(--border);background:var(--bg-card2);border-radius:12px;padding:0.55rem 0.75rem;margin-bottom:0.4rem"><div style="flex:1;min-width:0"><div style="font-size:0.86rem;font-weight:700;color:var(--text2);text-decoration:line-through">${escapeHtml(p.titulo)}</div><div style="font-size:0.7rem;color:var(--text3)">Borrado por ${escapeHtml((p.borrado&&p.borrado.porNombre)||'')} · ${fmtDateDisplay(fmtLocalDate(new Date(p.deletedAt)))} · Razón: “${escapeHtml((p.borrado&&p.borrado.razon)||'—')}”</div></div><button onclick="_pRestaurar('${p.id}')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;font-size:0.7rem;cursor:pointer;color:var(--text2);font-family:var(--font)">↩ Restaurar</button></div>`).join('') : l.map(p=>_pTarjeta(p,'todo')).join('')) : '<div style="font-size:0.8rem;color:var(--text3);padding:1rem 0">Nada por aquí.</div>'}</div>`;
 }
 function _pVistaProyectos(){
   const yo=_pDueño();
@@ -19572,7 +19594,7 @@ async function _pNuevoProyecto(){
 
 // ── Detalle / edición (se guarda solo, sin botón de guardar) ──
 function _pAbrir(id){ window._pAbiertoId = id; openGenericModal('', '<div id="p-modal-body"></div>'); const m=document.getElementById('tray-generic-modal'); if(m && m.firstElementChild){ m.firstElementChild.style.maxWidth='720px'; const tt=m.firstElementChild.firstElementChild; if(tt && !tt.id) tt.style.display='none'; } _pPintarModal(); }
-function _pSet(campo, val){ const p=_pBuscar(window._pAbiertoId); if(!p) return; p[campo]=val; _pGuardar(p); _pRender(); }
+function _pSet(campo, val){ const p=_pBuscar(window._pAbiertoId); if(!p) return; if(campo==='deadline' || campo==='hora'){ _pCambiarFecha(p, null, val, campo); return; } p[campo]=val; _pGuardar(p); _pRender(); }
 function _pSetSilencioso(campo, val){ const p=_pBuscar(window._pAbiertoId); if(!p) return; p[campo]=val; _pGuardar(p); try{ renderMiTrabajo(); }catch(e){} }
 function _pListaAdd(lista, inputId){ const p=_pBuscar(window._pAbiertoId); const i=document.getElementById(inputId); if(!p||!i) return; const v=(i.value||'').trim(); if(!v) return;
   if(lista==='pasos'){ const { titulo, fecha } = _pParseFecha(v); (p.pasos=p.pasos||[]).push({ id:_pUid(), texto:titulo, done:false, deadline:fecha }); }
@@ -19583,12 +19605,22 @@ function _pListaToggle(lista, sid){ const p=_pBuscar(window._pAbiertoId); if(!p)
   if(lista==='pasos' && p.pasos.length && p.pasos.every(s=>s.done) && !p.done){ p.done=true; p.doneAt=new Date().toISOString(); _pCelebrar('¡Proyecto terminado! 🚀'); } else if(lista==='pasos' && x.done) _pCelebrar();
   if(lista==='pasos' && !x.done && p.done){ p.done=false; p.doneAt=null; }
   _pGuardar(p); _pRender(); }
-function _pListaQuitar(lista, sid){ const p=_pBuscar(window._pAbiertoId); if(!p) return; p[lista]=(p[lista]||[]).filter(s=>s.id!==sid); _pGuardar(p); _pRender(); }
-function _pListaFecha(sid, val){ const p=_pBuscar(window._pAbiertoId); if(!p) return; const x=(p.pasos||[]).find(s=>s.id===sid); if(x){ x.deadline=val; _pGuardar(p); _pRender(); } }
+async function _pListaQuitar(lista, sid){ const p=_pBuscar(window._pAbiertoId); if(!p) return;
+  const x=(p[lista]||[]).find(s=>s.id===sid);
+  if(lista==='pasos' && x && x.deadline && !x.done){
+    const r = await askModal({ label:'🗑 Vas a quitar el paso “'+(x.texto||'')+'” (fecha '+fmtDateDisplay(x.deadline)+')\n\n¿Por qué? (queda registrado)', placeholder:'Ej: ya no hace falta, lo resolvió Kath' });
+    if(r===null || !String(r).trim()){ showStatus('No se quitó el paso', true); return; }
+    const yo=_pYo(); (p.fechasLog=p.fechasLog||[]).push({ at:new Date().toISOString(), porId:yo.id, porNombre:yo.nombre, que:'paso-quitado', paso:x.texto||'', de:x.deadline, a:'', razon:String(r).trim() });
+  }
+  p[lista]=(p[lista]||[]).filter(s=>s.id!==sid); _pGuardar(p); _pRender(); }
+function _pListaFecha(sid, val){ const p=_pBuscar(window._pAbiertoId); if(!p) return; if((p.pasos||[]).some(s=>s.id===sid)) _pCambiarFecha(p, sid, val); }
 function _pListaTexto(lista, sid, val){ const p=_pBuscar(window._pAbiertoId); if(!p) return; const x=(p[lista]||[]).find(s=>s.id===sid); if(x){ x.texto=val; _pGuardar(p); try{ renderMiTrabajo(); }catch(e){} } }
-async function _pBorrar(){ const p=_pBuscar(window._pAbiertoId); if(!p) return; if(!(await confirmModal('¿Borrar “'+p.titulo+'”?', 'Borrar', 'background:#dc2626;color:#fff;border:none'))) return;
-  p.deletedAt=new Date().toISOString(); appData._deletedPendienteIds=[...new Set([...(appData._deletedPendienteIds||[]), p.id])]; markLocalChange('_deletedPendienteIds');
-  _pGuardar(p); closeTrayModal(); window._pAbiertoId=null; showStatus('Borrado'); try{ renderMiTrabajo(); }catch(e){} }
+async function _pBorrar(){ const p=_pBuscar(window._pAbiertoId); if(!p) return;
+  const r = await askModal({ label:'🗑 ¿Borrar “'+p.titulo+'”?\n\n¿Por qué se borra? (obligatorio: los admins y la PM lo pueden ver)', placeholder:'Ej: lo canceló Sebas / estaba repetido' });
+  if(r===null || !String(r).trim()){ showStatus('No se borró', true); return; }
+  const yo=_pYo(); p.deletedAt=new Date().toISOString(); p.borrado={ porId:yo.id, porNombre:yo.nombre, razon:String(r).trim(), at:p.deletedAt };
+  _pGuardar(p); closeTrayModal(); window._pAbiertoId=null; showStatus('Borrado · quedó registrado'); try{ renderMiTrabajo(); }catch(e){} }
+function _pRestaurar(id){ const p=_pBuscar(id); if(!p) return; delete p.deletedAt; const yo=_pYo(); (p.fechasLog=p.fechasLog||[]).push({ at:new Date().toISOString(), porId:yo.id, porNombre:yo.nombre, que:'restaurado', de:'', a:'', razon:'Restaurado (antes borrado: '+((p.borrado&&p.borrado.razon)||'')+')' }); delete p.borrado; _pGuardar(p); showStatus('Restaurado'); try{ renderMiTrabajo(); }catch(e){} }
 async function _pPedirAprobacion(){
   const p=_pBuscar(window._pAbiertoId); if(!p) return;
   const msg = await askModal({ label:'✋ Pedir aprobación a los admins\n\n¿Qué necesitas que aprueben? (ej: “Comprar sillas del Proveedor B por $1.240, es la más barata con garantía”)', placeholder:'Escribe tu pedido…', defaultValue:'' });
@@ -19651,7 +19683,21 @@ function _pPintarModal(){
   if(!a) h += `<button onclick="_pPedirAprobacion()" style="background:#6a4fc4;color:#fff;border:none;border-radius:10px;padding:0.55rem 1rem;font-weight:800;font-size:0.8rem;cursor:pointer;font-family:var(--font)">✋ Pedir aprobación a los admins</button>`;
   else if(a.estado==='pendiente') h += `<div style="border:1px solid #e3dbfb;background:#f7f4ff;border-radius:12px;padding:0.6rem 0.75rem;font-size:0.8rem;color:var(--text)">⏳ Esperando respuesta de un admin · pedido ${fmtDateDisplay(fmtLocalDate(new Date(a.pedidoAt)))}${a.mensaje?`<div style="color:var(--text2);margin-top:0.2rem">“${escapeHtml(a.mensaje)}”</div>`:''}${_tieneRol('admin')?`<div style="display:flex;gap:0.4rem;margin-top:0.5rem"><input id="p-resp-${p.id}" placeholder="Comentario (opcional)" style="flex:1;${inp}"><button onclick="_pResponderAprobacion('${p.id}',true)" style="background:#22a35a;color:#fff;border:none;border-radius:9px;padding:0 0.8rem;font-weight:800;cursor:pointer">✓ Aprobar</button><button onclick="_pResponderAprobacion('${p.id}',false)" style="background:#fff;color:#d12f2f;border:1px solid #f3b4b0;border-radius:9px;padding:0 0.8rem;font-weight:800;cursor:pointer">✕ No</button></div>`:`<div style="margin-top:0.4rem"><a onclick="_pCancelarAprobacion()" style="font-size:0.7rem;color:var(--text3);cursor:pointer;text-decoration:underline">Cancelar el pedido</a></div>`}</div>`;
   else h += `<div style="border:1px solid ${a.estado==='aprobado'?'#cdeed9':'#ffc9c6'};background:${a.estado==='aprobado'?'#f2fbf5':'#fff6f5'};border-radius:12px;padding:0.6rem 0.75rem;font-size:0.82rem;color:var(--text)">${a.estado==='aprobado'?'✅ Aprobado':'❌ No aprobado'} por <b>${escapeHtml(a.porNombre||'')}</b>${a.respuesta?` · “${escapeHtml(a.respuesta)}”`:''}<div style="margin-top:0.3rem"><a onclick="_pPedirAprobacion()" style="font-size:0.7rem;color:var(--aire);cursor:pointer">Pedir otra aprobación</a></div></div>`;
-  h += `<div style="display:flex;gap:0.5rem;margin-top:1.2rem;align-items:center"><button onclick="_pBorrar()" style="background:none;border:1px solid rgba(220,38,38,0.35);color:#dc2626;border-radius:10px;padding:0.5rem 0.9rem;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:var(--font)">🗑 Borrar</button><span style="flex:1"></span>
+  { const lg=(p.fechasLog||[]).slice().reverse();
+    if(lg.length){
+      const MS=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+      const fd=iso=>{ const d=new Date(iso); return d.getDate()+' '+MS[d.getMonth()]+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+      const fv=(v,q)=> v ? (q==='hora'?v:fmtDateDisplay(v)) : 'sin fecha';
+      const accion=x=> x.que==='paso' ? 'movió el paso “'+escapeHtml(x.paso)+'”: '+fv(x.de)+' → <b>'+fv(x.a)+'</b>'
+        : x.que==='paso-quitado' ? 'quitó el paso “'+escapeHtml(x.paso)+'” (era para el '+fv(x.de)+')'
+        : x.que==='hora' ? 'cambió la hora: '+fv(x.de,'hora')+' → <b>'+fv(x.a,'hora')+'</b>'
+        : x.que==='restaurado' ? 'lo restauró'
+        : 'movió el deadline: '+fv(x.de)+' → <b>'+fv(x.a)+'</b>';
+      h += lbl('📜 Historial de cambios de fecha · '+lg.length) + `<div style="border:1px solid #ffe1b3;background:#fffaf2;border-radius:12px;padding:0.4rem 0.7rem;max-height:180px;overflow-y:auto">`
+        + lg.map(x=>`<div style="padding:0.35rem 0;border-bottom:1px solid #fbe9cc;font-size:0.76rem;color:var(--text);line-height:1.45"><span style="color:var(--text3)">${fd(x.at)} · </span><b>${escapeHtml(x.porNombre||'')}</b> ${accion(x)}<div style="color:var(--text2)">Razón: “${escapeHtml(x.razon||'')}”</div></div>`).join('') + `</div>`;
+    }
+  }
+  h += `<div style="display:flex;gap:0.5rem;margin-top:1.2rem;align-items:center"><button onclick="_pBorrar()\" style="background:none;border:1px solid rgba(220,38,38,0.35);color:#dc2626;border-radius:10px;padding:0.5rem 0.9rem;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:var(--font)">🗑 Borrar</button><span style="flex:1"></span>
     <button onclick="(function(){const p=_pBuscar(window._pAbiertoId); if(!p) return; if(p.tipo==='proyecto'){(p.pasos||[]).forEach(s=>{if(!s.done){s.done=true;s.doneAt=new Date().toISOString();}});} p.done=!p.done; p.doneAt=p.done?new Date().toISOString():null; _pGuardar(p); if(p.done){_pCelebrar(); closeTrayModal(); window._pAbiertoId=null;} _pRender();})()" style="background:${p.done?'var(--bg-card2)':'#22a35a'};color:${p.done?'var(--text2)':'#fff'};border:${p.done?'1px solid var(--border)':'none'};border-radius:10px;padding:0.55rem 1.1rem;font-size:0.8rem;font-weight:800;cursor:pointer;font-family:var(--font)">${p.done?'↩ Reabrir':'✓ Marcar '+(esProy?'todo ':'')+'como hecho'}</button></div>`;
   box.innerHTML = h;
 }
