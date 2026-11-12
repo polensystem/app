@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261112-v538-PROYECTOS-DESPLEGABLES -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261112-v539-PENDIENTES-TABLA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4168,6 +4168,62 @@ window.CrmTareasDB = (function(){
   return { loadAll, saveOne, deleteOne, migrateFromJson, isAvailable, subscribe };
 })();
 
+// 🔒 Pendientes del asistente general: tabla propia (polen_pendientes), una fila por pendiente.
+// Antes vivían en el JSON compartido y un dispositivo con datos viejos los borraba al guardar.
+window.PendientesDB = (function(){
+  const TABLE = 'polen_pendientes';
+  let _available = null;
+  async function loadAll(){
+    try{
+      const { data, error } = await sb.from(TABLE).select('id,data,updated_at');
+      if(error){ _available=false; console.warn('[PendientesDB] tabla no disponible:', error.message); return null; }
+      _available=true;
+      return (data||[]).map(r=>({ ...(r.data||{}), id:r.id }));
+    }catch(e){ _available=false; console.warn('[PendientesDB] loadAll falló:', e); return null; }
+  }
+  async function saveOne(t){
+    if(_available===false || !t || !t.id) return false;
+    try{
+      const { error } = await sb.from(TABLE).upsert({ id:t.id, data:t, updated_at:new Date().toISOString() }, {onConflict:'id'});
+      if(error){ console.error('[PendientesDB] saveOne:', error); return false; }
+      _available=true; return true;
+    }catch(e){ console.error('[PendientesDB] saveOne:', e); return false; }
+  }
+  function isAvailable(){ return _available; }
+  // Une dos listas por id: gana la versión con updatedAt más reciente
+  function unir(a, b){
+    const m = {};
+    (a||[]).forEach(x=>{ if(x && x.id) m[x.id] = x; });
+    (b||[]).forEach(x=>{ if(!x || !x.id) return; const o=m[x.id]; if(!o || String(x.updatedAt||'') > String(o.updatedAt||'')) m[x.id] = x; });
+    return Object.values(m);
+  }
+  let _subbed = false;
+  function subscribe(){
+    if(_subbed) return; _subbed = true;
+    try{
+      sb.channel('polen_pendientes_rt')
+        .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, async ()=>{
+          const t = await loadAll();
+          if(t){ appData.pendientes = unir(appData.pendientes, t); try{ if(typeof _pRender==='function') _pRender(); }catch(e){} }
+        })
+        .subscribe();
+    }catch(e){ console.warn('[PendientesDB] subscribe falló:', e); }
+  }
+  return { loadAll, saveOne, isAvailable, subscribe, unir };
+})();
+
+// Rescate: pendientes que quedaron en las copias locales de este navegador (por si el JSON compartido los perdió)
+function _pRescatarLocales(){
+  const encontrados = [];
+  ['polen-localbak','polen-autobackup','polen-pendientes-local'].forEach(k=>{
+    try{ const raw = localStorage.getItem(k); if(!raw) return; const j = JSON.parse(raw);
+      const arr = Array.isArray(j) ? j : (j && j.data && Array.isArray(j.data.pendientes) ? j.data.pendientes : []);
+      arr.forEach(x=>{ if(x && x.id) encontrados.push(x); });
+    }catch(e){}
+  });
+  return encontrados;
+}
+
 window.MetasDB = (function(){
   const TABLE = 'polen_metas';
   let _available = null;
@@ -4225,7 +4281,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 538;
+const APP_VERSION = 539;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -7367,7 +7423,21 @@ async function loadData(){
         if(metasTabla){ appData.metas = metasTabla; console.log('[Polen] ✓ Metas cargadas de tabla nueva'); }
       } catch(e){ console.error('[Polen] Error cargando metas de tabla:', e); }
 
+      try {
+        const tablaP = await PendientesDB.loadAll();
+        const jsonP = Array.isArray(appData.pendientes) ? appData.pendientes : [];
+        const localP = _pRescatarLocales();
+        const unidos = PendientesDB.unir(PendientesDB.unir(jsonP, localP), tablaP||[]);
+        appData.pendientes = PendientesDB.unir(unidos, []);
+        if(tablaP){
+          const enTabla = new Map(tablaP.map(x=>[x.id, String(x.updatedAt||'')]));
+          for(const x of appData.pendientes){ if(!enTabla.has(x.id) || String(x.updatedAt||'') > enTabla.get(x.id)) await PendientesDB.saveOne(x); }
+          console.log('[Polen] ✓ Pendientes cargados de tabla nueva:', appData.pendientes.length);
+        }
+      } catch(e){ console.error('[Polen] Error cargando pendientes de tabla:', e); }
+
       // Suscripción en tiempo real a las tablas nuevas (sincroniza entre dispositivos)
+      try{ if(PendientesDB.isAvailable()) PendientesDB.subscribe(); }catch(e){}
       try{ if(CrmTareasDB.isAvailable()) CrmTareasDB.subscribe(); }catch(e){}
       try{ if(MetasDB.isAvailable()) MetasDB.subscribe(); }catch(e){}
 
@@ -8500,6 +8570,9 @@ async function _doUpsert(){
       try {
         const {data: serverRow} = await sb.from('polen_shared').select('data').eq('id', REC_ID).single();
         const serverData = serverRow?.data;
+        if(serverData && Array.isArray(serverData.pendientes) && window.PendientesDB){
+          appData.pendientes = PendientesDB.unir(appData.pendientes, serverData.pendientes);
+        }
         if(serverData && Array.isArray(serverData.brands)){
           const serverBrandMap = {};
           serverData.brands.forEach(sb_ => { if(sb_?.id) serverBrandMap[sb_.id] = sb_; });
@@ -19344,6 +19417,8 @@ function _pAdd(n, dias){ const d=parseLocalDate(n); d.setDate(d.getDate()+dias);
 let _pTimer=null;
 function _pGuardar(p){
   if(p) p.updatedAt = new Date().toISOString();
+  try{ if(p && window.PendientesDB) PendientesDB.saveOne(p); }catch(e){}
+  try{ localStorage.setItem('polen-pendientes-local', JSON.stringify(_pLista())); }catch(e){}
   markLocalChange('pendientes');
   clearTimeout(_pTimer); _pTimer = setTimeout(()=>{ try{ upsert(); }catch(e){} }, 600);
 }
