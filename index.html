@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261112-v539-PENDIENTES-TABLA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261112-v542-PANEL-SIMPLE -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4204,7 +4204,7 @@ window.PendientesDB = (function(){
       sb.channel('polen_pendientes_rt')
         .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, async ()=>{
           const t = await loadAll();
-          if(t){ appData.pendientes = unir(appData.pendientes, t); try{ if(typeof _pRender==='function') _pRender(); }catch(e){} }
+          if(t){ window._pPlantillas = t.filter(x=>x.esPlantilla); appData.pendientes = unir(appData.pendientes, t.filter(x=>!x.esPlantilla)); try{ if(typeof _pRender==='function') _pRender(); }catch(e){} }
         })
         .subscribe();
     }catch(e){ console.warn('[PendientesDB] subscribe falló:', e); }
@@ -4281,7 +4281,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 539;
+const APP_VERSION = 542;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -7424,7 +7424,8 @@ async function loadData(){
       } catch(e){ console.error('[Polen] Error cargando metas de tabla:', e); }
 
       try {
-        const tablaP = await PendientesDB.loadAll();
+        let tablaP = await PendientesDB.loadAll();
+        if(tablaP){ window._pPlantillas = tablaP.filter(x=>x.esPlantilla); tablaP = tablaP.filter(x=>!x.esPlantilla); }
         const jsonP = Array.isArray(appData.pendientes) ? appData.pendientes : [];
         const localP = _pRescatarLocales();
         const unidos = PendientesDB.unir(PendientesDB.unir(jsonP, localP), tablaP||[]);
@@ -19271,10 +19272,6 @@ function _renderMiTrabajoInterno(){
     const _hechasSem=_mis.filter(p=>p.done && p.doneAt && new Date(p.doneAt)>=_lun).length + _mis.reduce((s,p)=>s+(p.pasos||[]).filter(x=>x.done && x.doneAt && new Date(x.doneAt)>=_lun).length,0);
     const _paraHoy=_mis.filter(p=>!p.done && _pFecha(p)===_hoyP).length;
     h1 += `
-        <div>
-          <div style="font-size:1.6rem;font-weight:800;color:${color};line-height:1">${_paraHoy}</div>
-          <div style="font-size:0.62rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Para hoy</div>
-        </div>
         <div style="padding:0.3rem 0.7rem;border-radius:12px;background:#dcf5e5">
           <div style="font-size:1.6rem;font-weight:800;color:#1c8a4a;line-height:1">${_hechasSem}</div>
           <div style="font-size:0.62rem;color:#1c8a4a;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Hechas esta semana</div>
@@ -19330,7 +19327,8 @@ function _renderMiTrabajoInterno(){
   const _tieneSuperv = _superv.length > 0;
   if(_modoGeneral){
     // Asistente general: su panel ES su gestor de pendientes
-    tabs = [['p_hoy','🎯 Hoy'],['p_todo','📋 Todo'],['p_proy','🗂 Proyectos'],['p_semana','📅 Semana'],['p_mes','🗓 Mes']];
+    tabs = [['p_hoy','🎯 Hoy'],['p_proy','🗂 Proyectos'],['p_cal','📅 Calendario']];
+    if(_pEsJefe()) tabs.push(['p_todo','📋 Todo']);
     if(!tabs.map(t=>t[0]).includes(_miTrabajoVista)) _miTrabajoVista='p_hoy';
   } else if(_esAsistente()){
     // El asistente no ejecuta marcas: sus pestañas son Resumen (cobros) y Nuevos proyectos
@@ -19365,6 +19363,7 @@ function _renderMiTrabajoInterno(){
   if(_miTrabajoVista==='p_hoy') h1 += _pVistaHoy();
   else if(_miTrabajoVista==='p_todo') h1 += _pVistaTodo();
   else if(_miTrabajoVista==='p_proy') h1 += _pVistaProyectos();
+  else if(_miTrabajoVista==='p_cal'){ const m=window._pCalModo||'semana'; const b=(k,t)=>`<button onclick="window._pCalModo='${k}';renderMiTrabajo()" style="padding:0.4rem 1rem;border-radius:9px;border:none;font-weight:700;font-size:0.8rem;cursor:pointer;font-family:var(--font);background:${m===k?'var(--bg-card)':'transparent'};color:${m===k?'var(--text)':'var(--text3)'};${m===k?'box-shadow:0 1px 4px rgba(0,0,0,0.08)':''}">${t}</button>`; h1 += `<div style="padding:0.9rem 1.2rem 0"><div style="display:inline-flex;gap:3px;background:var(--bg-card2);padding:3px;border-radius:11px">${b('semana','Semana')}${b('mes','Mes')}</div></div>` + (m==='mes'?_pVistaMes():_pVistaSemana()); }
   else if(_miTrabajoVista==='p_semana') h1 += _pVistaSemana();
   else if(_miTrabajoVista==='p_mes') h1 += _pVistaMes();
   else if(_miTrabajoVista==='resumen'){
@@ -19407,7 +19406,9 @@ function _renderMiTrabajoInterno(){
 // ═════════════════════════════════════════════════════════════════════════════
 function _esGeneral(){ return _tieneRol('general'); }
 function _pUid(){ return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
-function _pLista(){ if(!Array.isArray(appData.pendientes)) appData.pendientes = []; return appData.pendientes; }
+function _pLista(){ if(!Array.isArray(appData.pendientes)) appData.pendientes = []; appData.pendientes.forEach(_pCoherente); return appData.pendientes; }
+// Un proyecto solo está terminado si TODOS sus pasos están hechos (si se agrega un paso nuevo, se reabre solo)
+function _pCoherente(p){ if(p && p.tipo==='proyecto' && p.done && (p.pasos||[]).some(x=>!x.done)){ p.done=false; p.doneAt=null; } return p; }
 function _pDueño(){ return window._pOwnerId || (_usuarioActual()||{}).id || ''; }
 function _pYo(){ const u = (typeof _usuarioReal==='function' ? _usuarioReal() : null) || _usuarioActual() || {}; return { id:u.id||'', nombre:u.apodo||u.nombre||'' }; }
 function _pNombre(id){ const m=(appData.members||[]).find(x=>x.id===id); return m ? (m.apodo||m.nombre||'') : ''; }
@@ -19416,7 +19417,7 @@ function _pHoy(){ return fmtLocalDate(new Date()); }
 function _pAdd(n, dias){ const d=parseLocalDate(n); d.setDate(d.getDate()+dias); return fmtLocalDate(d); }
 let _pTimer=null;
 function _pGuardar(p){
-  if(p) p.updatedAt = new Date().toISOString();
+  if(p){ _pCoherente(p); p.updatedAt = new Date().toISOString(); }
   try{ if(p && window.PendientesDB) PendientesDB.saveOne(p); }catch(e){}
   try{ localStorage.setItem('polen-pendientes-local', JSON.stringify(_pLista())); }catch(e){}
   markLocalChange('pendientes');
@@ -19544,39 +19545,40 @@ function _pDetalleInline(p){
 }
 
 // ── Tarjeta de un pendiente ──
+function _pEsJefe(){ try{ const r=_rolesDe(_usuarioReal()); return r.includes('admin')||r.includes('pm'); }catch(e){ return false; } }
+function _pRayitas(p, claro){
+  const ps=p.pasos||[]; if(!ps.length) return '';
+  const w = ps.length>8 ? 7 : 14;
+  return `<span title="${ps.filter(x=>x.done).length} de ${ps.length} pasos" style="display:inline-flex;gap:3px;flex-shrink:0">${ps.map(x=>`<i style="display:block;width:${w}px;height:5px;border-radius:5px;background:${x.done?(claro?'#fff':'#3b9e6a'):(claro?'rgba(255,255,255,0.3)':'#e4e0f0')}"></i>`).join('')}</span>`;
+}
+function _pCuando(f, hora){
+  if(!f) return null; const hoy=_pHoy();
+  const MS=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'], DS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const d=parseLocalDate(f); const dif=Math.round((d-parseLocalDate(hoy))/86400000);
+  const txt = dif<0 ? (dif===-1?'Ayer':'Hace '+(-dif)+' días') : dif===0 ? 'Hoy'+(hora?' '+hora:'') : dif===1 ? 'Mañana' : dif<7 ? DS[d.getDay()].charAt(0).toUpperCase()+DS[d.getDay()].slice(1) : d.getDate()+' '+MS[d.getMonth()];
+  return { txt, dif, color: dif<0?'#d12f2f':dif===0?'#c2600c':'var(--text3)' };
+}
 function _pTarjeta(p, ctx){
   const hoy=_pHoy(); const f=_pFecha(p);
   const venc = !p.done && f && f<hoy;
-  const MS=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'], DS=['dom','lun','mar','mié','jue','vie','sáb'];
   let chip='';
-  if(p.done) chip=`<span style="font-size:0.66rem;font-weight:700;border-radius:99px;padding:0.15rem 0.55rem;background:#dcf5e5;color:#1c8a4a;white-space:nowrap">✓ Hecho</span>`;
-  else if(f){
-    const d=parseLocalDate(f); const dif=Math.round((d-parseLocalDate(hoy))/86400000);
-    const txt = dif<0 ? (dif===-1?'Ayer':'Hace '+(-dif)+' días') : dif===0 ? 'Hoy'+(p.hora?' '+p.hora:'') : dif===1 ? 'Mañana' : dif<7 ? DS[d.getDay()].charAt(0).toUpperCase()+DS[d.getDay()].slice(1)+' '+d.getDate() : d.getDate()+' '+MS[d.getMonth()];
-    const col = dif<0?['#ffe1e0','#d12f2f']:dif===0?['#ffedd8','#c2600c']:dif<=2?['#fff4d6','#a16207']:['#e2f1fd','#2a7fbf'];
-    chip=`<span style="font-size:0.66rem;font-weight:700;border-radius:99px;padding:0.15rem 0.55rem;background:${col[0]};color:${col[1]};white-space:nowrap">${txt}</span>`;
-  } else chip=`<label onclick="event.stopPropagation()" style="position:relative;font-size:0.66rem;font-weight:700;border-radius:99px;padding:0.15rem 0.55rem;background:var(--bg-card2);color:var(--text3);white-space:nowrap;cursor:pointer;border:1px dashed var(--border)">+ fecha<input type="date" onchange="_pPonerFecha('${p.id}',this.value)" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>`;
-  const pr=_pProgreso(p); const sig=_pSiguientePaso(p);
-  const tagProy = p.tipo==='proyecto' ? `<span style="font-size:0.62rem;font-weight:700;border-radius:99px;padding:0.1rem 0.45rem;background:#ece7fb;color:#6a4fc4;margin-left:0.35rem;white-space:nowrap">🗂 ${pr.d}/${pr.t} pasos</span>` : '';
-  const faltan=(p.falta||[]).filter(x=>!x.done);
-  const links=(p.links||[]).slice(0,2).map(l=>_pIconoLink(l.url)+' '+escapeHtml(l.titulo||_pTipoLink(l.url))).join(' · ');
+  if(p.done) chip=`<span style="font-size:0.78rem;font-weight:700;color:#1c8a4a;white-space:nowrap">✓ Hecho</span>`;
+  else if(f){ const c=_pCuando(f, p.hora); chip=`<span style="font-size:0.8rem;font-weight:700;color:${c.color};white-space:nowrap">${c.txt}</span>`; }
+  else chip=`<label onclick="event.stopPropagation()" style="position:relative;font-size:0.72rem;font-weight:700;border-radius:99px;padding:0.2rem 0.6rem;color:var(--text3);white-space:nowrap;cursor:pointer;border:1px dashed var(--border)">+ fecha<input type="date" onchange="_pPonerFecha('${p.id}',this.value)" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>`;
+  const sig=_pSiguientePaso(p);
   let sub=[];
-  if(p.tipo==='proyecto' && sig && !p.done) sub.push('👉 Siguiente: <b style="color:var(--text)">'+escapeHtml(sig.texto||'')+'</b>');
-  if(faltan.length && !p.done) sub.push('⏳ Me falta: <b style="color:var(--text)">'+escapeHtml(faltan[0].texto)+'</b>'+(faltan.length>1?' +'+(faltan.length-1):''));
   if(p.aprob && p.aprob.estado==='pendiente') sub.push('✋ Esperando aprobación');
-  if(links) sub.push(links);
-  if(p.creadoPor && p.creadoPor!==p.ownerId && p.creadoPorNombre) sub.push('Pedido por '+escapeHtml(p.creadoPorNombre));
-  { const nc=(p.fechasLog||[]).filter(x=>x.que==='deadline'||x.que==='paso'||x.que==='hora').length; if(nc) sub.push('<span style="color:#c2600c;font-weight:700" title="Veces que se cambió una fecha">🔁 fecha cambiada '+nc+' vez'+(nc!==1?'es':'')+'</span>'); }
-  if(venc && ctx==='hoy') sub.push(`<span onclick="event.stopPropagation()">Mover a: <a onclick="_pReprogramar('${p.id}','manana')" style="color:var(--aire);cursor:pointer">mañana</a> · <a onclick="_pReprogramar('${p.id}','lunes')" style="color:var(--aire);cursor:pointer">lunes</a> · <a onclick="_pReprogramar('${p.id}','semana')" style="color:var(--aire);cursor:pointer">+1 semana</a></span>`);
-  const borde = venc ? 'border:1px solid #ffc9c6;background:#fff6f5' : 'border:1px solid var(--border);background:var(--bg-card2)';
+  if(_pEsJefe()){ const nc=(p.fechasLog||[]).filter(x=>x.que==='deadline'||x.que==='paso'||x.que==='hora').length; if(nc) sub.push('<span style="color:#c2600c;font-weight:700" title="Veces que se cambió una fecha (solo lo ven admins)">🔁 fecha cambiada '+nc+' vez'+(nc!==1?'es':'')+'</span>'); }
+  if(venc && ctx==='hoy') sub.push(`<span onclick="event.stopPropagation()">Mover a: <a onclick="_pReprogramar('${p.id}','manana')" style="color:var(--aire);cursor:pointer;font-weight:700">mañana</a> · <a onclick="_pReprogramar('${p.id}','lunes')" style="color:var(--aire);cursor:pointer;font-weight:700">lunes</a> · <a onclick="_pReprogramar('${p.id}','semana')" style="color:var(--aire);cursor:pointer;font-weight:700">+1 semana</a></span>`);
   const esProyC = p.tipo==='proyecto'; const abierto = esProyC && window._pExpand.has(p.id);
   const clicTarjeta = esProyC ? `_pToggleExpand('${p.id}')` : `_pAbrir('${p.id}')`;
-  return `<div style="margin-bottom:0.45rem"><div onclick="${clicTarjeta}" title="${esProyC?(abierto?'Ocultar pasos':'Ver pasos'):'Abrir'}" style="display:flex;align-items:center;gap:0.7rem;${borde};border-radius:12px;padding:0.6rem 0.75rem;cursor:pointer">
-    <div onclick="event.stopPropagation();_pToggle('${p.id}')" title="${p.tipo==='proyecto'&&sig?'Marcar el siguiente paso como hecho':'Marcar como hecho'}" style="width:22px;height:22px;border-radius:7px;flex-shrink:0;border:2px solid ${p.done?'#1c8a4a':'var(--border)'};background:${p.done?'#1c8a4a':'transparent'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.8rem;cursor:pointer">${p.done?'✓':''}</div>
+  const fondo = venc ? 'background:#fff6f5;' : '';
+  return `<div style="border-bottom:1px solid var(--border)"><div onclick="${clicTarjeta}" title="${esProyC?(abierto?'Ocultar pasos':'Ver pasos'):'Abrir'}" style="display:flex;align-items:center;gap:0.9rem;padding:0.75rem 0.4rem;cursor:pointer;border-radius:10px;${fondo}">
+    <div onclick="event.stopPropagation();_pToggle('${p.id}')" title="${esProyC&&sig?'Marcar el paso que toca como hecho':'Marcar como hecho'}" style="width:24px;height:24px;border-radius:8px;flex-shrink:0;border:2.5px solid ${p.done?'#1c8a4a':'#d6d2e6'};background:${p.done?'#1c8a4a':'transparent'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.85rem;cursor:pointer">${p.done?'✓':''}</div>
     <div style="flex:1;min-width:0;${p.done?'opacity:0.5':''}">
-      <div style="font-size:0.88rem;font-weight:700;color:var(--text);line-height:1.3;${p.done?'text-decoration:line-through':''}">${escapeHtml(p.titulo||'')}${tagProy}</div>
-      ${sub.length?`<div style="font-size:0.7rem;color:var(--text3);margin-top:0.15rem;line-height:1.45">${sub.join(' · ')}</div>`:''}
-    </div>${chip}${esProyC?`<span style="font-size:0.8rem;color:var(--text3);flex-shrink:0;width:14px;text-align:center">${abierto?'▴':'▾'}</span>`:''}</div>${abierto?_pDetalleInline(p):''}</div>`;
+      <div style="font-size:0.95rem;font-weight:700;color:var(--text);line-height:1.3;${p.done?'text-decoration:line-through':''}">${escapeHtml(p.titulo||'')}</div>
+      ${sub.length?`<div style="font-size:0.74rem;color:var(--text3);margin-top:0.2rem;line-height:1.45">${sub.join(' · ')}</div>`:''}
+    </div>${chip}${esProyC?_pRayitas(p):''}${esProyC?`<span style="font-size:0.75rem;color:var(--text3);flex-shrink:0;width:12px;text-align:center">${abierto?'▴':'▾'}</span>`:''}</div>${abierto?_pDetalleInline(p):''}</div>`;
 }
 function _pTipoLink(u){ u=String(u||''); return /docs\.google\.com\/spreadsheets|sheets\.google/.test(u)?'Google Sheets':/canva\.com/.test(u)?'Canva':/docs\.google\.com\/document/.test(u)?'Google Docs':/docs\.google\.com\/presentation/.test(u)?'Google Slides':/drive\.google/.test(u)?'Drive':/figma\.com/.test(u)?'Figma':'Link'; }
 function _pIconoLink(u){ return {'Google Sheets':'📊','Canva':'🎨','Google Docs':'📄','Google Slides':'📽️','Drive':'📁','Figma':'🖌️'}[_pTipoLink(u)] || '🔗'; }
@@ -19588,26 +19590,74 @@ function _pCaptura(){
     <input id="p-captura" placeholder="✍️ Anota lo que tienes que hacer y presiona Enter…  (ej: comprar tóner para el viernes)" onkeydown="if(event.key==='Enter'){event.preventDefault();_pCapturar();}" style="flex:1;min-width:0;box-sizing:border-box;border:2px solid var(--aire);border-radius:12px;padding:0.7rem 0.9rem;font-size:0.9rem;background:var(--bg-card);color:var(--text);outline:none;font-family:var(--font)">
     <button onclick="_pCapturar()" style="background:var(--aire);color:#fff;border:none;border-radius:12px;padding:0 1rem;font-weight:800;font-size:0.82rem;cursor:pointer;font-family:var(--font);white-space:nowrap">+ Agregar</button>
     <button onclick="_pNuevoProyecto()" title="Algo con varios pasos" style="background:#ece7fb;color:#6a4fc4;border:none;border-radius:12px;padding:0 0.9rem;font-weight:800;font-size:0.8rem;cursor:pointer;font-family:var(--font);white-space:nowrap">🗂 Proyecto</button>
+    ${_pEsAdminPlantillas()?`<button onclick="_pPlantillasAdmin()" title="Solo admins: formatos de proyecto con pasos ya listos" style="background:none;color:var(--text2);border:1px dashed var(--border);border-radius:12px;padding:0 0.8rem;font-weight:700;font-size:0.76rem;cursor:pointer;font-family:var(--font);white-space:nowrap">🧩 Plantillas</button>`:''}
   </div><div style="font-size:0.64rem;color:var(--text3);margin-bottom:0.2rem">Tip: si escribes “hoy”, “mañana”, “viernes” o “el 20” al final, ya queda con fecha.</div>`;
+}
+function _pVerMas(k){ window._pMas=window._pMas||{}; window._pMas[k]=!window._pMas[k]; try{ renderMiTrabajo(); }catch(e){} }
+function _pNotaRapida(){ const i=document.getElementById('p-nota-rapida'); if(!i) return; const v=(i.value||'').trim(); if(!v) return;
+  const yo=_pYo(); const p={ id:_pUid(), titulo:v, tipo:'simple', ownerId:_pDueño(), creadoPor:yo.id, creadoPorNombre:yo.nombre, createdAt:new Date().toISOString(), deadline:'', pasos:[], falta:[], links:[], nota:'', done:false };
+  _pLista().unshift(p); _pGuardar(p); _pRender(); setTimeout(()=>{ const j=document.getElementById('p-nota-rapida'); if(j) j.focus(); },30); }
+function _pHeroe(p){
+  if(!p) return `<div style="border-radius:20px;padding:1.4rem 1.6rem;background:linear-gradient(135deg,#e8f6ee,#eef4ff);margin-bottom:0.4rem"><div style="font-size:0.7rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#1c8a4a">🪐 Todo al día</div><div style="font-size:1.3rem;font-weight:800;color:var(--text);margin-top:0.3rem">No tienes nada pendiente con fecha. ¡Bien!</div></div>`;
+  const esProy=p.tipo==='proyecto'; const sig=esProy?_pSiguientePaso(p):null; const c=_pCuando(_pFecha(p), p.hora);
+  const titulo = sig ? sig.texto : p.titulo;
+  const venc = c && c.dif<0;
+  const cuando = c ? (venc ? '<b>se pasó la fecha</b> ('+c.txt.toLowerCase()+')' : 'para '+c.txt.toLowerCase()) : '';
+  return `<div style="border-radius:20px;padding:1.3rem 1.6rem;background:${venc?'linear-gradient(135deg,#e0483e,#c2365f)':'linear-gradient(135deg,#3b6fe0,#6a4fc4)'};color:#fff;display:flex;align-items:center;gap:1.4rem;margin-bottom:0.4rem;flex-wrap:wrap">
+    <div style="flex:1;min-width:220px;cursor:pointer" onclick="${esProy?`_pToggleExpand('${p.id}')`:`_pAbrir('${p.id}')`}">
+      <div style="font-size:0.7rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;opacity:0.85">👉 Lo que toca ahora</div>
+      <div style="font-size:1.55rem;font-weight:800;line-height:1.2;margin:0.35rem 0 0.25rem">${escapeHtml(titulo||'')}</div>
+      <div style="font-size:0.9rem;opacity:0.92">${sig?'del proyecto <b>'+escapeHtml(p.titulo)+'</b>'+(cuando?' · ':''):''}${cuando}</div>
+      ${esProy?`<div style="margin-top:0.7rem">${_pRayitas(p,true)}</div>`:''}
+    </div>
+    <button onclick="_pToggle('${p.id}')" style="background:#fff;color:${venc?'#c2365f':'#3b4fc4'};border:none;border-radius:16px;padding:0.95rem 1.6rem;font-weight:800;font-size:1.05rem;cursor:pointer;font-family:var(--font);white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,0.15)">✓ Listo</button>
+  </div>${venc?`<div style="font-size:0.78rem;color:var(--text3);margin:0 0 0.4rem 0.3rem">¿No alcanzas? Mover a: <a onclick="_pReprogramar('${p.id}','manana')" style="color:var(--aire);cursor:pointer;font-weight:700">mañana</a> · <a onclick="_pReprogramar('${p.id}','lunes')" style="color:var(--aire);cursor:pointer;font-weight:700">lunes</a> · <a onclick="_pReprogramar('${p.id}','semana')" style="color:var(--aire);cursor:pointer;font-weight:700">+1 semana</a></div>`:''}`;
+}
+function _pGrupo(k, titulo, color, items, max){
+  if(!items.length) return '';
+  const mas=(window._pMas||{})[k]; const vis = (max && !mas) ? items.slice(0,max) : items;
+  let h=`<div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:${color};margin:1.3rem 0 0.2rem">${titulo} · ${items.length}</div>`;
+  h += vis.map(p=>_pTarjeta(p,'hoy')).join('');
+  if(max && items.length>max) h += `<div onclick="_pVerMas('${k}')" style="cursor:pointer;font-size:0.82rem;font-weight:700;color:var(--text3);padding:0.6rem 0.4rem 0 2.6rem">${mas?'▴ Ver menos':'+ '+(items.length-max)+' más'}</div>`;
+  return h;
 }
 function _pVistaHoy(){
   const yo=_pDueño(); const hoy=_pHoy(); const lim=_pAdd(hoy,7);
   const abiertos=_pDe(yo).filter(p=>!p.done);
-  const venc=abiertos.filter(p=>_pFecha(p) && _pFecha(p)<hoy).sort((a,b)=>_pFecha(a).localeCompare(_pFecha(b)));
-  const deHoy=abiertos.filter(p=>_pFecha(p)===hoy);
+  const conFecha=abiertos.filter(p=>_pFecha(p)).sort((a,b)=>_pFecha(a).localeCompare(_pFecha(b)));
+  const heroe = conFecha.find(p=>_pFecha(p)<=lim) || null;
+  const resto = conFecha.filter(p=>p!==heroe);
+  const venc=resto.filter(p=>_pFecha(p)<hoy);
+  const deHoy=resto.filter(p=>_pFecha(p)===hoy);
+  const semana=resto.filter(p=>_pFecha(p)>hoy && _pFecha(p)<=lim);
+  const despues=resto.filter(p=>_pFecha(p)>lim);
+  const proySinFecha=abiertos.filter(p=>!_pFecha(p) && p.tipo==='proyecto');
+  const notas=abiertos.filter(p=>!_pFecha(p) && p.tipo!=='proyecto');
   const hechasHoy=_pDe(yo).filter(p=>p.done && p.doneAt && fmtLocalDate(new Date(p.doneAt))===hoy);
-  const prox=abiertos.filter(p=>_pFecha(p)>hoy && _pFecha(p)<=lim).sort((a,b)=>_pFecha(a).localeCompare(_pFecha(b)));
-  const sinFecha=abiertos.filter(p=>!_pFecha(p));
   const esperando=abiertos.filter(p=>p.aprob && p.aprob.estado==='pendiente');
   const respuestas=_pDe(yo).filter(p=>p.aprob && p.aprob.estado!=='pendiente' && p.aprob.respondidoAt && (Date.now()-new Date(p.aprob.respondidoAt).getTime())<5*86400000);
-  let izq='', der='';
-  if(venc.length) izq += _pSec('🔴 Se pasó la fecha','#d12f2f',venc.length) + venc.map(p=>_pTarjeta(p,'hoy')).join('');
-  izq += _pSec('🟠 Para hoy','#c2600c',deHoy.length) + (deHoy.length||hechasHoy.length ? deHoy.map(p=>_pTarjeta(p,'hoy')).join('')+hechasHoy.map(p=>_pTarjeta(p,'hoy')).join('') : `<div style="font-size:0.78rem;color:var(--text3);padding:0.4rem 0">Nada para hoy. ${prox.length?'Puedes adelantar algo de abajo 🚀':'¡Día libre de pendientes! 🪐'}</div>`);
-  if(prox.length) izq += _pSec('🔵 Próximos 7 días','#2a7fbf',prox.length) + prox.map(p=>_pTarjeta(p,'hoy')).join('');
-  if(esperando.length) der += _pSec('✋ Esperando aprobación','#6a4fc4',esperando.length) + esperando.map(p=>`<div onclick="_pAbrir('${p.id}')" style="cursor:pointer;border-radius:12px;padding:0.55rem 0.75rem;margin-bottom:0.45rem;border:1px solid #e3dbfb;background:#f7f4ff"><div style="font-size:0.84rem;font-weight:700;color:var(--text)">📝 ${escapeHtml(p.titulo)}</div><div style="font-size:0.7rem;color:var(--text3)">Pedido ${_presHace?_presHace(p.aprob.pedidoAt):''}${p.aprob.mensaje?' · “'+escapeHtml(p.aprob.mensaje)+'”':''}</div></div>`).join('');
-  if(respuestas.length) der += _pSec('📬 Respuestas de aprobación','#1c8a4a',respuestas.length) + respuestas.map(p=>{ const ok=p.aprob.estado==='aprobado'; return `<div onclick="_pAbrir('${p.id}')" style="cursor:pointer;border-radius:12px;padding:0.6rem 0.75rem;margin-bottom:0.45rem;border:1px solid ${ok?'#cdeed9':'#ffc9c6'};background:${ok?'#f2fbf5':'#fff6f5'}"><div style="font-size:0.84rem;font-weight:700;color:var(--text)">${ok?'✅':'❌'} ${escapeHtml(p.titulo)}</div><div style="font-size:0.7rem;color:var(--text3)">${ok?'Aprobado':'No aprobado'} por ${escapeHtml(p.aprob.porNombre||'')}${p.aprob.respuesta?' · “'+escapeHtml(p.aprob.respuesta)+'”':''}</div></div>`; }).join('');
-  der += _pSec('📥 Sin fecha','#6b6585',sinFecha.length,' <span style="font-weight:600;text-transform:none;letter-spacing:0">(ponles fecha para no olvidarlas)</span>') + (sinFecha.length ? sinFecha.map(p=>_pTarjeta(p,'hoy')).join('') : '<div style="font-size:0.74rem;color:var(--text3)">Todo tiene fecha 👌</div>');
-  return `<div style="padding:0.9rem 1.2rem">${_pCaptura()}<div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:1.1rem">${'<div>'+izq+'</div><div>'+der+'</div>'}</div></div>`;
+  let izq = _pHeroe(heroe);
+  izq += _pGrupo('venc','🔴 Se pasó la fecha','#d12f2f',venc,0);
+  izq += _pGrupo('hoy','🟠 Hoy','#c2600c',deHoy,0);
+  izq += _pGrupo('sem','📅 Esta semana','#2a7fbf',semana,3);
+  izq += _pGrupo('desp','🗓 Más adelante','var(--text3)',despues,0) ? _pGrupo('desp','🗓 Más adelante','var(--text3)',despues,(window._pMas||{}).desp?0:1) : '';
+  izq += _pGrupo('psf','🗂 Proyectos sin fecha','var(--text3)',proySinFecha,0);
+  if(hechasHoy.length) izq += _pGrupo('hh','✅ Hechas hoy','#1c8a4a',hechasHoy,2);
+  izq += `<div style="display:flex;gap:0.5rem;margin-top:1.4rem">
+    <input id="p-captura" placeholder="✍️ Escribe algo que tengas que hacer…" onkeydown="if(event.key==='Enter'){event.preventDefault();_pCapturar();}" style="flex:1;min-width:0;box-sizing:border-box;border:2px dashed #d6d2e6;border-radius:14px;padding:0.8rem 1rem;font-size:0.95rem;background:var(--bg-card);color:var(--text);outline:none;font-family:var(--font)" onfocus="this.style.borderStyle='solid';this.style.borderColor='var(--aire)'" onblur="this.style.borderStyle='dashed';this.style.borderColor='#d6d2e6'">
+    <button onclick="_pCapturar()" style="background:#1d1b2b;color:#fff;border:none;border-radius:14px;padding:0 1.2rem;font-weight:800;font-size:0.9rem;cursor:pointer;font-family:var(--font);white-space:nowrap">+ Agregar</button>
+    <button onclick="_pNuevoProyecto()" title="Algo con varios pasos" style="background:#ece7fb;color:#6a4fc4;border:none;border-radius:14px;padding:0 1rem;font-weight:800;font-size:0.86rem;cursor:pointer;font-family:var(--font);white-space:nowrap">🗂 Proyecto</button>
+    ${_pEsAdminPlantillas()?`<button onclick="_pPlantillasAdmin()" title="Solo admins" style="background:none;color:var(--text3);border:1px dashed var(--border);border-radius:14px;padding:0 0.8rem;font-weight:700;font-size:0.78rem;cursor:pointer;font-family:var(--font);white-space:nowrap">🧩 Plantillas</button>`:''}
+  </div><div style="font-size:0.7rem;color:var(--text3);margin:0.35rem 0 0 0.3rem">Si terminas con “hoy”, “mañana” o “viernes”, ya queda con fecha.</div>`;
+  let der='';
+  if(esperando.length) der += `<div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#6a4fc4;margin:0 0 0.4rem">✋ Esperando aprobación · ${esperando.length}</div>` + esperando.map(p=>`<div onclick="_pAbrir('${p.id}')" style="cursor:pointer;border-radius:12px;padding:0.6rem 0.8rem;margin-bottom:0.45rem;background:#f7f4ff;border:1px solid #e3dbfb"><div style="font-size:0.86rem;font-weight:700;color:var(--text)">${escapeHtml(p.titulo)}</div></div>`).join('');
+  if(respuestas.length) der += respuestas.map(p=>{ const ok=p.aprob.estado==='aprobado'; return `<div onclick="_pAbrir('${p.id}')" style="cursor:pointer;border-radius:12px;padding:0.6rem 0.8rem;margin-bottom:0.45rem;border:1px solid ${ok?'#cdeed9':'#ffc9c6'};background:${ok?'#f2fbf5':'#fff6f5'}"><div style="font-size:0.86rem;font-weight:700;color:var(--text)">${ok?'✅ Aprobado':'❌ No aprobado'}: ${escapeHtml(p.titulo)}</div>${p.aprob.respuesta?`<div style="font-size:0.74rem;color:var(--text3)">“${escapeHtml(p.aprob.respuesta)}”</div>`:''}</div>`; }).join('');
+  der += `<div style="background:#fff8d9;border-radius:16px;padding:1rem 1.1rem 0.8rem;box-shadow:0 2px 10px rgba(160,120,0,0.08);${der?'margin-top:0.8rem':''}">
+    <div style="font-size:0.8rem;font-weight:800;color:#8a6a10;margin-bottom:0.5rem">📝 Notas sin fecha${notas.length?' · '+notas.length:''}</div>
+    ${notas.map(p=>`<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.45rem 0;border-bottom:1px dashed #ecd98f"><div onclick="_pToggle('${p.id}')" title="Hecho" style="width:18px;height:18px;border-radius:6px;border:2px solid #d8bf5e;flex-shrink:0;cursor:pointer;margin-top:1px"></div><div onclick="_pAbrir('${p.id}')" style="flex:1;min-width:0;font-size:0.88rem;color:#4a3d10;cursor:pointer;line-height:1.35">${escapeHtml(p.titulo)}</div><label onclick="event.stopPropagation()" title="Ponerle fecha" style="position:relative;font-size:0.8rem;cursor:pointer;opacity:0.55;flex-shrink:0">📅<input type="date" onchange="_pPonerFecha('${p.id}',this.value)" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label></div>`).join('')}
+    <input id="p-nota-rapida" placeholder="+ Anotar algo…" onkeydown="if(event.key==='Enter'){event.preventDefault();_pNotaRapida();}" style="width:100%;box-sizing:border-box;border:none;background:transparent;padding:0.55rem 0 0.2rem;font-size:0.86rem;color:#4a3d10;outline:none;font-family:var(--font)">
+  </div>`;
+  return `<div style="padding:1.1rem 1.3rem"><div style="display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:1.4rem;align-items:start"><div>${izq}</div><div>${der}</div></div></div>`;
 }
 function _pVistaTodo(){
   const yo=_pDueño(); window._pFiltro = window._pFiltro || 'abiertos';
@@ -19693,12 +19743,80 @@ function _pVistaMes(){
 }
 
 // ── Proyecto nuevo ──
-async function _pNuevoProyecto(){
-  const t = await askModal({ label:'🗂 Nuevo proyecto\n\n¿Qué quieres lograr? (después le agregas los pasos)', placeholder:'Ej: Cotizar sillas para la oficina' });
+async function _pNuevoProyecto(tplId){
+  const tpls = _pPlantillasActivas();
+  if(tplId===undefined && tpls.length){ _pElegirPlantilla(); return; }
+  const tpl = tplId ? tpls.find(x=>x.id===tplId) : null;
+  try{ closeTrayModal(); }catch(e){}
+  const t = await askModal({ label:(tpl?(tpl.emoji||'🧩')+' '+tpl.nombre:'🗂 Nuevo proyecto')+'\n\n¿Cómo se llama este proyecto?'+(tpl?'':' (después le agregas los pasos)'), placeholder: tpl ? 'Ej: '+tpl.nombre+' de sillas para la oficina' : 'Ej: Cotizar sillas para la oficina', defaultValue: tpl ? (tpl.nombre+' de ') : '' });
   if(!t || !String(t).trim()) return;
-  const yo=_pYo();
-  const p = { id:_pUid(), titulo:String(t).trim(), tipo:'proyecto', ownerId:_pDueño(), creadoPor:yo.id, creadoPorNombre:yo.nombre, createdAt:new Date().toISOString(), deadline:'', pasos:[], falta:[], links:[], nota:'', done:false };
+  const yo=_pYo(); const hoy=_pHoy();
+  const pasos = tpl ? (tpl.pasos||[]).filter(x=>x.texto).map(x=>({ id:_pUid(), texto:x.texto, done:false, deadline:(x.dias!==''&&x.dias!=null&&!isNaN(+x.dias))?_pAdd(hoy, +x.dias):'' })) : [];
+  const p = { id:_pUid(), titulo:String(t).trim(), tipo:'proyecto', ownerId:_pDueño(), creadoPor:yo.id, creadoPorNombre:yo.nombre, createdAt:new Date().toISOString(), deadline:'', pasos, falta:[], links:[], nota:'', done:false, plantilla: tpl?tpl.nombre:undefined };
   _pLista().unshift(p); _pGuardar(p); _pRender(); _pAbrir(p.id);
+}
+
+// ── 🧩 Plantillas de proyecto: solo admins las crean y editan; todos las usan ──
+function _pEsAdminPlantillas(){ try{ return _rolesDe(_usuarioReal()).includes('admin'); }catch(e){ return false; } }   // el admin real, aunque esté viendo el panel de otro
+function _pPlantillasActivas(){ return (window._pPlantillas||[]).filter(x=>!x.deletedAt).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre))); }
+function _pElegirPlantilla(){
+  const tpls=_pPlantillasActivas();
+  const card=(onclick, emoji, titulo, sub)=>`<div onclick="${onclick}" style="cursor:pointer;border:2px solid var(--border);border-radius:16px;padding:1rem;background:var(--bg-card);display:flex;gap:0.8rem;align-items:center" onmouseover="this.style.borderColor='var(--aire)'" onmouseout="this.style.borderColor='var(--border)'"><div style="font-size:1.8rem">${emoji}</div><div><div style="font-weight:800;font-size:0.95rem;color:var(--text)">${escapeHtml(titulo)}</div><div style="font-size:0.74rem;color:var(--text3);margin-top:0.15rem">${sub}</div></div></div>`;
+  let h=`<div style="font-weight:800;font-size:1.1rem;margin-bottom:0.3rem">🗂 Nuevo proyecto</div><div style="font-size:0.8rem;color:var(--text3);margin-bottom:1rem">Elige un formato y los pasos ya vienen listos</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.6rem">`;
+  h += tpls.map(t=>card(`_pNuevoProyecto('${t.id}')`, escapeHtml(t.emoji||'🧩'), t.nombre, (t.pasos||[]).length+' pasos: '+escapeHtml((t.pasos||[]).slice(0,3).map(x=>x.texto).join(' → '))+((t.pasos||[]).length>3?'…':''))).join('');
+  h += card(`_pNuevoProyecto(null)`, '✏️', 'En blanco', 'Tú escribes los pasos');
+  h += `</div>`;
+  openGenericModal('', h); const m=document.getElementById('tray-generic-modal'); if(m && m.firstElementChild) m.firstElementChild.style.maxWidth='720px';
+}
+function _pPlantillaEjemplo(){ return { nombre:'Compra', emoji:'🛒', pasos:[{texto:'Cotizar opciones',dias:1},{texto:'Hacer comparativa con las opciones',dias:2},{texto:'Presentar opciones a gerencia',dias:3},{texto:'Definir opción final',dias:4},{texto:'Comprar',dias:5},{texto:'Recibir',dias:7}] }; }
+function _pPlantillasAdmin(){
+  if(!_pEsAdminPlantillas()) return;
+  const tpls=_pPlantillasActivas();
+  let h=`<div style="font-weight:800;font-size:1.1rem;margin-bottom:0.2rem">🧩 Plantillas de proyecto</div><div style="font-size:0.78rem;color:var(--text3);margin-bottom:1rem">Solo los admins pueden crearlas o cambiarlas. El equipo las elige al tocar “🗂 Proyecto”.</div>`;
+  h += tpls.length ? tpls.map(t=>`<div style="display:flex;align-items:center;gap:0.7rem;border:1px solid var(--border);border-radius:12px;padding:0.7rem 0.9rem;margin-bottom:0.5rem;background:var(--bg-card)"><span style="font-size:1.4rem">${escapeHtml(t.emoji||'🧩')}</span><div style="flex:1;min-width:0"><div style="font-weight:800;font-size:0.9rem">${escapeHtml(t.nombre)}</div><div style="font-size:0.72rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml((t.pasos||[]).map(x=>x.texto).join(' → '))}</div></div><button onclick="_pEditarPlantilla('${t.id}')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.7rem;font-size:0.74rem;font-weight:700;cursor:pointer;color:var(--text2);font-family:var(--font)">Editar</button></div>`).join('')
+    : `<div style="font-size:0.82rem;color:var(--text3);padding:0.5rem 0 0.8rem">Aún no hay plantillas. Empieza con la de ejemplo (Compra) o crea una nueva.</div>`;
+  h += `<div style="display:flex;gap:0.5rem;margin-top:0.8rem">${tpls.length?'':`<button onclick="_pEditarPlantilla('ejemplo')" style="background:#ece7fb;color:#6a4fc4;border:none;border-radius:10px;padding:0.55rem 0.9rem;font-weight:800;font-size:0.8rem;cursor:pointer;font-family:var(--font)">🛒 Usar ejemplo “Compra”</button>`}<button onclick="_pEditarPlantilla(null)" style="background:var(--aire);color:#fff;border:none;border-radius:10px;padding:0.55rem 0.9rem;font-weight:800;font-size:0.8rem;cursor:pointer;font-family:var(--font)">+ Nueva plantilla</button></div>`;
+  openGenericModal('', h); const m=document.getElementById('tray-generic-modal'); if(m && m.firstElementChild) m.firstElementChild.style.maxWidth='640px';
+}
+function _pEditarPlantilla(id){
+  if(!_pEsAdminPlantillas()) return;
+  const ex = id==='ejemplo' ? _pPlantillaEjemplo() : (id ? (window._pPlantillas||[]).find(x=>x.id===id) : null);
+  window._pTplEdit = { id: (id && id!=='ejemplo') ? id : null, nombre: ex?ex.nombre:'', emoji: ex?ex.emoji:'🧩', pasos: ex ? (ex.pasos||[]).map(x=>({texto:x.texto, dias:(x.dias==null?'':x.dias)})) : [{texto:'',dias:''}] };
+  _pPintarEditorPlantilla();
+}
+function _pTplLeer(){ const e=window._pTplEdit; if(!e) return; const n=document.getElementById('tpl-nombre'), em=document.getElementById('tpl-emoji'); if(n) e.nombre=n.value; if(em) e.emoji=em.value;
+  e.pasos.forEach((x,i)=>{ const t=document.getElementById('tpl-p-'+i), d=document.getElementById('tpl-d-'+i); if(t) x.texto=t.value; if(d) x.dias=d.value; }); }
+function _pTplPaso(acc, i){ _pTplLeer(); const e=window._pTplEdit; if(acc==='add') e.pasos.push({texto:'',dias:''}); else if(acc==='del') e.pasos.splice(i,1); else if(acc==='up' && i>0) [e.pasos[i-1],e.pasos[i]]=[e.pasos[i],e.pasos[i-1]]; _pPintarEditorPlantilla(); if(acc==='add') setTimeout(()=>{ const x=document.getElementById('tpl-p-'+(e.pasos.length-1)); if(x) x.focus(); },30); }
+function _pPintarEditorPlantilla(){
+  const e=window._pTplEdit; const inp='border:1px solid var(--border);border-radius:10px;padding:0.5rem 0.7rem;font-size:0.85rem;background:var(--bg-card);color:var(--text);font-family:var(--font);box-sizing:border-box';
+  let h=`<div style="font-weight:800;font-size:1.1rem;margin-bottom:0.9rem">${e.id?'Editar plantilla':'Nueva plantilla'}</div>
+  <div style="display:flex;gap:0.5rem;margin-bottom:1rem"><input id="tpl-emoji" value="${escapeHtml(e.emoji||'')}" maxlength="4" style="${inp};width:58px;text-align:center;font-size:1.2rem"><input id="tpl-nombre" value="${escapeHtml(e.nombre||'')}" placeholder="Nombre (ej: Compra, Evento, Mantenimiento)" style="${inp};flex:1"></div>
+  <div style="font-size:0.66rem;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.4rem;display:flex"><span style="flex:1">Pasos en orden</span><span style="width:130px">Fecha (opcional)</span></div>`;
+  e.pasos.forEach((x,i)=>{ h+=`<div style="display:flex;gap:0.4rem;align-items:center;margin-bottom:0.4rem"><span style="width:20px;font-size:0.75rem;font-weight:800;color:var(--text3)">${i+1}.</span><input id="tpl-p-${i}" value="${escapeHtml(x.texto||'')}" placeholder="Ej: Cotizar opciones" style="${inp};flex:1"><span style="font-size:0.72rem;color:var(--text3);white-space:nowrap">día</span><input id="tpl-d-${i}" type="number" min="0" value="${escapeHtml(String(x.dias??''))}" placeholder="—" title="A cuántos días de crear el proyecto" style="${inp};width:62px"><button onclick="_pTplPaso('up',${i})" title="Subir" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.85rem">↑</button><button onclick="_pTplPaso('del',${i})" title="Quitar" style="background:none;border:none;cursor:pointer;color:#d12f2f;font-size:0.85rem">✕</button></div>`; });
+  h+=`<button onclick="_pTplPaso('add')" style="background:none;border:1px dashed var(--border);border-radius:10px;padding:0.4rem 0.8rem;font-size:0.78rem;font-weight:700;cursor:pointer;color:var(--text2);font-family:var(--font);margin:0.2rem 0 0 1.4rem">+ Agregar paso</button>
+  <div style="font-size:0.7rem;color:var(--text3);margin:0.6rem 0 0 1.4rem">“día 2” = el paso queda para 2 días después de crear el proyecto. Si lo dejas vacío, queda sin fecha.</div>
+  <div style="display:flex;gap:0.5rem;margin-top:1.2rem;border-top:1px solid var(--border);padding-top:0.9rem;align-items:center">${e.id?`<button onclick="_pBorrarPlantilla()" style="background:none;border:none;color:#d12f2f;font-weight:700;font-size:0.78rem;cursor:pointer;font-family:var(--font)">🗑 Borrar plantilla</button>`:''}<span style="flex:1"></span><button onclick="_pPlantillasAdmin()" style="background:none;border:1px solid var(--border);border-radius:10px;padding:0.55rem 0.9rem;font-weight:700;font-size:0.8rem;cursor:pointer;color:var(--text2);font-family:var(--font)">Cancelar</button><button onclick="_pGuardarPlantilla()" style="background:var(--aire);color:#fff;border:none;border-radius:10px;padding:0.55rem 1.1rem;font-weight:800;font-size:0.85rem;cursor:pointer;font-family:var(--font)">Guardar</button></div>`;
+  openGenericModal('', h); const m=document.getElementById('tray-generic-modal'); if(m && m.firstElementChild) m.firstElementChild.style.maxWidth='640px';
+}
+function _pGuardarPlantilla(){
+  if(!_pEsAdminPlantillas()) return;
+  _pTplLeer(); const e=window._pTplEdit; const nombre=(e.nombre||'').trim(); const pasos=e.pasos.map(x=>({texto:(x.texto||'').trim(), dias:(x.dias===''||x.dias==null)?'':Math.max(0,parseInt(x.dias,10)||0)})).filter(x=>x.texto);
+  if(!nombre){ showStatus('Ponle un nombre a la plantilla', true); return; }
+  if(!pasos.length){ showStatus('Agrega al menos un paso', true); return; }
+  const yo=_pYo(); window._pPlantillas = window._pPlantillas||[];
+  let t = e.id ? window._pPlantillas.find(x=>x.id===e.id) : null;
+  if(!t){ t={ id:'tpl_'+_pUid(), esPlantilla:true, creadoPor:yo.id, creadoPorNombre:yo.nombre, createdAt:new Date().toISOString() }; window._pPlantillas.push(t); }
+  Object.assign(t, { nombre, emoji:(e.emoji||'🧩').trim()||'🧩', pasos, updatedAt:new Date().toISOString(), editadoPor:yo.nombre });
+  if(window.PendientesDB) PendientesDB.saveOne(t).then(ok=>{ if(ok===false) showStatus('⚠️ No se pudo guardar la plantilla en el servidor', true); });
+  showStatus('Plantilla guardada ✓'); _pPlantillasAdmin();
+}
+async function _pBorrarPlantilla(){
+  const e=window._pTplEdit; const t=(window._pPlantillas||[]).find(x=>x.id===e.id); if(!t) return;
+  try{ closeTrayModal(); }catch(x){}
+  const ok = await askModal({ label:'¿Borrar la plantilla “'+t.nombre+'”?\n\nLos proyectos que ya se crearon con ella no cambian.', type:'select', options:['Sí, borrar','Cancelar'] });
+  if(ok!=='Sí, borrar'){ _pPintarEditorPlantilla(); return; }
+  t.deletedAt=new Date().toISOString(); t.updatedAt=t.deletedAt; if(window.PendientesDB) PendientesDB.saveOne(t);
+  showStatus('Plantilla borrada'); _pPlantillasAdmin();
 }
 
 // ── Detalle / edición (se guarda solo, sin botón de guardar) ──
