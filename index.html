@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261106-v533-PAUSA-AUTO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261112-v534-DEMOS-CONTROL -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2489,6 +2489,7 @@ body.portal-mode #portal-loading-logo{display:none!important}
 
   <div class="page" id="page-brand">
     <div class="content">
+      <div id="demo-control-bar" style="display:none"></div>
       <!-- Hero -->
       <div class="brand-hero-v2" id="brand-hero-wrap">
         <!-- Top row: info + actions -->
@@ -3585,6 +3586,7 @@ body.portal-mode #portal-loading-logo{display:none!important}
           <button onclick="openCrmNotifs()" title="Seguimientos pendientes" style="position:relative;background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.65rem;font-size:0.95rem;cursor:pointer;font-family:var(--font)">
             🔔<span id="crm-notif-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;font-size:0.6rem;font-weight:800;min-width:16px;height:16px;border-radius:99px;padding:0 0.2rem;align-items:center;justify-content:center;line-height:1"></span>
           </button>
+          <button onclick="abrirListaDemos()" title="Ver y editar los demos de los prospectos" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.74rem;color:var(--text2);cursor:pointer;font-family:var(--font)">🎬 Demos</button>
           <button onclick="openCrmModal()" class="btn-add" style="background:var(--tierra)">+ Agregar prospecto</button>
           <button onclick="openCrmImportModal()" title="Importar prospectos desde Excel/CSV" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.74rem;color:var(--text2);cursor:pointer;font-family:var(--font)">📥 Importar</button>
           <button onclick="openCrmBulkSeguimiento()" title="Registrar un seguimiento en varios prospectos a la vez" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.74rem;color:var(--text2);cursor:pointer;font-family:var(--font)">📋 Seguimiento masivo</button>
@@ -4223,7 +4225,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 533;
+const APP_VERSION = 534;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -10108,7 +10110,7 @@ async function calDrop(event, newDateStr){
   const dragType    = _calDragType;
   _calDragActId = null; _calDragBrandId = null; _calDragStage = null; _calDragType = null;
   if(!dragActId || !dragBrandId || !dragStage || !newDateStr) return;
-  if(_sinPermisoFechas()) return;
+  if(_sinPermisoFechas(dragBrandId)) return;
   if(window._calMoviendo){ showStatus('Espera, se está guardando el movimiento anterior…', true); return; }
 
   const brand = (appData.brands||[]).find(b=>b.id===dragBrandId);
@@ -18333,8 +18335,14 @@ function _miembrosPresentes(...mantenerIds){
 }
 function _miembroInactivo(id){ const m=(appData.members||[]).find(x=>x.id===id); return !!(m && m.active===false); }
 // Solo la PM y los admins pueden mover fechas del cronograma (arrastrar, editar fechas/duración, correr todo, reordenar)
-function _puedeEditarFechas(){ return _esPM() || _tieneRol('admin'); }
-function _sinPermisoFechas(){ if(_puedeEditarFechas()) return false; showStatus('Solo la PM o un admin pueden cambiar fechas del cronograma', true); return true; }
+// En los DEMOS (simulaciones para ventas) también puede la Asistente Administrativa: los ajusta según el caso.
+function _esDemoId(id){ return !!id && ((window._demoViewIds && window._demoViewIds.has(id)) || (appData.demos||[]).some(d=>d && d.id===id)); }
+function _puedeEditarFechas(brandId){
+  if(_esPM() || _tieneRol('admin')) return true;
+  const id = brandId || ((typeof currentPage!=='undefined' && currentPage==='brand') ? currentBrandId : null);
+  return _esDemoId(id) && _tieneRol('asistente');
+}
+function _sinPermisoFechas(brandId){ if(_puedeEditarFechas(brandId)) return false; showStatus('Solo la PM o un admin pueden cambiar fechas del cronograma'+(_tieneRol('asistente')?' (en los demos también la asistente administrativa)':''), true); return true; }
 function _esAsistente(){ return _tieneRol('asistente'); }
 function _esComercial(){ return _tieneRol('comercial'); }
 function _esRevisor(){ return _tieneRol('revisor'); }
@@ -25081,6 +25089,45 @@ function _clearDemoView(){
   }
 }
 
+// Barra superior cuando se está editando un DEMO desde la página de control (igual que una marca)
+function _renderDemoControlBar(brand){
+  const bar = document.getElementById('demo-control-bar'); if(!bar) return;
+  if(!brand || !_esDemoId(brand.id)){ bar.style.display='none'; bar.innerHTML=''; return; }
+  const it = brand.crmId ? ((window._crmData && _crmData.items)||[]).find(x=>x.id===brand.crmId) : null;
+  const puede = _puedeEditarFechas(brand.id);
+  bar.style.cssText = 'display:flex;align-items:center;gap:0.7rem;flex-wrap:wrap;margin-bottom:0.9rem;padding:0.7rem 1rem;border-radius:14px;background:linear-gradient(135deg,rgba(45,195,179,0.14),rgba(59,158,221,0.1));border:1.5px solid rgba(45,195,179,0.45)';
+  bar.innerHTML = `<span style="font-size:1.2rem">🎬</span>
+    <div style="flex:1;min-width:220px">
+      <div style="font-size:0.86rem;font-weight:800;color:var(--text)">Página de control del DEMO${it?` · ${escapeHtml(it.empresa||it.nombre||'')}`:''}</div>
+      <div style="font-size:0.7rem;color:var(--text2);line-height:1.4">Todo lo que cambies aquí (fechas, cronograma, branding points, domo…) se ve en el portal del cliente. No cuenta en el dashboard, en Equipo ni en Cobranzas.${puede?'':' <b>Solo la PM, admins o la asistente administrativa pueden mover fechas.</b>'}</div>
+    </div>
+    <button onclick="_abrirPortalDemo('${brand.id}')" style="background:var(--agua);color:#fff;border:none;border-radius:9px;padding:0.45rem 0.85rem;font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap">👁 Ver como cliente</button>
+    ${brand.crmId?`<button onclick="copiarLinkDemo('${brand.crmId}')" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text2);border-radius:9px;padding:0.45rem 0.85rem;font-size:0.74rem;font-weight:600;cursor:pointer;font-family:var(--font);white-space:nowrap">🔗 Copiar link</button>`:''}
+    <button onclick="abrirListaDemos()" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text2);border-radius:9px;padding:0.45rem 0.85rem;font-size:0.74rem;font-weight:600;cursor:pointer;font-family:var(--font);white-space:nowrap">🎬 Todos los demos</button>`;
+}
+function _abrirPortalDemo(id){
+  const d = (appData.demos||[]).find(x=>x.id===id) || (appData.brands||[]).find(x=>x.id===id); if(!d) return;
+  try{ _ensurePortalSlug(d); }catch(e){}
+  window.open(window.location.origin + window.location.pathname + '?portal=' + (d.portalSlug||d.id), '_blank');
+}
+// Lista de todos los demos, para entrar a su página de control
+function abrirListaDemos(){
+  const demos = (appData.demos||[]).filter(d=>d && !d.deletedAt && !d.archivedAt && !d.isTemplateDemo && !d.confirmadoComoMarca);
+  const fmt = iso=>{ try{ return iso ? new Date(iso).toLocaleDateString('es-EC',{day:'numeric',month:'short',year:'numeric'}) : ''; }catch(e){ return ''; } };
+  const filas = demos.length ? demos.slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).map(d=>{
+    const it = d.crmId ? ((window._crmData && _crmData.items)||[]).find(x=>x.id===d.crmId) : null;
+    return `<div style="display:flex;align-items:center;gap:0.7rem;padding:0.6rem 0.2rem;border-bottom:1px solid var(--border)">
+      <div style="width:34px;height:34px;border-radius:9px;background:${d.color||'var(--agua)'};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;overflow:hidden;flex-shrink:0">${d.image?`<img src="${d.image}" style="width:100%;height:100%;object-fit:cover">`:escapeHtml((d.name||'?').charAt(0))}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.86rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(d.name||'Demo')}</div>
+        <div style="font-size:0.68rem;color:var(--text3)">${it?'Prospecto: '+escapeHtml(it.nombre||it.empresa||''):'Sin prospecto'}${d.createdAt?' · creado '+fmt(d.createdAt):''}</div>
+      </div>
+      <button onclick="closeTrayModal();abrirDemo('${d.id}')" style="background:var(--agua);color:#fff;border:none;border-radius:8px;padding:0.4rem 0.8rem;font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap">Abrir y editar</button>
+    </div>`;
+  }).join('') : '<div style="padding:1.5rem;text-align:center;color:var(--text3);font-size:0.8rem">No hay demos activos. Se crean desde el prospecto en el CRM.</div>';
+  openGenericModal('🎬 Demos', `<div style="font-size:0.74rem;color:var(--text3);margin-bottom:0.6rem">Cada demo tiene su página de control, igual que una marca: fechas, cronograma, branding points, domo y portal del cliente.</div><div style="max-height:60vh;overflow-y:auto">${filas}</div>`);
+}
+
 function copiarLinkDemo(crmId){
   const demo = _demoDeProspecto(crmId);
   if(!demo) return;
@@ -25744,6 +25791,7 @@ async function addRonda(){
 async function renderBrandPage(){
   const brand=appData.brands.find(b=>b.id===currentBrandId);
   if(!brand){goTo('dashboard');return;}
+  try{ _renderDemoControlBar(brand); }catch(e){}
 
   // Auto-fix: if brand is missing cronograma or brandingPoints, inject from template
   let needsSave = false;
@@ -26429,7 +26477,7 @@ function renderBrandCrono(brand){
   // Texto de duración claro: "X semanas y Y días (Z días hábiles en total)"
   const durTxt = fmtDuracionTotal(firstDate, lastDate, totalDays);
   const rangeLabel=(firstDate&&lastDate)?` · <span style="color:var(--text2)">${fmtDateDisplay(firstDate)} → ${fmtDateDisplay(lastDate)}</span>`:'';
-  const _lapizSem = (_puedeEditarFechas() && firstDate && lastDate) ? `<button onclick="editarSemanasCrono('${brand.id}')" title="Cambiar la duración total del proyecto (en semanas) y adaptar todas las fechas" style="margin-left:0.5rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.2rem 0.55rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font);white-space:nowrap">✏️ Duración total</button>` : '';
+  const _lapizSem = (_puedeEditarFechas(brand.id) && firstDate && lastDate) ? `<button onclick="editarSemanasCrono('${brand.id}')" title="Cambiar la duración total del proyecto (en semanas) y adaptar todas las fechas" style="margin-left:0.5rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:0.2rem 0.55rem;font-size:0.72rem;color:var(--text2);cursor:pointer;font-family:var(--font);white-space:nowrap">✏️ Duración total</button>` : '';
   (document.getElementById('brand-crono-summary')||{innerHTML:''}).innerHTML=`${chips}<span class="crono-total-label">⏱ ${durTxt}${rangeLabel}</span>${_lapizSem}`;
   try{ renderCronoLog(brand); }catch(e){ console.warn('renderCronoLog:', e); }
 }
