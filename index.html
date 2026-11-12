@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261112-v536-PENDIENTES-LOG -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261112-v538-PROYECTOS-DESPLEGABLES -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4225,7 +4225,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 536;
+const APP_VERSION = 538;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -19437,6 +19437,37 @@ async function _pCambiarFecha(p, pasoId, nueva, campo){
   _pGuardar(p); showStatus('📅 Fecha cambiada · quedó registrado'); _pRender(); return true;
 }
 
+// ── Proyectos desplegables en el mismo dashboard (leer y dar check sin abrir el editor) ──
+window._pExpand = window._pExpand || (function(){ try{ return new Set(JSON.parse(localStorage.getItem('polen-p-expand')||'[]')); }catch(e){ return new Set(); } })();
+function _pToggleExpand(id){ if(window._pExpand.has(id)) window._pExpand.delete(id); else window._pExpand.add(id); try{ localStorage.setItem('polen-p-expand', JSON.stringify([...window._pExpand])); }catch(e){} try{ renderMiTrabajo(); }catch(e){} }
+function _pPasoToggleInline(pid, sid){
+  const p=_pBuscar(pid); if(!p) return; const x=(p.pasos||[]).find(s=>s.id===sid); if(!x) return;
+  x.done=!x.done; x.doneAt=x.done?new Date().toISOString():null;
+  if(x.done){ if(p.pasos.every(s=>s.done) && !p.done){ p.done=true; p.doneAt=new Date().toISOString(); _pCelebrar('¡Proyecto terminado! 🚀'); } else _pCelebrar(); }
+  else if(p.done){ p.done=false; p.doneAt=null; }
+  _pGuardar(p); try{ renderMiTrabajo(); }catch(e){}
+}
+function _pFaltaToggleInline(pid, fid){ const p=_pBuscar(pid); if(!p) return; const x=(p.falta||[]).find(s=>s.id===fid); if(!x) return; x.done=!x.done; _pGuardar(p); try{ renderMiTrabajo(); }catch(e){} }
+function _pDetalleInline(p){
+  const hoy=_pHoy(); const MS=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const fch=f=>{ if(!f) return ''; const d=parseLocalDate(f); const dif=Math.round((d-parseLocalDate(hoy))/86400000); const col=dif<0?'#d12f2f':dif===0?'#c2600c':'var(--text3)'; return `<span style="font-size:0.66rem;font-weight:700;color:${col};white-space:nowrap">${dif===0?'Hoy':dif===1?'Mañana':dif===-1?'Ayer':d.getDate()+' '+MS[d.getMonth()]}</span>`; };
+  const sig=_pSiguientePaso(p);
+  let h=`<div onclick="event.stopPropagation()" style="margin:0.15rem 0 0.5rem 1.6rem;padding:0.4rem 0.6rem;border-left:2px solid #d9cff8;cursor:default">`;
+  (p.pasos||[]).forEach(x=>{
+    const esSig = sig && x.id===sig.id;
+    h+=`<div style="display:flex;align-items:center;gap:0.55rem;padding:0.3rem 0.2rem;${esSig?'background:rgba(59,158,221,0.08);border-radius:8px;':''}">
+      <div onclick="_pPasoToggleInline('${p.id}','${x.id}')" style="width:18px;height:18px;border-radius:6px;flex-shrink:0;cursor:pointer;border:2px solid ${x.done?'#1c8a4a':'var(--border)'};background:${x.done?'#1c8a4a':'transparent'};color:#fff;font-size:0.7rem;display:flex;align-items:center;justify-content:center">${x.done?'✓':''}</div>
+      <div style="flex:1;min-width:0;font-size:0.8rem;${x.done?'text-decoration:line-through;color:var(--text3)':'color:var(--text)'};${esSig?'font-weight:700':''}">${esSig?'👉 ':''}${escapeHtml(x.texto||'')}</div>${x.done?'':fch(x.deadline)}</div>`;
+  });
+  if(!(p.pasos||[]).length) h+=`<div style="font-size:0.74rem;color:var(--text3);padding:0.2rem 0">Aún no tiene pasos.</div>`;
+  const falta=(p.falta||[]);
+  if(falta.length) h+=`<div style="font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:0.4px;color:#a16207;margin:0.45rem 0 0.15rem">⏳ Me falta</div>`+falta.map(f=>`<div style="display:flex;align-items:center;gap:0.5rem;padding:0.15rem 0.2rem"><div onclick="_pFaltaToggleInline('${p.id}','${f.id}')" style="width:15px;height:15px;border-radius:5px;flex-shrink:0;cursor:pointer;border:2px solid ${f.done?'#1c8a4a':'#e9c77a'};background:${f.done?'#1c8a4a':'transparent'}"></div><span style="font-size:0.76rem;${f.done?'text-decoration:line-through;color:var(--text3)':'color:var(--text)'}">${escapeHtml(f.texto)}</span></div>`).join('');
+  if((p.links||[]).length) h+=`<div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-top:0.45rem">${p.links.map(l=>`<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener" style="font-size:0.7rem;font-weight:700;color:var(--text2);background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:0.15rem 0.55rem;text-decoration:none">${_pIconoLink(l.url)} ${escapeHtml(l.titulo||_pTipoLink(l.url))} ↗</a>`).join('')}</div>`;
+  if(p.nota) h+=`<div style="font-size:0.74rem;color:var(--text2);margin-top:0.4rem;white-space:pre-wrap">📝 ${escapeHtml(p.nota)}</div>`;
+  h+=`<div style="margin-top:0.45rem"><button onclick="_pAbrir('${p.id}')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.25rem 0.65rem;font-size:0.7rem;font-weight:700;color:var(--text2);cursor:pointer;font-family:var(--font)">✏️ Editar proyecto</button></div></div>`;
+  return h;
+}
+
 // ── Tarjeta de un pendiente ──
 function _pTarjeta(p, ctx){
   const hoy=_pHoy(); const f=_pFecha(p);
@@ -19463,12 +19494,14 @@ function _pTarjeta(p, ctx){
   { const nc=(p.fechasLog||[]).filter(x=>x.que==='deadline'||x.que==='paso'||x.que==='hora').length; if(nc) sub.push('<span style="color:#c2600c;font-weight:700" title="Veces que se cambió una fecha">🔁 fecha cambiada '+nc+' vez'+(nc!==1?'es':'')+'</span>'); }
   if(venc && ctx==='hoy') sub.push(`<span onclick="event.stopPropagation()">Mover a: <a onclick="_pReprogramar('${p.id}','manana')" style="color:var(--aire);cursor:pointer">mañana</a> · <a onclick="_pReprogramar('${p.id}','lunes')" style="color:var(--aire);cursor:pointer">lunes</a> · <a onclick="_pReprogramar('${p.id}','semana')" style="color:var(--aire);cursor:pointer">+1 semana</a></span>`);
   const borde = venc ? 'border:1px solid #ffc9c6;background:#fff6f5' : 'border:1px solid var(--border);background:var(--bg-card2)';
-  return `<div onclick="_pAbrir('${p.id}')" style="display:flex;align-items:center;gap:0.7rem;${borde};border-radius:12px;padding:0.6rem 0.75rem;margin-bottom:0.45rem;cursor:pointer">
+  const esProyC = p.tipo==='proyecto'; const abierto = esProyC && window._pExpand.has(p.id);
+  const clicTarjeta = esProyC ? `_pToggleExpand('${p.id}')` : `_pAbrir('${p.id}')`;
+  return `<div style="margin-bottom:0.45rem"><div onclick="${clicTarjeta}" title="${esProyC?(abierto?'Ocultar pasos':'Ver pasos'):'Abrir'}" style="display:flex;align-items:center;gap:0.7rem;${borde};border-radius:12px;padding:0.6rem 0.75rem;cursor:pointer">
     <div onclick="event.stopPropagation();_pToggle('${p.id}')" title="${p.tipo==='proyecto'&&sig?'Marcar el siguiente paso como hecho':'Marcar como hecho'}" style="width:22px;height:22px;border-radius:7px;flex-shrink:0;border:2px solid ${p.done?'#1c8a4a':'var(--border)'};background:${p.done?'#1c8a4a':'transparent'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.8rem;cursor:pointer">${p.done?'✓':''}</div>
     <div style="flex:1;min-width:0;${p.done?'opacity:0.5':''}">
       <div style="font-size:0.88rem;font-weight:700;color:var(--text);line-height:1.3;${p.done?'text-decoration:line-through':''}">${escapeHtml(p.titulo||'')}${tagProy}</div>
       ${sub.length?`<div style="font-size:0.7rem;color:var(--text3);margin-top:0.15rem;line-height:1.45">${sub.join(' · ')}</div>`:''}
-    </div>${chip}</div>`;
+    </div>${chip}${esProyC?`<span style="font-size:0.8rem;color:var(--text3);flex-shrink:0;width:14px;text-align:center">${abierto?'▴':'▾'}</span>`:''}</div>${abierto?_pDetalleInline(p):''}</div>`;
 }
 function _pTipoLink(u){ u=String(u||''); return /docs\.google\.com\/spreadsheets|sheets\.google/.test(u)?'Google Sheets':/canva\.com/.test(u)?'Canva':/docs\.google\.com\/document/.test(u)?'Google Docs':/docs\.google\.com\/presentation/.test(u)?'Google Slides':/drive\.google/.test(u)?'Drive':/figma\.com/.test(u)?'Figma':'Link'; }
 function _pIconoLink(u){ return {'Google Sheets':'📊','Canva':'🎨','Google Docs':'📄','Google Slides':'📽️','Drive':'📁','Figma':'🖌️'}[_pTipoLink(u)] || '🔗'; }
@@ -19522,12 +19555,13 @@ function _pVistaProyectos(){
   const yo=_pDueño();
   const l=_pDe(yo).filter(p=>p.tipo==='proyecto').sort((a,b)=>(a.done-b.done) || (_pFecha(a)||'9999').localeCompare(_pFecha(b)||'9999'));
   const card=p=>{ const pr=_pProgreso(p); const pct=pr.t?Math.round(pr.d/pr.t*100):0; const sig=_pSiguientePaso(p);
-    return `<div onclick="_pAbrir('${p.id}')" style="cursor:pointer;border:1px solid var(--border);background:var(--bg-card2);border-radius:14px;padding:0.8rem 0.9rem;${p.done?'opacity:0.55':''}">
+    const ab=window._pExpand.has(p.id);
+    return `<div style="border:1px solid var(--border);background:var(--bg-card2);border-radius:14px;padding:0.8rem 0.9rem;${p.done?'opacity:0.55':''}"><div onclick="_pToggleExpand('${p.id}')" style="cursor:pointer" title="${ab?'Ocultar pasos':'Ver pasos'}">
       <div style="display:flex;align-items:center;gap:0.5rem"><div style="font-size:0.92rem;font-weight:800;color:var(--text);flex:1;min-width:0">${escapeHtml(p.titulo)}</div>${p.deadline?`<span style="font-size:0.64rem;font-weight:700;border-radius:99px;padding:0.15rem 0.5rem;background:${p.deadline<_pHoy()&&!p.done?'#ffe1e0':'#ffedd8'};color:${p.deadline<_pHoy()&&!p.done?'#d12f2f':'#c2600c'}">🏁 ${fmtDateDisplay(p.deadline)}</span>`:''}</div>
       <div style="height:7px;border-radius:9px;background:var(--border);overflow:hidden;margin:0.5rem 0 0.3rem"><div style="width:${pct}%;height:100%;background:#22a35a"></div></div>
-      <div style="font-size:0.7rem;color:var(--text3)">${pr.d} de ${pr.t} pasos${sig&&!p.done?' · 👉 '+escapeHtml(sig.texto):''}${p.done?' · ✓ terminado':''}</div></div>`; };
+      <div style="font-size:0.7rem;color:var(--text3)">${pr.d} de ${pr.t} pasos${sig&&!p.done?' · 👉 '+escapeHtml(sig.texto):''}${p.done?' · ✓ terminado':''} <span style="float:right">${ab?'▴ ocultar':'▾ ver pasos'}</span></div></div>${ab?_pDetalleInline(p).replace('margin:0.15rem 0 0.5rem 1.6rem','margin:0.5rem 0 0 0'):''}</div>`; };
   return `<div style="padding:0.9rem 1.2rem"><div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem"><div style="font-size:0.8rem;color:var(--text3);flex:1">Proyectos = cosas con varios pasos. En “Hoy” solo verás el siguiente paso de cada uno.</div><button onclick="_pNuevoProyecto()" style="background:#6a4fc4;color:#fff;border:none;border-radius:10px;padding:0.5rem 0.9rem;font-weight:800;font-size:0.78rem;cursor:pointer;font-family:var(--font)">+ Nuevo proyecto</button></div>
-    ${l.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.7rem">${l.map(card).join('')}</div>`:'<div style="font-size:0.8rem;color:var(--text3);padding:1rem 0">Aún no hay proyectos.</div>'}</div>`;
+    ${l.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.7rem;align-items:start">${l.map(card).join('')}</div>`:'<div style="font-size:0.8rem;color:var(--text3);padding:1rem 0">Aún no hay proyectos.</div>'}</div>`;
 }
 // Eventos de agenda (para Semana y Mes): deadline de pendientes, pasos con fecha y deadline final de proyectos
 function _pEventos(ownerId){
@@ -19621,6 +19655,24 @@ async function _pBorrar(){ const p=_pBuscar(window._pAbiertoId); if(!p) return;
   const yo=_pYo(); p.deletedAt=new Date().toISOString(); p.borrado={ porId:yo.id, porNombre:yo.nombre, razon:String(r).trim(), at:p.deletedAt };
   _pGuardar(p); closeTrayModal(); window._pAbiertoId=null; showStatus('Borrado · quedó registrado'); try{ renderMiTrabajo(); }catch(e){} }
 function _pRestaurar(id){ const p=_pBuscar(id); if(!p) return; delete p.deletedAt; const yo=_pYo(); (p.fechasLog=p.fechasLog||[]).push({ at:new Date().toISOString(), porId:yo.id, porNombre:yo.nombre, que:'restaurado', de:'', a:'', razon:'Restaurado (antes borrado: '+((p.borrado&&p.borrado.razon)||'')+')' }); delete p.borrado; _pGuardar(p); showStatus('Restaurado'); try{ renderMiTrabajo(); }catch(e){} }
+function _pMarcarTodo(){ const p=_pBuscar(window._pAbiertoId); if(!p) return;
+  if(!p.done && p.tipo==='proyecto'){ (p.pasos||[]).forEach(s=>{ if(!s.done){ s.done=true; s.doneAt=new Date().toISOString(); } }); }
+  p.done=!p.done; p.doneAt=p.done?new Date().toISOString():null; _pGuardar(p);
+  if(p.done){ _pCelebrar(); closeTrayModal(); window._pAbiertoId=null; } _pRender(); }
+// Guardar y cerrar: aplica lo que quedó escrito sin Enter (paso, "me falta", link, título, notas) y guarda ya
+function _pGuardarYCerrar(){
+  const p=_pBuscar(window._pAbiertoId);
+  try{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }catch(e){}
+  if(p){
+    const v=id=>{ const el=document.getElementById(id); return el ? (el.value||'').trim() : ''; };
+    if(v('p-paso-nuevo')) _pListaAdd('pasos','p-paso-nuevo');
+    if(v('p-falta-nueva')) _pListaAdd('falta','p-falta-nueva');
+    if(v('p-link-nuevo')) _pListaAdd('links','p-link-nuevo');
+    _pGuardar(p);
+  }
+  clearTimeout(_pTimer); try{ upsert(); }catch(e){}
+  closeTrayModal(); window._pAbiertoId=null; showStatus('Guardado ✓'); try{ renderMiTrabajo(); }catch(e){}
+}
 async function _pPedirAprobacion(){
   const p=_pBuscar(window._pAbiertoId); if(!p) return;
   const msg = await askModal({ label:'✋ Pedir aprobación a los admins\n\n¿Qué necesitas que aprueben? (ej: “Comprar sillas del Proveedor B por $1.240, es la más barata con garantía”)', placeholder:'Escribe tu pedido…', defaultValue:'' });
@@ -19697,8 +19749,11 @@ function _pPintarModal(){
         + lg.map(x=>`<div style="padding:0.35rem 0;border-bottom:1px solid #fbe9cc;font-size:0.76rem;color:var(--text);line-height:1.45"><span style="color:var(--text3)">${fd(x.at)} · </span><b>${escapeHtml(x.porNombre||'')}</b> ${accion(x)}<div style="color:var(--text2)">Razón: “${escapeHtml(x.razon||'')}”</div></div>`).join('') + `</div>`;
     }
   }
-  h += `<div style="display:flex;gap:0.5rem;margin-top:1.2rem;align-items:center"><button onclick="_pBorrar()\" style="background:none;border:1px solid rgba(220,38,38,0.35);color:#dc2626;border-radius:10px;padding:0.5rem 0.9rem;font-size:0.76rem;font-weight:700;cursor:pointer;font-family:var(--font)">🗑 Borrar</button><span style="flex:1"></span>
-    <button onclick="(function(){const p=_pBuscar(window._pAbiertoId); if(!p) return; if(p.tipo==='proyecto'){(p.pasos||[]).forEach(s=>{if(!s.done){s.done=true;s.doneAt=new Date().toISOString();}});} p.done=!p.done; p.doneAt=p.done?new Date().toISOString():null; _pGuardar(p); if(p.done){_pCelebrar(); closeTrayModal(); window._pAbiertoId=null;} _pRender();})()" style="background:${p.done?'var(--bg-card2)':'#22a35a'};color:${p.done?'var(--text2)':'#fff'};border:${p.done?'1px solid var(--border)':'none'};border-radius:10px;padding:0.55rem 1.1rem;font-size:0.8rem;font-weight:800;cursor:pointer;font-family:var(--font)">${p.done?'↩ Reabrir':'✓ Marcar '+(esProy?'todo ':'')+'como hecho'}</button></div>`;
+  h += `<div style="display:flex;gap:0.5rem;margin-top:1.3rem;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:0.9rem">
+    <button onclick="_pBorrar()" style="background:none;border:1px solid rgba(220,38,38,0.3);color:#dc2626;border-radius:10px;padding:0.5rem 0.85rem;font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font)">🗑 Borrar</button>
+    <button onclick="_pMarcarTodo()" title="${p.done?'Volver a abrirlo':'Marca '+(esProy?'todos los pasos y el proyecto':'este pendiente')+' como terminado'}" style="background:none;border:1px solid ${p.done?'var(--border)':'rgba(34,163,90,0.45)'};color:${p.done?'var(--text2)':'#1c8a4a'};border-radius:10px;padding:0.5rem 0.85rem;font-size:0.74rem;font-weight:700;cursor:pointer;font-family:var(--font)">${p.done?'↩ Reabrir':'✓ Marcar '+(esProy?'todo ':'')+'como hecho'}</button>
+    <span style="flex:1"></span>
+    <button onclick="_pGuardarYCerrar()" style="background:var(--aire);color:#fff;border:none;border-radius:11px;padding:0.65rem 1.6rem;font-size:0.88rem;font-weight:800;cursor:pointer;font-family:var(--font);box-shadow:0 4px 14px rgba(59,158,221,0.35)">Guardar</button></div>`;
   box.innerHTML = h;
 }
 
