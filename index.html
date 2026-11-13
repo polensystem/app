@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261112-v542-PANEL-SIMPLE -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261113-v544-HOY-COMPACTO -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4281,7 +4281,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 542;
+const APP_VERSION = 544;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -19572,12 +19572,16 @@ function _pTarjeta(p, ctx){
   if(venc && ctx==='hoy') sub.push(`<span onclick="event.stopPropagation()">Mover a: <a onclick="_pReprogramar('${p.id}','manana')" style="color:var(--aire);cursor:pointer;font-weight:700">mañana</a> · <a onclick="_pReprogramar('${p.id}','lunes')" style="color:var(--aire);cursor:pointer;font-weight:700">lunes</a> · <a onclick="_pReprogramar('${p.id}','semana')" style="color:var(--aire);cursor:pointer;font-weight:700">+1 semana</a></span>`);
   const esProyC = p.tipo==='proyecto'; const abierto = esProyC && window._pExpand.has(p.id);
   const clicTarjeta = esProyC ? `_pToggleExpand('${p.id}')` : `_pAbrir('${p.id}')`;
+  const enHoy = ctx==='hoy' || ctx==='destacado';
+  const pasoPrimero = enHoy && esProyC && sig && !p.done;
+  const tituloFila = pasoPrimero ? sig.texto : p.titulo;
+  if(pasoPrimero) sub.unshift('<span style="color:#6a4fc4;font-weight:600">🗂 '+escapeHtml(p.titulo||'')+'</span>');
+  const dest = ctx==='destacado' && !p.done;
   const fondo = venc ? 'background:#fff6f5;' : '';
-  return `<div style="border-bottom:1px solid var(--border)"><div onclick="${clicTarjeta}" title="${esProyC?(abierto?'Ocultar pasos':'Ver pasos'):'Abrir'}" style="display:flex;align-items:center;gap:0.9rem;padding:0.75rem 0.4rem;cursor:pointer;border-radius:10px;${fondo}">
-    <div onclick="event.stopPropagation();_pToggle('${p.id}')" title="${esProyC&&sig?'Marcar el paso que toca como hecho':'Marcar como hecho'}" style="width:24px;height:24px;border-radius:8px;flex-shrink:0;border:2.5px solid ${p.done?'#1c8a4a':'#d6d2e6'};background:${p.done?'#1c8a4a':'transparent'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.85rem;cursor:pointer">${p.done?'✓':''}</div>
+  return `<div class="p-fila" style="border-bottom:1px solid ${dest?'#f8e2cb':'var(--border)'}"><div onclick="${clicTarjeta}" title="${esProyC?(abierto?'Ocultar pasos':'Ver pasos'):'Abrir'}" style="display:flex;align-items:center;gap:0.75rem;padding:${dest?'0.6rem 0.8rem':'0.5rem 0.4rem'};cursor:pointer;border-radius:10px;${fondo}">
+    <div onclick="event.stopPropagation();_pToggle('${p.id}')" title="${esProyC&&sig?'Marcar este paso como hecho':'Marcar como hecho'}" style="width:21px;height:21px;border-radius:7px;flex-shrink:0;border:2.5px solid ${p.done?'#1c8a4a':'#d6d2e6'};background:${p.done?'#1c8a4a':'transparent'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.85rem;cursor:pointer">${p.done?'✓':''}</div>
     <div style="flex:1;min-width:0;${p.done?'opacity:0.5':''}">
-      <div style="font-size:0.95rem;font-weight:700;color:var(--text);line-height:1.3;${p.done?'text-decoration:line-through':''}">${escapeHtml(p.titulo||'')}</div>
-      ${sub.length?`<div style="font-size:0.74rem;color:var(--text3);margin-top:0.2rem;line-height:1.45">${sub.join(' · ')}</div>`:''}
+      <div style="display:flex;align-items:baseline;gap:0.55rem;min-width:0;line-height:1.35"><span style="font-size:${dest?'0.98rem':'0.92rem'};font-weight:700;color:var(--text);flex-shrink:0;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${p.done?'text-decoration:line-through':''}">${escapeHtml(tituloFila||'')}</span>${sub.length?`<span style="font-size:0.72rem;color:var(--text3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sub.join(' · ')}</span>`:''}</div>
     </div>${chip}${esProyC?_pRayitas(p):''}${esProyC?`<span style="font-size:0.75rem;color:var(--text3);flex-shrink:0;width:12px;text-align:center">${abierto?'▴':'▾'}</span>`:''}</div>${abierto?_pDetalleInline(p):''}</div>`;
 }
 function _pTipoLink(u){ u=String(u||''); return /docs\.google\.com\/spreadsheets|sheets\.google/.test(u)?'Google Sheets':/canva\.com/.test(u)?'Canva':/docs\.google\.com\/document/.test(u)?'Google Docs':/docs\.google\.com\/presentation/.test(u)?'Google Slides':/drive\.google/.test(u)?'Drive':/figma\.com/.test(u)?'Figma':'Link'; }
@@ -19616,7 +19620,7 @@ function _pHeroe(p){
 function _pGrupo(k, titulo, color, items, max){
   if(!items.length) return '';
   const mas=(window._pMas||{})[k]; const vis = (max && !mas) ? items.slice(0,max) : items;
-  let h=`<div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:${color};margin:1.3rem 0 0.2rem">${titulo} · ${items.length}</div>`;
+  let h=`<div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:${color};margin:1rem 0 0.1rem">${titulo} · ${items.length}</div>`;
   h += vis.map(p=>_pTarjeta(p,'hoy')).join('');
   if(max && items.length>max) h += `<div onclick="_pVerMas('${k}')" style="cursor:pointer;font-size:0.82rem;font-weight:700;color:var(--text3);padding:0.6rem 0.4rem 0 2.6rem">${mas?'▴ Ver menos':'+ '+(items.length-max)+' más'}</div>`;
   return h;
@@ -19625,8 +19629,7 @@ function _pVistaHoy(){
   const yo=_pDueño(); const hoy=_pHoy(); const lim=_pAdd(hoy,7);
   const abiertos=_pDe(yo).filter(p=>!p.done);
   const conFecha=abiertos.filter(p=>_pFecha(p)).sort((a,b)=>_pFecha(a).localeCompare(_pFecha(b)));
-  const heroe = conFecha.find(p=>_pFecha(p)<=lim) || null;
-  const resto = conFecha.filter(p=>p!==heroe);
+  const resto = conFecha;
   const venc=resto.filter(p=>_pFecha(p)<hoy);
   const deHoy=resto.filter(p=>_pFecha(p)===hoy);
   const semana=resto.filter(p=>_pFecha(p)>hoy && _pFecha(p)<=lim);
@@ -19636,9 +19639,11 @@ function _pVistaHoy(){
   const hechasHoy=_pDe(yo).filter(p=>p.done && p.doneAt && fmtLocalDate(new Date(p.doneAt))===hoy);
   const esperando=abiertos.filter(p=>p.aprob && p.aprob.estado==='pendiente');
   const respuestas=_pDe(yo).filter(p=>p.aprob && p.aprob.estado!=='pendiente' && p.aprob.respondidoAt && (Date.now()-new Date(p.aprob.respondidoAt).getTime())<5*86400000);
-  let izq = _pHeroe(heroe);
+  let izq = '';
   izq += _pGrupo('venc','🔴 Se pasó la fecha','#d12f2f',venc,0);
-  izq += _pGrupo('hoy','🟠 Hoy','#c2600c',deHoy,0);
+  izq += deHoy.length
+    ? `<div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#c2600c;margin:0.9rem 0 0.35rem">🎯 Para hoy · ${deHoy.length}</div><div style="background:var(--bg-card);border:1.5px solid #f5c99a;border-radius:14px;padding:0.15rem 0.3rem;box-shadow:0 3px 12px rgba(194,96,12,0.07)">` + deHoy.map(p=>_pTarjeta(p,'destacado')).join('').replace(/border-bottom:1px solid #f8e2cb"(?![^]*border-bottom:1px solid #f8e2cb")/, 'border-bottom:none"') + `</div>`
+    : `<div style="border-radius:14px;padding:0.9rem 1.1rem;background:#eef8f1;color:#1c6b3c;font-size:0.9rem;font-weight:700;margin:0.3rem 0 0.4rem">🪐 Nada pendiente para hoy${semana.length?' · puedes adelantar algo de la semana':''}</div>`;
   izq += _pGrupo('sem','📅 Esta semana','#2a7fbf',semana,3);
   izq += _pGrupo('desp','🗓 Más adelante','var(--text3)',despues,0) ? _pGrupo('desp','🗓 Más adelante','var(--text3)',despues,(window._pMas||{}).desp?0:1) : '';
   izq += _pGrupo('psf','🗂 Proyectos sin fecha','var(--text3)',proySinFecha,0);
