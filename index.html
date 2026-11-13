@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261113-v544-HOY-COMPACTO -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261113-v545-EXPANDIR-TODOS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4281,7 +4281,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 544;
+const APP_VERSION = 545;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -9687,6 +9687,7 @@ function _modoReportes(activar){
 }
 
 function goTo(page,brandId=null){
+  try{ if(window._pExpand) window._pExpand.clear(); }catch(e){}
   if(page==='member') page='equipo'; // unified
   // Si la PM tenía el panel de domos montado en su dashboard, devolverlo antes de navegar
   try{ if(page!=='dashboard' && typeof _restaurarDomosPM==='function') _restaurarDomosPM(); }catch(e){}
@@ -19026,6 +19027,7 @@ let _miTrabajoVista = 'semana'; // resumen | semana | mes | domos — arranca en
 let _miSemanaOffset = 0;         // navegación de semanas (0 = esta semana)
 let _miSemanaFiltro = 'todas';   // todas | internas
 function setMiTrabajoVista(v){
+  try{ if(window._pExpand) window._pExpand.clear(); }catch(e){}
   // Si salimos de "domos" y la PM tenía el panel real montado, devolverlo a su lugar
   if(_miTrabajoVista==='domos' && v!=='domos'){ try{ _restaurarDomosPM(); }catch(e){} }
   _miTrabajoVista = v; renderMiTrabajo();
@@ -19514,8 +19516,17 @@ async function _pCambiarFecha(p, pasoId, nueva, campo){
 }
 
 // ── Proyectos desplegables en el mismo dashboard (leer y dar check sin abrir el editor) ──
-window._pExpand = window._pExpand || (function(){ try{ return new Set(JSON.parse(localStorage.getItem('polen-p-expand')||'[]')); }catch(e){ return new Set(); } })();
-function _pToggleExpand(id){ if(window._pExpand.has(id)) window._pExpand.delete(id); else window._pExpand.add(id); try{ localStorage.setItem('polen-p-expand', JSON.stringify([...window._pExpand])); }catch(e){} try{ renderMiTrabajo(); }catch(e){} }
+window._pExpand = window._pExpand || new Set();
+try{ localStorage.removeItem('polen-p-expand'); }catch(e){}
+function _pToggleExpand(id){ if(window._pExpand.has(id)) window._pExpand.delete(id); else window._pExpand.add(id); try{ renderMiTrabajo(); }catch(e){} }
+function _pExpandirTodos(ids, abrir){ ids.forEach(id=>{ if(abrir) window._pExpand.add(id); else window._pExpand.delete(id); }); try{ renderMiTrabajo(); }catch(e){} }
+function _pBotonesExpandir(ids){
+  if(!ids.length) return '';
+  const algunoAbierto = ids.some(id=>window._pExpand.has(id));
+  const lista = "['"+ids.join("','")+"']";
+  const b=(abrir,txt)=>`<button onclick="_pExpandirTodos(${lista},${abrir})" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.25rem 0.6rem;font-size:0.72rem;font-weight:700;color:var(--text2);cursor:pointer;font-family:var(--font);white-space:nowrap">${txt}</button>`;
+  return `<span style="display:inline-flex;gap:0.3rem">${b(true,'▾ Expandir todos')}${algunoAbierto?b(false,'▴ Colapsar todos'):''}</span>`;
+}
 function _pPasoToggleInline(pid, sid){
   const p=_pBuscar(pid); if(!p) return; const x=(p.pasos||[]).find(s=>s.id===sid); if(!x) return;
   x.done=!x.done; x.doneAt=x.done?new Date().toISOString():null;
@@ -19568,7 +19579,7 @@ function _pTarjeta(p, ctx){
   const sig=_pSiguientePaso(p);
   let sub=[];
   if(p.aprob && p.aprob.estado==='pendiente') sub.push('✋ Esperando aprobación');
-  if(_pEsJefe()){ const nc=(p.fechasLog||[]).filter(x=>x.que==='deadline'||x.que==='paso'||x.que==='hora').length; if(nc) sub.push('<span style="color:#c2600c;font-weight:700" title="Veces que se cambió una fecha (solo lo ven admins)">🔁 fecha cambiada '+nc+' vez'+(nc!==1?'es':'')+'</span>'); }
+  if(_pEsJefe()){ const nc=(p.fechasLog||[]).filter(x=>x.que==='deadline'||x.que==='paso'||x.que==='hora').length; if(nc) sub.push('<span style="color:#c2600c;font-weight:700" title="Veces que se cambió una fecha (solo lo ven admins)">🔁 fecha cambiada '+nc+(nc!==1?' veces':' vez')+'</span>'); }
   if(venc && ctx==='hoy') sub.push(`<span onclick="event.stopPropagation()">Mover a: <a onclick="_pReprogramar('${p.id}','manana')" style="color:var(--aire);cursor:pointer;font-weight:700">mañana</a> · <a onclick="_pReprogramar('${p.id}','lunes')" style="color:var(--aire);cursor:pointer;font-weight:700">lunes</a> · <a onclick="_pReprogramar('${p.id}','semana')" style="color:var(--aire);cursor:pointer;font-weight:700">+1 semana</a></span>`);
   const esProyC = p.tipo==='proyecto'; const abierto = esProyC && window._pExpand.has(p.id);
   const clicTarjeta = esProyC ? `_pToggleExpand('${p.id}')` : `_pAbrir('${p.id}')`;
@@ -19639,7 +19650,8 @@ function _pVistaHoy(){
   const hechasHoy=_pDe(yo).filter(p=>p.done && p.doneAt && fmtLocalDate(new Date(p.doneAt))===hoy);
   const esperando=abiertos.filter(p=>p.aprob && p.aprob.estado==='pendiente');
   const respuestas=_pDe(yo).filter(p=>p.aprob && p.aprob.estado!=='pendiente' && p.aprob.respondidoAt && (Date.now()-new Date(p.aprob.respondidoAt).getTime())<5*86400000);
-  let izq = '';
+  const _idsProy = [...venc,...deHoy,...semana,...despues,...proySinFecha].filter(p=>p.tipo==='proyecto').map(p=>p.id);
+  let izq = _idsProy.length ? `<div style="display:flex;justify-content:flex-end;margin-bottom:-0.4rem">${_pBotonesExpandir(_idsProy)}</div>` : '';
   izq += _pGrupo('venc','🔴 Se pasó la fecha','#d12f2f',venc,0);
   izq += deHoy.length
     ? `<div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#c2600c;margin:0.9rem 0 0.35rem">🎯 Para hoy · ${deHoy.length}</div><div style="background:var(--bg-card);border:1.5px solid #f5c99a;border-radius:14px;padding:0.15rem 0.3rem;box-shadow:0 3px 12px rgba(194,96,12,0.07)">` + deHoy.map(p=>_pTarjeta(p,'destacado')).join('').replace(/border-bottom:1px solid #f8e2cb"(?![^]*border-bottom:1px solid #f8e2cb")/, 'border-bottom:none"') + `</div>`
@@ -19690,7 +19702,7 @@ function _pVistaProyectos(){
       <div style="display:flex;align-items:center;gap:0.5rem"><div style="font-size:0.92rem;font-weight:800;color:var(--text);flex:1;min-width:0">${escapeHtml(p.titulo)}</div>${p.deadline?`<span style="font-size:0.64rem;font-weight:700;border-radius:99px;padding:0.15rem 0.5rem;background:${p.deadline<_pHoy()&&!p.done?'#ffe1e0':'#ffedd8'};color:${p.deadline<_pHoy()&&!p.done?'#d12f2f':'#c2600c'}">🏁 ${fmtDateDisplay(p.deadline)}</span>`:''}</div>
       <div style="height:7px;border-radius:9px;background:var(--border);overflow:hidden;margin:0.5rem 0 0.3rem"><div style="width:${pct}%;height:100%;background:#22a35a"></div></div>
       <div style="font-size:0.7rem;color:var(--text3)">${pr.d} de ${pr.t} pasos${sig&&!p.done?' · 👉 '+escapeHtml(sig.texto):''}${p.done?' · ✓ terminado':''} <span style="float:right">${ab?'▴ ocultar':'▾ ver pasos'}</span></div></div>${ab?_pDetalleInline(p).replace('margin:0.15rem 0 0.5rem 1.6rem','margin:0.5rem 0 0 0'):''}</div>`; };
-  return `<div style="padding:0.9rem 1.2rem"><div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem"><div style="font-size:0.8rem;color:var(--text3);flex:1">Proyectos = cosas con varios pasos. En “Hoy” solo verás el siguiente paso de cada uno.</div><button onclick="_pNuevoProyecto()" style="background:#6a4fc4;color:#fff;border:none;border-radius:10px;padding:0.5rem 0.9rem;font-weight:800;font-size:0.78rem;cursor:pointer;font-family:var(--font)">+ Nuevo proyecto</button></div>
+  return `<div style="padding:0.9rem 1.2rem"><div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem"><div style="font-size:0.8rem;color:var(--text3);flex:1">Proyectos = cosas con varios pasos. En “Hoy” solo verás el siguiente paso de cada uno.</div>${_pBotonesExpandir(l.map(p=>p.id))}<button onclick="_pNuevoProyecto()" style="background:#6a4fc4;color:#fff;border:none;border-radius:10px;padding:0.5rem 0.9rem;font-weight:800;font-size:0.78rem;cursor:pointer;font-family:var(--font)">+ Nuevo proyecto</button></div>
     ${l.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.7rem;align-items:start">${l.map(card).join('')}</div>`:'<div style="font-size:0.8rem;color:var(--text3);padding:1rem 0">Aún no hay proyectos.</div>'}</div>`;
 }
 // Eventos de agenda (para Semana y Mes): deadline de pendientes, pasos con fecha y deadline final de proyectos
