@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261113-v545-EXPANDIR-TODOS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261123-v551-RESUMEN-SIN-PAUSADAS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2627,6 +2627,7 @@ body.portal-mode #portal-loading-logo{display:none!important}
               <span class="pts-total-lbl">Total PTS asignados:</span>
               <span class="pts-total-val" id="brand-bp-total-label">—</span>
             </div>
+            <div id="brand-bp-precio"></div>
             <div id="brand-bp-cats"></div>
             <div style="padding:0.5rem 1rem 0.8rem;display:flex;gap:0.6rem;flex-wrap:wrap">
               <button class="btn-add-item" onclick="addBrandBpCat(currentBrandId)" style="flex:1;min-width:160px">+ Agregar categoría</button>
@@ -4281,7 +4282,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 545;
+const APP_VERSION = 551;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -12925,7 +12926,7 @@ function renderMetas(){
       if(s){
         filas += `<div draggable="true" ondragstart="metasDragStart(event,'${key}','${s.id}')" ondragend="metasDragEnd(event)" title="Arrastra para mover a otra quincena" style="display:flex;align-items:center;gap:0.2rem;margin-bottom:0.25rem;cursor:grab">
           <div style="flex:1;display:flex;align-items:center;gap:0.3rem;background:var(--text);color:var(--bg);border-radius:7px;padding:0.22rem 0.5rem;min-width:0">
-            <span style="font-size:0.72rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.nombre)}</span>
+            <span style="font-size:0.72rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_nombreDeSlot(s)!==s.nombre?'Antes: '+escapeHtml(s.nombre||''):''}">${escapeHtml(_nombreDeSlot(s))}</span>
             ${s.crmId?'<span style="font-size:0.5rem;opacity:0.7;flex-shrink:0">CRM</span>':''}
           </div>
           <button onclick="metasMover('${key}','${s.id}')" title="Mover" style="background:none;border:none;cursor:pointer;font-size:0.66rem;opacity:0.45;padding:0;flex-shrink:0">↔</button>
@@ -13002,7 +13003,7 @@ async function metasQuitar(key, slotId){
   ensureMetas();
   const arr = appData.metas[key]||[];
   const s = arr.find(x=>x.id===slotId);
-  const ok = await confirmModal(`¿Quitar "${s?s.nombre:'esta marca'}" de la quincena?`,'Quitar');
+  const ok = await confirmModal(`¿Quitar "${s?_nombreDeSlot(s):'esta marca'}" de la quincena?`,'Quitar');
   if(!ok) return;
   appData.metas[key] = arr.filter(x=>x.id!==slotId);
   if(window.MetasDB) MetasDB.deleteSlot(slotId);
@@ -13053,7 +13054,7 @@ function metasMover(key, slotId){
   };
 
   const body = `
-    <div style="font-size:0.82rem;color:var(--text2);margin-bottom:0.3rem">Mover <b style="color:var(--text)">${escapeHtml(s.nombre)}</b></div>
+    <div style="font-size:0.82rem;color:var(--text2);margin-bottom:0.3rem">Mover <b style="color:var(--text)">${escapeHtml(_nombreDeSlot(s))}</b></div>
     <div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.9rem">Ahora en: ${_quincenaLabel(key)} · ${base.year}</div>
 
     <div style="display:flex;flex-direction:column;gap:0.9rem;max-height:360px;overflow-y:auto;scrollbar-width:thin;padding-right:0.2rem">
@@ -19334,7 +19335,7 @@ function _renderMiTrabajoInterno(){
     if(!tabs.map(t=>t[0]).includes(_miTrabajoVista)) _miTrabajoVista='p_hoy';
   } else if(_esAsistente()){
     // El asistente no ejecuta marcas: sus pestañas son Resumen (cobros) y Nuevos proyectos
-    tabs = [['resumen','Resumen']];
+    tabs = [['resumen','Resumen'],['avance','📈 Avance y cobros'],['semana','Semana'],['mes','Mes']];
     if(_tieneSuperv) tabs.push(['superviso','Superviso']);
     tabs.push(['nuevos','Nuevos proyectos']);
     const validas = tabs.map(t=>t[0]);
@@ -19361,7 +19362,7 @@ function _renderMiTrabajoInterno(){
   // ── Contenido según la vista (tope de altura con scroll interno: el módulo NUNCA crece infinito) ──
   const expandido = _miTrabajoVista==='domos' && _esPM() && window._domosExpandido;
   try{ h1 += _pBloqueAprobacionesAdmin(); }catch(e){}
-  h1 += `<div id="mi-trabajo-contenido" style="padding:0;${expandido?'':(_modoGeneral?'max-height:720px;overflow-y:auto;':'max-height:400px;overflow-y:auto;')}scrollbar-width:thin">`;
+  h1 += `<div id="mi-trabajo-contenido" style="padding:0;${expandido?'':((_modoGeneral||_miTrabajoVista==='avance')?'max-height:720px;overflow-y:auto;':'max-height:400px;overflow-y:auto;')}scrollbar-width:thin">`;
   if(_miTrabajoVista==='p_hoy') h1 += _pVistaHoy();
   else if(_miTrabajoVista==='p_todo') h1 += _pVistaTodo();
   else if(_miTrabajoVista==='p_proy') h1 += _pVistaProyectos();
@@ -19376,6 +19377,7 @@ function _renderMiTrabajoInterno(){
     else if(rolPrincipal==='pm')      h1 += _miTrabajoResumenPM(STAGE_COLOR, fmtF, diffLabel, diffColor);
     else                              h1 += _miTrabajoResumen(misMarcas, proximosHitos, STAGE_COLOR, fmtF, diffLabel, diffColor);
   }
+  else if(_miTrabajoVista==='avance') h1 += _avanceCobrosVista();
   else if(_miTrabajoVista==='superviso') h1 += _miTrabajoSupervisoTab(STAGE_COLOR, fmtF, diffLabel, diffColor);
   else if(_miTrabajoVista==='nuevos')  h1 += (_esComercial() && !_esPM()) ? _comercialNuevos() : _miTrabajoNuevosProyectos();
   else if(_miTrabajoVista==='pipeline')     h1 += _comercialPipeline(user);
@@ -20609,16 +20611,88 @@ function _comercialReclutamiento(){
   return h + `</div>`;
 }
 
+// ═══ 📈 Avance y cobros (asistente administrativa): agenda de próximos pagos + en qué va cada marca ═══
+const _AV_ETAPA = { aire:['🌬️','Aire','var(--aire)'], agua:['💧','Agua','var(--agua)'], tierra:['🌱','Tierra','var(--tierra)'], fuego:['🔥','Fuego','var(--fuego)'] };
+function _avanceDeMarca(b){
+  const hoy=fmtLocalDate(new Date());
+  const acts=[]; ['aire','agua','tierra','fuego'].forEach(st=>(b.cronograma?.[st]||[]).forEach(a=>acts.push({...a,_st:st})));
+  const tot=acts.length, hechas=acts.filter(a=>a.status==='completada').length;
+  const vencidas=acts.filter(a=>a.status!=='completada' && a.endDate && a.endDate<hoy).length;
+  const actual = acts.find(a=>a.status!=='completada' && !/pago/i.test(a.name||'')) || null;
+  const proxHito = acts.find(a=>a.status!=='completada' && a.isHito) || null;
+  const pagos=((appData.cobros||{})[b.id]||{}).pagos||[];
+  const conFecha = pagos.filter(p=>!p.cobrado).map(p=>{ const idx=acts.findIndex(a=>a.id===p.triggerActId); const act=idx>=0?acts[idx]:null; return { p, idx, act, fecha:(act&&act.endDate)||p.fechaProyectada||'' }; })
+    .sort((x,y)=>(x.fecha||'9999').localeCompare(y.fecha||'9999'));
+  const sig = conFecha[0] || null;
+  let hitoPrevio=null;
+  if(sig && sig.idx>0){ for(let i=sig.idx-1;i>=0;i--){ if(acts[i].isHito){ hitoPrevio=acts[i]; break; } } }
+  const mov = (sig && sig.p.fechaProyectada && sig.fecha) ? Math.round((parseLocalDate(sig.fecha)-parseLocalDate(sig.p.fechaProyectada))/86400000) : null;
+  const diasPago = sig && sig.fecha ? Math.round((parseLocalDate(sig.fecha)-parseLocalDate(hoy))/86400000) : null;
+  const hitoVencido = hitoPrevio && hitoPrevio.status!=='completada' && hitoPrevio.endDate && hitoPrevio.endDate<hoy;
+  let riesgo='verde';
+  if((diasPago!=null && diasPago<0) || vencidas>=5) riesgo='rojo';
+  else if((mov!=null && mov>=7) || vencidas>=2 || hitoVencido) riesgo='amarillo';
+  return { tot, hechas, vencidas, actual, proxHito, sig, hitoPrevio, hitoVencido, mov, diasPago, riesgo, pagosTotal:pagos.length };
+}
+function _avanceCobrosVista(){
+  try{ setTimeout(_asegurarCronoHidratado,0); }catch(e){}
+  const MS=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const f=s=>{ if(!s) return '—'; const d=parseLocalDate(s); return d.getDate()+' '+MS[d.getMonth()]; };
+  const money=v=>{ const n=Number(v)||0; return n?'$'+n.toLocaleString('en-US',{maximumFractionDigits:2}):'<span style="color:var(--text3);font-weight:600">sin monto</span>'; };
+  const SEM={rojo:['#d12f2f','rgba(209,47,47,0.1)','Atrasado'],amarillo:['#b7791f','rgba(234,179,8,0.15)','En riesgo'],verde:['#1c8a4a','rgba(28,138,74,0.1)','A tiempo']};
+  const filtro = window._avFiltro || 'todas';
+  let marcas=_marcasReales().filter(b=>!b.paused && !b.archivedAt && !b.deletedAt && !b.porIniciar).map(b=>({b, a:_avanceDeMarca(b)}));
+  const pausadas=_marcasReales().filter(b=>b.paused && !b.archivedAt && !b.deletedAt).length;
+  const en14 = marcas.filter(x=>x.a.sig && x.a.diasPago!=null && x.a.diasPago<=14).reduce((s,x)=>s+(Number(x.a.sig.p.monto)||0),0);
+  const nRojo=marcas.filter(x=>x.a.sig&&x.a.riesgo==='rojo').length, nAm=marcas.filter(x=>x.a.sig&&x.a.riesgo==='amarillo').length;
+  if(filtro==='rojo') marcas=marcas.filter(x=>x.a.riesgo==='rojo'); else if(filtro==='amarillo') marcas=marcas.filter(x=>x.a.riesgo==='amarillo');
+  const grupo=x=>{ if(!x.a.pagosTotal) return 'Sin pagos configurados'; if(!x.a.sig) return 'Todo cobrado'; const d=x.a.diasPago; if(d==null) return 'Sin fecha de pago'; return d<0?'Pagos vencidos':d<=7?'Esta semana':d<=14?'Próxima semana':'Más adelante'; };
+  const ORD=['Pagos vencidos','Esta semana','Próxima semana','Más adelante','Sin fecha de pago','Todo cobrado','Sin pagos configurados'];
+  marcas.sort((x,y)=>(ORD.indexOf(grupo(x))-ORD.indexOf(grupo(y))) || String(x.a.sig?.fecha||'9999').localeCompare(String(y.a.sig?.fecha||'9999')) || String(x.b.name).localeCompare(String(y.b.name)));
+  const chip=(k,t)=>`<button onclick="window._avFiltro='${k}';renderMiTrabajo()" style="font-size:0.72rem;font-weight:700;padding:0.3rem 0.75rem;border-radius:99px;cursor:pointer;font-family:var(--font);border:1px solid ${filtro===k?'var(--text)':'var(--border)'};background:${filtro===k?'var(--text)':'transparent'};color:${filtro===k?'var(--bg)':'var(--text2)'}">${t}</button>`;
+  const kpi=(v,t,c)=>`<div style="flex:1;min-width:140px;border:1px solid var(--border);border-radius:12px;padding:0.6rem 0.8rem;background:var(--bg-card)"><div style="font-size:1.25rem;font-weight:800;color:${c||'var(--text)'}">${v}</div><div style="font-size:0.68rem;color:var(--text3)">${t}</div></div>`;
+  let h=`<div style="padding:0.9rem 1.2rem">
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.8rem">${kpi('$'+en14.toLocaleString('en-US',{maximumFractionDigits:0}),'por cobrar en los próximos 14 días')}${kpi(nRojo,'atrasadas','#d12f2f')}${kpi(nAm,'en riesgo','#b7791f')}${kpi(marcas.length,'marcas activas'+(pausadas?' · '+pausadas+' en pausa':''))}</div>
+    <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-bottom:0.6rem">${chip('todas','Todas')}${chip('rojo','🔴 Atrasadas')}${chip('amarillo','🟡 En riesgo')}</div>
+    <div style="display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(170px,1.35fr) minmax(150px,1.2fr) minmax(130px,1fr) 120px 84px;gap:1rem;font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:var(--text3);padding:0.4rem 0.5rem;border-bottom:1px solid var(--border)"><span>Marca</span><span>Ahora</span><span>Próximo pago</span><span>Hito que lo destraba</span><span>Avance</span><span>Estado</span></div>`;
+  let gPrev='';
+  marcas.forEach(({b,a})=>{
+    const g=grupo({a}); if(g!==gPrev){ h+=`<div style="font-size:0.66rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#6a4fc4;padding:0.9rem 0.5rem 0.2rem">${g}</div>`; gPrev=g; }
+    let col='#3b9edd'; try{ col=getBrandColor(b); }catch(e){}
+    const logo = b.image ? `<img src="${b.image}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-weight:800;color:${col}">${escapeHtml((b.name||'?').charAt(0).toUpperCase())}</span>`;
+    const et = a.actual ? _AV_ETAPA[a.actual._st] : null;
+    const pct = a.tot ? Math.round(a.hechas/a.tot*100) : 0;
+    const S = SEM[a.riesgo];
+    const pagoTxt = a.sig ? `<div style="font-weight:700;color:var(--text)">${escapeHtml(a.sig.p.nombre||'Pago')} · ${money(a.sig.p.monto)}</div><div style="font-size:0.7rem;color:${a.diasPago<0?'#d12f2f':'var(--text2)'};margin-top:0.15rem">${f(a.sig.fecha)} · ${a.diasPago==null?'':a.diasPago<0?'hace '+(-a.diasPago)+' d':a.diasPago===0?'hoy':a.diasPago===1?'mañana':'en '+a.diasPago+' d'}</div>${a.mov>0?`<div style="font-size:0.66rem;font-weight:700;color:#b7791f" title="Estaba previsto para el ${f(a.sig.p.fechaProyectada)}">↗ +${a.mov} días vs lo previsto</div>`:''}` : `<span style="color:var(--text3)">${a.pagosTotal?'✓ Todo cobrado':'Sin pagos'}</span>`;
+    const hitoTxt = a.hitoPrevio ? `<div style="color:var(--text);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(a.hitoPrevio.name)}</div><div style="font-size:0.68rem;color:${a.hitoVencido?'#d12f2f':'var(--text3)'}">${a.hitoPrevio.status==='completada'?'✓ hecho':f(a.hitoPrevio.endDate)+(a.hitoVencido?' · vencido':'')}</div>` : '<span style="color:var(--text3)">—</span>';
+    const ahora = a.actual ? `<div style="font-weight:600;color:var(--text);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;"><span title="Etapa ${et[1]}" style="display:inline-block;font-size:0.6rem;font-weight:800;border-radius:99px;padding:0.05rem 0.42rem;margin-right:0.35rem;vertical-align:1px;background:color-mix(in srgb, ${et[2]} 16%, transparent);color:${et[2]};white-space:nowrap">${et[0]} ${et[1]}</span>${escapeHtml(a.actual.name)}</div>${a.proxHito?`<div style="font-size:0.68rem;color:var(--text3);margin-top:0.2rem;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">⭐ Próximo hito: ${escapeHtml(a.proxHito.name)} · <b style="color:var(--text2)">${f(a.proxHito.endDate)}</b></div>`:''}` : '<span style="color:#1c8a4a;font-weight:700">✓ Cronograma completo</span>';
+    h+=`<div onclick="openBrand('${b.id}');setTimeout(()=>switchTab('crono'),100)" title="Abrir el cronograma de ${escapeHtml(b.name)}" style="display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(170px,1.35fr) minmax(150px,1.2fr) minmax(130px,1fr) 120px 84px;gap:1rem;align-items:center;padding:0.75rem 0.5rem;border-bottom:1px solid var(--border);cursor:pointer;font-size:0.8rem;border-radius:8px" onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background='transparent'">
+      <div style="display:flex;align-items:center;gap:0.55rem;min-width:0"><div style="width:38px;height:38px;border-radius:10px;overflow:hidden;flex-shrink:0;background:var(--bg-card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center">${logo}</div><b style="color:var(--text);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(b.name)}</b></div>
+      <div style="min-width:0;max-width:250px">${ahora}</div>
+      <div style="min-width:0">${pagoTxt}</div>
+      <div style="min-width:0;max-width:190px">${hitoTxt}</div>
+      <div><div style="height:7px;border-radius:9px;background:var(--border);overflow:hidden"><div style="width:${pct}%;height:100%;background:${et?et[2]:'#1c8a4a'}"></div></div><div style="font-size:0.64rem;color:var(--text3);margin-top:0.2rem">${pct}%${a.vencidas?' · <span style="color:#d12f2f">'+a.vencidas+' vencida'+(a.vencidas!==1?'s':'')+'</span>':''}</div></div>
+      <div>${a.sig?`<span style="font-size:0.66rem;font-weight:800;border-radius:99px;padding:0.15rem 0.55rem;background:${S[1]};color:${S[0]};white-space:nowrap">${S[2]}</span>`:''}</div>
+    </div>`;
+  });
+  if(!marcas.length) h+=`<div style="font-size:0.8rem;color:var(--text3);padding:1rem 0.5rem">No hay marcas en este filtro.</div>`;
+  h+=`<div style="font-size:0.66rem;color:var(--text3);margin-top:0.8rem;line-height:1.5">🔴 Atrasado: el pago ya pasó su fecha o hay 5+ tareas vencidas · 🟡 En riesgo: el pago se movió 7+ días de lo previsto, hay 2+ tareas vencidas o el hito previo venció · Clic en una marca para abrir su cronograma.</div></div>`;
+  return h;
+}
+
 function _miTrabajoResumenAsistente(STAGE_COLOR, fmtF, diffLabel, diffColor){
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const hoyStr = hoy.toISOString().slice(0,10);
   const mesActual = hoy.getMonth(), anioActual = hoy.getFullYear();
 
   // Recolectar pagos pendientes (no cobrados, no incobrables) con monto
-  const pend = [];
+  // Las marcas en pausa se ocultan por defecto; un botón pequeño las muestra/oculta.
+  const pend = []; const _pausadasConCobro = new Set();
   Object.keys(appData.cobros||{}).forEach(brandId=>{
     const brand = (appData.brands||[]).find(b=>b.id===brandId);
     if(!brand || brand.archivedAt || brand.deletedAt) return;
+    if(brand.paused && !(appData.cobros[brandId]?.pagos||[]).some(p=>!p.cobrado&&!p.incobrable)) return;
+    if(brand.paused){ _pausadasConCobro.add(brandId); if(!window._resAsisVerPausadas) return; }
     ((appData.cobros[brandId]?.pagos)||[]).forEach(p=>{
       if(p.cobrado || p.incobrable) return;
       const monto = parseFloat(p.monto)||0;
@@ -20627,7 +20701,7 @@ function _miTrabajoResumenAsistente(STAGE_COLOR, fmtF, diffLabel, diffColor){
       const diff = f ? Math.round((new Date(f)-hoy)/86400000) : null;
       const fBase = f?new Date(f):null;
       const esteMes = fBase && fBase.getMonth()===mesActual && fBase.getFullYear()===anioActual;
-      pend.push({ marca:brand.name, brandId, nombre:p.nombre||'Pago', monto, fecha:f, vencido, diff, esteMes, stage:brand.stage });
+      pend.push({ marca:brand.name, brandId, nombre:p.nombre||'Pago', monto, fecha:f, vencido, diff, esteMes, stage:brand.stage, pausada:!!brand.paused });
     });
   });
   pend.sort((a,b)=>{ if(a.fecha&&b.fecha) return a.fecha.localeCompare(b.fecha); if(a.fecha) return -1; if(b.fecha) return 1; return 0; });
@@ -20660,7 +20734,8 @@ function _miTrabajoResumenAsistente(STAGE_COLOR, fmtF, diffLabel, diffColor){
 
   // Lista de cobros urgentes (vencidos + próximos)
   const urgentes = [...vencidos, ...proximos].slice(0,8);
-  h1 += `<div style="font-size:0.7rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.6rem">Cobros a gestionar</div>`;
+  const _nPaus = _pausadasConCobro.size, _verP = !!window._resAsisVerPausadas;
+  h1 += `<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.6rem"><div style="font-size:0.7rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;flex:1">Cobros a gestionar</div>${_nPaus?`<button onclick="window._resAsisVerPausadas=!window._resAsisVerPausadas;renderMiTrabajo()" title="${_verP?'Ocultar':'Mostrar'} los cobros de marcas en pausa" style="font-size:0.66rem;font-weight:700;padding:0.2rem 0.6rem;border-radius:99px;cursor:pointer;font-family:var(--font);border:1px solid ${_verP?'var(--text)':'var(--border)'};background:${_verP?'var(--text)':'transparent'};color:${_verP?'var(--bg)':'var(--text3)'}">⏸ ${_verP?'Ocultar pausadas':'Ver pausadas ('+_nPaus+')'}</button>`:''}</div>`;
   if(urgentes.length){
     h1 += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0.5rem">`;
     urgentes.forEach(p=>{
@@ -20672,7 +20747,7 @@ function _miTrabajoResumenAsistente(STAGE_COLOR, fmtF, diffLabel, diffColor){
       else { etq=`en ${p.diff}d`; etC='var(--tierra)'; }
       h1 += `<div onclick="goTo('cobranzas')" style="padding:0.6rem 0.7rem;border-radius:10px;background:var(--bg-card2);border-left:3px solid ${sc};cursor:pointer;${p.vencido?'opacity:0.9':''}" onmouseover="this.style.background='var(--bg-card)'" onmouseout="this.style.background='var(--bg-card2)'">
         <div style="display:flex;align-items:baseline;justify-content:space-between;gap:0.5rem">
-          <span style="font-size:0.8rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.marca)}</span>
+          <span style="font-size:0.8rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.pausada?'<span title="Marca en pausa" style="font-size:0.6rem;font-weight:800;color:var(--text3);background:var(--border);border-radius:99px;padding:0.05rem 0.4rem;margin-right:0.3rem">⏸ pausa</span>':''}${escapeHtml(p.marca)}</span>
           <span style="font-size:0.82rem;font-weight:800;color:var(--text);flex-shrink:0">${money(p.monto)}</span>
         </div>
         <div style="display:flex;align-items:baseline;justify-content:space-between;gap:0.5rem;margin-top:0.15rem">
@@ -20831,6 +20906,7 @@ function _miTrabajoResumenPM(STAGE_COLOR, fmtF, diffLabel, diffColor){
 // - resto: solo los suyos
 function _hitosParaVista(user){
   try{
+    if(_esAsistente() && !_esPM() && !_tieneRol('admin')) return _actividadesTodasMarcas();
     if(_esPM()){
       return deduplicateHitos(_miembrosPresentes().flatMap(m=>getMemberHitos(m.id)));
     }
@@ -20838,6 +20914,19 @@ function _hitosParaVista(user){
   }catch(e){ return []; }
 }
 
+// Todas las actividades (no solo hitos) de las marcas activas, en su fecha de entrega. Solo lectura.
+function _actividadesTodasMarcas(){
+  const out=[];
+  try{ setTimeout(_asegurarCronoHidratado,0); }catch(e){}
+  _marcasReales().forEach(b=>{
+    if(b.paused || b.archivedAt || b.deletedAt) return;
+    ['aire','agua','tierra','fuego'].forEach(st=>{ (b.cronograma?.[st]||[]).forEach(a=>{
+      const f = a.endDate || a.startDate; if(!f) return;
+      out.push({ type:'oficial', soloLectura:true, name:(/pago/i.test(a.name||'')?'💲 ':'')+a.name, brandName:b.name, brandId:b.id, actId:a.id, stage:st, date:f, dateObj:parseLocalDate(f), fin:a.endDate||'', status:a.status, isHito:a.isHito });
+    }); });
+  });
+  return out;
+}
 // Pill con TODOS los participantes de una marca (principales + astronautas).
 // Se usa en la vista de la PM, que necesita ver a todo el equipo de cada marca.
 function _todosParticipantesPill(brandId){
@@ -20917,7 +21006,7 @@ function _miTrabajoSemana(misMarcas, STAGE_COLOR){
           ? `repeating-linear-gradient(-45deg,rgba(${r},${g},${bv},0.07) 0,rgba(${r},${g},${bv},0.07) 5px,rgba(${r},${g},${bv},0.02) 5px,rgba(${r},${g},${bv},0.02) 10px)`
           : `rgba(${r},${g},${bv},0.18)`;
         const borde = esRevision ? `1.5px dashed rgba(${r},${g},${bv},0.45)` : 'none';
-        const arrastrable = (h.type==='oficial' || h.type==='revision') && h.actId && h.stage && _puedeEditarFechas();
+        const arrastrable = !h.soloLectura && (h.type==='oficial' || h.type==='revision') && h.actId && h.stage && _puedeEditarFechas();
         h1 += `<div onclick="openBrand('${h.brandId}');setTimeout(()=>switchTab('crono'),100)"
           ${arrastrable?`draggable="true" ondragstart="calDragStart(event,'${h.brandId}','${h.stage}','${h.actId}','${h.type}')" title="${h.type==='revision'?'Arrastra a otro día para mover esta revisión interna':'Arrastra a otro día para moverla (también se mueve en el cronograma)'}"`:''}
           class="${arrastrable?'cal-draggable':''}" style="background:${bg};border:${borde};border-left:4px solid rgb(${r},${g},${bv});border-radius:0 7px 7px 0;padding:0.4rem 0.5rem;margin-bottom:0.35rem;cursor:${arrastrable?'grab':'pointer'};${yaPaso?'opacity:0.45':''}">
@@ -21174,6 +21263,19 @@ async function toggleOnboardingCheck(slotId, checkKey){
 
 // Recolecta los proyectos "nuevos" = slots de Metas que NO tienen los 5 checks completos.
 // Devuelve [{ slotId, nombre, quincenaKey, quincenaLabel, hechos, total, brand }]
+// Marca vinculada a un cupo de Metas: por id / CRM primero; el nombre solo como último recurso
+function _marcaDeSlot(slot){
+  if(!slot) return null;
+  const bs = appData.brands||[];
+  if(slot.brandId){ const b=bs.find(x=>x.id===slot.brandId); if(b) return b; }
+  if(slot.crmId){
+    let b = bs.find(x=>x.createdFromCrm===slot.crmId); if(b) return b;
+    try{ const it=(window._crmData&&_crmData.items||[]).find(x=>x.id===slot.crmId); if(it && it.marcaCreadaId){ b=bs.find(x=>x.id===it.marcaCreadaId); if(b) return b; } }catch(e){}
+  }
+  const n=(slot.nombre||'').trim().toLowerCase(); if(!n) return null;
+  return bs.find(b=>(b.name||'').trim().toLowerCase()===n) || null;
+}
+function _nombreDeSlot(slot){ const b=_marcaDeSlot(slot); return (b && b.name) || (slot && slot.nombre) || ''; }
 function _nuevosProyectos(){
   const metas = (appData.metas && typeof appData.metas==='object') ? appData.metas : {};
   const out = [];
@@ -21183,10 +21285,10 @@ function _nuevosProyectos(){
       if(_onbCompletos(slot.id)) return; // ya completó los 5 → deja de ser nuevo
       // ¿existe ya una marca con ese nombre? (para enlazar y auto-detectar "marca creada")
       let brand = null;
-      try{ brand = (appData.brands||[]).find(b=>(b.name||'').trim().toLowerCase()===(slot.nombre||'').trim().toLowerCase()); }catch(e){}
+      try{ brand = _marcaDeSlot(slot); }catch(e){}
       out.push({
         slotId: slot.id,
-        nombre: slot.nombre || 'Proyecto',
+        nombre: (brand && brand.name) || slot.nombre || 'Proyecto',
         quincenaKey: key,
         quincenaLabel: (typeof _quincenaLabel==='function') ? _quincenaLabel(key) : key,
         hechos: _onbCuantos(slot.id),
@@ -26886,8 +26988,9 @@ async function savePortalSlugManual(){
   // Verificar que no choque con el slug de OTRA marca
   const choca = (appData.brands||[]).some(b=>b.id!==brand.id && b.portalSlug===slug);
   if(choca){ showStatus('Ese identificador ya lo usa otra marca', true); return; }
-  const ok = await confirmModal('El enlace actual dejará de funcionar y el portal pasará a usar:\n\n?portal='+slug+'\n\n¿Confirmas el cambio?', 'Cambiar identificador');
+  const ok = await confirmModal('El portal pasará a usar:\n\n?portal='+slug+'\n\nEl enlace anterior seguirá funcionando. ¿Confirmas el cambio?', 'Cambiar identificador');
   if(!ok) return;
+  _portalGuardarSlugPrevio(brand);
   brand.portalSlug = slug;
   markLocalChange('brands');
   await upsert();
@@ -26895,12 +26998,19 @@ async function savePortalSlugManual(){
   showStatus('Identificador del portal actualizado ✓');
 }
 
+// Guarda el identificador actual en el historial, para que los links ya enviados sigan abriendo
+function _portalGuardarSlugPrevio(brand){
+  if(!brand || !brand.portalSlug) return;
+  if(!Array.isArray(brand.portalSlugsPrevios)) brand.portalSlugsPrevios = [];
+  if(!brand.portalSlugsPrevios.includes(brand.portalSlug)) brand.portalSlugsPrevios.push(brand.portalSlug);
+}
 // Regenerar el identificador automático (borra el manual y vuelve al NOMBRE-NN)
 async function resetPortalSlugManual(){
   const brand = (appData.brands||[]).find(b=>b.id===currentBrandId);
   if(!brand){ showStatus('No hay marca seleccionada', true); return; }
-  const ok = await confirmModal('Se regenerará el identificador automático a partir del nombre de la marca. El enlace actual podría cambiar. ¿Continuar?', 'Regenerar');
+  const ok = await confirmModal('Se creará un enlace nuevo con el nombre actual de la marca. El enlace anterior seguirá funcionando. ¿Continuar?', 'Regenerar');
   if(!ok) return;
+  _portalGuardarSlugPrevio(brand);
   brand.portalSlug = null;
   _ensurePortalSlug(brand);
   markLocalChange('brands');
@@ -28293,6 +28403,7 @@ function renderBrandBp(brand){
   (document.getElementById('brand-bp-left')||{}).textContent=left;
   const _bpLbl=document.getElementById('brand-bp-total-label'); if(_bpLbl) _bpLbl.textContent=total+' pts';
   (document.getElementById('brand-bp-bar')||{style:{}}).style.width=total>0?Math.min(100,used/total*100)+'%':'0%';
+  try{ const pe=document.getElementById('brand-bp-precio'); if(pe) pe.innerHTML=_bpPrecioInternoHTML(brand, used, total); }catch(e){}
 
   (document.getElementById('brand-bp-cats')||{innerHTML:''}).innerHTML=(bp.categories||[]).map((cat,ci)=>`
     <div class="bp-cat" draggable="true"
@@ -28343,12 +28454,13 @@ function renderBrandBp(brand){
                 <div style="background:rgba(232,98,42,0.1);padding:0.3rem 0.45rem;border-right:1.5px solid rgba(232,98,42,0.3)">
                   <span style="font-size:0.6rem;font-weight:800;color:var(--fuego);text-transform:uppercase;letter-spacing:0.6px;white-space:nowrap">pts</span>
                 </div>
-                <input type="number" min="0" placeholder="?" value="${item.pts!=null?item.pts:''}"
+                <input type="text" inputmode="numeric" placeholder="?" value="${item.pts!=null?item.pts:''}"
                   style="width:46px;background:none;border:none;outline:none;color:var(--fuego);font-family:var(--font);font-size:0.92rem;font-weight:800;text-align:center;cursor:text;padding:0.3rem 0.3rem"
                   onchange="setBpItemPts('${brand.id}',${ci},${ii},this.value)"
                   onfocus="this.closest('div').style.borderColor='var(--fuego)';this.closest('div').style.boxShadow='0 0 0 3px rgba(232,98,42,0.15)'"
                   onblur="this.closest('div').style.borderColor='rgba(232,98,42,0.4)';this.closest('div').style.boxShadow='none'"
-                  title="Editar puntos">
+                  title="Editar puntos (borra o escribe ? para dejarlo por definir)">
+                ${item.pts!=null && /personaliz/i.test(cat.name||'') ? `<button onclick="setBpItemPts('${brand.id}',${ci},${ii},'')" title="Volver a “?” (puntos por definir)" style="background:none;border:none;border-left:1.5px solid rgba(232,98,42,0.3);cursor:pointer;color:var(--fuego);font-size:0.72rem;font-weight:800;padding:0.3rem 0.45rem;font-family:var(--font)">?</button>` : ''}
               </div>
               <div style="display:flex;align-items:center;gap:0;flex-shrink:0;border:1.5px solid rgba(45,195,179,0.4);border-radius:10px;overflow:hidden">
                 <div style="background:rgba(45,195,179,0.08);padding:0.3rem 0.45rem;border-right:1.5px solid rgba(45,195,179,0.3)">
@@ -28446,7 +28558,7 @@ async function setBpItemPts(brandId,ci,ii,val){
   const cat = brand.brandingPoints.categories[ci];
   const item = cat?.items?.[ii];
   if(!item) return;
-  item.pts = v===''?null:Math.max(0,parseInt(v)||0);
+  item.pts = (v==='' || v==='?') ? null : Math.max(0,parseInt(v)||0);
   renderBrandBp(brand);
   // 🔒 Guardar directo en tabla
   await BrandBpDB.saveItem(brandId, cat, item, ci, ii);
@@ -28502,9 +28614,11 @@ async function addBrandBpItem(brandId,ci){
   if(!brand||!brand.brandingPoints)return;
   const name=await askModal({label:'Nombre del entregable',placeholder:'Ej: Manual de marca'});
   if(!name||!name.trim())return;
-  const ptsStr=await askModal({label:`Branding points para "${name}"`,type:'number',defaultValue:'1'});
-  const pts=parseInt(ptsStr)||1;
   const cat = brand.brandingPoints.categories[ci];
+  const esPers = /personaliz/i.test(cat.name||'');
+  const ptsStr=await askModal({label:`Branding points para "${name}"`+(esPers?'\n\nDéjalo vacío si todavía no se define (queda en “?”)':''),type:esPers?'text':'number',defaultValue:esPers?'':'1'});
+  const vs=String(ptsStr==null?'':ptsStr).trim();
+  const pts = esPers && (vs===''||vs==='?') ? null : (parseInt(vs)||1);
   const newItem = {id:uid(),name:name.trim(),pts,qty:1,selected:false};
   cat.items.push(newItem);
   renderBrandBp(brand);
@@ -34216,7 +34330,7 @@ async function bitacoraHistorialPersona(memberId){
     filas.forEach(f=>{
       const activa = activas.has(f.brand_id);
       h += '<div onclick="closeTrayModal();openBrand(\''+f.brand_id+'\')" style="cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0.6rem;align-items:center;padding:0.55rem 0.7rem;border:1px solid var(--border);border-radius:10px;background:var(--bg-card2)">'
-        + '<div style="min-width:0"><div style="font-size:0.84rem;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escapeHtml(f.brand_nombre||'')+'</div>'
+        + '<div style="min-width:0"><div style="font-size:0.84rem;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escapeHtml(((appData.brands||[]).find(b=>b.id===f.brand_id)||{}).name||f.brand_nombre||'')+'</div>'
         + '<div style="font-size:0.68rem;color:var(--text3);margin-top:0.1rem">'+escapeHtml(BIT_ROLES[f.rol]||f.rol||'')+' · '+fmt(f.desde)+' → '+(f.hasta?fmt(f.hasta):'hoy')+(f.origen==='estimado'?' · <span title="Dato reconstruido a partir del domo final; las fechas son aproximadas">estimado</span>':'')+'</div></div>'
         + '<span style="font-size:0.62rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:99px;'+(activa?'color:#30a46c;background:rgba(48,164,108,0.12)':'color:var(--text3);background:var(--border)')+'">'+(activa?'Activa':'Terminada')+'</span>'
         + '</div>';
@@ -34588,7 +34702,9 @@ async function boot(){
     // Resolver slug → brandId real (incluye demos, que son portales de venta)
     const allBrands = [...(appData.brands||[]), ...(appData.demos||[])];
     let resolvedId = portalParam;
-    const bySlug = allBrands.find(b=>b.portalSlug===portalParam);
+    const _pp = String(portalParam).toUpperCase();
+    const bySlug = allBrands.find(b=>b.portalSlug===portalParam) || allBrands.find(b=>b.portalSlug && String(b.portalSlug).toUpperCase()===_pp)
+      || allBrands.find(b=>Array.isArray(b.portalSlugsPrevios) && b.portalSlugsPrevios.some(x=>String(x).toUpperCase()===_pp));
     if(bySlug) resolvedId = bySlug.id;
     else {
       // Buscar en el historial de slugs previos (links viejos ya enviados al cliente)
@@ -34609,7 +34725,7 @@ async function boot(){
           // el id del final del slug y resolver por ahí. El id NUNCA cambia, así que
           // el link sobrevive a cualquier renombrado.
           const posibleId = String(portalParam).split('-').pop();
-          const byTailId = allBrands.find(b=>b.id===posibleId);
+          const byTailId = allBrands.find(b=>b.id===posibleId) || allBrands.find(b=>String(b.id).toLowerCase()===posibleId.toLowerCase());
           if(byTailId) resolvedId = byTailId.id;
         }
       }
@@ -36817,10 +36933,32 @@ function _precioBpExtra(nExtra){
 // Marcas sin fecha de creación = anteriores.
 const BP_PRECIO_DESDE = '2026-10-15T05:00:00Z';
 function _bpPrecioAplica(brand){
+  if(brand && brand.bpPrecioForzado === true) return true;   // activado a mano para una marca anterior
+  if(brand && brand.bpPrecioForzado === false) return false; // desactivado a mano
   if(brand && _esDemoMarca(brand)) return true; // los demos son proyectos nuevos: siempre aplica
   if(!brand || !brand.createdAt) return false;
   const t = new Date(brand.createdAt).getTime();
   return !isNaN(t) && t >= new Date(BP_PRECIO_DESDE).getTime();
+}
+// Línea interna: si a esta marca se le cobra el BP extra, cuánto va, y (solo admins) el interruptor
+function _bpPrecioInternoHTML(brand, used, total){
+  const aplica=_bpPrecioAplica(brand); const exceso=Math.max(0,(used||0)-(total||0));
+  let esAdmin=false; try{ esAdmin=_rolesDe(_usuarioReal()).includes('admin'); }catch(e){}
+  const porFecha = (()=>{ const b={...brand}; delete b.bpPrecioForzado; return _bpPrecioAplica(b); })();
+  const txt = aplica
+    ? (exceso>0 ? `💲 Cliente pasado por <b>${exceso} pts</b> · costo extra <b>$${_precioBpExtra(exceso).toLocaleString('en-US')}</b> (se muestra en el portal)` : '💲 Precio de BP extra activo: el cliente ve la tabla de precios en su portal')
+    : '💲 Precio de BP extra: no aplica a esta marca (anterior al 15 oct)';
+  const btn = esAdmin ? (aplica
+      ? (brand.bpPrecioForzado===true ? `<button onclick="_bpPrecioForzar('${brand.id}',null)" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.2rem 0.55rem;font-size:0.7rem;font-weight:700;color:var(--text2);cursor:pointer;font-family:var(--font)">Quitar</button>` : '')
+      : (porFecha ? '' : `<button onclick="_bpPrecioForzar('${brand.id}',true)" style="background:var(--fuego);color:#fff;border:none;border-radius:8px;padding:0.25rem 0.65rem;font-size:0.72rem;font-weight:800;cursor:pointer;font-family:var(--font)">Aplicar a esta marca</button>`)) : '';
+  return `<div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;font-size:0.76rem;color:var(--text2);background:${aplica&&exceso>0?'rgba(232,98,42,0.08)':'var(--bg-card2)'};border:1px solid ${aplica&&exceso>0?'rgba(232,98,42,0.3)':'var(--border)'};border-radius:10px;padding:0.5rem 0.75rem;margin-bottom:0.7rem"><span style="flex:1;min-width:0">${txt}${brand.bpPrecioForzado===true?' <span style="color:var(--text3)">· activado a mano</span>':''}</span>${btn}</div>`;
+}
+async function _bpPrecioForzar(brandId, val){
+  const brand=(appData.brands||[]).find(b=>b.id===brandId); if(!brand) return;
+  if(val===null) delete brand.bpPrecioForzado; else brand.bpPrecioForzado = val;
+  markBrandChange(brand.id); renderBrandBp(brand);
+  await upsert(true);
+  showStatus(val ? 'Precio de BP extra activado para '+brand.name+' ✓' : 'Precio de BP extra quitado');
 }
 function _portalExcesoBpHTML(used, total, brand){
   if(!_bpPrecioAplica(brand)) return '';
