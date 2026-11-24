@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261123-v551-RESUMEN-SIN-PAUSADAS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261123-v552-SEMANA-ASISTENTE-HITOS-PAGOS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4282,7 +4282,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 551;
+const APP_VERSION = 552;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -20906,7 +20906,11 @@ function _miTrabajoResumenPM(STAGE_COLOR, fmtF, diffLabel, diffColor){
 // - resto: solo los suyos
 function _hitosParaVista(user){
   try{
-    if(_esAsistente() && !_esPM() && !_tieneRol('admin')) return _actividadesTodasMarcas();
+    if(_esAsistente() && !_esPM() && !_tieneRol('admin')){
+      // Lo mismo que ve la PM (hitos y momentos clave del equipo) + los pagos de todas las marcas activas. Solo lectura.
+      const base = deduplicateHitos(_miembrosPresentes().flatMap(m=>getMemberHitos(m.id))).map(h=>({...h, soloLectura:true}));
+      return base.concat(_actividadesTodasMarcas().filter(h=>/pago/i.test(h.name||'')));
+    }
     if(_esPM()){
       return deduplicateHitos(_miembrosPresentes().flatMap(m=>getMemberHitos(m.id)));
     }
