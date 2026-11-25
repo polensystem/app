@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261125-v554-BIENVENIDA -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261125-v555-CARGA-SNAKE -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2145,6 +2145,37 @@ html[data-theme] body #dash-stats-grid>div:first-child{background:var(--g-bg)!im
 #pcolor-pop{position:fixed;left:14px;bottom:64px;width:232px;z-index:10060;padding:16px;border-radius:24px;background:linear-gradient(160deg,rgba(255,255,255,.92),rgba(255,255,255,.8));backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border:1px solid #fff;box-shadow:0 18px 44px rgba(28,31,35,.16);font-size:12px;color:var(--text2)}
 #pcolor-pop .pc-sw{width:28px;height:28px;border-radius:50%;cursor:pointer;border:none;padding:0}
 #pcolor-pop .pc-sw.on{outline:2px solid #1C1F23;outline-offset:2px}
+
+/* ═══ Pantalla de carga nueva (Polen Studios): anillo de progreso + Snake ═══ */
+body:not(.portal-mode) #loading-screen{background:transparent!important;gap:0!important}
+body:not(.portal-mode) #loading-screen::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(45% 55% at 15% 15%,var(--amb1) 0,transparent 70%),radial-gradient(45% 55% at 90% 60%,var(--amb2) 0,transparent 70%),radial-gradient(40% 45% at 45% 100%,var(--amb3) 0,transparent 70%),#EEEFF1}
+body:not(.portal-mode) #loading-screen .psl-main{display:none!important}
+body:not(.portal-mode) #loading-screen .loading-logo{order:1;margin:0 0 1.6rem!important;opacity:1!important}
+body:not(.portal-mode) #loading-screen .loading-logo svg{width:190px!important}
+body:not(.portal-mode) #pl-carga{order:2}
+body:not(.portal-mode) #loading-screen .loading-frase{order:3}
+body:not(.portal-mode) #loading-screen .loading-sub{order:4}
+body:not(.portal-mode) #loading-skip-btn{order:5}
+.pl-carga{display:flex;flex-direction:column;align-items:center;gap:14px;padding:26px 30px 22px;border-radius:28px;background:linear-gradient(160deg,rgba(255,255,255,.72),rgba(255,255,255,.45));border:1px solid rgba(255,255,255,.85);box-shadow:0 1px 0 #fff inset,0 18px 50px rgba(28,31,35,.08);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);min-width:250px;margin-bottom:1rem}
+body.portal-mode .pl-carga{display:none}
+.pl-snake-btn{min-height:40px;padding:0 18px;border-radius:999px;border:1px solid rgba(28,31,35,.12);background:rgba(255,255,255,.75);font-size:13px;cursor:pointer;color:#1C1F23;font-family:inherit}
+.pl-snake-btn:hover{background:#fff}
+body:not(.portal-mode) #loading-screen .loading-frase{font-weight:400!important;font-size:.9rem!important;color:#4B5058!important}
+.ring{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.ring svg{position:absolute;inset:0}
+.ring-arc{transition:stroke-dashoffset .4s ease}
+.ring-num{position:relative;font-size:22px;font-weight:250;letter-spacing:-.03em;color:#1C1F23}
+.ring-num small{font-size:11px;opacity:.6;margin-left:1px}
+dialog.snake-dialog{margin:auto!important;position:fixed;inset:0;height:fit-content;max-height:96vh;overflow:auto;border:0;padding:0;border-radius:28px;background:linear-gradient(160deg,rgba(255,255,255,.96),rgba(255,255,255,.88));box-shadow:0 30px 80px rgba(0,0,0,.22);max-width:440px;width:calc(100% - 40px);font-family:Aspekta,system-ui,sans-serif;color:#1C1F23}
+dialog.snake-dialog::backdrop{background:rgba(232,236,232,.42);backdrop-filter:blur(14px)}
+.snake-in{padding:20px;display:flex;flex-direction:column;gap:14px}
+.snake-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.snake-board{position:relative;width:100%;aspect-ratio:1;border-radius:18px;overflow:hidden;background:#14261A}
+.snake-over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(20,38,26,.72);color:#E9F2EA;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);text-align:center}
+.snake-over .sk-btn{background:#4CD94A;color:#14261A;border:none;border-radius:999px;min-height:42px;padding:0 20px;font-weight:650;cursor:pointer;font-family:inherit;font-size:14px}
+.snake-close{min-height:36px;padding:0 14px;border-radius:999px;border:1px solid rgba(28,31,35,.15);background:transparent;cursor:pointer;font-family:inherit;font-size:13px}
+.snake-listo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-radius:16px;background:rgba(223,245,214,.9)}
+.snake-listo button{background:#1C1F23;color:#fff;border:none;border-radius:999px;min-height:36px;padding:0 16px;font-weight:650;cursor:pointer;font-family:inherit}
 </style>
 </head>
 <body>
@@ -2184,6 +2215,7 @@ html[data-theme] body #dash-stats-grid>div:first-child{background:var(--g-bg)!im
   </div>
   <div class="loading-logo"><svg class="ps-logo" role="img" aria-label="Polen System" viewBox="92 72 1020 166" style="width:118px"><path style="fill:var(--ps-a)" d="M142.92,75.73l-45.87-.28-.76,124.61,22.86.14.21-32.74,23.01.16c25.35.16,46.11-20.33,46.26-45.67.15-25.33-20.35-46.08-45.7-46.23ZM142.44,143.36l-22.95-.14.28-45.9,22.95.14c12.67.08,22.89,10.42,22.81,23.09-.08,12.67-10.42,22.89-23.09,22.81Z"/><path style="fill:var(--ps-a)" d="M234.57,110.78c-25.3-.16-46.01,20.29-46.17,45.58-.16,25.29,20.3,45.99,45.61,46.14,25.3.16,46.01-20.29,46.17-45.58.16-25.29-20.3-45.99-45.61-46.14Z"/><path style="fill:var(--ps-a)" d="M310.71,176.11l.58-95.05-22.86-.14-.6,97.14c-.1,15.85,7.42,22.97,24.38,23.07l16.81.1.12-19.01-12.48-.08c-4.6-.03-5.99-1.44-5.96-6.04Z"/><path style="fill:var(--ps-a)" d="M473.64,112.26c-9.47-.06-17.79,3.3-24.37,9.78l.05-8-22.22-.14-.54,87.93,22.86.14.3-48.3c.12-20.35,16.47-20.84,18.34-20.83,12.13.07,14.62,8.77,14.58,16.05l-.33,53.28,22.7.14.34-55.37c.13-21.27-12.02-34.56-31.71-34.68Z"/><path style="fill:var(--ps-a)" d="M376.48,111.67c-25.72-.16-43.11,18.18-43.28,45.63-.17,27.45,17,46,42.72,46.15,19.64.12,35.46-10.89,41.3-28.74l.22-.68-23.06-.14c-3.45,6.75-9.77,10.29-18.35,10.24-10.46-.06-17.47-6.78-19.52-18.54l62.47.38.04-7.01c.18-28.56-16.53-47.12-42.55-47.28ZM357.08,147.37c2.6-10.65,9.37-16.44,19.28-16.38,9.66.06,16.44,6.07,18.91,16.61l-38.18-.23Z"/><path style="fill:var(--ps-b)" d="M523.43,161.46h18.73c.67,20.57,15.72,26.59,32.28,26.59s26.93-6.52,26.93-19.4c0-9.87-5.35-14.89-31.95-20.4-28.27-5.52-42.31-14.55-42.31-36.29,0-19.57,17.73-32.45,42.65-32.45,33.28,0,47.5,17.23,48.17,39.81h-18.4c-1-15.72-9.7-23.92-29.77-23.92-14.05,0-23.42,6.19-23.42,16.22s3.68,15.22,30.11,20.4c35.29,7.02,44.15,18.06,44.15,36.13,0,22.24-19.07,35.79-46.5,35.79s-49.84-13.38-50.68-42.48Z"/><path style="fill:var(--ps-b)" d="M629.8,220.67h13.38c8.2,0,10.2-2.68,12.88-10.37l3.01-8.03-32.95-87.31h18.9l23.25,68.07,23.25-68.07h18.9l-37.13,99.01c-4.52,12.38-9.7,21.41-24.25,21.41h-19.23v-14.72Z"/><path style="fill:var(--ps-b)" d="M715.26,173.51h17.23c1.34,12.38,8.7,16.73,21.58,16.73,11.37,0,18.57-4.18,18.57-11.71,0-6.86-2.51-9.87-21.07-13.05-26.93-4.52-33.95-13.21-33.95-27.09,0-15.72,13.71-25.42,33.78-25.42,23.58,0,36.63,11.04,36.96,29.1h-16.89c-.33-12.21-9.2-15.39-20.07-15.39-9.2,0-16.56,4.01-16.56,11.21s4.18,9.87,22.08,12.88c26.09,4.35,33.28,12.21,33.28,26.76,0,17.06-15.39,26.43-36.46,26.43s-37.3-9.03-38.47-30.44Z"/><path style="fill:var(--ps-b)" d="M829.83,88.21v26.76h22.75v14.38h-22.75v49.67c0,6.02,2.51,8.53,8.7,8.53h14.05v14.38h-18.06c-14.72,0-22.25-5.52-22.25-20.91v-51.68h-15.55v-14.38h15.55v-26.76h17.56Z"/><path style="fill:var(--ps-b)" d="M862.94,158.45c0-26.09,16.06-45.49,41.81-45.49s41.81,19.07,41.81,46.33v5.02h-65.73c1.67,15.05,9.87,24.92,23.92,24.92,10.7,0,18.73-5.02,22.41-13.88h17.56c-5.52,17.23-20.07,28.6-39.97,28.6-25.76,0-41.81-19.4-41.81-45.49ZM928.34,150.43c-2.17-13.71-10.37-22.75-23.58-22.75s-21.41,9.03-23.58,22.75h47.17Z"/><path style="fill:var(--ps-b)" d="M1054.61,128.52c-6.86,0-20.57,3.85-20.57,25.25v48.17h-17.56v-54.19c0-11.21-5.52-19.23-16.22-19.23-6.86,0-20.57,3.85-20.57,25.25v48.17h-17.56v-86.97h16.89v12.21c5.02-8.03,13.38-14.22,25.92-14.22s21.41,6.69,25.76,16.56c5.69-9.37,14.89-16.56,28.6-16.56,19.07,0,29.1,15.05,29.1,32.95v56.03h-17.56v-54.19c0-11.21-5.52-19.23-16.22-19.23Z"/></svg></div>
   <div class="loading-spinner" id="loading-spinner"></div>
+  <div class="pl-carga" id="pl-carga"><span id="pl-ring"></span><button type="button" class="pl-snake-btn" id="pl-snake-btn" onclick="plAbrirSnake()">Jugar Snake mientras carga</button></div>
   <div class="loading-frase" id="loading-frase">Método Polen despegando…</div>
   <div class="loading-sub" style="text-align:center;line-height:1.7;max-width:280px">Conectando con Supabase…</div>
   <button id="loading-skip-btn" onclick="forceSkipLoading()" style="display:none;margin-top:0.5rem;background:none;border:1px solid rgba(255,255,255,0.2);border-radius:99px;padding:0.4rem 1rem;color:rgba(255,255,255,0.5);font-size:0.78rem;cursor:pointer;font-family:var(--font)">Continuar de todas formas →</button>
@@ -4442,7 +4474,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 554;
+const APP_VERSION = 555;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -42181,6 +42213,67 @@ window.diagnosePolen = function(){
   const obs=new MutationObserver(()=>{ if(pend) return; pend=true; setTimeout(()=>{ pend=false; limpiar(document.body); },180); });
   function iniciar(){ try{ setTheme('light'); }catch(e){} _aplicarFondo(); _tituloBienvenida(); limpiar(document.body); obs.observe(document.body,{childList:true,subtree:true}); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',iniciar); else iniciar();
+})();
+</script>
+
+<script>
+/* ═══ Carga: anillo de progreso estimado + Snake (adaptado de Polen Studios). Solo presentación. ═══ */
+(function(){
+  function ring(pct,size,stroke){ size=size||86; stroke=stroke||5; const r=(size-stroke)/2, c=2*Math.PI*r;
+    return `<span class="ring" style="width:${size}px;height:${size}px" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}" aria-label="Cargando Polen System"><svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(28,31,35,.10)" stroke-width="${stroke}"/><circle class="ring-arc" cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#4CD94A" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c*(1-pct/100)}" transform="rotate(-90 ${size/2} ${size/2})"/></svg><span class="ring-num" style="font-size:${size<60?13:22}px">${Math.round(pct)}<small>%</small></span></span>`; }
+  function updateRing(root,pct){ (root||document).querySelectorAll('.ring').forEach(el=>{ const arc=el.querySelector('.ring-arc'); const c=+arc.getAttribute('stroke-dasharray'); arc.setAttribute('stroke-dashoffset', c*(1-pct/100)); el.setAttribute('aria-valuenow',Math.round(pct)); el.querySelector('.ring-num').innerHTML=`${Math.round(pct)}<small>%</small>`; }); }
+  const t0=Date.now();
+  function lista(){ const ls=document.getElementById('loading-screen'); return !ls || ls.style.display==='none' || ls.classList.contains('hide'); }
+  // La carga no avisa cuánto le falta: el anillo avanza rápido al inicio y se frena cerca del final, hasta que termina.
+  window.plProgreso=function(){ if(lista()) return 100; const t=Date.now()-t0; return Math.min(96, 96*(1-Math.exp(-t/2600))); };
+  const slot=document.getElementById('pl-ring'); if(slot) slot.innerHTML=ring(0);
+  const iv=setInterval(()=>{ const ls=document.getElementById('loading-screen'); updateRing(ls, plProgreso()); if(lista()){ updateRing(ls,100); clearInterval(iv); } },200);
+
+  let best=0; const N=20, CELL=18, SIZE=N*CELL;
+  window.plAbrirSnake=function(){
+    const d=document.createElement('dialog'); d.className='snake-dialog';
+    d.innerHTML=`<div class="snake-in">
+      <div class="snake-row"><span style="display:flex;align-items:center;gap:12px">${ring(plProgreso(),46,4)}<span style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:650">Snake</span><span style="font-size:12px;color:#6B7280" id="sk-status">Polen System está cargando…</span></span></span><button class="snake-close" id="sk-close">Cerrar</button></div>
+      <div class="snake-board"><canvas width="${SIZE}" height="${SIZE}" style="width:100%;height:100%;display:block;touch-action:none" aria-label="Tablero de Snake"></canvas><div class="snake-over" id="sk-over"></div></div>
+      <div class="snake-row" style="font-size:13px"><span>Puntos <b id="sk-score">0</b></span><span style="color:#6B7280">Récord de hoy <b id="sk-best">${best}</b></span></div>
+      <span style="font-size:12px;color:#6B7280">Flechas o WASD para moverte · Espacio para pausar · En el celular, desliza.</span></div>`;
+    document.body.appendChild(d); try{ d.showModal(); }catch(e){ d.setAttribute('open',''); }
+    const cv=d.querySelector('canvas'), ctx=cv.getContext('2d'), over=d.querySelector('#sk-over'), scoreEl=d.querySelector('#sk-score'), bestEl=d.querySelector('#sk-best'), status=d.querySelector('#sk-status');
+    let snake,dir,nextDir,food,score,tick,timer,state='ready',announced=false;
+    function reset(){ snake=[{x:9,y:10},{x:8,y:10},{x:7,y:10}]; dir={x:1,y:0}; nextDir=dir; score=0; tick=130; placeFood(); scoreEl.textContent='0'; }
+    function placeFood(){ do{ food={x:Math.floor(Math.random()*N),y:Math.floor(Math.random()*N)}; }while(snake.some(s=>s.x===food.x&&s.y===food.y)); }
+    function message(h){ over.innerHTML=h; over.style.display=h?'flex':'none'; }
+    const G={board:'#14261A',head:'#B8F5A6',body:'#4CD94A',food:'#E4F86A'};
+    function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill(); }
+    function draw(){ ctx.clearRect(0,0,SIZE,SIZE); ctx.fillStyle=G.board; ctx.fillRect(0,0,SIZE,SIZE);
+      const fx=food.x*CELL+CELL/2, fy=food.y*CELL+CELL/2; const halo=ctx.createRadialGradient(fx,fy,0,fx,fy,CELL*1.4); halo.addColorStop(0,'rgba(228,248,106,.35)'); halo.addColorStop(1,'rgba(228,248,106,0)'); ctx.fillStyle=halo; ctx.fillRect(fx-CELL*1.5,fy-CELL*1.5,CELL*3,CELL*3);
+      ctx.fillStyle=G.food; ctx.beginPath(); ctx.arc(fx,fy,CELL*.32,0,Math.PI*2); ctx.fill();
+      snake.forEach((s,i)=>{ ctx.fillStyle=i===0?G.head:G.body; ctx.globalAlpha=i===0?1:Math.max(.5,1-i/(snake.length+8)); const pad=i===0?1:2; rr(s.x*CELL+pad,s.y*CELL+pad,CELL-pad*2,CELL-pad*2,6); }); ctx.globalAlpha=1; }
+    function step(){ dir=nextDir; const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+      if(head.x<0||head.y<0||head.x>=N||head.y>=N||snake.some(s=>s.x===head.x&&s.y===head.y)) return die();
+      snake.unshift(head);
+      if(head.x===food.x&&head.y===food.y){ score++; scoreEl.textContent=score; if(score>best){ best=score; bestEl.textContent=best; } tick=Math.max(60,tick-4); placeFood(); } else snake.pop();
+      draw(); timer=setTimeout(step,tick); }
+    function die(){ state='over'; message(`<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><span style="font-size:30px;font-weight:250">${score} ${score===1?'punto':'puntos'}</span><span style="font-size:13px;opacity:.75">${score&&score>=best?'Nuevo récord de hoy':'Se acabó'}</span><button class="sk-btn" data-sk="play">Otra vez</button></div>`); }
+    function play(){ clearTimeout(timer); if(state!=='paused') reset(); state='playing'; message(''); draw(); timer=setTimeout(step,tick); }
+    function pause(){ if(state==='playing'){ clearTimeout(timer); state='paused'; message('<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><span style="font-size:13px;opacity:.75">En pausa</span><button class="sk-btn" data-sk="play">Seguir</button></div>'); } else if(state==='paused') play(); }
+    function turn(x,y){ if(state==='ready'||state==='over') play(); if(dir.x===-x&&dir.y===-y) return; nextDir={x,y}; }
+    const keys={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0],W:[0,-1],S:[0,1],A:[-1,0],D:[1,0]};
+    function onKey(e){ if(keys[e.key]){ e.preventDefault(); turn(...keys[e.key]); } else if(e.key===' '){ e.preventDefault(); (state==='ready'||state==='over')?play():pause(); } }
+    d.addEventListener('keydown',onKey);
+    let p0=null; cv.addEventListener('pointerdown',e=>{ p0={x:e.clientX,y:e.clientY}; });
+    cv.addEventListener('pointerup',e=>{ if(!p0) return; const dx=e.clientX-p0.x, dy=e.clientY-p0.y; p0=null; if(Math.max(Math.abs(dx),Math.abs(dy))<18){ if(state!=='playing') play(); return; } Math.abs(dx)>Math.abs(dy)?turn(Math.sign(dx),0):turn(0,Math.sign(dy)); });
+    over.addEventListener('click',e=>{ const b=e.target.closest('[data-sk]'); if(b&&b.dataset.sk==='play') play(); });
+    const iv2=setInterval(()=>{ updateRing(d,plProgreso());
+      if(lista() && !announced){ announced=true; status.textContent='Polen System ya está listo.';
+        d.querySelector('.snake-board').insertAdjacentHTML('afterend','<div class="snake-listo"><span style="font-size:13px">Polen System ya cargó.</span><button id="sk-go">Entrar</button></div>');
+        d.querySelector('#sk-go').onclick=close; } },250);
+    function close(){ clearTimeout(timer); clearInterval(iv2); d.removeEventListener('keydown',onKey); try{ if(d.open) d.close(); }catch(e){} d.remove(); }
+    d.querySelector('#sk-close').onclick=close;
+    d.addEventListener('cancel',e=>{ e.preventDefault(); close(); });
+    reset(); draw();
+    message('<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><span style="font-size:26px;font-weight:250">Snake</span><span style="font-size:13px;opacity:.75;max-width:240px">Mientras Polen System carga. Come los puntos lima.</span><button class="sk-btn" data-sk="play">Jugar</button></div>');
+  };
 })();
 </script>
 </body>
