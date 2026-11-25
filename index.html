@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261125-v556-NOMBRES-DEMOS -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261125-v557-MENU-MOVIL -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2176,6 +2176,34 @@ dialog.snake-dialog::backdrop{background:rgba(232,236,232,.42);backdrop-filter:b
 .snake-close{min-height:36px;padding:0 14px;border-radius:999px;border:1px solid rgba(28,31,35,.15);background:transparent;cursor:pointer;font-family:inherit;font-size:13px}
 .snake-listo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-radius:16px;background:rgba(223,245,214,.9)}
 .snake-listo button{background:#1C1F23;color:#fff;border:none;border-radius:999px;min-height:36px;padding:0 16px;font-weight:650;cursor:pointer;font-family:inherit}
+</style>
+<style id="polen-skin-fix">
+/* ═══ v557 · Menú lateral colapsado alineado + adaptación a móvil ═══ */
+.sidebar > *{flex-shrink:0}
+@media (min-width:769px){
+  .sidebar.collapsed{width:72px!important;padding:1.6rem .6rem 1.3rem!important;align-items:center}
+  .sidebar.collapsed .nav-item{width:46px!important;height:46px!important;min-height:46px;padding:0!important;margin:2px auto!important;justify-content:center!important;gap:0!important}
+  .sidebar.collapsed .nav-item > div{gap:0!important;justify-content:center;width:100%}
+  .sidebar.collapsed .nav-item .nav-text,.sidebar.collapsed .nav-item [id$="-arrow"],.sidebar.collapsed .nav-label{display:none!important}
+  .sidebar.collapsed [id^="nav-"][id$="-children"]{padding-left:0!important}
+  .sidebar.collapsed .nav-icon{width:20px!important;margin:0!important}
+  .sidebar.collapsed .sidebar-logo{justify-content:center;width:100%}
+}
+@media (max-width:768px){
+  .sidebar{position:fixed!important;top:0;left:0;height:100dvh!important;z-index:1000!important;background:rgba(246,247,249,.96)!important;overflow-y:auto}
+  .main{width:100%!important;min-width:0!important;margin-left:0!important}
+  .sidebar-toggle{display:none!important}
+  html,body{overflow-x:hidden}
+  .page,.main,.header{max-width:100vw}
+  .header{padding-left:14px!important;padding-right:14px!important;gap:10px;flex-wrap:wrap}
+  .page{padding-left:12px!important;padding-right:12px!important}
+  .page-title,#page-title{font-size:1.6rem!important;line-height:1.1}
+  .hamburger-btn{width:42px;height:42px;justify-content:center;border-radius:999px!important;font-size:1.2rem}
+  .header-title{display:block!important;order:20;width:100%;font-size:1.75rem!important;margin-top:4px}
+  .dash-banner-title{font-size:1.75rem!important;line-height:1.08!important;padding-right:0}
+  .dash-banner-title{margin-top:2.4rem!important}
+  .stat-value,.stat-num{font-size:2.4rem!important}
+}
 </style>
 </head>
 <body>
@@ -4474,7 +4502,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 556;
+const APP_VERSION = 557;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
