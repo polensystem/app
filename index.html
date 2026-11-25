@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261125-v555-CARGA-SNAKE -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261125-v556-NOMBRES-DEMOS -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4474,7 +4474,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 555;
+const APP_VERSION = 556;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -6521,6 +6521,7 @@ window.BrandsDB = (function(){
   // se marca como no-disponible y deja de intentar (para no llenar la consola de errores).
   async function saveBrand(b){
     if(!b || !b.id || _disponible === false) return false;
+    if(b.isDemo === true) return false;
     try{
       const { error } = await sb.from(TABLE).upsert(brandToRow(b), { onConflict: 'id' });
       if(error){
@@ -6548,7 +6549,7 @@ window.BrandsDB = (function(){
   async function saveBrandsBatch(brands){
     if(!Array.isArray(brands) || !brands.length || _disponible === false) return false;
     try{
-      const pares = brands.filter(b=>b && b.id).map(b=>{ const r = brandToRow(b); return { r, h:_huella(r) }; });
+      const pares = brands.filter(b=>b && b.id && b.isDemo!==true && !(window._demoViewIds && window._demoViewIds.has(b.id))).map(b=>{ const r = brandToRow(b); return { r, h:_huella(r) }; });
       const cambiadas = pares.filter(p=>_huellas.get(p.r.id)!==p.h);
       const rows = cambiadas.map(p=>p.r);
       if(!rows.length) return true;
@@ -6581,7 +6582,7 @@ window.BrandsDB = (function(){
       }
       _disponible = true;
       const out = {};
-      (data||[]).forEach(row=>{ if(row.id) out[row.id] = row.data; });
+      (data||[]).forEach(row=>{ if(row.id && !(row.data && row.data.isDemo===true)) out[row.id] = row.data; });
       return out;
     }catch(e){ console.error('[BrandsDB] loadAll crashed:', e); return null; }
   }
@@ -7864,6 +7865,7 @@ async function loadData(){
             appData.brands = Object.values(porId).filter(b=>
               b && b.id && !del.has(b.id) && !enPapelera.has(b.id) && !b.archivedAt
             );
+            appData.brands = _purgarDemosDeBrands(appData.brands);
             // Marcas que solo estaban en polen_brands: traer su cronograma de polen_crono
             try{ const nH = _cronoAplicarTabla(window._cronoBootTabla, true); if(nH) console.log('[Polen] Cronograma hidratado para', nH, 'marca(s) que solo estaban en polen_brands'); }catch(e){}
             console.log('[Polen] ✓ Marcas cargadas de tabla nueva (polen_brands):', appData.brands.length,
@@ -7878,6 +7880,13 @@ async function loadData(){
         // Ante CUALQUIER error, el array ya está en appData.brands: no se pierde nada.
         console.error('[Polen] Error cargando marcas de tabla (se mantiene el array):', brandsErr);
       }
+
+      // 🔒 v556: nombres oficiales (renombres protegidos) + demos fuera de marcas
+      try{
+        await _cargarNombresOficiales();
+        appData.brands = _purgarDemosDeBrands(appData.brands);
+        _aplicarNombresOficiales(appData.brands);
+      }catch(e){ console.warn('[Polen] nombres oficiales:', e); }
 
       // ══════════════════════════════════════════════════════════════════════
       // 🔒 CARGAR CLIENT NOTES DESDE TABLA NUEVA (polen_client_notes)
@@ -8255,6 +8264,74 @@ function _mergeBrandingPointsSafe(serverBp, localBp){
   return { total, ...extra, categories: [] };
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════
+// 🔒 v556 — NOMBRES OFICIALES DE MARCA (fix definitivo de renombres que se revierten)
+// Registro en la tabla polen_brand_names (una fila por marca renombrada). Es la fuente
+// de verdad del NOMBRE: cualquier copia vieja (otra pestaña, otro dispositivo, versión
+// antigua) que traiga un nombre anterior se corrige sola antes de mostrarse o guardarse.
+// Un nombre solo cambia cuando alguien lo cambia a mano en "Editar marca".
+// ══════════════════════════════════════════════════════════════════════════
+window._NOMBRES = window._NOMBRES || { map:{}, ok:false, pend:new Set() };
+async function _cargarNombresOficiales(){
+  try{
+    const { data, error } = await sb.from('polen_brand_names').select('*');
+    if(error) return false;
+    const m = {};
+    (data||[]).forEach(r=>{ if(r && r.brand_id && r.name) m[r.brand_id] = { name:r.name, previos:Array.isArray(r.previos)?r.previos:[], t:Date.parse(r.updated_at)||0 }; });
+    // Un renombre propio que aún se está escribiendo no se pisa con la lectura
+    window._NOMBRES.pend.forEach(id=>{ if(window._NOMBRES.map[id]) m[id] = window._NOMBRES.map[id]; });
+    window._NOMBRES.map = m; window._NOMBRES.ok = true;
+    return true;
+  }catch(e){ return false; }
+}
+function _aplicarNombresOficiales(brands){
+  const m = window._NOMBRES && window._NOMBRES.map;
+  if(!m || !Array.isArray(brands)) return 0;
+  let n = 0, recargar = false;
+  brands.forEach(b=>{
+    if(!b || !b.id) return;
+    const o = m[b.id]; if(!o || !o.name) return;
+    if(!Array.isArray(b.nombresPrevios)) b.nombresPrevios = [];
+    (o.previos||[]).forEach(p=>{ if(p && p!==o.name && !b.nombresPrevios.includes(p)) b.nombresPrevios.push(p); });
+    if(b.name === o.name) return;
+    const esViejo = (o.previos||[]).includes(b.name);
+    // Renombre hecho en otro dispositivo DESPUÉS de nuestro registro → aceptarlo y releer el registro
+    if(!esViejo && (Number(b.nameUpdatedAt)||0) > (o.t||0) + 1000){ recargar = true; return; }
+    const viejo = b.name;
+    b.name = o.name;
+    if(viejo && !b.nombresPrevios.includes(viejo)) b.nombresPrevios.push(viejo);
+    n++;
+    console.warn('[Polen] 🔒 Nombre de marca protegido: "'+viejo+'" → "'+o.name+'" ('+b.id+')');
+  });
+  if(recargar) setTimeout(()=>{ _cargarNombresOficiales(); }, 0);
+  return n;
+}
+async function _registrarNombreOficial(id, nombre, viejo){
+  if(!id || !nombre) return false;
+  const prev = (window._NOMBRES.map[id] && window._NOMBRES.map[id].previos) || [];
+  const previos = [...new Set([...prev, viejo].filter(x=>x && x!==nombre))];
+  window._NOMBRES.map[id] = { name:nombre, previos, t:Date.now() };
+  window._NOMBRES.pend.add(id);
+  try{
+    const { error } = await sb.from('polen_brand_names').upsert({ brand_id:id, name:nombre, previos, updated_at:new Date().toISOString() }, { onConflict:'brand_id' });
+    if(error){ console.warn('[Polen] No se pudo registrar el nombre oficial:', error); return false; }
+    return true;
+  }catch(e){ return false; }
+  finally{ window._NOMBRES.pend.delete(id); }
+}
+// 🔒 v556 — Demos fuera de brands: un demo (isDemo:true) solo puede estar en brands mientras
+// se está viendo (_demoViewIds). Cualquier otro es una fuga de una versión vieja → se quita.
+function _purgarDemosDeBrands(arr){
+  const lista = arr || appData.brands;
+  if(!Array.isArray(lista)) return lista;
+  const vista = window._demoViewIds || new Set();
+  const limpio = lista.filter(b=>!(b && b.isDemo===true && !vista.has(b.id)));
+  if(limpio.length !== lista.length) console.warn('[Polen] 🧹 Quitados', lista.length-limpio.length, 'demo(s) que se habían colado en marcas');
+  return limpio;
+}
+setInterval(()=>{ try{ if(document.body && document.body.classList.contains('portal-mode')) return; _cargarNombresOficiales().then(()=>{ if(_aplicarNombresOficiales(appData.brands)){ try{ renderCurrentPage(); }catch(e){} } }); }catch(e){} }, 120000);
+
 function deepMergeAppData(server, local){
   const merged = {...server};
 
@@ -8631,6 +8708,7 @@ function deepMergeAppData(server, local){
     }
   }
 
+  try{ if(Array.isArray(merged.brands)){ merged.brands = _purgarDemosDeBrands(merged.brands); _aplicarNombresOficiales(merged.brands); } }catch(e){}
   return merged;
 }
 
@@ -8787,6 +8865,8 @@ async function _doUpsert(){
         // No fallamos — mejor continuar con la escritura que perder el cambio del usuario
       }
 
+      // 🔒 v556: antes de escribir, releer los nombres oficiales y corregir cualquier nombre viejo
+      try{ await _cargarNombresOficiales(); _aplicarNombresOficiales(appData.brands); }catch(e){}
       // Escribir desde appData local (ya mergeado arriba para portal-owned fields).
       const toWrite = {...appData};
 
@@ -8937,6 +9017,10 @@ async function _doUpsert(){
       // 🔒 Excluir demos inyectados temporalmente para visualización (viven en appData.demos, no en brands)
       if(Array.isArray(toWriteSafe.brands) && window._demoViewIds && window._demoViewIds.size){
         toWriteSafe.brands = toWriteSafe.brands.filter(b=>!window._demoViewIds.has(b.id));
+      }
+      // 🔒 v556: un demo (isDemo:true) NUNCA se guarda dentro de brands
+      if(Array.isArray(toWriteSafe.brands)){
+        toWriteSafe.brands = toWriteSafe.brands.filter(b=>!(b && b.isDemo===true));
       }
 
       // 🔒 REFACTOR: BP de marca viven en tabla polen_brand_bp, NO en el JSON.
@@ -29051,6 +29135,15 @@ async function saveBrand(){
           if(s && !brand.portalSlugsPrevios.includes(s)) brand.portalSlugsPrevios.push(s);
         });
       }catch(e){}
+      if(brand.name !== name){
+        const _nombreAnterior = brand.name;
+        if(!Array.isArray(brand.nombresPrevios)) brand.nombresPrevios = [];
+        if(_nombreAnterior && !brand.nombresPrevios.includes(_nombreAnterior)) brand.nombresPrevios.push(_nombreAnterior);
+        brand.nombresPrevios = brand.nombresPrevios.filter(x=>x!==name);
+        brand.nameUpdatedAt = Date.now();
+        brand.name = name;
+        try{ await Promise.race([_registrarNombreOficial(brand.id, name, _nombreAnterior), new Promise(r=>setTimeout(r,4000))]); }catch(e){}
+      }
       brand.name=name;
       brand.industria=document.getElementById('input-industria').value.trim();
       brand.stage=document.getElementById('input-stage').value;
@@ -30829,7 +30922,7 @@ await upsert();
 }
 
 function renderDomosGrid(){
-  const brands = appData.brands||[];
+  const brands = (appData.brands||[]).filter(b=>!_esDemoMarca(b));
   const brandsWithDomo = brands.filter(b=>b.domo && (b.domo.principales||[]).length>0);
   const grid = document.getElementById('domos-grid');
   if(!grid) return;
@@ -30988,7 +31081,7 @@ function renderMemberMonth(){
 
 /* ── Member tab domos ── */
 function renderMemberDomos(){
-  const brands = appData.brands||[];
+  const brands = (appData.brands||[]).filter(b=>!_esDemoMarca(b));
   const myBrands = brands.filter(b=>{
     const domo=b.domo; if(!domo) return false;
     return [...(domo.principales||[]),...(domo.astronautas||[])].includes(currentMemberId);
@@ -34897,7 +34990,8 @@ async function boot(){
     await Promise.race([loadData(), new Promise(res=>setTimeout(res,10000))]);
 
     // Resolver slug → brandId real (incluye demos, que son portales de venta)
-    const allBrands = [...(appData.brands||[]), ...(appData.demos||[])];
+    // 🔒 v556: las marcas REALES van primero; un demo con el mismo nombre/slug nunca le gana a la marca real
+    const allBrands = [...(appData.brands||[]).filter(b=>b && b.isDemo!==true), ...(appData.demos||[]), ...(appData.brands||[]).filter(b=>b && b.isDemo===true && !(appData.demos||[]).some(d=>d&&d.id===b.id))];
     let resolvedId = portalParam;
     const _pp = String(portalParam).toUpperCase();
     const bySlug = allBrands.find(b=>b.portalSlug===portalParam) || allBrands.find(b=>b.portalSlug && String(b.portalSlug).toUpperCase()===_pp)
@@ -37868,7 +37962,7 @@ function renderPlayground(){
   const wrap = document.getElementById('brands-view-playground');
   if(!wrap) return;
   const pg = getPlaygroundData();
-  const allBrands = (appData.brands||[]).filter(b=>!b.archivedAt&&!b.deletedAt);
+  const allBrands = (appData.brands||[]).filter(b=>!b.archivedAt&&!b.deletedAt&&!_esDemoMarca(b));
   const activeBrands = allBrands.filter(b=>!b.paused);
   const pausedBrands = allBrands.filter(b=>b.paused);
 
