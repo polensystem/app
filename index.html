@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261125-v560-PORTAL-COLOR -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261125-v563-ENTREGA -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2158,6 +2158,16 @@ body:not(.portal-mode) #loading-screen .loading-sub{order:4}
 body:not(.portal-mode) #loading-skip-btn{order:5}
 .pl-carga{display:flex;flex-direction:column;align-items:center;gap:14px;padding:26px 30px 22px;border-radius:28px;background:linear-gradient(160deg,rgba(255,255,255,.72),rgba(255,255,255,.45));border:1px solid rgba(255,255,255,.85);box-shadow:0 1px 0 #fff inset,0 18px 50px rgba(28,31,35,.08);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);min-width:250px;margin-bottom:1rem}
 body.portal-mode .pl-carga{display:none}
+
+/* ═══ v562 · El portal del cliente usa el mismo módulo de carga nuevo (anillo + Snake) ═══ */
+body.portal-mode #loading-screen{background:transparent!important;gap:0!important;color:#1C1F23}
+body.portal-mode #loading-screen::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(45% 55% at 15% 15%,var(--amb1) 0,transparent 70%),radial-gradient(45% 55% at 90% 60%,var(--amb2) 0,transparent 70%),radial-gradient(40% 45% at 45% 100%,var(--amb3) 0,transparent 70%),#EEEFF1}
+body.portal-mode #loading-screen .psl-main,body.portal-mode #loading-screen .loading-spinner,body.portal-mode #portal-loading-logo{display:none!important}
+body.portal-mode #loading-screen .loading-logo{display:block!important;order:1;margin:0 0 1.6rem!important;opacity:1!important}
+body.portal-mode #loading-screen .loading-logo svg{width:190px!important}
+body.portal-mode .pl-carga{display:flex!important;order:2}
+body.portal-mode #loading-screen .loading-frase{order:3;font-weight:400!important;font-size:.9rem!important;color:#4B5058!important}
+body.portal-mode #loading-screen .loading-sub{order:4}
 .pl-snake-btn{min-height:40px;padding:0 18px;border-radius:999px;border:1px solid rgba(28,31,35,.12);background:rgba(255,255,255,.75);font-size:13px;cursor:pointer;color:#1C1F23;font-family:inherit}
 .pl-snake-btn:hover{background:#fff}
 body:not(.portal-mode) #loading-screen .loading-frase{font-weight:400!important;font-size:.9rem!important;color:#4B5058!important}
@@ -2462,6 +2472,178 @@ dialog.snake-dialog::backdrop{background:rgba(232,236,232,.42);backdrop-filter:b
 #pv2-root #portal-content-area > div:first-child:not([class]) > div:first-child{font-size:18px!important;font-weight:400!important;color:var(--ink)!important}
 #pv2-root #portal-content-area > div:first-child:not([class]) > div:last-child{font-size:14px!important;color:var(--ink2)!important;line-height:1.55!important}
 #pv2-root #portal-content-area .pv2-apr-head > span:last-child{color:var(--ink3)!important}
+
+/* ═══ Gradientes vivos por elemento (sin rayas) ═══ */
+.pv2-flow{position:absolute;inset:0;overflow:hidden;-webkit-mask-image:radial-gradient(120% 120% at 100% 100%,#000 30%,transparent 82%);mask-image:radial-gradient(120% 120% at 100% 100%,#000 30%,transparent 82%)}
+.pv2-flow i{position:absolute;border-radius:50%;filter:blur(46px);will-change:transform}
+.pv2-flow i:nth-child(1){width:62%;height:70%;right:-12%;bottom:-18%;background:var(--c1)}
+.pv2-flow i:nth-child(2){width:48%;height:56%;right:22%;bottom:-24%;background:var(--c2)}
+.pv2-flow i:nth-child(3){width:40%;height:46%;right:-6%;bottom:28%;background:var(--c3)}
+.pv2-flow.aire{--c1:#7FC4F2;--c2:#CFEAFF;--c3:#A9D8F7}
+.pv2-flow.aire i:nth-child(1){animation:pfAire1 11s ease-in-out infinite}
+.pv2-flow.aire i:nth-child(2){animation:pfAire2 14s ease-in-out infinite}
+.pv2-flow.aire i:nth-child(3){animation:pfAire1 17s ease-in-out infinite reverse}
+@keyframes pfAire1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-90px,-24px) scale(1.12)}66%{transform:translate(-30px,18px) scale(.94)}}
+@keyframes pfAire2{0%,100%{transform:translate(0,0)}50%{transform:translate(110px,-30px) scale(1.2)}}
+.pv2-flow.agua{--c1:#2DC3B3;--c2:#8FE6DB;--c3:#1E9BB0}
+.pv2-flow.agua i:nth-child(1){animation:pfAgua1 8s ease-in-out infinite}
+.pv2-flow.agua i:nth-child(2){animation:pfAgua2 10s ease-in-out infinite}
+.pv2-flow.agua i:nth-child(3){animation:pfAgua1 12s ease-in-out infinite reverse}
+@keyframes pfAgua1{0%,100%{transform:translate(0,0) scale(1,1)}25%{transform:translate(-30px,-26px) scale(1.12,.92)}50%{transform:translate(-60px,6px) scale(.95,1.08)}75%{transform:translate(-20px,22px) scale(1.06,.96)}}
+@keyframes pfAgua2{0%,100%{transform:translate(0,0)}50%{transform:translate(70px,-34px) scale(1.15,.9)}}
+.pv2-flow.tierra{--c1:#8CC152;--c2:#D8C77A;--c3:#5E9E3A}
+.pv2-flow.tierra i:nth-child(1){animation:pfTierra 16s ease-in-out infinite}
+.pv2-flow.tierra i:nth-child(2){animation:pfTierra 20s ease-in-out infinite reverse}
+.pv2-flow.tierra i:nth-child(3){animation:pfTierra 24s ease-in-out infinite}
+@keyframes pfTierra{0%,100%{transform:scale(1) rotate(0)}50%{transform:scale(1.14) rotate(8deg) translate(-16px,-8px)}}
+.pv2-flow.fuego{--c1:#F2641A;--c2:#FFC24B;--c3:#FF8A5B}
+.pv2-flow.fuego i:nth-child(1){animation:pfFuego1 3.8s ease-in-out infinite}
+.pv2-flow.fuego i:nth-child(2){animation:pfFuego2 2.9s ease-in-out infinite}
+.pv2-flow.fuego i:nth-child(3){animation:pfFuego1 4.6s ease-in-out infinite reverse}
+@keyframes pfFuego1{0%,100%{transform:translateY(0) scale(1);opacity:.9}50%{transform:translateY(-46px) scale(1.18,1.28);opacity:1}}
+@keyframes pfFuego2{0%,100%{transform:translate(0,0) scale(1);opacity:.8}40%{transform:translate(-18px,-60px) scale(.9,1.35);opacity:1}70%{transform:translate(10px,-20px) scale(1.1);opacity:.7}}
+@media (prefers-reduced-motion:reduce){.pv2-flow i{animation:none!important}}
+/* ═══ Botón de video explicativo ═══ */
+.pv2-vid{display:flex;align-items:center;gap:18px;padding:14px 22px 14px 14px;border-radius:24px;background:#fff;box-shadow:0 12px 40px rgba(22,24,28,.06);cursor:pointer;border:0;text-align:left;width:100%;font-family:inherit;color:var(--ink);transition:transform .2s}
+.pv2-vid:hover{transform:translateY(-2px)}
+.pv2-vid-th{position:relative;width:120px;height:76px;border-radius:16px;overflow:hidden;flex:none;background:linear-gradient(135deg,var(--h1),var(--h3))}
+.pv2-vid-th .pv2-flow{-webkit-mask-image:none;mask-image:none}
+.pv2-vid-th .pv2-flow i{filter:blur(18px)}
+.pv2-vid-th b{position:absolute;inset:0;margin:auto;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.9);display:grid;place-items:center;color:var(--ink);box-shadow:0 6px 18px rgba(0,0,0,.15)}
+.pv2-vid-th b svg{width:16px;height:16px;margin-left:2px}
+.pv2-vid-t{font-size:16px}
+.pv2-vid-s{font-size:13px;color:var(--ink3);margin-top:3px}
+.pv2-vid-go{margin-left:auto;font-size:13px;padding:8px 14px;border-radius:999px;background:var(--ink);color:#fff;white-space:nowrap}
+/* ═══ Entrega ═══ */
+.pv2-g-ent{grid-template-columns:1.25fr 1fr;align-items:start}
+.pv2-deliver{position:relative;overflow:hidden;min-height:300px;padding:0!important;background:radial-gradient(90% 80% at 100% 100%,color-mix(in srgb,var(--b) 40%,#fff) 0%,color-mix(in srgb,var(--b) 12%,#fff) 45%,#fff 80%)}
+.pv2-deliver-in{position:relative;z-index:1;padding:28px;display:flex;flex-direction:column;gap:14px;min-height:300px}
+.pv2-deliver .k{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3)}
+.pv2-deliver h3{font-size:44px;font-weight:250;letter-spacing:-.04em;line-height:1;margin:0}
+.pv2-deliver p{font-size:15px;color:var(--ink2);line-height:1.5;margin:0;max-width:460px}
+.pv2-dl{display:inline-flex;align-items:center;gap:10px;align-self:flex-start;margin-top:auto;padding:16px 24px;border-radius:999px;background:var(--ink);color:#fff;font-size:15px;text-decoration:none;box-shadow:0 10px 30px rgba(22,24,28,.2)}
+.pv2-dl small{opacity:.6;font-size:12px}
+.pv2-tips{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.pv2-tip{display:flex;flex-direction:column;gap:10px}
+.pv2-tip .n{width:34px;height:34px;border-radius:50%;background:#F1F2F4;display:grid;place-items:center;font-size:14px}
+.pv2-tip h5{margin:0;font-size:17px;font-weight:400}
+.pv2-tip p,.pv2-tip li{font-size:14px;color:var(--ink2);line-height:1.5;margin:0}
+.pv2-tip ol{margin:0;padding-left:18px}
+.pv2-os{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.pv2-os div{background:#F7F8FA;border-radius:16px;padding:12px 14px}
+.pv2-os b{display:block;font-weight:400;font-size:14px;margin-bottom:6px}
+.pv2-files{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
+.pv2-file{background:#F7F8FA;border-radius:18px;padding:16px}
+.pv2-file .x{display:inline-flex;font-size:13px;padding:6px 10px;border-radius:10px;background:var(--ink);color:#fff;letter-spacing:.02em}
+.pv2-file h6{margin:12px 0 2px;font-size:15px;font-weight:400}
+.pv2-file .tipo{font-size:12px;color:#3C7A22}
+.pv2-file .tipo.no{color:var(--ink3)}
+.pv2-file p{font-size:13px;color:var(--ink2);line-height:1.45;margin:8px 0 0}
+.pv2-fmt{width:100%;border-collapse:separate;border-spacing:0 8px;margin-top:8px}
+.pv2-fmt td{background:#F7F8FA;padding:14px 16px;font-size:14px;color:var(--ink2);vertical-align:top}
+.pv2-fmt td:first-child{border-radius:16px 0 0 16px;color:var(--ink)}
+.pv2-fmt td:last-child{border-radius:0 16px 16px 0}
+.pv2-fmt td b{font-weight:400;color:var(--ink);display:inline-block;padding:3px 10px;border-radius:99px;background:#fff}
+.pv2-fmt th{text-align:left;font-weight:400;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);padding:0 16px}
+.pv2-testi{display:grid;grid-template-columns:1fr 300px;gap:24px;align-items:stretch}
+.pv2-testi textarea{width:100%;min-height:150px;border:1px solid var(--line);background:#FAFAFB;border-radius:18px;padding:14px 16px;font:inherit;font-size:15px;resize:vertical}
+.pv2-testi .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.pv2-testi input[type=text]{border:1px solid var(--line);background:#FAFAFB;border-radius:14px;padding:12px 14px;font:inherit;font-size:14px;width:100%}
+.pv2-ok{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--ink2);margin-top:12px;line-height:1.45}
+.pv2-ok span.cb{width:22px;height:22px;border-radius:7px;background:var(--ink);flex:none;display:grid;place-items:center;color:#fff}
+.pv2-ok span.cb svg{width:12px;height:12px}
+.pv2-ebook{position:relative;overflow:hidden;border-radius:22px;padding:22px;background:linear-gradient(160deg,#16181C,#2B2F36);color:#fff;display:flex;flex-direction:column;gap:10px}
+.pv2-ebook .bk{width:86px;height:112px;border-radius:6px 12px 12px 6px;background:linear-gradient(150deg,var(--h1),var(--b));box-shadow:6px 8px 20px rgba(0,0,0,.35),inset 6px 0 0 rgba(0,0,0,.12);display:flex;align-items:flex-end;padding:10px;font-size:11px;color:#16181C;line-height:1.15}
+.pv2-ebook h5{margin:6px 0 0;font-size:19px;font-weight:400}
+.pv2-ebook p{margin:0;font-size:13px;opacity:.75;line-height:1.5}
+.pv2-ebook .bt{margin-top:auto;align-self:flex-start;padding:12px 18px;border-radius:999px;background:#fff;color:#16181C;font-size:14px}
+.pv2-lock{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;padding:6px 12px;border-radius:99px;background:#F1F2F4;color:var(--ink2)}
+@media (max-width:860px){
+ .pv2-g-ent,.pv2-testi{grid-template-columns:1fr}
+ .pv2-tips{grid-template-columns:1fr}
+ .pv2-files{grid-template-columns:1fr 1fr}
+ .pv2-deliver h3{font-size:34px}
+ .pv2-vid{padding:10px 14px 10px 10px;gap:12px}
+ .pv2-vid-th{width:84px;height:60px}
+ .pv2-vid-go{display:none}
+ .pv2-fmt thead{display:none}
+ .pv2-fmt tr{display:block;margin-bottom:8px;background:#F7F8FA;border-radius:16px;padding:6px 0}
+ .pv2-fmt td{display:block;background:none;padding:6px 16px;border-radius:0!important}
+ .pv2-testi .row2{grid-template-columns:1fr}
+}
+/* v2 didáctica */
+.pv2-ic{width:52px;height:52px;border-radius:16px;background:var(--b-tint);display:grid;place-items:center;color:var(--b-ink);flex:none}
+.pv2-ic svg{width:26px;height:26px}
+.pv2-tip .top{display:flex;align-items:center;gap:12px}
+.pv2-tip .top .n{margin-left:auto}
+.pv2-do{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.pv2-do span{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:6px 11px;border-radius:99px;background:#E3F3D9;color:#3C7A22}
+.pv2-do span.no{background:#FBE0E0;color:#B42323}
+.pv2-os div b{display:flex;align-items:center;gap:8px}
+.pv2-os svg{width:16px;height:16px}
+.pv2-steps{list-style:none;padding:0!important;margin:0;display:flex;flex-direction:column;gap:6px}
+.pv2-steps li{display:flex;gap:8px;align-items:flex-start;font-size:13px!important}
+.pv2-steps li i{font-style:normal;width:20px;height:20px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:11px;flex:none}
+.pv2-file{position:relative}
+.pv2-fico{width:54px;height:66px;position:relative;border-radius:8px 16px 8px 8px;display:grid;place-items:end center;padding-bottom:9px;font-size:12px;color:#fff;letter-spacing:.03em}
+.pv2-fico::after{content:"";position:absolute;top:0;right:0;width:16px;height:16px;background:rgba(255,255,255,.45);border-radius:0 16px 0 8px}
+.pv2-fico svg{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:22px;height:22px}
+.pv2-fmt td .need{display:flex;align-items:center;gap:12px}
+.pv2-fmt td .need .pv2-ic{width:40px;height:40px;border-radius:12px}
+.pv2-fmt td .need .pv2-ic svg{width:20px;height:20px}
+.pv2-gift{display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:20px;background:linear-gradient(120deg,#16181C,#33373F);color:#fff;text-decoration:none;cursor:pointer;position:relative;overflow:hidden}
+.pv2-gift .g{width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#FFE07A,#F2641A);display:grid;place-items:center;flex:none;animation:pvGift 2.6s ease-in-out infinite}
+.pv2-gift .g svg{width:22px;height:22px;color:#16181C}
+.pv2-gift b{font-weight:400;font-size:15px;display:block}
+.pv2-gift small{opacity:.7;font-size:12.5px}
+.pv2-gift .ar{margin-left:auto;font-size:13px;opacity:.85;white-space:nowrap}
+@keyframes pvGift{0%,100%{transform:rotate(0)}10%{transform:rotate(-10deg) scale(1.06)}20%{transform:rotate(8deg) scale(1.06)}30%{transform:rotate(0)}}
+/* Ebook cool */
+.pv2-ebook{position:relative;overflow:hidden;border-radius:26px;padding:26px 24px;background:radial-gradient(80% 60% at 70% 20%,rgba(255,200,90,.35),transparent 60%),radial-gradient(70% 60% at 20% 90%,color-mix(in srgb,var(--b) 55%,transparent),transparent 70%),linear-gradient(160deg,#121418,#25282E);color:#fff;display:flex;flex-direction:column;gap:12px;min-height:420px}
+.pv2-ebook .stars i{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;opacity:.7;animation:pvTw 3s ease-in-out infinite}
+@keyframes pvTw{0%,100%{opacity:.15;transform:scale(.6)}50%{opacity:.9;transform:scale(1.2)}}
+.pv2-book{position:relative;align-self:center;margin:8px 0 6px;width:150px;height:196px;perspective:700px}
+.pv2-book .cv{position:absolute;inset:0;border-radius:6px 14px 14px 6px;transform:rotateY(-24deg) rotateX(6deg);transform-origin:left center;background:linear-gradient(160deg,#FFE7A8 0%,var(--h1) 35%,var(--b) 100%);box-shadow:18px 22px 40px rgba(0,0,0,.5),inset 7px 0 0 rgba(0,0,0,.15),inset 9px 0 0 rgba(255,255,255,.25);padding:18px 16px;display:flex;flex-direction:column;justify-content:space-between;color:#16181C;animation:pvBook 6s ease-in-out infinite;overflow:hidden}
+.pv2-book .cv::after{content:"";position:absolute;top:-40%;left:-60%;width:50%;height:180%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:rotate(20deg);animation:pvShine 4.5s ease-in-out infinite}
+.pv2-book .cv small{font-size:9px;letter-spacing:.14em;text-transform:uppercase;opacity:.7}
+.pv2-book .cv strong{font-weight:250;font-size:21px;line-height:1.02;letter-spacing:-.03em}
+.pv2-book .cv em{font-style:normal;font-size:9px;opacity:.75}
+.pv2-book .pg{position:absolute;top:6px;bottom:6px;right:-8px;width:12px;border-radius:0 6px 6px 0;background:repeating-linear-gradient(180deg,#f5f1e6 0 2px,#e2dccd 2px 3px);transform:rotateY(-24deg) translateZ(-6px)}
+@keyframes pvBook{0%,100%{transform:rotateY(-24deg) rotateX(6deg) translateY(0)}50%{transform:rotateY(-14deg) rotateX(3deg) translateY(-8px)}}
+@keyframes pvShine{0%,60%{left:-60%}100%{left:130%}}
+.pv2-ebook .tag{align-self:flex-start;font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:6px 10px;border-radius:99px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2)}
+.pv2-ebook h5{margin:0;font-size:22px;font-weight:250;letter-spacing:-.02em}
+.pv2-ebook ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px;opacity:.85}
+.pv2-ebook ul li::before{content:"✦ ";color:#FFD36B}
+.pv2-ebook .bt{margin-top:auto;align-self:stretch;text-align:center;padding:13px 18px;border-radius:999px;background:rgba(255,255,255,.12);border:1px dashed rgba(255,255,255,.35);color:#fff;font-size:13.5px}
+
+/* v563 ajustes */
+.pv2-vid-wrap{margin-bottom:14px}
+.pv2-vid.soon .pv2-vid-go{background:#EEF0F3;color:var(--ink2)}
+.pv2-g-ent{align-items:stretch}
+.pv2-deliver{height:100%}
+.pv2-ent-side{display:flex;flex-direction:column;gap:14px}
+.pv2-grow{flex:1}
+.pv2-dl.off{background:#EEF0F3;color:var(--ink2);box-shadow:none}
+.pv2-tip{background:#F7F8FA;border-radius:22px;padding:20px}
+.pv2-os div{background:#fff}
+.pv2-fico.png{background:#3B9EDD;background-image:linear-gradient(45deg,rgba(255,255,255,.18) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.18) 75%),linear-gradient(45deg,rgba(255,255,255,.18) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.18) 75%);background-size:10px 10px;background-position:0 0,5px 5px}
+.pv2-testi{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)!important;align-items:stretch}
+.pv2-testi-l{display:flex;flex-direction:column}
+.pv2-testi-l textarea{flex:1;min-height:120px}
+.pv2-ok{position:relative;cursor:pointer}
+.pv2-ok input{position:absolute;opacity:0;width:22px;height:22px;margin:0;cursor:pointer}
+.pv2-ok .cb{background:#fff!important;border:1.5px solid rgba(22,24,28,.25);color:transparent!important}
+.pv2-ok input:checked + .cb{background:var(--ink)!important;border-color:var(--ink);color:#fff!important}
+.pv2-send{align-self:flex-start;margin-top:16px;border:0;background:var(--ink);color:#fff;border-radius:999px;padding:15px 24px;font:inherit;font-size:15px;cursor:pointer}
+.pv2-send:disabled{opacity:.6}
+.pv2-ebook{display:grid!important;grid-template-columns:auto 1fr;gap:22px!important;align-items:center;min-height:0!important}
+.pv2-ebook .pv2-book{margin:0 6px 0 4px}
+.pv2-eb-tx{position:relative;display:flex;flex-direction:column;gap:12px;height:100%;justify-content:center}
+.pv2-ebook .bt{margin-top:6px}
+.pv2-ebook a.bt.on{background:#fff;color:#16181C;border:0;text-decoration:none}
+@media (max-width:860px){.pv2-ebook{grid-template-columns:1fr}.pv2-ebook .pv2-book{justify-self:center}}
+.pv2-ebook .stars{position:absolute;inset:0;pointer-events:none}
 </style>
 </head>
 <body>
@@ -2536,6 +2718,10 @@ dialog.snake-dialog::backdrop{background:rgba(232,236,232,.42);backdrop-filter:b
     </button>
     <button class="nav-item" id="nav-contactos" onclick="goToContactos()">
       <span class="nav-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="8" ry="2.8"/><path d="M4 5.5v13c0 1.5 3.6 2.8 8 2.8s8-1.3 8-2.8v-13M4 12c0 1.5 3.6 2.8 8 2.8s8-1.3 8-2.8"/></svg></span><span class="nav-text">Base de datos</span>
+    </button>
+    <button class="nav-item" id="nav-testimonios" onclick="_abrirTestimonios()">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span>
+      <span class="nav-text">Testimonios</span>
     </button>
     <button class="nav-item" id="nav-metas" onclick="goToMetas()">
       <span class="nav-icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></span><span class="nav-text">Metas</span>
@@ -3206,6 +3392,19 @@ dialog.snake-dialog::backdrop{background:rgba(232,236,232,.42);backdrop-filter:b
                 <span class="tx"><span class="t">Aprobaciones</span><span class="d" style="display:block">Revisar y aprobar los avances.</span><span class="st" style="display:block"></span></span>
                 <span class="pt-sw"></span>
               </label>
+              <label onclick="event.stopPropagation()" class="pt-sec portal-sec-toggle" data-key="entrega">
+                <input type="checkbox" id="portal-sec-entrega" onchange="togglePortalSection('entrega', this.checked)">
+                <span class="ic">📦</span>
+                <span class="tx"><span class="t">Entrega</span><span class="d" style="display:block">Link de descarga, recomendaciones y testimonio. Actívala solo cuando la marca esté lista.</span><span class="st" style="display:block"></span></span>
+                <span class="pt-sw"></span>
+              </label>
+              <div style="margin-top:0.8rem;padding:0.9rem 1rem;border:1px solid var(--border);border-radius:14px">
+                <div style="font-size:0.78rem;font-weight:700;margin-bottom:0.45rem">Link de la entrega (WeTransfer)</div>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap"><input id="pt-entrega-link" type="url" placeholder="https://we.tl/…" style="flex:1;min-width:200px;padding:0.55rem 0.8rem;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-family:var(--font)"><button class="btn-save" onclick="_ptGuardarEntregaLink()">Guardar link</button></div>
+                <div style="font-size:0.72rem;color:var(--text3);margin-top:0.4rem">El cliente lo ve en la pestaña Entrega con el botón "Descargar mi marca".</div>
+                <div style="font-size:0.78rem;font-weight:700;margin:1rem 0 0.45rem">Testimonios de esta marca</div>
+                <div id="pt-testimonios"></div>
+              </div>
             </div>
           </div>
 
@@ -4760,7 +4959,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 560;
+const APP_VERSION = 563;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -27438,6 +27637,7 @@ function getPortalSections(brand){
     crono: s.crono !== false,
     bp: s.bp !== false,
     aprobaciones: s.aprobaciones !== false,
+    entrega: s.entrega === true,
   };
 }
 
@@ -27456,7 +27656,8 @@ function renderPortalTab(){
   if(slugInput) slugInput.value = getPortalSlug(currentBrandId);
   const brand = (appData.brands||[]).find(b=>b.id===currentBrandId);
   const sec = getPortalSections(brand);
-  ['crono','bp','aprobaciones'].forEach(k=>{
+  try{ _ptRenderEntrega(); }catch(e){}
+  ['crono','bp','aprobaciones','entrega'].forEach(k=>{
     const cb = document.getElementById('portal-sec-'+k);
     if(cb) cb.checked = !!sec[k];
     const label = document.querySelector('.portal-sec-toggle[data-key="'+k+'"]');
@@ -35988,6 +36189,9 @@ function _portalBannerPausa(brand){
 // ══════════════════════════════════════════════════════════════════════════
 // Link del video explicativo de Branding Points (pegar aquí cuando esté listo)
 const PORTAL_BP_VIDEO_URL = '';
+// Links de los videos explicativos y del ebook (pegar aquí cuando estén listos; vacío = "Próximamente")
+const PORTAL_VIDEOS = { portal:'', crono:'', bp:'', aprobaciones:'', entrega:'' };
+const PORTAL_EBOOK_URL = '';
 const PV2_ST = {
   aire:  {label:'Aire',  color:'#3B9EDD', lema:'Donde nace la idea', txt:'Exploramos tu mundo, escuchamos a tu gente y buscamos la chispa: insights, caminos creativos y el nombre. Todo lo que aún no se ve, pero lo define todo.', hac:['Investigación','Insights','Caminos creativos','Naming']},
   agua:  {label:'Agua',  color:'#2DC3B3', lema:'Donde tu marca toma forma', txt:'Como el agua que encuentra su cauce, las ideas se vuelven identidad: tu logo, tus colores, tu tipografía y tu forma de hablar.', hac:['Identidad visual','Identidad verbal','Propuesta de marca']},
@@ -35995,7 +36199,7 @@ const PV2_ST = {
   fuego: {label:'Fuego', color:'#E8622A', lema:'Donde tu marca se enciende', txt:'Unimos todo, afinamos cada detalle y te entregamos tu marca lista para salir a brillar.', hac:['Propuesta completa','Ajustes finales','Entrega']},
 };
 const PV2_ORDEN = ['aire','agua','tierra','fuego'];
-const PV2_EN = {"Donde nace la idea": "Where the idea is born", "Exploramos tu mundo, escuchamos a tu gente y buscamos la chispa: insights, caminos creativos y el nombre. Todo lo que aún no se ve, pero lo define todo.": "We explore your world, listen to your people and look for the spark: insights, creative paths and the name. Everything not yet visible, yet defining it all.", "Investigación": "Research", "Insights": "Insights", "Caminos creativos": "Creative paths", "Naming": "Naming", "Donde tu marca toma forma": "Where your brand takes shape", "Como el agua que encuentra su cauce, las ideas se vuelven identidad: tu logo, tus colores, tu tipografía y tu forma de hablar.": "Like water finding its course, ideas become identity: your logo, your colors, your typography and your voice.", "Identidad visual": "Visual identity", "Identidad verbal": "Verbal identity", "Propuesta de marca": "Brand proposal", "Donde tu marca aterriza": "Where your brand lands", "Llevamos la identidad a lo tangible: piezas, aplicaciones y recursos listos para vivir en el mundo real.": "We bring the identity to life: pieces, applications and assets ready for the real world.", "Recursos visuales": "Visual assets", "Recursos verbales": "Verbal assets", "Aplicaciones": "Applications", "Donde tu marca se enciende": "Where your brand ignites", "Unimos todo, afinamos cada detalle y te entregamos tu marca lista para salir a brillar.": "We bring it all together, fine-tune every detail and hand you a brand ready to shine.", "Propuesta completa": "Full proposal", "Ajustes finales": "Final adjustments", "Entrega": "Delivery", "Inicio": "Home", "Cronograma": "Timeline", "Puntos": "Points", "Aprobaciones": "Approvals", "Tu ruta": "Your route", "Cada etapa es un paso de la misión. Aquí ves dónde estamos y lo que viene.": "Each stage is a step of the mission. Here you can see where we are and what comes next.", "Tu moneda en el universo de las marcas: elige los entregables que tu proyecto necesita.": "Your currency in the brand universe: choose the deliverables your project needs.", "Cada firma es un despegue: nos confirma que vamos en la dirección correcta.": "Every signature is a lift-off: it confirms we are heading the right way.", "Próxima parada contigo": "Next stop with you", "Tu marca está en pleno viaje. Juntos recorremos los cuatro elementos que convierten una idea en una marca con alma.": "Your brand is on its journey. Together we travel the four elements that turn an idea into a brand with soul.", "del viaje recorrido": "of the journey completed", "Estamos en": "We are in", "de la etapa": "of the stage", "Siguiente: Agua →": "Next: Water →", "Siguiente: Tierra →": "Next: Earth →", "Siguiente: Fuego →": "Next: Fire →", "Última etapa ✦": "Final stage ✦", "disponibles para canjear": "available to redeem", "puntos por encima de tu plan": "points above your plan", "esperan tu firma": "awaiting your signature", "todo al día por ahora": "all up to date for now", "Actividades": "Activities", "completadas en el viaje": "completed on the journey", "Tu tripulación": "Your crew", "te acompañan en esta misión": "are with you on this mission", "En curso": "In progress", "Contigo": "With you", "Próximo": "Upcoming", "Nuestro equipo está trabajando": "Our team is working on it", "Te necesitamos aquí": "We need you here", "Para seguir avanzando": "To keep moving forward", "Nuestro equipo": "Our team", "Todas las actividades están completadas. ✦": "All activities are completed. ✦", "Lo que viene": "What’s next", "Ver ruta completa ↗": "See full route ↗", "Las marcadas con": "Those marked", "son paradas donde te necesitamos.": "are stops where we need you.", "Completada": "Completed", "Aquí estamos": "We are here", "Próxima": "Upcoming", "Tu cronograma se está preparando. Muy pronto verás aquí la ruta completa.": "Your timeline is being prepared. You will see the full route here very soon.", "Los cuatro elementos de tu marca": "The four elements of your brand", "En Polen cada proyecto recorre cuatro etapas, como un viaje por los elementos. Las actividades marcadas": "At Polen every project travels four stages, like a journey through the elements. Activities marked", "son donde participas tú.": "are where you take part.", "¿Qué son los Branding Points?": "What are Branding Points?", "Son la moneda del universo de las marcas. Tu plan incluye una cantidad de puntos y tú decides en qué entregables usarlos. Cuéntanos medidas y materiales en las notas; si buscas algo que no está, pídelo en": "They are the currency of the brand universe. Your plan includes a number of points and you decide which deliverables to use them on. Tell us sizes and materials in the notes; if what you need isn’t listed, ask for it in", "Personalizado": "Custom", "Ver video explicativo": "Watch explainer video", "El video estará disponible muy pronto ✦": "The video will be available very soon ✦", "Tu selección": "Your selection", "disponibles de": "available of", "por encima de tu plan de": "above your plan of", "usados": "used", "total": "total", "Aún no has elegido entregables.": "You haven’t chosen any deliverables yet.", "Los entregables con": "Deliverables with", "puntos los valora nuestro equipo. ¿Se acabaron tus puntos y quieres más? Te enviamos una cotización por los adicionales.": "points are valued by our team. Out of points and want more? We’ll send you a quote for the extra ones.", "disponibles": "available", "seleccionados": "selected", "Ver ↓": "See ↓", "Misión": "Mission", "con Polen Estudio Creativo": "with Polen Estudio Creativo", "Hola,": "Hi,", "hoy": "today", "mañana": "tomorrow", "pendiente": "pending", "en": "in", "días": "days"};
+const PV2_EN = Object.assign({"Próximamente": "Coming soon", "Ver video": "Watch video", "¿Cómo usar tu portal?": "How to use your portal", "Un recorrido rápido por todas las secciones": "A quick tour of every section", "¿Cómo leer tu cronograma?": "How to read your timeline", "Qué significa cada etapa y las paradas \"Contigo\"": "What each stage and the \"With you\" stops mean", "¿Cómo usar tus Branding Points?": "How to use your Branding Points", "Cómo elegir tus entregables y dejarnos las notas": "How to choose your deliverables and leave us notes", "¿Cómo aprobar y firmar una etapa?": "How to approve and sign a stage", "Así nos das luz verde para seguir avanzando": "How you give us the green light to keep going", "¿Cómo usar tu entrega?": "How to use your delivery", "Descargar, instalar tu tipografía y encontrar cada archivo": "Download, install your typeface and find each file", "El video estará disponible muy pronto ✦": "The video will be available very soon ✦", "Entrega": "Delivery", "Tu marca llegó a destino. Aquí está todo lo que necesitas para que brille en el mundo real.": "Your brand has arrived. Here is everything you need to make it shine in the real world.", "Tu entrega final": "Your final delivery", "Tu marca, lista para despegar": "Your brand, ready for lift-off", "Aquí está tu brandbook y todos los archivos de tu marca: logos, tipografías, recursos y artes, organizados en carpetas.": "Here is your brandbook and all your brand files: logos, typefaces, assets and artwork, organized in folders.", "Descargar mi marca": "Download my brand", "Los links de WeTransfer vencen: descarga tus archivos pronto": "WeTransfer links expire: download your files soon", "Tu link de descarga aparecerá aquí muy pronto": "Your download link will appear here very soon", "Te dejamos un regalo al final": "There’s a gift for you at the end", "Cuéntanos cómo fue el proceso y llévate nuestro ebook": "Tell us about the process and get our ebook", "Ir": "Go", "Antes de empezar": "Before you start", "Gracias por la confianza. Lo que vas a recibir no es solo diseño: es el reflejo estratégico y emocional de tu marca. Estas recomendaciones te ayudan a usarlo bien, dentro y fuera de tu empresa.": "Thank you for your trust. What you receive is not just design: it is the strategic and emotional reflection of your brand. These tips help you use it well, inside and outside your company.", "Recomendaciones de la entrega": "Delivery tips", "Tres pasos antes de abrir cualquier archivo.": "Three steps before opening any file.", "Descarga en tu computadora": "Download on your computer", "Computadora": "Computer", "Celular": "Phone", "Los archivos son pesados y vienen en varios formatos. Si se descarga un .ZIP, dale doble clic para abrirlo.": "Files are large and come in several formats. If a .ZIP downloads, double-click it to open it.", "Abre primero el índice": "Open the index first", "El documento \"Índice y ubicación\" es el mapa de tu marca: qué recibiste, en qué formato y en qué carpeta está.": "The \"Index and location\" document is your brand map: what you received, in which format and in which folder.", "Instala tu tipografía": "Install your typeface", "Doble clic en el .OTF o .TTF": "Double-click the .OTF or .TTF", "Clic en \"Instalar fuente\"": "Click \"Install font\"", "Clic derecho en el .OTF o .TTF": "Right-click the .OTF or .TTF", "\"Instalar para todos\"": "\"Install for all users\"", "Conoce tus archivos": "Know your files", "Cada carpeta (logotipo, empaques, papelería…) trae el archivo editable y su versión lista para ver: PDF, JPG, PNG y su mockup.": "Each folder (logo, packaging, stationery…) has the editable file and its ready-to-view version: PDF, JPG, PNG and its mockup.", "Editable": "Editable", "Solo para ver": "View only", "Documento": "Document", "Sin fondo": "Transparent", "Con fondo": "With background", "Para diseñadores e imprentas. Necesita el programa y tu tipografía instalada.": "For designers and printers. Needs the software and your typeface installed.", "Para enviar por WhatsApp o correo. Si es de alta calidad, sirve para imprimir.": "To send by WhatsApp or email. If high quality, it works for printing.", "Para Canva, PowerPoint o Google Slides, y para registrar tu logo.": "For Canva, PowerPoint or Google Slides, and to register your logo.", "Para redes sociales o WhatsApp. Liviano y funciona en todo.": "For social media or WhatsApp. Light and works everywhere.", "¿Qué archivo mando en cada caso?": "Which file do I send in each case?", "Si necesitas…": "If you need to…", "Manda": "Send", "Ojo": "Note", "tipografía": "typeface", "Imprimir, bordar o trabajar con un proveedor": "Print, embroider or work with a supplier", "Solo el archivo que va a producir. ¡No olvides la tipografía!": "Only the file they will produce. Don’t forget the typeface!", "Diseñar en Canva u otro editor online": "Design in Canva or another online editor", "Usa los recursos visuales de tu marca.": "Use your brand’s visual assets.", "Registrar mi logotipo": "Register my logo", "Envía el logo en todos sus colores.": "Send the logo in all its colors.", "Pasarle todo a mi equipo o agencia": "Hand everything to my team or agency", "Link de WeTransfer": "WeTransfer link", "carpeta entera": "whole folder", "Necesitan todos los archivos para crear a partir de ellos.": "They need all the files to create from them.", "Cuéntanos cómo fue este viaje": "Tell us how this journey went", "Tu testimonio nos ayuda a seguir creando marcas con alma. Como agradecimiento, te regalamos nuestro ebook.": "Your testimonial helps us keep creating brands with soul. As a thank-you, we’ll give you our ebook.", "¿Cómo te sentiste en el proceso? ¿Qué es lo que más te gustó de tu nueva marca?": "How did you feel during the process? What do you like most about your new brand?", "Tu nombre": "Your name", "Tu cargo y empresa": "Your role and company", "Autorizo a Polen Estudio Creativo a usar mi testimonio, mi nombre y el de mi marca en su web, redes y presentaciones.": "I authorize Polen Estudio Creativo to use my testimonial, my name and my brand’s name on its website, social media and presentations.", "Enviar y recibir mi ebook": "Send and get my ebook", "Enviando…": "Sending…", "Cuéntanos un poquito más sobre tu experiencia.": "Tell us a bit more about your experience.", "Escribe tu nombre.": "Please write your name.", "No se pudo enviar. Revisa tu conexión e intenta de nuevo.": "It couldn’t be sent. Check your connection and try again.", "¡Gracias por contarnos tu experiencia!": "Thank you for sharing your experience!", "Recibimos tu testimonio. Nos ayuda muchísimo a seguir creando marcas con alma.": "We received your testimonial. It helps us a lot to keep creating brands with soul.", "Descargar mi ebook": "Download my ebook", "¡Gracias! Tu ebook estará disponible muy pronto": "Thank you! Your ebook will be available very soon", "Se desbloquea al enviar tu testimonio": "Unlocks when you send your testimonial", "Regalo para ti": "A gift for you", "Regalo · próximamente": "Gift · coming soon", "La dirección creativa de tu nueva marca": "The creative direction of your new brand", "Recomendaciones para que brille": "Tips to make it shine", "Tu ebook de regalo": "Your gift ebook", "Cómo mantener tu marca coherente": "How to keep your brand consistent", "Errores que debes evitar": "Mistakes to avoid", "Ideas para darle vida en redes": "Ideas to bring it to life on social media"},{"Total del proyecto":"Project total","por encima":"over","Branding points de tu proyecto":"Your project's branding points","del proyecto":"in your project","Donde nace la idea": "Where the idea is born", "Exploramos tu mundo, escuchamos a tu gente y buscamos la chispa: insights, caminos creativos y el nombre. Todo lo que aún no se ve, pero lo define todo.": "We explore your world, listen to your people and look for the spark: insights, creative paths and the name. Everything not yet visible, yet defining it all.", "Investigación": "Research", "Insights": "Insights", "Caminos creativos": "Creative paths", "Naming": "Naming", "Donde tu marca toma forma": "Where your brand takes shape", "Como el agua que encuentra su cauce, las ideas se vuelven identidad: tu logo, tus colores, tu tipografía y tu forma de hablar.": "Like water finding its course, ideas become identity: your logo, your colors, your typography and your voice.", "Identidad visual": "Visual identity", "Identidad verbal": "Verbal identity", "Propuesta de marca": "Brand proposal", "Donde tu marca aterriza": "Where your brand lands", "Llevamos la identidad a lo tangible: piezas, aplicaciones y recursos listos para vivir en el mundo real.": "We bring the identity to life: pieces, applications and assets ready for the real world.", "Recursos visuales": "Visual assets", "Recursos verbales": "Verbal assets", "Aplicaciones": "Applications", "Donde tu marca se enciende": "Where your brand ignites", "Unimos todo, afinamos cada detalle y te entregamos tu marca lista para salir a brillar.": "We bring it all together, fine-tune every detail and hand you a brand ready to shine.", "Propuesta completa": "Full proposal", "Ajustes finales": "Final adjustments", "Entrega": "Delivery", "Inicio": "Home", "Cronograma": "Timeline", "Puntos": "Points", "Aprobaciones": "Approvals", "Tu ruta": "Your route", "Cada etapa es un paso de la misión. Aquí ves dónde estamos y lo que viene.": "Each stage is a step of the mission. Here you can see where we are and what comes next.", "Tu moneda en el universo de las marcas: elige los entregables que tu proyecto necesita.": "Your currency in the brand universe: choose the deliverables your project needs.", "Cada firma es un despegue: nos confirma que vamos en la dirección correcta.": "Every signature is a lift-off: it confirms we are heading the right way.", "Próxima parada contigo": "Next stop with you", "Tu marca está en pleno viaje. Juntos recorremos los cuatro elementos que convierten una idea en una marca con alma.": "Your brand is on its journey. Together we travel the four elements that turn an idea into a brand with soul.", "del viaje recorrido": "of the journey completed", "Estamos en": "We are in", "de la etapa": "of the stage", "Siguiente: Agua →": "Next: Water →", "Siguiente: Tierra →": "Next: Earth →", "Siguiente: Fuego →": "Next: Fire →", "Última etapa ✦": "Final stage ✦", "disponibles para canjear": "available to redeem", "puntos por encima de tu plan": "points above your plan", "esperan tu firma": "awaiting your signature", "todo al día por ahora": "all up to date for now", "Actividades": "Activities", "completadas en el viaje": "completed on the journey", "Tu tripulación": "Your crew", "te acompañan en esta misión": "are with you on this mission", "En curso": "In progress", "Contigo": "With you", "Próximo": "Upcoming", "Nuestro equipo está trabajando": "Our team is working on it", "Te necesitamos aquí": "We need you here", "Para seguir avanzando": "To keep moving forward", "Nuestro equipo": "Our team", "Todas las actividades están completadas. ✦": "All activities are completed. ✦", "Lo que viene": "What’s next", "Ver ruta completa ↗": "See full route ↗", "Las marcadas con": "Those marked", "son paradas donde te necesitamos.": "are stops where we need you.", "Completada": "Completed", "Aquí estamos": "We are here", "Próxima": "Upcoming", "Tu cronograma se está preparando. Muy pronto verás aquí la ruta completa.": "Your timeline is being prepared. You will see the full route here very soon.", "Los cuatro elementos de tu marca": "The four elements of your brand", "En Polen cada proyecto recorre cuatro etapas, como un viaje por los elementos. Las actividades marcadas": "At Polen every project travels four stages, like a journey through the elements. Activities marked", "son donde participas tú.": "are where you take part.", "¿Qué son los Branding Points?": "What are Branding Points?", "Son la moneda del universo de las marcas. Tu plan incluye una cantidad de puntos y tú decides en qué entregables usarlos. Cuéntanos medidas y materiales en las notas; si buscas algo que no está, pídelo en": "They are the currency of the brand universe. Your plan includes a number of points and you decide which deliverables to use them on. Tell us sizes and materials in the notes; if what you need isn’t listed, ask for it in", "Personalizado": "Custom", "Ver video explicativo": "Watch explainer video", "El video estará disponible muy pronto ✦": "The video will be available very soon ✦", "Tu selección": "Your selection", "disponibles de": "available of", "por encima de tu plan de": "above your plan of", "usados": "used", "total": "total", "Aún no has elegido entregables.": "You haven’t chosen any deliverables yet.", "Los entregables con": "Deliverables with", "puntos los valora nuestro equipo. ¿Se acabaron tus puntos y quieres más? Te enviamos una cotización por los adicionales.": "points are valued by our team. Out of points and want more? We’ll send you a quote for the extra ones.", "disponibles": "available", "seleccionados": "selected", "Ver ↓": "See ↓", "Misión": "Mission", "con Polen Estudio Creativo": "with Polen Estudio Creativo", "Hola,": "Hi,", "hoy": "today", "mañana": "tomorrow", "pendiente": "pending", "en": "in", "días": "days"});
 function _pv2T(t){ return ((window._portalLang||'es')==='en' && PV2_EN[t]) ? PV2_EN[t] : t; }
 const PV2_I = {
   home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
@@ -36005,6 +36209,21 @@ const PV2_I = {
   chk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
   flag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>',
   crew:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.2a5 5 0 0 1 5.5 5"/></svg>',
+  box:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
+  dl:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 19h16"/></svg>',
+  pc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
+  map:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>',
+  font:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 9.5 5h1L16 20M6.5 14h7"/><path d="M18 13.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zm2.5 0V20"/></svg>',
+  apple:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.4 2-3.5 2-3.6-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9s-1.8-.9-3-.9c-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.7-.1 0-2.5-1-2.5-3.5zM14.1 5.6c.6-.8 1.1-1.8 1-2.9-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.8-1 2.8 1 .1 2-.5 2.7-1.3z"/></svg>',
+  win:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5 10.5 4.5v7H3zM11.5 4.4 21 3v8.5h-9.5zM3 12.5h7.5v7L3 18.5zM11.5 12.5H21V21l-9.5-1.4z"/></svg>',
+  print:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg>',
+  brush:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m14 4 6 6-8 8H6v-6z"/><path d="M4 20h4"/></svg>',
+  reg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 16.5v-9h3.2a2.5 2.5 0 0 1 0 5H9.5M12.5 12.5l3 4"/></svg>',
+  share:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 10v6M9 13l3-3 3 3"/></svg>',
+  gift:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8S10.5 3.5 8 4.2C6 4.8 7 8 12 8zM12 8s1.5-4.5 4-3.8C18 4.8 17 8 12 8z"/></svg>',
+  img:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg>',
+  pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19 5 12l7-9 7 9z"/><circle cx="12" cy="11" r="1.6"/></svg>',
+  doc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg>',
   play:'<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>',
 };
 function _pv2Hex(c){ const h=String(c||'').replace('#',''); if(!/^[0-9a-f]{6}$/i.test(h)) return [46,134,222]; return [0,2,4].map(i=>parseInt(h.substr(i,2),16)); }
@@ -36079,7 +36298,7 @@ function _pv2Shell(brand, sec){
       <nav class="pv2-nav">${tabs.map(t=>`<button id="portal-tab-${t[0]}" data-tab="${t[0]}" data-lbl="${t[1]}" onclick="portalSwitchTab('${t[0]}')">${t[2]}<span>${_pv2T(t[1])}</span></button>`).join('')}</nav>
       <div class="pv2-lang" id="portal-lang-seg"><button data-lang="es" class="${lang==='es'?'on':''}" onclick="portalSetLang('es')">ES</button><button data-lang="en" class="${lang==='en'?'on':''}" onclick="portalSetLang('en')">EN</button></div></div>
       <div class="pv2-hi" id="pv2-hero-hi"></div></header>
-    <main class="pv2-main">${_portalBannerPausa(brand)}<div id="portal-content-area"></div><div class="pv2-foot">Powered by Polen System ✦</div></main>
+    <main class="pv2-main">${_portalBannerPausa(brand)}<div id="pv2-vid-slot"></div><div id="portal-content-area"></div><div class="pv2-foot">Powered by Polen System ✦</div></main>
     <nav class="pv2-tabbar">${tabs.map(t=>`<button data-tab="${t[0]}" data-lbl="${t[3]}" onclick="portalSwitchTab('${t[0]}')">${t[2]}<span>${_pv2T(t[3])}</span></button>`).join('')}</nav>
   </div></div>`;
 }
@@ -36088,12 +36307,16 @@ function _pv2Tabs(sec){
   if(sec.crono) t.push(['crono','Cronograma',PV2_I.cal,'Cronograma']);
   if(sec.bp) t.push(['bp','Branding Points',PV2_I.star,'Puntos']);
   if(sec.aprobaciones) t.push(['aprobaciones','Aprobaciones',PV2_I.ok,'Aprobaciones']);
+  if(sec.entrega) t.push(['entrega','Entrega',PV2_I.box,'Entrega']);
   return t;
 }
 function _pv2MarcarTab(brand, tab){
   document.querySelectorAll('.pv2-nav button,.pv2-tabbar button').forEach(b=>{ b.classList.toggle('on', b.dataset.tab===tab); const sp=b.querySelector('span'); if(sp && b.dataset.lbl) sp.textContent=_pv2T(b.dataset.lbl); });
   const hero=document.getElementById('pv2-hero'); if(hero) hero.classList.toggle('inner', tab!=='inicio');
   const hi=document.getElementById('pv2-hero-hi'); if(hi) hi.innerHTML=_pv2HeroHi(brand, tab);
+  const vs=document.getElementById('pv2-vid-slot');
+  if(vs){ const V={inicio:['portal','¿Cómo usar tu portal?','Un recorrido rápido por todas las secciones','aire'], crono:['crono','¿Cómo leer tu cronograma?','Qué significa cada etapa y las paradas "Contigo"','agua'], bp:['bp','¿Cómo usar tus Branding Points?','Cómo elegir tus entregables y dejarnos las notas','fuego'], aprobaciones:['aprobaciones','¿Cómo aprobar y firmar una etapa?','Así nos das luz verde para seguir avanzando','tierra'], entrega:null}[tab];
+    vs.innerHTML = V ? `<div class="pv2-vid-wrap">${_pv2Vid(V[0],V[1],V[2],V[3])}</div>` : ''; }
 }
 function _pv2Cuando(f, hoy){
   if(!f) return '';
@@ -36105,7 +36328,8 @@ function _pv2HeroHi(brand, tab){
   const name=_pv2Esc(brand.name||'');
   const T={crono:['Tu ruta','Cada etapa es un paso de la misión. Aquí ves dónde estamos y lo que viene.'],
            bp:['Branding Points','Tu moneda en el universo de las marcas: elige los entregables que tu proyecto necesita.'],
-           aprobaciones:['Aprobaciones','Cada firma es un despegue: nos confirma que vamos en la dirección correcta.']}[tab];
+           aprobaciones:['Aprobaciones','Cada firma es un despegue: nos confirma que vamos en la dirección correcta.'],
+           entrega:['Entrega','Tu marca llegó a destino. Aquí está todo lo que necesitas para que brille en el mundo real.']}[tab];
   const big = tab==='inicio';
   const ph = d.proxHito;
   const flot = (big && ph) ? `<div class="pv2-float"><small>${_pv2T('Próxima parada contigo')}</small><h3>${_pv2Esc(ph.a.name)}</h3><div class="row">${ph.f?`<div class="big">${ph.f.getDate()} <span>${_PV2_MES[ph.f.getMonth()]}</span></div>`:'<div></div>'}${ph.f?`<span class="pv2-chip">${_pv2Cuando(ph.f,d.hoy)}</span>`:''}</div></div>` : '<div></div>';
@@ -36115,13 +36339,17 @@ function _pv2HeroHi(brand, tab){
     <div class="pv2-sub"><span class="pv2-chip"><i class="pv2-dot" style="background:${st.color}"></i>Etapa ${st.label}</span><span class="pv2-chip ghost">${d.pct}% ${_pv2T('del viaje recorrido')}</span></div></div>${flot}`;
 }
 // Dibujo de cada elemento (SVG generado, sin imágenes externas)
-function _pv2Arte(k){
-  const W=600,H=320; let g='';
-  if(k==='agua'){ for(let i=0;i<9;i++){ const y=170+i*18, a=8+i*2; let p=`M0 ${y}`; for(let x=0;x<=W;x+=20){ p+=` L${x} ${(y+Math.sin(x/70+i*.7)*a).toFixed(1)}`; } g+=`<path d="${p}" fill="none" stroke-opacity="${.16+i*.05}" stroke-width="${1.2+i*.15}"/>`; } }
-  if(k==='aire'){ for(let i=0;i<10;i++){ const y=150+i*20; g+=`<path d="M${-40+i*12} ${y} C ${150+i*8} ${y-50}, ${330-i*6} ${y+60}, ${W+40} ${y-20+i*3}" fill="none" stroke-opacity="${.12+i*.045}" stroke-width="1.4" stroke-linecap="round"/>`; } }
-  if(k==='tierra'){ for(let i=0;i<11;i++){ g+=`<ellipse cx="${430+i*4}" cy="${250-i*3}" rx="${40+i*34}" ry="${24+i*20}" fill="none" stroke-opacity="${.5-i*.035}" stroke-width="1.2" transform="rotate(${-8+i*1.5} 430 250)"/>`; } }
-  if(k==='fuego'){ for(let i=0;i<12;i++){ const x=80+i*42; g+=`<path d="M${x} ${H+20} C ${x-30} ${200-i*6}, ${x+40} ${140-i*4}, ${x+10} ${40+(i%3)*30}" fill="none" stroke-opacity="${.14+(i%4)*.08}" stroke-width="1.5" stroke-linecap="round"/>`; } }
-  return `<svg class="pv2-arte" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${g}</svg>`;
+function _pv2Arte(k){ return `<div class="pv2-flow ${k}" aria-hidden="true"><i></i><i></i><i></i></div>`; }
+// Botón grande de video explicativo (si aún no hay link: "Próximamente")
+function _pv2Vid(key, titulo, sub, el){
+  const url = PORTAL_VIDEOS[key]||'';
+  return `<button class="pv2-vid ${url?'':'soon'}" onclick="_pv2VerVideo('${key}')"><span class="pv2-vid-th">${_pv2Arte(el||'agua')}<b>${PV2_I.play}</b></span><span><div class="pv2-vid-t">${_pv2T(titulo)}</div><div class="pv2-vid-s">${_pv2T(sub)}</div></span><span class="pv2-vid-go">${_pv2T(url?'Ver video':'Próximamente')}</span></button>`;
+}
+function _pv2VerVideo(key){
+  const url = PORTAL_VIDEOS[key]||'';
+  if(url){ window.open(url,'_blank','noopener'); return; }
+  const b=[...document.querySelectorAll('.pv2-vid')].find(x=>(x.getAttribute('onclick')||'').includes("'"+key+"'")); if(!b) return;
+  const s=b.querySelector('.pv2-vid-s'); if(!s) return; const t=s.textContent; s.textContent=_pv2T('El video estará disponible muy pronto ✦'); setTimeout(()=>{ s.textContent=t; }, 2200);
 }
 function _pv2StageBento(k, d){
   const s=PV2_ST[k], e=d.etapas[k]; const sig={aire:'Siguiente: Agua →',agua:'Siguiente: Tierra →',tierra:'Siguiente: Fuego →',fuego:'Última etapa ✦'}[k];
@@ -36136,7 +36364,7 @@ function _pv2Inicio(brand, sec){
   const d=_pv2Datos(brand);
   const stat=(t,ic,v,m,tab)=>`<div class="pv2-card pv2-stat" ${tab?`onclick="portalSwitchTab('${tab}')" style="cursor:pointer"`:''}><div class="t">${_pv2T(t)}<span class="pv2-ico">${ic}</span></div><div><div class="v">${v}</div><div class="pv2-mini">${_pv2T(m)}</div></div></div>`;
   const stats=[];
-  if(sec.bp) stats.push(stat('Branding Points',PV2_I.star,`${d.bpLibres}<span> / ${d.bpTotal}</span>`, d.bpLibres>=0?'disponibles para canjear':'puntos por encima de tu plan','bp'));
+  if(sec.bp) stats.push(stat('Branding Points',PV2_I.star,`${d.bpTotal}<span> pts</span>`, d.bpLibres>=0?`${_pv2T('Total del proyecto')} · ${d.bpLibres} ${_pv2T('disponibles')}`:`${_pv2T('Total del proyecto')} · ${-d.bpLibres} ${_pv2T('por encima')}`,'bp'));
   if(sec.aprobaciones) stats.push(stat('Aprobaciones',PV2_I.ok, d.aprPend?String(d.aprPend):'✓', d.aprPend?'esperan tu firma':'todo al día por ahora','aprobaciones'));
   stats.push(stat('Actividades',PV2_I.flag,`${d.hechas}<span> / ${d.tot}</span>`,'completadas en el viaje', sec.crono?'crono':''));
   stats.push(stat('Tu tripulación',PV2_I.crew, d.crew.length?`${_pv2Esc(d.crew[0])}${d.crew.length>1?`<span> + ${_pv2Esc(d.crew.slice(1).join(' + '))}</span>`:''}`:'Polen','te acompañan en esta misión'));
@@ -36170,7 +36398,7 @@ function _pv2Crono(brand){
     <div class="pv2-grid pv2-g-crono">${cards}</div>`;
 }
 function _pv2BpExplain(){
-  return `<div class="pv2-card pv2-explain"><div class="pv2-explain-t"><div class="pv2-ico big">${PV2_I.star}</div><div><h5>${_pv2T('¿Qué son los Branding Points?')}</h5><p>${_pv2T('Son la moneda del universo de las marcas. Tu plan incluye una cantidad de puntos y tú decides en qué entregables usarlos. Cuéntanos medidas y materiales en las notas; si buscas algo que no está, pídelo en')} <b>${_pv2T('Personalizado')}</b>.</p></div></div><button class="pv2-video" onclick="_pv2AbrirVideo()">${PV2_I.play}${_pv2T('Ver video explicativo')}</button></div>`;
+  return `<div class="pv2-card pv2-explain"><div class="pv2-explain-t"><div class="pv2-ico big">${PV2_I.star}</div><div><h5>${_pv2T('¿Qué son los Branding Points?')}</h5><p>${_pv2T('Son la moneda del universo de las marcas. Tu plan incluye una cantidad de puntos y tú decides en qué entregables usarlos. Cuéntanos medidas y materiales en las notas; si buscas algo que no está, pídelo en')} <b>${_pv2T('Personalizado')}</b>.</p></div></div></div>`;
 }
 function _pv2AbrirVideo(){
   if(PORTAL_BP_VIDEO_URL){ window.open(PORTAL_BP_VIDEO_URL,'_blank','noopener'); return; }
@@ -36183,8 +36411,8 @@ function _pv2BpResumen(brand){
   const used=sel.filter(i=>i.pts!=null).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0);
   const libres=total-used, pct=total>0?Math.min(100,used/total*100):0;
   const lista = sel.map(i=>`<div class="pv2-row sm"><div class="nm">${_pv2Esc(i.name)}${(i.qty||1)>1?` <small style="display:inline">×${i.qty}</small>`:''}</div><span>${i.pts==null?'?':(i.pts*(i.qty||1))} pts</span></div>`).join('');
-  return `<div class="pv2-card"><h4>${_pv2T('Tu selección')}</h4><div class="pv2-num">${libres}<span> pts</span></div><div class="pv2-mini">${libres>=0?_pv2T('disponibles de')+' '+total:_pv2T('por encima de tu plan de')+' '+total}</div>
-    <div class="pv2-meter"><i style="width:${pct}%"></i></div><div class="pv2-meter-l"><span>${used} ${_pv2T('usados')}</span><span>${total} ${_pv2T('total')}</span></div>
+  return `<div class="pv2-card"><h4>${_pv2T('Tu selección')}</h4><div class="pv2-num">${total}<span> pts</span></div><div class="pv2-mini">${_pv2T('Branding points de tu proyecto')}</div>
+    <div class="pv2-meter"><i style="width:${pct}%"></i></div><div class="pv2-meter-l"><span>${used} ${_pv2T('usados')}</span><span>${libres>=0?libres+' '+_pv2T('disponibles'):(-libres)+' '+_pv2T('por encima')}</span></div>
     <div class="pv2-list">${lista||'<div class="pv2-help">'+_pv2T('Aún no has elegido entregables.')+'</div>'}</div>
     <div class="pv2-help" style="margin-top:14px">${_pv2T('Los entregables con')} <b>?</b> ${_pv2T('puntos los valora nuestro equipo. ¿Se acabaron tus puntos y quieres más? Te enviamos una cotización por los adicionales.')}</div></div>`;
 }
@@ -36192,7 +36420,119 @@ function _pv2BpBar(brand){
   const bp=brand.brandingPoints||{}; const total=bp.total||0;
   const sel=(bp.categories||[]).flatMap(c=>(c.items||[])).filter(i=>i&&i.selected);
   const used=sel.filter(i=>i.pts!=null).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0);
-  return `<div class="pv2-bpbar" id="pv2-bpbar" onclick="var r=document.getElementById('pv2-bp-resumen'); if(r) r.scrollIntoView({behavior:'smooth'})"><span style="flex:1"><b>${total-used} pts</b> ${_pv2T('disponibles')} · ${sel.length} ${_pv2T('seleccionados')}</span><span>${_pv2T('Ver ↓')}</span></div>`;
+  return `<div class="pv2-bpbar" id="pv2-bpbar" onclick="var r=document.getElementById('pv2-bp-resumen'); if(r) r.scrollIntoView({behavior:'smooth'})"><span style="flex:1"><b>${total} pts</b> ${_pv2T('del proyecto')} · ${total-used>=0?(total-used)+' '+_pv2T('disponibles'):(used-total)+' '+_pv2T('por encima')}</span><span>${_pv2T('Ver ↓')}</span></div>`;
+}
+
+// ══════════ v563 · ENTREGA (la activa el equipo en la marca → Portal) ══════════
+function _pv2Entrega(brand){
+  const link = String(brand.entregaLink||'').trim();
+  const T=_pv2T;
+  const dl = link
+    ? `<a class="pv2-dl" href="${_pv2Esc(link)}" target="_blank" rel="noopener">${PV2_I.dl} ${T('Descargar mi marca')} <small>WeTransfer</small></a><span class="pv2-lock">⏳ ${T('Los links de WeTransfer vencen: descarga tus archivos pronto')}</span>`
+    : `<span class="pv2-dl off">${PV2_I.dl} ${T('Tu link de descarga aparecerá aquí muy pronto')}</span>`;
+  return `
+  <div class="pv2-grid pv2-g-ent" style="margin-bottom:14px">
+    <div class="pv2-card pv2-deliver">${_pv2Arte('fuego')}<div class="pv2-deliver-in"><div class="k">${T('Tu entrega final')}</div><h3>${T('Tu marca, lista para despegar')}</h3><p>${T('Aquí está tu brandbook y todos los archivos de tu marca: logos, tipografías, recursos y artes, organizados en carpetas.')}</p>${dl}</div></div>
+    <div class="pv2-ent-side">${_pv2Vid('entrega','¿Cómo usar tu entrega?','Descargar, instalar tu tipografía y encontrar cada archivo','fuego')}
+      <a class="pv2-gift" onclick="var t=document.getElementById('pv2-testimonio'); if(t) t.scrollIntoView({behavior:'smooth'})"><span class="g">${PV2_I.gift}</span><span><b>${T('Te dejamos un regalo al final')}</b><small>${T('Cuéntanos cómo fue el proceso y llévate nuestro ebook')}</small></span><span class="ar">${T('Ir')} ↓</span></a>
+      <div class="pv2-card pv2-grow"><h4>${T('Antes de empezar')}</h4><p class="pv2-help" style="font-size:14px;color:var(--ink2)">${T('Gracias por la confianza. Lo que vas a recibir no es solo diseño: es el reflejo estratégico y emocional de tu marca. Estas recomendaciones te ayudan a usarlo bien, dentro y fuera de tu empresa.')}</p></div></div>
+  </div>
+  <div class="pv2-card" style="margin-bottom:14px"><h4>${T('Recomendaciones de la entrega')}</h4><p class="pv2-help">${T('Tres pasos antes de abrir cualquier archivo.')}</p><div class="pv2-tips" style="margin-top:18px">
+    <div class="pv2-tip"><div class="top"><span class="pv2-ic">${PV2_I.pc}</span><span class="n">1</span></div><h5>${T('Descarga en tu computadora')}</h5><div class="pv2-do"><span>✓ ${T('Computadora')}</span><span class="no">✕ ${T('Celular')}</span></div><p>${T('Los archivos son pesados y vienen en varios formatos. Si se descarga un .ZIP, dale doble clic para abrirlo.')}</p></div>
+    <div class="pv2-tip"><div class="top"><span class="pv2-ic">${PV2_I.map}</span><span class="n">2</span></div><h5>${T('Abre primero el índice')}</h5><p>${T('El documento "Índice y ubicación" es el mapa de tu marca: qué recibiste, en qué formato y en qué carpeta está.')}</p></div>
+    <div class="pv2-tip"><div class="top"><span class="pv2-ic">${PV2_I.font}</span><span class="n">3</span></div><h5>${T('Instala tu tipografía')}</h5><div class="pv2-os"><div><b>${PV2_I.apple} Mac</b><ol class="pv2-steps"><li><i>1</i>${T('Doble clic en el .OTF o .TTF')}</li><li><i>2</i>${T('Clic en "Instalar fuente"')}</li></ol></div><div><b>${PV2_I.win} Windows</b><ol class="pv2-steps"><li><i>1</i>${T('Clic derecho en el .OTF o .TTF')}</li><li><i>2</i>${T('"Instalar para todos"')}</li></ol></div></div></div>
+  </div></div>
+  <div class="pv2-card" style="margin-bottom:14px"><h4>${T('Conoce tus archivos')}</h4><p class="pv2-help">${T('Cada carpeta (logotipo, empaques, papelería…) trae el archivo editable y su versión lista para ver: PDF, JPG, PNG y su mockup.')}</p>
+  <div class="pv2-files">
+    <div class="pv2-file"><div class="pv2-fico" style="background:#F28B30">${PV2_I.pen}.AI</div><h6>Adobe Illustrator</h6><div class="tipo">✎ ${T('Editable')}</div><p>${T('Para diseñadores e imprentas. Necesita el programa y tu tipografía instalada.')}</p></div>
+    <div class="pv2-file"><div class="pv2-fico" style="background:#E5484D">${PV2_I.doc}.PDF</div><h6>${T('Documento')}</h6><div class="tipo no">${T('Solo para ver')}</div><p>${T('Para enviar por WhatsApp o correo. Si es de alta calidad, sirve para imprimir.')}</p></div>
+    <div class="pv2-file"><div class="pv2-fico png">${PV2_I.img}.PNG</div><h6>${T('Sin fondo')}</h6><div class="tipo no">${T('Solo para ver')}</div><p>${T('Para Canva, PowerPoint o Google Slides, y para registrar tu logo.')}</p></div>
+    <div class="pv2-file"><div class="pv2-fico" style="background:#2DC3B3">${PV2_I.img}.JPG</div><h6>${T('Con fondo')}</h6><div class="tipo no">${T('Solo para ver')}</div><p>${T('Para redes sociales o WhatsApp. Liviano y funciona en todo.')}</p></div>
+  </div></div>
+  <div class="pv2-card" style="margin-bottom:14px"><h4>${T('¿Qué archivo mando en cada caso?')}</h4><table class="pv2-fmt"><thead><tr><th>${T('Si necesitas…')}</th><th>${T('Manda')}</th><th>${T('Ojo')}</th></tr></thead><tbody>
+    <tr><td><div class="need"><span class="pv2-ic">${PV2_I.print}</span>${T('Imprimir, bordar o trabajar con un proveedor')}</div></td><td><b>.AI</b> <b>mockup .JPG</b> <b>${T('tipografía')} .OTF</b></td><td>${T('Solo el archivo que va a producir. ¡No olvides la tipografía!')}</td></tr>
+    <tr><td><div class="need"><span class="pv2-ic">${PV2_I.brush}</span>${T('Diseñar en Canva u otro editor online')}</div></td><td><b>.PNG</b></td><td>${T('Usa los recursos visuales de tu marca.')}</td></tr>
+    <tr><td><div class="need"><span class="pv2-ic">${PV2_I.reg}</span>${T('Registrar mi logotipo')}</div></td><td><b>.PNG</b></td><td>${T('Envía el logo en todos sus colores.')}</td></tr>
+    <tr><td><div class="need"><span class="pv2-ic">${PV2_I.share}</span>${T('Pasarle todo a mi equipo o agencia')}</div></td><td><b>${T('Link de WeTransfer')}</b> <b>${T('carpeta entera')}</b></td><td>${T('Necesitan todos los archivos para crear a partir de ellos.')}</td></tr>
+  </tbody></table></div>
+  <div class="pv2-card" id="pv2-testimonio"><div class="pv2-testi" id="pv2-testi-in">${_pv2TestiForm(brand)}</div></div>`;
+}
+function _pv2Ebook(desbloqueado){
+  const T=_pv2T;
+  const pie = desbloqueado
+    ? (PORTAL_EBOOK_URL ? `<a class="bt on" href="${PORTAL_EBOOK_URL}" target="_blank" rel="noopener">${T('Descargar mi ebook')} ↓</a>` : `<span class="bt">✦ ${T('¡Gracias! Tu ebook estará disponible muy pronto')}</span>`)
+    : `<span class="bt">🔒 ${T('Se desbloquea al enviar tu testimonio')}</span>`;
+  return `<div class="pv2-ebook"><div class="stars">${Array.from({length:14},(_,i)=>`<i style="left:${(i*37)%95}%;top:${(i*53)%90}%;animation-delay:${(i%5)*.6}s"></i>`).join('')}</div><div class="pv2-book"><div class="pg"></div><div class="cv"><small>Polen · Ebook</small><strong>${T('La dirección creativa de tu nueva marca')}</strong><em>${T('Recomendaciones para que brille')}</em></div></div>
+    <div class="pv2-eb-tx"><span class="tag">${T(PORTAL_EBOOK_URL?'Regalo para ti':'Regalo · próximamente')}</span><h5>${T('Tu ebook de regalo')}</h5><ul><li>${T('Cómo mantener tu marca coherente')}</li><li>${T('Errores que debes evitar')}</li><li>${T('Ideas para darle vida en redes')}</li></ul>${pie}</div></div>`;
+}
+function _pv2TestiForm(brand){
+  const T=_pv2T;
+  let enviado=false; try{ enviado = localStorage.getItem('polen-testi-'+brand.id)==='1'; }catch(e){}
+  if(enviado) return `<div class="pv2-testi-l"><h4>${T('¡Gracias por contarnos tu experiencia!')}</h4><p class="pv2-help" style="font-size:15px;color:var(--ink2)">${T('Recibimos tu testimonio. Nos ayuda muchísimo a seguir creando marcas con alma.')} ✦</p></div>${_pv2Ebook(true)}`;
+  return `<div class="pv2-testi-l"><h4>${T('Cuéntanos cómo fue este viaje')}</h4><p class="pv2-help" style="font-size:14px;color:var(--ink2)">${T('Tu testimonio nos ayuda a seguir creando marcas con alma. Como agradecimiento, te regalamos nuestro ebook.')}</p>
+    <textarea id="pv2-testi-txt" placeholder="${T('¿Cómo te sentiste en el proceso? ¿Qué es lo que más te gustó de tu nueva marca?')}"></textarea>
+    <div class="row2"><input type="text" id="pv2-testi-nom" placeholder="${T('Tu nombre')}"><input type="text" id="pv2-testi-car" placeholder="${T('Tu cargo y empresa')}"></div>
+    <label class="pv2-ok"><input type="checkbox" id="pv2-testi-ok"><span class="cb">${PV2_I.chk}</span>${T('Autorizo a Polen Estudio Creativo a usar mi testimonio, mi nombre y el de mi marca en su web, redes y presentaciones.')}</label>
+    <div id="pv2-testi-err" class="pv2-help" style="color:#B42323;display:none"></div>
+    <button class="pv2-send" id="pv2-testi-btn" onclick="_pv2EnviarTestimonio('${brand.id}')">${T('Enviar y recibir mi ebook')} ✦</button></div>${_pv2Ebook(false)}`;
+}
+async function _pv2EnviarTestimonio(brandId){
+  const T=_pv2T; const brand=_portalFindBrand(brandId); if(!brand) return;
+  const txt=(document.getElementById('pv2-testi-txt')||{}).value||'', nom=(document.getElementById('pv2-testi-nom')||{}).value||'', car=(document.getElementById('pv2-testi-car')||{}).value||'';
+  const ok=!!(document.getElementById('pv2-testi-ok')||{}).checked; const err=document.getElementById('pv2-testi-err'); const btn=document.getElementById('pv2-testi-btn');
+  const fallo=m=>{ if(err){ err.textContent=m; err.style.display='block'; } };
+  if(txt.trim().length<10) return fallo(T('Cuéntanos un poquito más sobre tu experiencia.'));
+  if(!nom.trim()) return fallo(T('Escribe tu nombre.'));
+  if(btn){ btn.disabled=true; btn.textContent=T('Enviando…'); }
+  try{
+    const row={ id: (typeof uid==='function'?uid():String(Date.now())), brand_id:brandId, brand_nombre:brand.name||'', texto:txt.trim(), nombre:nom.trim(), cargo:car.trim(), autoriza:ok };
+    const { error } = await sb.from('polen_testimonios').insert(row);
+    if(error) throw error;
+    try{ localStorage.setItem('polen-testi-'+brandId,'1'); }catch(e){}
+    const box=document.getElementById('pv2-testi-in'); if(box) box.innerHTML=_pv2TestiForm(brand);
+    try{ _portalApplyLang(); }catch(e){}
+  }catch(e){ console.error('[Polen] testimonio:', e); fallo(T('No se pudo enviar. Revisa tu conexión e intenta de nuevo.')); if(btn){ btn.disabled=false; btn.textContent=T('Enviar y recibir mi ebook')+' ✦'; } }
+}
+
+// ══════════ v563 · Testimonios (interno) y configuración de la Entrega ══════════
+async function _ptCargarTestimonios(brandId){
+  try{
+    let q = sb.from('polen_testimonios').select('*');
+    if(brandId) q = q.eq('brand_id', brandId);
+    const { data, error } = await q.order('created_at', { ascending:false });
+    if(error) throw error; return data||[];
+  }catch(e){ console.warn('[Polen] testimonios:', e); return null; }
+}
+function _ptTestiHTML(lista, conMarca){
+  if(lista===null) return '<div style="font-size:0.8rem;color:var(--text3)">No se pudieron cargar los testimonios.</div>';
+  if(!lista.length) return '<div style="font-size:0.8rem;color:var(--text3)">Aún no hay testimonios.</div>';
+  return lista.map(t=>`<div style="background:var(--bg-card2);border-radius:14px;padding:0.9rem 1rem;margin-bottom:0.6rem">
+    <div style="display:flex;justify-content:space-between;gap:0.6rem;flex-wrap:wrap;font-size:0.76rem;color:var(--text3)"><span>${conMarca?'<b style="color:var(--text)">'+escapeHtml(t.brand_nombre||'')+'</b> · ':''}${escapeHtml(t.nombre||'')}${t.cargo?' · '+escapeHtml(t.cargo):''}</span><span>${t.created_at?new Date(t.created_at).toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'numeric'}):''}</span></div>
+    <div style="font-size:0.88rem;color:var(--text);margin-top:0.45rem;line-height:1.5;white-space:pre-wrap">${escapeHtml(t.texto||'')}</div>
+    <div style="margin-top:0.5rem;font-size:0.72rem;font-weight:700;color:${t.autoriza?'#3C7A22':'#B42323'}">${t.autoriza?'✓ Autorizó usarlo públicamente':'✕ No autorizó usarlo públicamente'}</div>
+  </div>`).join('');
+}
+async function _ptRenderEntrega(){
+  const brand=(appData.brands||[]).find(b=>b.id===currentBrandId); if(!brand) return;
+  const inp=document.getElementById('pt-entrega-link'); if(inp && document.activeElement!==inp) inp.value = brand.entregaLink||'';
+  const box=document.getElementById('pt-testimonios'); if(!box) return;
+  box.innerHTML='<div style="font-size:0.8rem;color:var(--text3)">Cargando…</div>';
+  const lista=await _ptCargarTestimonios(brand.id);
+  if(currentBrandId===brand.id) box.innerHTML=_ptTestiHTML(lista,false);
+}
+async function _ptGuardarEntregaLink(){
+  const brand=(appData.brands||[]).find(b=>b.id===currentBrandId); if(!brand) return;
+  const v=((document.getElementById('pt-entrega-link')||{}).value||'').trim();
+  if(v && !/^https?:\/\//i.test(v)){ showStatus('El link debe empezar con https://', true); return; }
+  brand.entregaLink=v; markBrandChange(brand.id); await upsert();
+  showStatus(v?'Link de entrega guardado ✓':'Link de entrega quitado');
+}
+async function _abrirTestimonios(){
+  let ov=document.getElementById('modal-testimonios');
+  if(!ov){ ov=document.createElement('div'); ov.id='modal-testimonios'; ov.className='modal-overlay'; ov.onclick=e=>{ if(e.target===ov) ov.remove(); }; document.body.appendChild(ov); }
+  ov.innerHTML=`<div class="modal" style="max-width:640px"><div class="modal-header"><div class="modal-title" style="flex:1">Testimonios de clientes</div><div class="modal-close" onclick="document.getElementById('modal-testimonios').remove()">✕</div></div><div class="modal-body" id="mt-body" style="max-height:70vh;overflow:auto"><div style="font-size:0.8rem;color:var(--text3)">Cargando…</div></div></div>`;
+  const lista=await _ptCargarTestimonios(null);
+  const b=document.getElementById('mt-body'); if(b) b.innerHTML=_ptTestiHTML(lista,true);
 }
 
 function renderPortal(brandId){
@@ -36217,12 +36557,14 @@ function renderPortal(brandId){
 
   // Determinar tab inicial respetando visibilidad (v559: "Inicio" es la entrada)
   const firstVisible = sec.crono ? 'crono' : (sec.bp ? 'bp' : (sec.aprobaciones ? 'aprobaciones' : null));
-  let initialTab = window._portalActiveTab || (firstVisible ? 'inicio' : null);
-  if(initialTab!=='inicio' && !sec[initialTab]) initialTab = firstVisible ? 'inicio' : null;
+  let initialTab = firstVisible ? 'inicio' : null; // 🔒 v563: el portal siempre abre en Inicio
 
   main.innerHTML = _pv2Shell(brand, sec);
 
   if(initialTab){
+    // v563: pintar Inicio de inmediato (antes quedaba en blanco hasta terminar de hidratar)
+    window._portalActiveTab = 'inicio';
+    try{ portalSwitchTab('inicio'); }catch(e){}
     // 🔒 Hidratar BP/crono/aprobaciones desde las tablas (fuente de verdad) ANTES
     // de pintar la pestaña. El objeto del JSON puede venir con brandingPoints vacío
     // por carreras de carga; la tabla tiene los datos reales (confirmado: Plaza Colón
@@ -36258,7 +36600,7 @@ function renderPortal(brandId){
       }catch(e){ console.warn('[Polen] Portal: hidratación falló:', e); }
       // Pintar la pestaña inicial DESPUÉS de hidratar
       if(window._portalBrandId === brandId){
-        try{ portalSwitchTab(initialTab); }catch(e){ console.error('[Polen] portalSwitchTab inicial falló:', e); }
+        try{ portalSwitchTab(window._portalActiveTab || initialTab); }catch(e){ console.error('[Polen] portalSwitchTab inicial falló:', e); }
       }
     })();
   } else {
@@ -36295,7 +36637,7 @@ function portalSwitchTab(tab){
   const sec = getPortalSections(brand);
 
   // Si el tab pedido no está visible, caer al primero visible
-  if(tab!=='inicio' && !sec[tab]){
+  if(tab!=='inicio' && !(tab==='entrega' ? sec.entrega : sec[tab])){
     const fallback = sec.crono ? 'crono' : (sec.bp ? 'bp' : (sec.aprobaciones ? 'aprobaciones' : null));
     if(!fallback){
       const content0 = document.getElementById('portal-content-area');
@@ -36338,6 +36680,7 @@ function portalSwitchTab(tab){
         }catch(e){ console.warn('[Polen] Portal BP fallback falló:', e); }
       })();
     }
+    else if(tab==='entrega'){ content.innerHTML = _pv2Entrega(brand); }
     else if(tab==='aprobaciones'){
       try{ content.innerHTML = portalRenderAprobaciones(brand); }
       catch(e){ content.innerHTML = '<div style="color:red;padding:1rem">Error: '+e.message+'</div>'; }
@@ -42883,7 +43226,7 @@ window.diagnosePolen = function(){
   window.plAbrirSnake=function(){
     const d=document.createElement('dialog'); d.className='snake-dialog';
     d.innerHTML=`<div class="snake-in">
-      <div class="snake-row"><span style="display:flex;align-items:center;gap:12px">${ring(plProgreso(),46,4)}<span style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:650">Snake</span><span style="font-size:12px;color:#6B7280" id="sk-status">Polen System está cargando…</span></span></span><button class="snake-close" id="sk-close">Cerrar</button></div>
+      <div class="snake-row"><span style="display:flex;align-items:center;gap:12px">${ring(plProgreso(),46,4)}<span style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:650">Snake</span><span style="font-size:12px;color:#6B7280" id="sk-status">${document.body.classList.contains('portal-mode')?'Tu portal está cargando…':'Polen System está cargando…'}</span></span></span><button class="snake-close" id="sk-close">Cerrar</button></div>
       <div class="snake-board"><canvas width="${SIZE}" height="${SIZE}" style="width:100%;height:100%;display:block;touch-action:none" aria-label="Tablero de Snake"></canvas><div class="snake-over" id="sk-over"></div></div>
       <div class="snake-row" style="font-size:13px"><span>Puntos <b id="sk-score">0</b></span><span style="color:#6B7280">Récord de hoy <b id="sk-best">${best}</b></span></div>
       <span style="font-size:12px;color:#6B7280">Flechas o WASD para moverte · Espacio para pausar · En el celular, desliza.</span></div>`;
@@ -42905,24 +43248,27 @@ window.diagnosePolen = function(){
       if(head.x===food.x&&head.y===food.y){ score++; scoreEl.textContent=score; if(score>best){ best=score; bestEl.textContent=best; } tick=Math.max(60,tick-4); placeFood(); } else snake.pop();
       draw(); timer=setTimeout(step,tick); }
     function die(){ state='over'; message(`<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><span style="font-size:30px;font-weight:250">${score} ${score===1?'punto':'puntos'}</span><span style="font-size:13px;opacity:.75">${score&&score>=best?'Nuevo récord de hoy':'Se acabó'}</span><button class="sk-btn" data-sk="play">Otra vez</button></div>`); }
-    function play(){ clearTimeout(timer); if(state!=='paused') reset(); state='playing'; message(''); draw(); timer=setTimeout(step,tick); }
+    function play(){ clearTimeout(timer); if(state!=='paused') reset(); state='playing'; message(''); try{ d.focus({preventScroll:true}); }catch(e){} draw(); timer=setTimeout(step,tick); }
     function pause(){ if(state==='playing'){ clearTimeout(timer); state='paused'; message('<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><span style="font-size:13px;opacity:.75">En pausa</span><button class="sk-btn" data-sk="play">Seguir</button></div>'); } else if(state==='paused') play(); }
     function turn(x,y){ if(state==='ready'||state==='over') play(); if(dir.x===-x&&dir.y===-y) return; nextDir={x,y}; }
     const keys={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0],W:[0,-1],S:[0,1],A:[-1,0],D:[1,0]};
-    function onKey(e){ if(keys[e.key]){ e.preventDefault(); turn(...keys[e.key]); } else if(e.key===' '){ e.preventDefault(); (state==='ready'||state==='over')?play():pause(); } }
-    d.addEventListener('keydown',onKey);
+    function onKey(e){ if(!d.isConnected) return; if(keys[e.key]){ e.preventDefault(); e.stopPropagation(); turn(...keys[e.key]); } else if(e.key===' '){ e.preventDefault(); e.stopPropagation(); (state==='ready'||state==='over')?play():pause(); } }
+    // 🔒 v561: escuchar el teclado en TODO el documento. Antes solo escuchaba dentro de la ventana y, al tocar "Jugar",
+    // ese botón desaparecía y el foco se iba fuera: las flechas dejaban de llegar y la culebrita chocaba sola.
+    document.addEventListener('keydown',onKey,true);
+    d.setAttribute('tabindex','-1');
     let p0=null; cv.addEventListener('pointerdown',e=>{ p0={x:e.clientX,y:e.clientY}; });
     cv.addEventListener('pointerup',e=>{ if(!p0) return; const dx=e.clientX-p0.x, dy=e.clientY-p0.y; p0=null; if(Math.max(Math.abs(dx),Math.abs(dy))<18){ if(state!=='playing') play(); return; } Math.abs(dx)>Math.abs(dy)?turn(Math.sign(dx),0):turn(0,Math.sign(dy)); });
     over.addEventListener('click',e=>{ const b=e.target.closest('[data-sk]'); if(b&&b.dataset.sk==='play') play(); });
     const iv2=setInterval(()=>{ updateRing(d,plProgreso());
-      if(lista() && !announced){ announced=true; status.textContent='Polen System ya está listo.';
-        d.querySelector('.snake-board').insertAdjacentHTML('afterend','<div class="snake-listo"><span style="font-size:13px">Polen System ya cargó.</span><button id="sk-go">Entrar</button></div>');
+      if(lista() && !announced){ announced=true; status.textContent=document.body.classList.contains('portal-mode')?'Tu portal ya está listo.':'Polen System ya está listo.';
+        d.querySelector('.snake-board').insertAdjacentHTML('afterend','<div class="snake-listo"><span style="font-size:13px">'+(document.body.classList.contains('portal-mode')?'Tu portal ya cargó.':'Polen System ya cargó.')+'</span><button id="sk-go">Entrar</button></div>');
         d.querySelector('#sk-go').onclick=close; } },250);
-    function close(){ clearTimeout(timer); clearInterval(iv2); d.removeEventListener('keydown',onKey); try{ if(d.open) d.close(); }catch(e){} d.remove(); }
+    function close(){ clearTimeout(timer); clearInterval(iv2); document.removeEventListener('keydown',onKey,true); try{ if(d.open) d.close(); }catch(e){} d.remove(); }
     d.querySelector('#sk-close').onclick=close;
     d.addEventListener('cancel',e=>{ e.preventDefault(); close(); });
     reset(); draw();
-    message('<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><span style="font-size:26px;font-weight:250">Snake</span><span style="font-size:13px;opacity:.75;max-width:240px">Mientras Polen System carga. Come los puntos lima.</span><button class="sk-btn" data-sk="play">Jugar</button></div>');
+    message('<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><span style="font-size:26px;font-weight:250">Snake</span><span style="font-size:13px;opacity:.75;max-width:240px">'+(document.body.classList.contains('portal-mode')?'Mientras tu portal carga.':'Mientras Polen System carga.')+' Come los puntos lima.</span><button class="sk-btn" data-sk="play">Jugar</button></div>');
   };
 })();
 </script>
