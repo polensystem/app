@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261125-v557-MENU-MOVIL -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261125-v558-CRONO-LEGIBLE -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2204,6 +2204,32 @@ dialog.snake-dialog::backdrop{background:rgba(232,236,232,.42);backdrop-filter:b
   .dash-banner-title{margin-top:2.4rem!important}
   .stat-value,.stat-num{font-size:2.4rem!important}
 }
+</style>
+<style id="polen-crono-legible">
+/* ═══ v558 · Cronograma interno más legible: tarjetas opacas, texto y etiquetas con más contraste ═══ */
+#brand-crono-stages .crono-stage{background:rgba(255,255,255,.9)!important;border:1px solid rgba(28,31,35,.08)!important;border-radius:22px!important;box-shadow:0 1px 0 #fff inset,0 10px 30px rgba(28,31,35,.06)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;margin-bottom:14px!important}
+#brand-crono-stages .crono-stage-head{background:rgba(246,247,249,.95)!important;border-bottom:1px solid rgba(28,31,35,.08)!important;padding:.9rem 1.3rem!important}
+#brand-crono-stages .crono-stage-title{font-size:1rem!important;font-weight:600!important;filter:saturate(1.15) brightness(.85)}
+#brand-crono-stages .crono-stage-count,#brand-crono-stages .crono-stage-head>span{color:#4B5058!important;font-size:.76rem!important}
+#brand-crono-stages .act-item{border-bottom:1px solid rgba(28,31,35,.07)!important;padding:.62rem 1.3rem!important;background:transparent}
+#brand-crono-stages .act-item:hover{background:rgba(28,31,35,.03)!important}
+#brand-crono-stages .act-item.hito{background:rgba(247,220,31,.10)!important}
+#brand-crono-stages .act-item-name{color:#1C1F23!important;font-size:.92rem!important;font-weight:450}
+#brand-crono-stages .act-item-name.hito-name{font-weight:650!important}
+/* Terminadas: se leen (tachado gris oscuro) en vez de quedar casi invisibles */
+#brand-crono-stages .act-item.done{opacity:1!important}
+#brand-crono-stages .act-item.done .act-item-name{color:#6B7280!important;text-decoration-color:rgba(107,114,128,.6)!important}
+#brand-crono-stages .act-item.done .act-smart-status,#brand-crono-stages .act-item.done .act-date,#brand-crono-stages .act-item.done .act-days-inline{opacity:.75}
+#brand-crono-stages .act-days-inline{font-size:.76rem!important;color:#1C1F23!important;background:#F1F2F4!important;border-color:rgba(28,31,35,.10)!important;padding:.18rem .5rem!important}
+#brand-crono-stages .act-date{font-size:.78rem!important;color:#2F343A!important;background:#F1F2F4!important;border-color:rgba(28,31,35,.10)!important;padding:.24rem .6rem!important}
+#brand-crono-stages .act-smart-status{font-size:.72rem!important;font-weight:600!important;padding:.2rem .6rem!important}
+#brand-crono-stages .act-smart-status.por-iniciar{background:#EEF0F3!important;color:#4B5058!important}
+#brand-crono-stages .act-smart-status.en-curso{background:#DCEBFA!important;color:#1D5F99!important}
+#brand-crono-stages .act-smart-status.atrasado{background:#FBE0E0!important;color:#B42323!important}
+#brand-crono-stages .act-smart-status.terminado{background:#E2F2D8!important;color:#3C7A22!important}
+#brand-crono-stages .act-drag{color:#9AA0A8!important}
+#brand-crono-stages .act-check{border-color:rgba(28,31,35,.25)!important}
+#brand-crono-summary{background:rgba(255,255,255,.9)!important;backdrop-filter:none!important;color:#1C1F23}
 </style>
 </head>
 <body>
@@ -4502,7 +4528,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 557;
+const APP_VERSION = 558;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -42289,12 +42315,13 @@ window.diagnosePolen = function(){
   window._elegirColorPlataforma=async function(c){
     try{ localStorage.setItem('polen-color-plataforma',c); }catch(e){}
     const u=(typeof _usuarioReal==='function')?_usuarioReal():null;
+    let m=null;
+    if(u && u.id && Array.isArray(appData.members)){ m=appData.members.find(x=>x.id===u.id); if(m) m.colorPlataforma=c; }
+    try{ if(u && u!==m) u.colorPlataforma=c; }catch(e){}
+    try{ const ua=(typeof _usuarioActual==='function')?_usuarioActual():null; if(ua && ua!==m) ua.colorPlataforma=c; }catch(e){}
     _aplicarFondo();
     const pop=document.getElementById('pcolor-pop'); if(pop) pop.remove();
-    if(u && u.id && Array.isArray(appData.members)){
-      const m=appData.members.find(x=>x.id===u.id);
-      if(m){ m.colorPlataforma=c; try{ markLocalChange('members'); }catch(e){} try{ if(window.MembersDB) await MembersDB.saveMember(m, appData.members.indexOf(m)); }catch(e){} }
-    }
+    if(m){ try{ markLocalChange('members'); }catch(e){} try{ if(window.MembersDB) await MembersDB.saveMember(m, appData.members.indexOf(m)); }catch(e){} }
   };
   window._elegirSaludo=async function(g){
     const u=(typeof _usuarioReal==='function')?_usuarioReal():null; if(!u||!u.id) return;
