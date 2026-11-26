@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- POLEN-BUILD-20261125-v558-CRONO-LEGIBLE -->
+<!DOCTYPE html><!-- POLEN-BUILD-20261125-v560-PORTAL-COLOR -->
 <html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2230,6 +2230,238 @@ dialog.snake-dialog::backdrop{background:rgba(232,236,232,.42);backdrop-filter:b
 #brand-crono-stages .act-drag{color:#9AA0A8!important}
 #brand-crono-stages .act-check{border-color:rgba(28,31,35,.25)!important}
 #brand-crono-summary{background:rgba(255,255,255,.9)!important;backdrop-filter:none!important;color:#1C1F23}
+</style>
+<style id="polen-portal-v2">
+/* ═══ v559 · Portal del cliente nuevo ═══ */
+.pv2-scroll{width:100%;height:100vh;height:100dvh;overflow-y:auto;background:#F3F4F6;-webkit-overflow-scrolling:touch}
+#pv2-root{--ink:#16181C;--ink2:#4B5058;--ink3:#8A9099;--line:rgba(22,24,28,.08);--page:#F3F4F6;--r:28px;font-family:"Aspekta",var(--font),system-ui,sans-serif;color:var(--ink);min-height:100%;padding-bottom:40px;-webkit-font-smoothing:antialiased}
+#pv2-root *{box-sizing:border-box}
+#pv2-root button{font-family:inherit}
+.pv2-hero{position:relative;padding:22px 32px 150px;color:var(--ink);background:radial-gradient(90% 120% at 100% 0%,var(--h1) 0%,transparent 60%),radial-gradient(80% 100% at 0% 0%,var(--h2) 0%,transparent 70%),linear-gradient(180deg,var(--h3) 0%,var(--h4) 55%,var(--page) 100%);overflow:hidden}
+.pv2-hero::after{content:"";position:absolute;inset:0;background:radial-gradient(60% 50% at 10% 110%,rgba(255,255,255,.5),transparent 70%);pointer-events:none}
+.pv2-hero.inner{padding-bottom:140px}
+.pv2-top{position:relative;z-index:2;max-width:1240px;margin:0 auto;display:flex;align-items:center;gap:16px}
+.pv2-logo{width:46px;height:46px;border-radius:15px;background:#fff;display:grid;place-items:center;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.15);flex:none;font-size:20px}
+.pv2-logo img{width:100%;height:100%;object-fit:cover}
+.pv2-nav{margin:0 auto;display:flex;gap:4px;padding:5px;border-radius:999px;background:rgba(255,255,255,.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.8);box-shadow:0 6px 24px rgba(22,24,28,.06)}
+.pv2-nav button{border:0;background:transparent;color:var(--ink2);font-size:14px;padding:10px 18px;border-radius:999px;cursor:pointer;display:flex;align-items:center;gap:8px;white-space:nowrap;transition:background .2s,color .2s}
+.pv2-nav button:hover{background:rgba(255,255,255,.7)}
+.pv2-nav button.on{background:var(--ink);color:#fff}
+.pv2-nav svg{width:16px;height:16px}
+.pv2-lang{display:flex;padding:4px;border-radius:999px;background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.8);flex:none}
+.pv2-lang button{border:0;background:transparent;color:var(--ink2);font-size:12px;padding:6px 10px;border-radius:999px;cursor:pointer}
+.pv2-lang button.on{background:var(--ink);color:#fff}
+.pv2-hi{position:relative;z-index:2;max-width:1240px;margin:56px auto 0;display:grid;grid-template-columns:1fr 380px;gap:40px;align-items:end}
+.pv2-hero.inner .pv2-hi{margin-top:40px}
+.pv2-eyebrow{font-size:14px;color:var(--ink2);margin-bottom:12px}
+.pv2-h1{font-size:64px;font-weight:250;letter-spacing:-.045em;line-height:.98;margin:0;color:var(--ink)}
+.pv2-h1 b{font-weight:400}
+.pv2-lead{font-size:17px;line-height:1.45;color:var(--ink2);max-width:560px;margin:14px 0 0}
+.pv2-sub{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap}
+.pv2-chip{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:rgba(255,255,255,.95);color:var(--ink);font-size:14px;white-space:nowrap}
+.pv2-chip.ghost{background:rgba(255,255,255,.5);color:var(--ink2);border:1px solid rgba(255,255,255,.85)}
+.pv2-dot{width:8px;height:8px;border-radius:50%;background:var(--b);display:inline-block}
+.pv2-float{border-radius:26px;padding:22px 24px;background:linear-gradient(160deg,rgba(255,255,255,.75),rgba(255,255,255,.45));border:1px solid rgba(255,255,255,.9);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);box-shadow:0 20px 50px rgba(0,0,0,.12)}
+.pv2-float small{font-size:12px;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em}
+.pv2-float h3{font-size:22px;font-weight:400;letter-spacing:-.02em;margin:10px 0 14px;line-height:1.15;color:var(--ink)}
+.pv2-float .pv2-chip{background:var(--ink);color:#fff}
+.pv2-float .row{display:flex;justify-content:space-between;align-items:center;font-size:14px}
+.pv2-float .big{font-size:40px;font-weight:250;letter-spacing:-.04em}
+.pv2-float .big span{color:var(--ink3);font-size:20px}
+.pv2-main{position:relative;z-index:3;max-width:1304px;margin:-110px auto 0;padding:0 32px}
+.pv2-card{background:#fff;border-radius:var(--r);padding:26px 28px;box-shadow:0 1px 0 rgba(255,255,255,.8) inset,0 12px 40px rgba(22,24,28,.06)}
+.pv2-card h4{margin:0;font-size:17px;font-weight:400;color:var(--ink2);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pv2-card h4 a{font-size:13px;color:var(--ink3);text-decoration:none;cursor:pointer}
+.pv2-grid{display:grid;gap:14px}
+.pv2-grid>*{min-width:0}
+.pv2-g-stats{grid-template-columns:repeat(4,1fr);margin-bottom:14px}
+.pv2-g-home{grid-template-columns:1.05fr 1fr;align-items:stretch}
+.pv2-g-crono{grid-template-columns:1fr 1fr;align-items:start}
+.pv2-g-bp{grid-template-columns:1fr 360px;align-items:start}
+.pv2-num{font-size:56px;font-weight:250;letter-spacing:-.05em;line-height:1;margin-top:14px}
+.pv2-num span{color:var(--ink3)}
+.pv2-mini{font-size:13px;color:var(--ink3);margin-top:8px}
+.pv2-help{font-size:13.5px;color:var(--ink3);line-height:1.5;margin:8px 0 0}
+.pv2-help b{font-weight:400;color:var(--ink)}
+.pv2-ico{width:38px;height:38px;border-radius:12px;background:var(--b-tint);display:grid;place-items:center;color:var(--b-ink);flex:none}
+.pv2-ico svg{width:18px;height:18px}
+.pv2-ico.big{width:46px;height:46px;border-radius:15px}
+.pv2-stat{display:flex;flex-direction:column;justify-content:space-between;min-height:170px;transition:transform .2s}
+.pv2-stat[onclick]:hover{transform:translateY(-2px)}
+.pv2-stat .t{display:flex;justify-content:space-between;align-items:flex-start;font-size:15px;color:var(--ink2);gap:8px}
+.pv2-stat .v{font-size:40px;font-weight:250;letter-spacing:-.04em;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pv2-stat .v span{font-size:20px;color:var(--ink3)}
+.pv2-list{margin-top:14px}
+.pv2-row{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:18px;background:#F7F8FA;margin-top:8px}
+.pv2-row.sm{padding:11px 14px;font-size:14px;justify-content:space-between}
+.pv2-row .dt{width:52px;flex:none;text-align:center;border-radius:12px;background:#fff;padding:6px 0;line-height:1.05}
+.pv2-row .dt b{display:block;font-size:20px;font-weight:400}
+.pv2-row .dt span{font-size:11px;color:var(--ink3);text-transform:uppercase}
+.pv2-row .nm{flex:1;min-width:0;font-size:15px}
+.pv2-row.sm .nm{font-size:14px}
+.pv2-row .nm small{display:block;color:var(--ink3);font-size:12.5px;margin-top:3px}
+#pv2-root .pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:6px 12px;border-radius:999px;white-space:nowrap;flex:none}
+#pv2-root .pill.sm{padding:2px 8px;font-size:11.5px}
+#pv2-root .pill.done{background:#E3F3D9;color:#3C7A22}
+#pv2-root .pill.now{background:var(--b-tint);color:var(--b-ink)}
+#pv2-root .pill.next{background:#EEF0F3;color:var(--ink2)}
+#pv2-root .pill.you{background:#FFF1C2;color:#8A6500}
+/* Bloque de etapa (blanco con brillo del elemento) */
+.pv2-el{position:relative;overflow:hidden;color:var(--ink);min-height:420px;padding:0!important;background:radial-gradient(90% 80% at 100% 100%,color-mix(in srgb,var(--sc) 45%,#fff) 0%,color-mix(in srgb,var(--sc) 14%,#fff) 45%,#fff 80%)}
+.pv2-arte{position:absolute;inset:0;width:100%;height:100%;opacity:.7;-webkit-mask-image:radial-gradient(95% 95% at 100% 100%,#000 20%,transparent 85%);mask-image:radial-gradient(95% 95% at 100% 100%,#000 20%,transparent 85%)}
+.pv2-arte *{stroke:var(--sc)}
+.pv2-el-in{position:relative;z-index:1;padding:28px;display:flex;flex-direction:column;height:100%;min-height:420px}
+.pv2-el-tag{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3)}
+.pv2-el-t{font-size:76px;font-weight:250;letter-spacing:-.05em;line-height:1;margin-top:8px}
+.pv2-el-l{font-size:19px;margin-top:6px;color:color-mix(in srgb,var(--sc) 70%,#000)}
+.pv2-el p{font-size:15px;line-height:1.5;color:var(--ink2);margin:14px 0 0;max-width:440px}
+.pv2-el-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.pv2-el-chips span{font-size:12.5px;padding:6px 12px;border-radius:999px;background:#F3F4F6;color:var(--ink2)}
+.pv2-el-bar{height:6px;border-radius:9px;background:#EEF0F3;margin-top:auto;overflow:hidden}
+.pv2-el-bar i{display:block;height:100%;background:var(--sc);border-radius:9px}
+.pv2-el-foot{display:flex;justify-content:space-between;font-size:13px;margin-top:10px;color:var(--ink3)}
+/* Ruta */
+.pv2-ruta{display:grid;grid-template-columns:repeat(4,1fr);margin-top:20px}
+.pv2-rs{position:relative;padding:0 12px 0 0}
+.pv2-rs::before{content:"";position:absolute;left:14px;right:-2px;top:13px;height:2px;background:rgba(22,24,28,.1)}
+.pv2-rs:last-child::before{display:none}
+.pv2-rs.done::before{background:var(--ink)}
+.pv2-rs-dot{position:relative;width:28px;height:28px;border-radius:50%;background:#fff;border:2px solid rgba(22,24,28,.15);display:grid;place-items:center;color:#fff}
+.pv2-rs-dot svg{width:13px;height:13px}
+.pv2-rs.done .pv2-rs-dot{background:var(--ink);border-color:var(--ink)}
+.pv2-rs.now .pv2-rs-dot{border-color:var(--sc);box-shadow:0 0 0 6px color-mix(in srgb,var(--sc) 22%,transparent);background:var(--sc)}
+.pv2-rs-n{font-size:20px;font-weight:250;letter-spacing:-.02em;margin-top:12px}
+.pv2-rs.now .pv2-rs-n{color:color-mix(in srgb,var(--sc) 75%,#000)}
+.pv2-rs-l{font-size:12.5px;color:var(--ink3);margin-top:2px}
+.pv2-rs-p{font-size:13px;color:var(--ink2);margin-top:6px}
+/* Cronograma */
+.pv2-stage-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+.pv2-stage-h .tt{font-size:24px;font-weight:250;letter-spacing:-.03em;display:flex;align-items:center;gap:10px}
+.pv2-stage-h .tt i{width:10px;height:10px;border-radius:50%}
+.pv2-stage-l{font-size:13.5px;color:var(--ink3);margin:0 0 6px 20px}
+.pv2-tl .it{display:grid;grid-template-columns:22px 1fr auto;gap:12px;align-items:start;padding:12px 0;border-top:1px solid var(--line)}
+.pv2-tl .it:first-child{border-top:0}
+.pv2-tl .ck{width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(22,24,28,.2);display:grid;place-items:center;margin-top:1px;color:#fff}
+.pv2-tl .ck.ok{background:var(--ink);border-color:var(--ink)}
+.pv2-tl .ck.now{border-color:var(--b);box-shadow:0 0 0 4px var(--b-tint)}
+.pv2-tl .ck svg{width:12px;height:12px}
+.pv2-tl .t1{font-size:15px;line-height:1.3}
+.pv2-tl .it.ok .t1{color:var(--ink3)}
+.pv2-tl .t2{margin-top:4px}
+.pv2-tl .dd{font-size:13px;color:var(--ink2);text-align:right;white-space:nowrap}
+/* Branding points */
+.pv2-explain{display:flex;align-items:center;gap:24px;margin-bottom:14px}
+.pv2-explain-t{display:flex;gap:16px;align-items:flex-start;flex:1}
+.pv2-explain h5{margin:0;font-size:18px;font-weight:400}
+.pv2-explain p{font-size:14px;color:var(--ink2);line-height:1.55;margin:6px 0 0;max-width:720px}
+.pv2-explain b{font-weight:400;color:var(--ink)}
+.pv2-video{flex:none;border:0;border-radius:999px;padding:14px 22px;background:var(--ink);color:#fff;font-size:14.5px;display:inline-flex;align-items:center;gap:10px;cursor:pointer;box-shadow:0 8px 24px rgba(22,24,28,.18)}
+.pv2-sticky{position:sticky;top:20px}
+.pv2-meter{height:12px;border-radius:99px;background:#EEF0F3;overflow:hidden;margin:18px 0 10px}
+.pv2-meter i{display:block;height:100%;background:var(--ink);border-radius:99px}
+.pv2-meter-l{display:flex;justify-content:space-between;font-size:13px;color:var(--ink2)}
+#pv2-root #portal-bp-wrap{background:transparent}
+#pv2-root .pv2-bp-top,#pv2-root .pv2-bp-totales{display:none!important}
+#pv2-root .pv2-bpcat{background:#fff;border-radius:var(--r);padding:22px 26px 14px;margin:0 0 14px!important;box-shadow:0 12px 40px rgba(22,24,28,.06)}
+#pv2-root .pv2-bpcat-h{background:transparent!important;padding:0 0 8px!important;font-size:20px!important;font-weight:250!important;letter-spacing:-.02em;color:var(--ink)!important;border-radius:0!important;align-items:center}
+#pv2-root .pv2-bpcat-h > span:last-child{font-size:13px;font-weight:400;letter-spacing:0}
+#pv2-root .pv2-bpitem{border-bottom:1px solid var(--line)!important}
+#pv2-root .pv2-bpitem:last-of-type{border-bottom:0!important}
+#pv2-root .portal-bp-item{display:flex;align-items:center;gap:14px;padding:14px 0}
+#pv2-root .portal-bp-item input[type=checkbox]{appearance:none;-webkit-appearance:none;width:24px!important;height:24px!important;border-radius:8px;border:1.5px solid rgba(22,24,28,.22);background:#fff;display:grid;place-items:center;margin:0}
+#pv2-root .portal-bp-item input[type=checkbox]:checked{background:var(--ink);border-color:var(--ink);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-10'/%3E%3C/svg%3E");background-size:14px;background-position:center;background-repeat:no-repeat}
+#pv2-root .pv2-bpname{font-size:15px!important;font-weight:400!important;color:var(--ink)!important}
+#pv2-root .pv2-bpitem:not(.sel) .pv2-bpname{color:var(--ink2)!important}
+#pv2-root .pv2-qty{background:#F3F4F6;border-radius:999px;padding:3px;gap:2px!important}
+#pv2-root .pv2-qty button{width:28px!important;height:28px!important;background:#fff!important;border:0!important;color:var(--ink)!important}
+#pv2-root .portal-bp-pts{font-size:14px;min-width:56px;text-align:right;background:none;border:0;padding:0;color:var(--ink)}
+#pv2-root .portal-bp-pts.unknown{color:#B8860B}
+#pv2-root .pv2-bpnote{padding:0 0 14px 38px!important}
+#pv2-root .pv2-bpnote > div{display:none}
+#pv2-root .pv2-bpnote textarea{background:#FAFAFB!important;border:1px solid var(--line)!important;border-radius:14px!important;padding:12px 14px!important;font-size:14px!important;font-family:inherit!important}
+#pv2-root .pv2-extras > div:nth-child(2) > div{border-radius:14px!important;background:#F7F8FA!important;border:0!important;padding:12px 14px!important}
+#pv2-root .pv2-exceso,#pv2-root .pv2-bp-save{background:#fff;border-radius:var(--r);padding:20px 24px;box-shadow:0 12px 40px rgba(22,24,28,.06);margin-top:0!important;margin-bottom:14px}
+#pv2-root #portal-save-btn{background:var(--ink)!important;box-shadow:none!important;padding:13px 22px!important;font-weight:400!important}
+#pv2-root #portal-save-status{text-align:center!important}
+.pv2-bpbar{display:none}
+/* Aprobaciones (misma lógica, piel nueva) */
+#pv2-root #portal-content-area .pv2-apr-stage{background:#fff!important;border:0!important;border-radius:var(--r)!important;box-shadow:0 12px 40px rgba(22,24,28,.06);margin-bottom:14px!important}
+#pv2-root #portal-content-area .pv2-apr-lock{opacity:.6!important;padding:20px 26px!important}
+#pv2-root #portal-content-area .pv2-apr-head{padding:22px 26px!important}
+#pv2-root #portal-content-area .pv2-apr-head > div > div:first-child{font-size:22px!important;font-weight:250!important;letter-spacing:-.02em;color:var(--ink)!important}
+#pv2-root #portal-content-area .pv2-apr-head > div > div:last-child{font-size:13px!important;color:var(--ink3)!important;margin-top:4px!important}
+#pv2-root #portal-content-area .pv2-apr-dot{font-size:0!important;width:12px;height:12px;border-radius:50%;background:var(--sc);flex:none}
+#pv2-root #portal-content-area [id^="aprob-body-"]{padding:0 26px 22px!important}
+#pv2-root #portal-content-area .pv2-q2{background:transparent!important;border-radius:0!important;padding:20px 0!important;margin:0!important;border-top:1px solid var(--line)}
+#pv2-root #portal-content-area .pv2-q2-t{font-size:18px!important;font-weight:400!important;letter-spacing:-.01em;margin-bottom:4px!important}
+#pv2-root #portal-content-area .pv2-q2-s{font-size:14px!important;color:var(--ink2)!important}
+#pv2-root #portal-content-area .pv2-opts2{flex-direction:row!important;flex-wrap:wrap;gap:8px!important}
+#pv2-root #portal-content-area .pv2-opts2 > div{flex:1 1 100%}
+#pv2-root #portal-content-area .pv2-opt{border:1px solid rgba(22,24,28,.12)!important;background:#fff!important;color:var(--ink)!important;border-radius:999px!important;padding:12px 18px!important;font-size:14px!important;font-weight:400!important;width:auto!important}
+#pv2-root #portal-content-area .pv2-opt > span{display:none!important}
+#pv2-root #portal-content-area .pv2-opt.on{background:var(--ink)!important;color:#fff!important;border-color:var(--ink)!important}
+#pv2-root #portal-content-area textarea{border-radius:16px!important;background:#FAFAFB!important;border:1px solid var(--line)!important;font-size:14px!important;font-family:inherit!important}
+#pv2-root #portal-content-area input[type=text]{border-radius:14px!important;font-family:inherit!important}
+#pv2-root #portal-content-area button[onclick^="portalSignStage"]{border-radius:999px!important;padding:14px 20px!important;font-weight:400!important}
+/* Barra de pestañas del celular */
+.pv2-tabbar{display:none}
+.pv2-foot{text-align:center;color:var(--ink3);font-size:12.5px;margin-top:34px}
+@media (max-width:860px){
+  .pv2-hero{padding:16px 18px 120px}
+  .pv2-hero.inner{padding-bottom:104px}
+  .pv2-nav{display:none}
+  .pv2-top{justify-content:space-between}
+  .pv2-hi,.pv2-hero.inner .pv2-hi{grid-template-columns:1fr;margin-top:30px;gap:20px}
+  .pv2-h1{font-size:40px}
+  .pv2-hero.inner .pv2-h1{font-size:36px}
+  .pv2-lead{font-size:15px}
+  .pv2-hero.inner .pv2-lead{font-size:14px}
+  .pv2-hero.inner .pv2-chip.ghost{display:none}
+  .pv2-float{padding:18px 20px}
+  .pv2-float .big{font-size:32px}
+  .pv2-main{padding:0 14px;margin-top:-92px}
+  .pv2-card{padding:20px 18px;border-radius:24px}
+  .pv2-g-home,.pv2-g-crono,.pv2-g-bp{grid-template-columns:1fr}
+  .pv2-g-stats{grid-template-columns:1fr 1fr;gap:10px}
+  .pv2-stat{min-height:140px}
+  .pv2-stat .t{font-size:13.5px}
+  .pv2-stat .pv2-ico{width:32px;height:32px;border-radius:10px}
+  .pv2-stat .v{font-size:32px}
+  .pv2-num{font-size:44px}
+  .pv2-el,.pv2-el-in{min-height:380px}
+  .pv2-el-t{font-size:56px}
+  .pv2-ruta{grid-template-columns:1fr}
+  .pv2-rs{display:grid;grid-template-columns:28px 1fr auto;column-gap:14px;padding:0 0 18px}
+  .pv2-rs::before{left:13px;top:28px;bottom:0;right:auto;width:2px;height:auto}
+  .pv2-rs-dot{grid-row:span 2}
+  .pv2-rs-n{margin-top:0;font-size:18px}
+  .pv2-rs-l{grid-column:2}
+  .pv2-rs-p{grid-column:3;grid-row:1;margin:0}
+  .pv2-explain{flex-direction:column;align-items:stretch}
+  .pv2-video{justify-content:center}
+  .pv2-sticky{position:static}
+  #pv2-root .pv2-bpcat{padding:18px 18px 10px}
+  #pv2-root .portal-bp-item{flex-wrap:wrap}
+  #pv2-root .pv2-bpname{flex:1 1 calc(100% - 40px)!important}
+  #pv2-root .pv2-qty{margin-left:38px}
+  #pv2-root .portal-bp-pts{margin-left:auto}
+  #pv2-root .pv2-bpnote{padding-left:0!important}
+  #pv2-root .pv2-extras > div:nth-child(2){grid-template-columns:1fr!important}
+  #pv2-root #portal-content-area .pv2-apr-head{padding:18px!important}
+  #pv2-root #portal-content-area [id^="aprob-body-"]{padding:0 18px 18px!important}
+  #pv2-root #portal-content-area .pv2-opt{flex:1 1 100%;text-align:left}
+  #pv2-root{padding-bottom:120px}
+  .pv2-tabbar{display:flex;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:60;justify-content:space-around;padding:8px;border-radius:26px;background:rgba(255,255,255,.85);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.9);box-shadow:0 12px 40px rgba(22,24,28,.16)}
+  .pv2-tabbar button{flex:1;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--ink3);padding:8px 2px;border-radius:18px;cursor:pointer}
+  .pv2-tabbar button svg{width:22px;height:22px}
+  .pv2-tabbar button.on{color:var(--ink);background:#F1F2F4}
+  .pv2-bpbar{display:flex;position:fixed;left:12px;right:12px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:59;align-items:center;gap:12px;padding:12px 16px;border-radius:20px;background:var(--ink);color:#fff;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.2);cursor:pointer}
+  .pv2-bpbar b{font-weight:400;font-size:18px}
+}
+#pv2-root #portal-content-area > div:first-child:not([class]){background:#fff!important;border:0!important;border-radius:var(--r)!important;padding:22px 26px!important;box-shadow:0 12px 40px rgba(22,24,28,.06);margin-bottom:14px!important}
+#pv2-root #portal-content-area > div:first-child:not([class]) > div:first-child{font-size:18px!important;font-weight:400!important;color:var(--ink)!important}
+#pv2-root #portal-content-area > div:first-child:not([class]) > div:last-child{font-size:14px!important;color:var(--ink2)!important;line-height:1.55!important}
+#pv2-root #portal-content-area .pv2-apr-head > span:last-child{color:var(--ink3)!important}
 </style>
 </head>
 <body>
@@ -4528,7 +4760,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 558;
+const APP_VERSION = 560;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -28971,7 +29203,7 @@ function renderBrandColorPicker(selectedColor){
   const container = document.getElementById('brand-color-picker');
   if(!container) return;
   const defaultColor = selectedColor || BRAND_COLORS[0];
-  if(!selectedColor) (document.getElementById('input-brand-color')||{}).value = defaultColor;
+  (document.getElementById('input-brand-color')||{}).value = defaultColor; // 🔒 v560: siempre el color de ESTA marca (antes quedaba el de la última editada)
   const esCustom = !BRAND_COLORS.includes(defaultColor);
   container.innerHTML = BRAND_COLORS.map(col => `
     <div class="brand-color-swatch ${col===defaultColor?'selected':''}"
@@ -28979,21 +29211,49 @@ function renderBrandColorPicker(selectedColor){
       onclick="selectBrandColor('${col}')"
       title="${col}"></div>
   `).join('') + `
-    <label class="brand-color-swatch ${esCustom?'selected':''}" title="Color personalizado"
+    <label class="brand-color-swatch ${esCustom&&!(window._coloresLogo||[]).includes(defaultColor)?'selected':''}" title="Color personalizado"
       style="position:relative;overflow:hidden;background:${esCustom?defaultColor:'conic-gradient(from 0deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)'};display:flex;align-items:center;justify-content:center;cursor:pointer">
       <span style="font-size:0.85rem;filter:drop-shadow(0 0 1px rgba(0,0,0,0.5))">🎨</span>
       <input type="color" value="${defaultColor}" oninput="selectBrandColorCustom(this.value)"
         style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
-    </label>`;
+    </label><div id="brand-color-logo" style="flex-basis:100%;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap"></div>`;
+  try{ _pintarColoresLogo(); }catch(e){}
+}
+// 🎨 v560: colores sacados del logo de la marca (para ponerle su color real con 1 clic)
+window._coloresLogo = [];
+function _extraerColoresLogo(src, cb){
+  if(!src){ cb([]); return; }
+  const img = new Image(); img.crossOrigin='anonymous';
+  img.onload = ()=>{ try{
+    const c=document.createElement('canvas'); c.width=c.height=64; const x=c.getContext('2d'); x.drawImage(img,0,0,64,64);
+    const d=x.getImageData(0,0,64,64).data; const cubos={};
+    for(let i=0;i<d.length;i+=4){ const a=d[i+3]; if(a<200) continue; const r=d[i],g=d[i+1],b=d[i+2];
+      const mx=Math.max(r,g,b), mn=Math.min(r,g,b); if(mx>238&&mn>225) continue; if(mx<22) continue; if(mx-mn<18 && mx>200) continue;
+      const k=(r>>4)+','+(g>>4)+','+(b>>4); const o=cubos[k]||(cubos[k]={n:0,r:0,g:0,b:0}); o.n++; o.r+=r; o.g+=g; o.b+=b; }
+    const tot=Object.values(cubos).reduce((t,o)=>t+o.n,0)||1;
+    const lista=Object.values(cubos).filter(o=>o.n/tot>=0.03).sort((a,b)=>b.n-a.n).map(o=>[o.r/o.n,o.g/o.n,o.b/o.n]);
+    const elegidos=[]; for(const c3 of lista){ if(elegidos.every(e=>Math.abs(e[0]-c3[0])+Math.abs(e[1]-c3[1])+Math.abs(e[2]-c3[2])>90)) elegidos.push(c3); if(elegidos.length>=5) break; }
+    cb(elegidos.map(c3=>'#'+c3.map(v=>Math.round(v).toString(16).padStart(2,'0')).join('')));
+  }catch(e){ cb([]); } };
+  img.onerror=()=>cb([]); img.src=src;
+}
+function _pintarColoresLogo(){
+  const box=document.getElementById('brand-color-logo'); if(!box) return;
+  const actual=(document.getElementById('input-brand-color')||{}).value||'';
+  const cols=window._coloresLogo||[];
+  box.innerHTML = cols.length ? '<span style="font-size:0.72rem;color:var(--text3)">Colores de tu logo:</span>' + cols.map(col=>`<div class="brand-color-swatch ${col===actual?'selected':''}" style="background:${col}" onclick="selectBrandColorCustom('${col}')" title="${col}"></div>`).join('') : '';
 }
 
 function selectBrandColorCustom(color){
+  window._colorElegidoAMano = true;
   (document.getElementById('input-brand-color')||{}).value = color;
   renderBrandColorPicker(color);
 }
 
 function selectBrandColor(color){
+  window._colorElegidoAMano = true;
   (document.getElementById('input-brand-color')||{}).value = color;
+  try{ _pintarColoresLogo(); }catch(e){}
   document.querySelectorAll('.brand-color-swatch').forEach(s=>{
     s.classList.toggle('selected', s.style.background===color||s.getAttribute('onclick').includes(color));
   });
@@ -29045,6 +29305,7 @@ function openModal(){
   (document.getElementById('modal-naming-row')||{style:{}}).style.display = '';
   (document.getElementById('modal-semanas-row')||{style:{}}).style.display = _puedeEditarFechas() ? '' : 'none';
   { const t=document.getElementById('nb-semanas-on'); if(t) t.checked=false; const i=document.getElementById('nb-semanas'); if(i) i.value=''; toggleSemanasNuevaMarca(false); }
+  window._colorElegidoAMano = false; window._coloresLogo = [];
   renderBrandColorPicker('');
   updateModalPreview();
   // Reset import calendar section
@@ -29076,7 +29337,9 @@ function openEditBrandModal(){
   (document.getElementById('modal-semanas-row')||{style:{}}).style.display='none';
   const e=document.getElementById('modal-err');e.style.display='none';e.textContent='';
   fillDomoSelects('input-domo-m1','input-domo-m2',brand.domo?.m1||'',brand.domo?.m2||'');
+  window._colorElegidoAMano = false; window._coloresLogo = [];
   renderBrandColorPicker(brand.color||'');
+  _extraerColoresLogo(brand.image, cols=>{ window._coloresLogo=cols; try{ _pintarColoresLogo(); }catch(e){} });
   document.getElementById('modal-overlay').classList.remove('hidden');
   setTimeout(()=>document.getElementById('input-name').focus(),80);
 }
@@ -29203,6 +29466,7 @@ async function saveBrand(){
       brand.stage=document.getElementById('input-stage').value;
       brand.prioridad=document.getElementById('input-prioridad').value;
       brand.color=document.getElementById('input-brand-color').value||brand.color||BRAND_COLORS[0];
+      if(window._colorElegidoAMano) brand.colorElegido = true;
       if(!brand.domo)brand.domo={m1:'',m2:'',helpers:[]};
       brand.domo.m1=document.getElementById('input-domo-m1').value;
       brand.domo.m2=document.getElementById('input-domo-m2').value;
@@ -29276,6 +29540,7 @@ async function saveBrand(){
       stage:document.getElementById('input-stage').value,
       prioridad:document.getElementById('input-prioridad').value,
       color:document.getElementById('input-brand-color').value||BRAND_COLORS[0],
+      colorElegido: !!window._colorElegidoAMano,
       domo:{
         m1:document.getElementById('input-domo-m1').value||(appData.template?.domoM1||''),
         m2:document.getElementById('input-domo-m2').value||(appData.template?.domoM2||''),
@@ -35686,9 +35951,10 @@ function portalSetLang(lang){
   window._portalLang = lang;
   try{ localStorage.setItem('polen-portal-lang', lang); }catch(e){}
   const seg=document.getElementById('portal-lang-seg');
-  if(seg){ seg.querySelectorAll('button').forEach(b=>{ const on=b.dataset.lang===lang; b.style.background=on?'var(--text)':'transparent'; b.style.color=on?'var(--bg)':'var(--text2)'; }); }
+  if(seg && !document.getElementById('pv2-root')){ seg.querySelectorAll('button').forEach(b=>{ const on=b.dataset.lang===lang; b.style.background=on?'var(--text)':'transparent'; b.style.color=on?'var(--bg)':'var(--text2)'; }); }
+  document.querySelectorAll('.pv2-lang button').forEach(b=>b.classList.toggle('on', b.dataset.lang===lang));
   // Re-pintar la pestaña actual en ES y luego aplicar EN si corresponde
-  try{ portalSwitchTab(window._portalActiveTab||'crono'); }catch(e){}
+  try{ portalSwitchTab(window._portalActiveTab||'inicio'); }catch(e){}
 }
 
 // 🔒 Buscar la marca del portal: puede ser una marca REAL (appData.brands) o un DEMO
@@ -35714,6 +35980,221 @@ function _portalBannerPausa(brand){
   </div>`;
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// 🛰️ v559 · PORTAL DEL CLIENTE NUEVO — encabezado con degradado de la marca,
+// pestaña Inicio con resumen, ruta de los 4 elementos y diagramación adaptable.
+// Solo cambia la presentación: guardar puntos, notas, aprobaciones y firmas usa
+// exactamente las mismas funciones de antes.
+// ══════════════════════════════════════════════════════════════════════════
+// Link del video explicativo de Branding Points (pegar aquí cuando esté listo)
+const PORTAL_BP_VIDEO_URL = '';
+const PV2_ST = {
+  aire:  {label:'Aire',  color:'#3B9EDD', lema:'Donde nace la idea', txt:'Exploramos tu mundo, escuchamos a tu gente y buscamos la chispa: insights, caminos creativos y el nombre. Todo lo que aún no se ve, pero lo define todo.', hac:['Investigación','Insights','Caminos creativos','Naming']},
+  agua:  {label:'Agua',  color:'#2DC3B3', lema:'Donde tu marca toma forma', txt:'Como el agua que encuentra su cauce, las ideas se vuelven identidad: tu logo, tus colores, tu tipografía y tu forma de hablar.', hac:['Identidad visual','Identidad verbal','Propuesta de marca']},
+  tierra:{label:'Tierra',color:'#7AB648', lema:'Donde tu marca aterriza', txt:'Llevamos la identidad a lo tangible: piezas, aplicaciones y recursos listos para vivir en el mundo real.', hac:['Recursos visuales','Recursos verbales','Aplicaciones']},
+  fuego: {label:'Fuego', color:'#E8622A', lema:'Donde tu marca se enciende', txt:'Unimos todo, afinamos cada detalle y te entregamos tu marca lista para salir a brillar.', hac:['Propuesta completa','Ajustes finales','Entrega']},
+};
+const PV2_ORDEN = ['aire','agua','tierra','fuego'];
+const PV2_EN = {"Donde nace la idea": "Where the idea is born", "Exploramos tu mundo, escuchamos a tu gente y buscamos la chispa: insights, caminos creativos y el nombre. Todo lo que aún no se ve, pero lo define todo.": "We explore your world, listen to your people and look for the spark: insights, creative paths and the name. Everything not yet visible, yet defining it all.", "Investigación": "Research", "Insights": "Insights", "Caminos creativos": "Creative paths", "Naming": "Naming", "Donde tu marca toma forma": "Where your brand takes shape", "Como el agua que encuentra su cauce, las ideas se vuelven identidad: tu logo, tus colores, tu tipografía y tu forma de hablar.": "Like water finding its course, ideas become identity: your logo, your colors, your typography and your voice.", "Identidad visual": "Visual identity", "Identidad verbal": "Verbal identity", "Propuesta de marca": "Brand proposal", "Donde tu marca aterriza": "Where your brand lands", "Llevamos la identidad a lo tangible: piezas, aplicaciones y recursos listos para vivir en el mundo real.": "We bring the identity to life: pieces, applications and assets ready for the real world.", "Recursos visuales": "Visual assets", "Recursos verbales": "Verbal assets", "Aplicaciones": "Applications", "Donde tu marca se enciende": "Where your brand ignites", "Unimos todo, afinamos cada detalle y te entregamos tu marca lista para salir a brillar.": "We bring it all together, fine-tune every detail and hand you a brand ready to shine.", "Propuesta completa": "Full proposal", "Ajustes finales": "Final adjustments", "Entrega": "Delivery", "Inicio": "Home", "Cronograma": "Timeline", "Puntos": "Points", "Aprobaciones": "Approvals", "Tu ruta": "Your route", "Cada etapa es un paso de la misión. Aquí ves dónde estamos y lo que viene.": "Each stage is a step of the mission. Here you can see where we are and what comes next.", "Tu moneda en el universo de las marcas: elige los entregables que tu proyecto necesita.": "Your currency in the brand universe: choose the deliverables your project needs.", "Cada firma es un despegue: nos confirma que vamos en la dirección correcta.": "Every signature is a lift-off: it confirms we are heading the right way.", "Próxima parada contigo": "Next stop with you", "Tu marca está en pleno viaje. Juntos recorremos los cuatro elementos que convierten una idea en una marca con alma.": "Your brand is on its journey. Together we travel the four elements that turn an idea into a brand with soul.", "del viaje recorrido": "of the journey completed", "Estamos en": "We are in", "de la etapa": "of the stage", "Siguiente: Agua →": "Next: Water →", "Siguiente: Tierra →": "Next: Earth →", "Siguiente: Fuego →": "Next: Fire →", "Última etapa ✦": "Final stage ✦", "disponibles para canjear": "available to redeem", "puntos por encima de tu plan": "points above your plan", "esperan tu firma": "awaiting your signature", "todo al día por ahora": "all up to date for now", "Actividades": "Activities", "completadas en el viaje": "completed on the journey", "Tu tripulación": "Your crew", "te acompañan en esta misión": "are with you on this mission", "En curso": "In progress", "Contigo": "With you", "Próximo": "Upcoming", "Nuestro equipo está trabajando": "Our team is working on it", "Te necesitamos aquí": "We need you here", "Para seguir avanzando": "To keep moving forward", "Nuestro equipo": "Our team", "Todas las actividades están completadas. ✦": "All activities are completed. ✦", "Lo que viene": "What’s next", "Ver ruta completa ↗": "See full route ↗", "Las marcadas con": "Those marked", "son paradas donde te necesitamos.": "are stops where we need you.", "Completada": "Completed", "Aquí estamos": "We are here", "Próxima": "Upcoming", "Tu cronograma se está preparando. Muy pronto verás aquí la ruta completa.": "Your timeline is being prepared. You will see the full route here very soon.", "Los cuatro elementos de tu marca": "The four elements of your brand", "En Polen cada proyecto recorre cuatro etapas, como un viaje por los elementos. Las actividades marcadas": "At Polen every project travels four stages, like a journey through the elements. Activities marked", "son donde participas tú.": "are where you take part.", "¿Qué son los Branding Points?": "What are Branding Points?", "Son la moneda del universo de las marcas. Tu plan incluye una cantidad de puntos y tú decides en qué entregables usarlos. Cuéntanos medidas y materiales en las notas; si buscas algo que no está, pídelo en": "They are the currency of the brand universe. Your plan includes a number of points and you decide which deliverables to use them on. Tell us sizes and materials in the notes; if what you need isn’t listed, ask for it in", "Personalizado": "Custom", "Ver video explicativo": "Watch explainer video", "El video estará disponible muy pronto ✦": "The video will be available very soon ✦", "Tu selección": "Your selection", "disponibles de": "available of", "por encima de tu plan de": "above your plan of", "usados": "used", "total": "total", "Aún no has elegido entregables.": "You haven’t chosen any deliverables yet.", "Los entregables con": "Deliverables with", "puntos los valora nuestro equipo. ¿Se acabaron tus puntos y quieres más? Te enviamos una cotización por los adicionales.": "points are valued by our team. Out of points and want more? We’ll send you a quote for the extra ones.", "disponibles": "available", "seleccionados": "selected", "Ver ↓": "See ↓", "Misión": "Mission", "con Polen Estudio Creativo": "with Polen Estudio Creativo", "Hola,": "Hi,", "hoy": "today", "mañana": "tomorrow", "pendiente": "pending", "en": "in", "días": "days"};
+function _pv2T(t){ return ((window._portalLang||'es')==='en' && PV2_EN[t]) ? PV2_EN[t] : t; }
+const PV2_I = {
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  star:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
+  ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>',
+  chk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
+  flag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>',
+  crew:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.2a5 5 0 0 1 5.5 5"/></svg>',
+  play:'<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>',
+};
+function _pv2Hex(c){ const h=String(c||'').replace('#',''); if(!/^[0-9a-f]{6}$/i.test(h)) return [46,134,222]; return [0,2,4].map(i=>parseInt(h.substr(i,2),16)); }
+function _pv2Mix(a,b,t){ const A=_pv2Hex(a),B=_pv2Hex(b); return 'rgb('+A.map((v,i)=>Math.round(v+(B[i]-v)*t)).join(',')+')'; }
+function _pv2ToHex(rgb){ const n=String(rgb).match(/\d+/g)||[46,134,222]; return '#'+n.slice(0,3).map(v=>(+v).toString(16).padStart(2,'0')).join(''); }
+function _pv2Lum(c){ const [r,g,b]=_pv2Hex(c).map(v=>{ v/=255; return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4); }); return .2126*r+.7152*g+.0722*b; }
+function _pv2Esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+const _PV2_MES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function _pv2Fecha(str){ if(!str) return null; const [y,m,d]=String(str).split('-').map(Number); if(!y||!m||!d) return null; return new Date(y,m-1,d); }
+function _pv2EsEntregaFinal(stage, a){ return stage==='fuego' && /entrega/i.test(a && a.name || ''); }
+
+// Todos los números del portal salen de aquí (misma fuente que el cronograma interno)
+function _pv2Datos(brand){
+  const cr = brand.cronograma || {};
+  const etapas = {};
+  let tot=0, hechas=0;
+  PV2_ORDEN.forEach(k=>{
+    const acts=(cr[k]||[]).filter(Boolean); const d=acts.filter(a=>a.status==='completada').length;
+    etapas[k]={ total:acts.length, hechas:d, pct: acts.length?Math.round(d/acts.length*100):0 };
+    tot+=acts.length; hechas+=d;
+  });
+  let actual = PV2_ORDEN.includes(brand.stage) ? brand.stage : null;
+  if(!actual) actual = PV2_ORDEN.find(k=>etapas[k].total && etapas[k].pct<100) || 'fuego';
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const pendientes = [];
+  PV2_ORDEN.forEach(k=>(cr[k]||[]).forEach(a=>{ if(a && a.status!=='completada') pendientes.push({a, stage:k, f:_pv2Fecha(a.startDate)}); }));
+  pendientes.sort((x,y)=>(x.f?x.f.getTime():9e15)-(y.f?y.f.getTime():9e15));
+  const proxHito = pendientes.find(p=>p.a.isHito && !_pv2EsEntregaFinal(p.stage,p.a)) || null;
+  // Branding points (misma cuenta que la pestaña de puntos)
+  const bp = brand.brandingPoints || {};
+  const items = (bp.categories||[]).flatMap(c=>c.items||[]);
+  const bpTotal = bp.total || 0;
+  const bpUsados = items.filter(i=>i.selected&&i.pts!=null).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0);
+  // Aprobaciones pendientes de la etapa actual
+  let aprPend = 0;
+  try{
+    const sa = (brand.portalApprovals||{})[actual] || {};
+    if(!(sa._signed && sa._signed.by)){
+      const qs = getApprovalQuestions(brand, actual) || [];
+      aprPend = qs.filter(q=>!sa[q.id]).length;
+    }
+  }catch(e){}
+  // Tripulación (domo)
+  let crew = [];
+  try{
+    const dm = brand.domo || {};
+    const ids = (Array.isArray(dm.principales)&&dm.principales.length ? dm.principales : [dm.m1, dm.m2]).filter(Boolean);
+    crew = ids.map(id=>(appData.members||[]).find(m=>m.id===id)).filter(Boolean).map(m=>m.apodo||String(m.nombre||'').split(' ')[0]).filter(Boolean);
+  }catch(e){}
+  return { etapas, tot, hechas, pct: tot?Math.round(hechas/tot*100):0, actual, pendientes, proxHito, hoy, bpTotal, bpUsados, bpLibres: bpTotal-bpUsados, aprPend, crew };
+}
+
+// v560: color del portal. Si nadie eligió un color para la marca (quedó el coral que el
+// sistema pone por defecto), el portal usa un gris sobrio en vez de un color que no es suyo.
+const PV2_GRIS = '#9AA0A8';
+function _pv2ColorPortal(brand){
+  const c = String((brand && brand.color) || '').trim();
+  const ok = /^#?[0-9a-f]{6}$/i.test(c);
+  if(!ok) return PV2_GRIS;
+  const hex = '#'+c.replace('#','').toLowerCase();
+  if(brand.colorElegido !== true && hex === '#e85d5d') return PV2_GRIS;
+  return hex;
+}
+function _pv2Shell(brand, sec){
+  const baseHex = _pv2ColorPortal(brand);
+  const vars = `--b:${baseHex};--b-tint:${_pv2Mix(baseHex,'#ffffff',.86)};--b-ink:${_pv2Mix(baseHex,'#000000',.38)};--h1:${_pv2Mix(baseHex,'#ffffff',.35)};--h2:${_pv2Mix(baseHex,'#ffffff',.6)};--h3:${_pv2Mix(baseHex,'#F3F4F6',.55)};--h4:${_pv2Mix(baseHex,'#F3F4F6',.8)}`;
+  const tabs = _pv2Tabs(sec);
+  const logo = brand.image ? `<img src="${brand.image}" alt="">` : `<span style="color:${baseHex}">${_pv2Esc((brand.name||'?').charAt(0))}</span>`;
+  const lang = window._portalLang||'es';
+  return `<div id="portal-root" class="pv2-scroll"><div class="pv2" id="pv2-root" style="${vars}">
+    <header class="pv2-hero" id="pv2-hero"><div class="pv2-top"><div class="pv2-logo">${logo}</div>
+      <nav class="pv2-nav">${tabs.map(t=>`<button id="portal-tab-${t[0]}" data-tab="${t[0]}" data-lbl="${t[1]}" onclick="portalSwitchTab('${t[0]}')">${t[2]}<span>${_pv2T(t[1])}</span></button>`).join('')}</nav>
+      <div class="pv2-lang" id="portal-lang-seg"><button data-lang="es" class="${lang==='es'?'on':''}" onclick="portalSetLang('es')">ES</button><button data-lang="en" class="${lang==='en'?'on':''}" onclick="portalSetLang('en')">EN</button></div></div>
+      <div class="pv2-hi" id="pv2-hero-hi"></div></header>
+    <main class="pv2-main">${_portalBannerPausa(brand)}<div id="portal-content-area"></div><div class="pv2-foot">Powered by Polen System ✦</div></main>
+    <nav class="pv2-tabbar">${tabs.map(t=>`<button data-tab="${t[0]}" data-lbl="${t[3]}" onclick="portalSwitchTab('${t[0]}')">${t[2]}<span>${_pv2T(t[3])}</span></button>`).join('')}</nav>
+  </div></div>`;
+}
+function _pv2Tabs(sec){
+  const t=[['inicio','Inicio',PV2_I.home,'Inicio']];
+  if(sec.crono) t.push(['crono','Cronograma',PV2_I.cal,'Cronograma']);
+  if(sec.bp) t.push(['bp','Branding Points',PV2_I.star,'Puntos']);
+  if(sec.aprobaciones) t.push(['aprobaciones','Aprobaciones',PV2_I.ok,'Aprobaciones']);
+  return t;
+}
+function _pv2MarcarTab(brand, tab){
+  document.querySelectorAll('.pv2-nav button,.pv2-tabbar button').forEach(b=>{ b.classList.toggle('on', b.dataset.tab===tab); const sp=b.querySelector('span'); if(sp && b.dataset.lbl) sp.textContent=_pv2T(b.dataset.lbl); });
+  const hero=document.getElementById('pv2-hero'); if(hero) hero.classList.toggle('inner', tab!=='inicio');
+  const hi=document.getElementById('pv2-hero-hi'); if(hi) hi.innerHTML=_pv2HeroHi(brand, tab);
+}
+function _pv2Cuando(f, hoy){
+  if(!f) return '';
+  const d=Math.round((f-hoy)/86400000);
+  const en=(window._portalLang||'es')==='en'; if(d<0) return en?'pending':'pendiente'; if(d===0) return en?'today':'hoy'; if(d===1) return en?'tomorrow':'mañana'; return en?('in '+d+' days'):('en '+d+' días');
+}
+function _pv2HeroHi(brand, tab){
+  const d=_pv2Datos(brand), st=PV2_ST[d.actual];
+  const name=_pv2Esc(brand.name||'');
+  const T={crono:['Tu ruta','Cada etapa es un paso de la misión. Aquí ves dónde estamos y lo que viene.'],
+           bp:['Branding Points','Tu moneda en el universo de las marcas: elige los entregables que tu proyecto necesita.'],
+           aprobaciones:['Aprobaciones','Cada firma es un despegue: nos confirma que vamos en la dirección correcta.']}[tab];
+  const big = tab==='inicio';
+  const ph = d.proxHito;
+  const flot = (big && ph) ? `<div class="pv2-float"><small>${_pv2T('Próxima parada contigo')}</small><h3>${_pv2Esc(ph.a.name)}</h3><div class="row">${ph.f?`<div class="big">${ph.f.getDate()} <span>${_PV2_MES[ph.f.getMonth()]}</span></div>`:'<div></div>'}${ph.f?`<span class="pv2-chip">${_pv2Cuando(ph.f,d.hoy)}</span>`:''}</div></div>` : '<div></div>';
+  return `<div><div class="pv2-eyebrow">${_pv2T('Misión')} ${name} · ${_pv2T('con Polen Estudio Creativo')}</div>
+    <h1 class="pv2-h1">${big?`${_pv2T('Hola,')} <b>${name}</b>`:_pv2T(T[0])}</h1>
+    <p class="pv2-lead">${_pv2T(big?'Tu marca está en pleno viaje. Juntos recorremos los cuatro elementos que convierten una idea en una marca con alma.':T[1])}</p>
+    <div class="pv2-sub"><span class="pv2-chip"><i class="pv2-dot" style="background:${st.color}"></i>Etapa ${st.label}</span><span class="pv2-chip ghost">${d.pct}% ${_pv2T('del viaje recorrido')}</span></div></div>${flot}`;
+}
+// Dibujo de cada elemento (SVG generado, sin imágenes externas)
+function _pv2Arte(k){
+  const W=600,H=320; let g='';
+  if(k==='agua'){ for(let i=0;i<9;i++){ const y=170+i*18, a=8+i*2; let p=`M0 ${y}`; for(let x=0;x<=W;x+=20){ p+=` L${x} ${(y+Math.sin(x/70+i*.7)*a).toFixed(1)}`; } g+=`<path d="${p}" fill="none" stroke-opacity="${.16+i*.05}" stroke-width="${1.2+i*.15}"/>`; } }
+  if(k==='aire'){ for(let i=0;i<10;i++){ const y=150+i*20; g+=`<path d="M${-40+i*12} ${y} C ${150+i*8} ${y-50}, ${330-i*6} ${y+60}, ${W+40} ${y-20+i*3}" fill="none" stroke-opacity="${.12+i*.045}" stroke-width="1.4" stroke-linecap="round"/>`; } }
+  if(k==='tierra'){ for(let i=0;i<11;i++){ g+=`<ellipse cx="${430+i*4}" cy="${250-i*3}" rx="${40+i*34}" ry="${24+i*20}" fill="none" stroke-opacity="${.5-i*.035}" stroke-width="1.2" transform="rotate(${-8+i*1.5} 430 250)"/>`; } }
+  if(k==='fuego'){ for(let i=0;i<12;i++){ const x=80+i*42; g+=`<path d="M${x} ${H+20} C ${x-30} ${200-i*6}, ${x+40} ${140-i*4}, ${x+10} ${40+(i%3)*30}" fill="none" stroke-opacity="${.14+(i%4)*.08}" stroke-width="1.5" stroke-linecap="round"/>`; } }
+  return `<svg class="pv2-arte" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${g}</svg>`;
+}
+function _pv2StageBento(k, d){
+  const s=PV2_ST[k], e=d.etapas[k]; const sig={aire:'Siguiente: Agua →',agua:'Siguiente: Tierra →',tierra:'Siguiente: Fuego →',fuego:'Última etapa ✦'}[k];
+  return `<div class="pv2-card pv2-el" style="--sc:${s.color}">${_pv2Arte(k)}<div class="pv2-el-in"><div class="pv2-el-tag">${_pv2T('Estamos en')}</div><div class="pv2-el-t">${s.label}</div><div class="pv2-el-l">${_pv2T(s.lema)}</div><p>${_pv2T(s.txt)}</p><div class="pv2-el-chips">${s.hac.map(h=>`<span>${_pv2T(h)}</span>`).join('')}</div>
+    <div class="pv2-el-bar"><i style="width:${e.pct}%"></i></div><div class="pv2-el-foot"><span>${e.pct}% ${_pv2T('de la etapa')}</span><span>${_pv2T(sig)}</span></div></div></div>`;
+}
+function _pv2Ruta(d){
+  return `<div class="pv2-ruta">${PV2_ORDEN.filter(k=>d.etapas[k].total).map(k=>{ const s=PV2_ST[k], e=d.etapas[k]; const cls=k===d.actual?'now':(e.pct===100?'done':'');
+    return `<div class="pv2-rs ${cls}" style="--sc:${s.color}"><div class="pv2-rs-dot">${e.pct===100&&k!==d.actual?PV2_I.chk:''}</div><div class="pv2-rs-n">${s.label}</div><div class="pv2-rs-l">${_pv2T(s.lema)}</div><div class="pv2-rs-p">${e.pct}%</div></div>`; }).join('')}</div>`;
+}
+function _pv2Inicio(brand, sec){
+  const d=_pv2Datos(brand);
+  const stat=(t,ic,v,m,tab)=>`<div class="pv2-card pv2-stat" ${tab?`onclick="portalSwitchTab('${tab}')" style="cursor:pointer"`:''}><div class="t">${_pv2T(t)}<span class="pv2-ico">${ic}</span></div><div><div class="v">${v}</div><div class="pv2-mini">${_pv2T(m)}</div></div></div>`;
+  const stats=[];
+  if(sec.bp) stats.push(stat('Branding Points',PV2_I.star,`${d.bpLibres}<span> / ${d.bpTotal}</span>`, d.bpLibres>=0?'disponibles para canjear':'puntos por encima de tu plan','bp'));
+  if(sec.aprobaciones) stats.push(stat('Aprobaciones',PV2_I.ok, d.aprPend?String(d.aprPend):'✓', d.aprPend?'esperan tu firma':'todo al día por ahora','aprobaciones'));
+  stats.push(stat('Actividades',PV2_I.flag,`${d.hechas}<span> / ${d.tot}</span>`,'completadas en el viaje', sec.crono?'crono':''));
+  stats.push(stat('Tu tripulación',PV2_I.crew, d.crew.length?`${_pv2Esc(d.crew[0])}${d.crew.length>1?`<span> + ${_pv2Esc(d.crew.slice(1).join(' + '))}</span>`:''}`:'Polen','te acompañan en esta misión'));
+  const prox = d.pendientes.slice(0,4).map(p=>{
+    const f=p.f, enCurso=p.a.status==='en progreso'||p.a.status==='progreso', tuyo=!!p.a.isHito;
+    const pill = enCurso?['now','En curso']:tuyo?['you','Contigo']:['next','Próximo'];
+    const sub = enCurso?'Nuestro equipo está trabajando':tuyo?'Te necesitamos aquí':(/pago/i.test(p.a.name||'')?'Para seguir avanzando':'Nuestro equipo');
+    const fecha = (_pv2EsEntregaFinal(p.stage,p.a)||!f) ? '<b>✦</b><span>&nbsp;</span>' : `<b>${String(f.getDate()).padStart(2,'0')}</b><span>${_PV2_MES[f.getMonth()]}</span>`;
+    return `<div class="pv2-row"><div class="dt">${fecha}</div><div class="nm">${_pv2Esc(p.a.name)}<small>${_pv2T(sub)}</small></div><span class="pill ${pill[0]}">${_pv2T(pill[1])}</span></div>`;
+  }).join('') || '<div class="pv2-help">'+_pv2T('Todas las actividades están completadas. ✦')+'</div>';
+  return `<div class="pv2-grid pv2-g-stats">${stats.join('')}</div>
+    <div class="pv2-grid pv2-g-home">${_pv2StageBento(d.actual, d)}
+      <div class="pv2-card"><h4>${_pv2T('Lo que viene')} ${sec.crono?`<a onclick="portalSwitchTab('crono')">${_pv2T('Ver ruta completa ↗')}</a>`:''}</h4><p class="pv2-help">${_pv2T('Las marcadas con')} <span class="pill you sm">${_pv2T('Contigo')}</span> ${_pv2T('son paradas donde te necesitamos.')}</p><div class="pv2-list">${prox}</div></div></div>
+    <div class="pv2-card" style="margin-top:14px"><h4>${_pv2T('Tu ruta')} <span class="pv2-mini" style="margin:0">${d.pct}% ${_pv2T('del viaje recorrido')}</span></h4>${_pv2Ruta(d)}</div>`;
+}
+function _pv2Crono(brand){
+  const d=_pv2Datos(brand), cr=brand.cronograma||{};
+  const cards = PV2_ORDEN.filter(k=>(cr[k]||[]).length).map(k=>{
+    const s=PV2_ST[k], e=d.etapas[k];
+    const estado = e.pct===100?['done','Completada']:(k===d.actual?['now','Aquí estamos']:['next','Próxima']);
+    const acts=(cr[k]||[]).filter(Boolean).map(a=>{
+      const ok=a.status==='completada', now=a.status==='en progreso'||a.status==='progreso';
+      const cls=ok?'ok':now?'now':'';
+      const fecha=_pv2EsEntregaFinal(k,a)?'':(a.startDate?fmtDateDisplay(a.startDate).replace(/\s\d{4}$/,''):'');
+      return `<div class="it ${cls}"><span class="ck ${cls}">${ok?PV2_I.chk:''}</span><div><div class="t1">${_pv2Esc(a.name)}</div>${a.isHito?'<div class="t2"><span class="pill you sm">'+_pv2T('Contigo')+'</span></div>':''}</div><div class="dd">${fecha}</div></div>`;
+    }).join('');
+    return `<div class="pv2-card"><div class="pv2-stage-h"><div class="tt"><i style="background:${s.color}"></i>${s.label}</div><span class="pill ${estado[0]}">${_pv2T(estado[1])}</span></div><div class="pv2-stage-l">${_pv2T(s.lema)}</div><div class="pv2-tl">${acts}</div></div>`;
+  }).join('');
+  if(!cards) return '<div class="pv2-card"><div class="pv2-help">'+_pv2T('Tu cronograma se está preparando. Muy pronto verás aquí la ruta completa.')+'</div></div>';
+  return `<div class="pv2-card" style="margin-bottom:14px"><h4>${_pv2T('Los cuatro elementos de tu marca')}</h4><p class="pv2-help">${_pv2T('En Polen cada proyecto recorre cuatro etapas, como un viaje por los elementos. Las actividades marcadas')} <span class="pill you sm">${_pv2T('Contigo')}</span> ${_pv2T('son donde participas tú.')}</p>${_pv2Ruta(d)}</div>
+    <div class="pv2-grid pv2-g-crono">${cards}</div>`;
+}
+function _pv2BpExplain(){
+  return `<div class="pv2-card pv2-explain"><div class="pv2-explain-t"><div class="pv2-ico big">${PV2_I.star}</div><div><h5>${_pv2T('¿Qué son los Branding Points?')}</h5><p>${_pv2T('Son la moneda del universo de las marcas. Tu plan incluye una cantidad de puntos y tú decides en qué entregables usarlos. Cuéntanos medidas y materiales en las notas; si buscas algo que no está, pídelo en')} <b>${_pv2T('Personalizado')}</b>.</p></div></div><button class="pv2-video" onclick="_pv2AbrirVideo()">${PV2_I.play}${_pv2T('Ver video explicativo')}</button></div>`;
+}
+function _pv2AbrirVideo(){
+  if(PORTAL_BP_VIDEO_URL){ window.open(PORTAL_BP_VIDEO_URL,'_blank','noopener'); return; }
+  const b=document.querySelector('.pv2-video'); if(!b) return;
+  const t=b.innerHTML; b.innerHTML=_pv2T('El video estará disponible muy pronto ✦'); setTimeout(()=>{ b.innerHTML=t; }, 2200);
+}
+function _pv2BpResumen(brand){
+  const bp=brand.brandingPoints||{}; const total=bp.total||0;
+  const sel=(bp.categories||[]).flatMap(c=>(c.items||[])).filter(i=>i && i.selected && i.name && !/^(definir|nuevo) entregable$/i.test(i.name.trim()));
+  const used=sel.filter(i=>i.pts!=null).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0);
+  const libres=total-used, pct=total>0?Math.min(100,used/total*100):0;
+  const lista = sel.map(i=>`<div class="pv2-row sm"><div class="nm">${_pv2Esc(i.name)}${(i.qty||1)>1?` <small style="display:inline">×${i.qty}</small>`:''}</div><span>${i.pts==null?'?':(i.pts*(i.qty||1))} pts</span></div>`).join('');
+  return `<div class="pv2-card"><h4>${_pv2T('Tu selección')}</h4><div class="pv2-num">${libres}<span> pts</span></div><div class="pv2-mini">${libres>=0?_pv2T('disponibles de')+' '+total:_pv2T('por encima de tu plan de')+' '+total}</div>
+    <div class="pv2-meter"><i style="width:${pct}%"></i></div><div class="pv2-meter-l"><span>${used} ${_pv2T('usados')}</span><span>${total} ${_pv2T('total')}</span></div>
+    <div class="pv2-list">${lista||'<div class="pv2-help">'+_pv2T('Aún no has elegido entregables.')+'</div>'}</div>
+    <div class="pv2-help" style="margin-top:14px">${_pv2T('Los entregables con')} <b>?</b> ${_pv2T('puntos los valora nuestro equipo. ¿Se acabaron tus puntos y quieres más? Te enviamos una cotización por los adicionales.')}</div></div>`;
+}
+function _pv2BpBar(brand){
+  const bp=brand.brandingPoints||{}; const total=bp.total||0;
+  const sel=(bp.categories||[]).flatMap(c=>(c.items||[])).filter(i=>i&&i.selected);
+  const used=sel.filter(i=>i.pts!=null).reduce((s,i)=>s+(i.pts||0)*(i.qty||1),0);
+  return `<div class="pv2-bpbar" id="pv2-bpbar" onclick="var r=document.getElementById('pv2-bp-resumen'); if(r) r.scrollIntoView({behavior:'smooth'})"><span style="flex:1"><b>${total-used} pts</b> ${_pv2T('disponibles')} · ${sel.length} ${_pv2T('seleccionados')}</span><span>${_pv2T('Ver ↓')}</span></div>`;
+}
+
 function renderPortal(brandId){
   const brand = (appData.brands||[]).find(b=>b.id===brandId) || (appData.demos||[]).find(b=>b.id===brandId);
   const main = document.querySelector('.main');
@@ -35734,24 +36215,12 @@ function renderPortal(brandId){
     ? `<button onclick="portalSwitchTab('${key}')" id="portal-tab-${key}" style="flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:all 0.2s">${emo} ${label}</button>`
     : '';
 
-  // Determinar tab inicial respetando visibilidad
+  // Determinar tab inicial respetando visibilidad (v559: "Inicio" es la entrada)
   const firstVisible = sec.crono ? 'crono' : (sec.bp ? 'bp' : (sec.aprobaciones ? 'aprobaciones' : null));
-  let initialTab = window._portalActiveTab || 'crono';
-  if(!sec[initialTab]) initialTab = firstVisible;
+  let initialTab = window._portalActiveTab || (firstVisible ? 'inicio' : null);
+  if(initialTab!=='inicio' && !sec[initialTab]) initialTab = firstVisible ? 'inicio' : null;
 
-  main.innerHTML = `<div style="overflow-y:auto;height:100vh;background:var(--bg)" id="portal-root">
-    <div class="portal-wrap">
-      ${_portalHeaderHTML(brand)}
-      ${_portalBannerPausa(brand)}
-      <div id="portal-tabs-bar" style="display:flex;gap:0.4rem;background:var(--bg-card2);border-radius:12px;padding:0.3rem;position:sticky;top:0;z-index:10">
-        ${tabBtn('crono','📅','Cronograma')}
-        ${tabBtn('bp','⭐','Branding Points')}
-        ${tabBtn('aprobaciones','✅','Aprobaciones')}
-      </div>
-      <div id="portal-content-area"></div>
-      <div class="portal-powered">Powered by Polen System ✦</div>
-    </div>
-  </div>`;
+  main.innerHTML = _pv2Shell(brand, sec);
 
   if(initialTab){
     // 🔒 Hidratar BP/crono/aprobaciones desde las tablas (fuente de verdad) ANTES
@@ -35826,7 +36295,7 @@ function portalSwitchTab(tab){
   const sec = getPortalSections(brand);
 
   // Si el tab pedido no está visible, caer al primero visible
-  if(!sec[tab]){
+  if(tab!=='inicio' && !sec[tab]){
     const fallback = sec.crono ? 'crono' : (sec.bp ? 'bp' : (sec.aprobaciones ? 'aprobaciones' : null));
     if(!fallback){
       const content0 = document.getElementById('portal-content-area');
@@ -35845,9 +36314,39 @@ function portalSwitchTab(tab){
 
   const active   = 'flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--bg-card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.08);transition:all 0.2s';
   const inactive = 'flex:1;padding:0.55rem 0.5rem;border-radius:9px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;font-family:var(--font);background:none;color:var(--text3);transition:all 0.2s';
-  [tCrono,tBp,tAprob].forEach(t=>{ if(t) t.style.cssText=inactive; });
+  if(!document.getElementById('pv2-root')) [tCrono,tBp,tAprob].forEach(t=>{ if(t) t.style.cssText=inactive; });
 
   if(!brand){ content.innerHTML='<div style="padding:2rem;color:var(--text3)">Cargando...</div>'; return; }
+  // v559: portal nuevo — encabezado, pestañas y contenido con el diseño nuevo
+  if(document.getElementById('pv2-root')){
+    _pv2MarcarTab(brand, tab);
+    if(tab==='inicio'){ content.innerHTML = _pv2Inicio(brand, sec); }
+    else if(tab==='crono'){ content.innerHTML = _pv2Crono(brand); }
+    else if(tab==='bp'){
+      content.innerHTML = _pv2BpExplain() + `<div class="pv2-grid pv2-g-bp"><div id="portal-bp-wrap">${portalRenderBp(brand)}</div><div class="pv2-sticky" id="pv2-bp-resumen">${_pv2BpResumen(brand)}</div></div>` + _pv2BpBar(brand);
+      (async function(){
+        try{
+          const cats = brand.brandingPoints?.categories || [];
+          if(cats.length === 0 && window.BrandBpDB){
+            const fresh = await BrandBpDB.loadAll();
+            const nuevo = fresh && fresh[brand.id];
+            if(nuevo && Array.isArray(nuevo.categories) && nuevo.categories.length){
+              brand.brandingPoints = { total: brand.brandingPoints?.total || 15, categories: nuevo.categories };
+              _portalRefreshBp(brand);
+            }
+          }
+        }catch(e){ console.warn('[Polen] Portal BP fallback falló:', e); }
+      })();
+    }
+    else if(tab==='aprobaciones'){
+      try{ content.innerHTML = portalRenderAprobaciones(brand); }
+      catch(e){ content.innerHTML = '<div style="color:red;padding:1rem">Error: '+e.message+'</div>'; }
+    }
+    const root0 = document.getElementById('portal-root');
+    if(root0) root0.scrollTop = 0;
+    try{ _portalApplyLang(); }catch(e){ console.warn('[portal i18n]', e); }
+    return;
+  }
 
   // Tarjetas de intro: solo las secciones visibles
   const introCards = [
@@ -36249,7 +36748,7 @@ function portalRenderAprobaciones(brand){
     const isOpen = isCurrent; // default: only current stage open
 
     if(!active){
-      return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.1rem 1.4rem;margin-bottom:0.6rem;opacity:0.4">
+      return `<div class="pv2-apr-stage pv2-apr-lock" style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.1rem 1.4rem;margin-bottom:0.6rem;opacity:0.4">
         <div style="display:flex;align-items:center;gap:0.7rem">
           <span style="font-size:1.2rem">🔒</span>
           <div>
@@ -36413,9 +36912,9 @@ function portalRenderAprobaciones(brand){
       const prevNote = lastHist?.notes?.[q.id] || '';
       const prevAnswer = lastHist?.answers?.[q.id] || '';
 
-      return `<div style="background:var(--bg-card);border-radius:12px;padding:1rem 1.1rem;margin-bottom:0.6rem">
-        <div style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.4rem">${q.label}</div>
-        <div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.7rem;line-height:1.5">${q.q}</div>
+      return `<div class="pv2-q2" style="background:var(--bg-card);border-radius:12px;padding:1rem 1.1rem;margin-bottom:0.6rem">
+        <div class="pv2-q2-t" style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.4rem">${q.label}</div>
+        <div class="pv2-q2-s" style="font-size:0.8rem;color:var(--text2);margin-bottom:0.7rem;line-height:1.5">${q.q}</div>
         ${(wasReopened && prevAnswer) ? `
           <div style="margin-bottom:0.7rem;padding:0.55rem 0.75rem;background:var(--bg-card2);border:1px dashed var(--border);border-radius:8px">
             <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text3);margin-bottom:0.25rem">Tu respuesta anterior</div>
@@ -36429,11 +36928,11 @@ function portalRenderAprobaciones(brand){
             ` : ''}
           </div>
         ` : ''}
-        <div style="display:flex;flex-direction:column;gap:0.35rem">
+        <div class="pv2-opts2" style="display:flex;flex-direction:column;gap:0.35rem">
           ${q.options.map((opt)=>{
             const isSelected = saved === opt;
             const safeOpt = opt.replace(/'/g,"&#39;").replace(/"/g,"&quot;");
-            return `<button onclick="portalSaveApproval('${brand.id}','${stage}','${q.id}','${safeOpt}',${isSelected})"
+            return `<button class="pv2-opt ${isSelected?'on':''}" onclick="portalSaveApproval('${brand.id}','${stage}','${q.id}','${safeOpt}',${isSelected})"
               style="text-align:left;padding:0.55rem 0.85rem;border-radius:10px;border:1.5px solid ${isSelected?sc.color:'var(--border)'};background:${isSelected?sc.color+'18':'var(--bg-card2)'};color:${isSelected?sc.color:'var(--text2)'};font-size:0.8rem;font-weight:${isSelected?700:400};cursor:pointer;font-family:var(--font);transition:all 0.15s;display:flex;align-items:center;gap:0.5rem">
               <span style="width:16px;height:16px;border-radius:50%;border:1.5px solid ${isSelected?sc.color:'var(--border)'};background:${isSelected?sc.color:'none'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.6rem;color:#fff">${isSelected?'✓':''}</span>
               ${opt}
@@ -36456,9 +36955,9 @@ function portalRenderAprobaciones(brand){
     // Helper: pregunta en modo read-only (firmada) — solo muestra la opción elegida ──
     const renderQuestionReadOnly = (q) => {
       const saved = stageApprovals[q.id];
-      return `<div style="background:var(--bg-card);border-radius:12px;padding:1rem 1.1rem;margin-bottom:0.6rem;opacity:0.9">
-        <div style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.4rem">${q.label}</div>
-        <div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.7rem;line-height:1.5">${q.q}</div>
+      return `<div class="pv2-q2" style="background:var(--bg-card);border-radius:12px;padding:1rem 1.1rem;margin-bottom:0.6rem;opacity:0.9">
+        <div class="pv2-q2-t" style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.4rem">${q.label}</div>
+        <div class="pv2-q2-s" style="font-size:0.8rem;color:var(--text2);margin-bottom:0.7rem;line-height:1.5">${q.q}</div>
         <div style="display:flex;flex-direction:column;gap:0.35rem">
           ${q.options.filter(opt=>opt===saved).map((opt)=>`
             <div style="text-align:left;padding:0.55rem 0.85rem;border-radius:10px;border:1.5px solid ${sc.color};background:${sc.color}18;color:${sc.color};font-size:0.8rem;font-weight:700;display:flex;align-items:center;gap:0.5rem">
@@ -36622,9 +37121,9 @@ function portalRenderAprobaciones(brand){
       bodyHTML = questions.map(renderQuestionEditable).join('') + signBoxHTML;
     }
 
-    return `<div style="background:${sc.bg};border:1.5px solid ${sc.border};border-radius:16px;margin-bottom:0.6rem;overflow:hidden">
-      <div onclick="toggleAprobStage('${stage}')" style="display:flex;align-items:center;gap:0.6rem;padding:1.1rem 1.4rem;cursor:pointer;user-select:none">
-        <span style="font-size:1.2rem">${sc.emoji}</span>
+    return `<div class="pv2-apr-stage" style="--sc:${({aire:'#3B9EDD',agua:'#2DC3B3',tierra:'#7AB648',fuego:'#E8622A'})[stage]};background:${sc.bg};border:1.5px solid ${sc.border};border-radius:16px;margin-bottom:0.6rem;overflow:hidden">
+      <div class="pv2-apr-head" onclick="toggleAprobStage('${stage}')" style="display:flex;align-items:center;gap:0.6rem;padding:1.1rem 1.4rem;cursor:pointer;user-select:none">
+        <span class="pv2-apr-dot" style="font-size:1.2rem">${sc.emoji}</span>
         <div style="flex:1">
           <div style="font-size:0.95rem;font-weight:800;color:${sc.color}">Etapa ${sc.label}</div>
           <div style="font-size:0.7rem;color:var(--text3);margin-top:0.1rem">${headerSubtitle}</div>
@@ -37143,8 +37642,8 @@ function portalRenderBp(brand){
   const visibleCats = (bp.categories||[]).map((cat, ci)=>({cat, ci})).filter(({cat})=>_isVisibleCat(cat));
 
   const catsHTML = visibleCats.map(({cat, ci})=>`
-    <div style="margin-bottom:1rem" id="portal-bp-cat-${ci}">
-      <div style="font-size:0.78rem;font-weight:700;color:var(--text2);padding:0.5rem 1rem;background:var(--bg-card2);border-radius:var(--r-sm);margin-bottom:0.3rem;display:flex;justify-content:space-between;cursor:pointer;user-select:none"
+    <div style="margin-bottom:1rem" class="pv2-bpcat" id="portal-bp-cat-${ci}">
+      <div class="pv2-bpcat-h" style="font-size:0.78rem;font-weight:700;color:var(--text2);padding:0.5rem 1rem;background:var(--bg-card2);border-radius:var(--r-sm);margin-bottom:0.3rem;display:flex;justify-content:space-between;cursor:pointer;user-select:none"
         onclick="portalToggleBpCat(${ci})">
         <span>${cat.name}</span>
         <span style="display:flex;align-items:center;gap:0.6rem">
@@ -37157,13 +37656,13 @@ function portalRenderBp(brand){
         const qty = item.qty||1;
         const ptsLabel = item.pts==null ? '?' : (item.pts * qty) + ' pts';
         const ptsClass = item.pts==null ? 'unknown' : 'valued';
-        return `<div style="border-bottom:1px solid var(--border2)">
+        return `<div class="pv2-bpitem ${item.selected?'sel':''}" style="border-bottom:1px solid var(--border2)">
           <div class="portal-bp-item">
             <input type="checkbox" ${item.selected?'checked':''} style="width:16px;height:16px;accent-color:var(--agua);cursor:pointer;flex-shrink:0"
               onchange="portalToggleBpItem('${brand.id}',${ci},${ii},this.checked)">
-            <span style="flex:1;font-size:0.86rem;font-weight:${item.selected?'600':'400'};${item.selected?'':'color:var(--text2)'}">${item.name}</span>
+            <span class="pv2-bpname" style="flex:1;font-size:0.86rem;font-weight:${item.selected?'600':'400'};${item.selected?'':'color:var(--text2)'}">${item.name}</span>
             ${item.selected ? `
-            <div style="display:flex;align-items:center;gap:0.3rem;flex-shrink:0">
+            <div class="pv2-qty" style="display:flex;align-items:center;gap:0.3rem;flex-shrink:0">
               <button onclick="portalChangeQty('${brand.id}',${ci},${ii},-1)"
                 style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--bg-card2);color:var(--text2);cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;line-height:1;font-family:var(--font)">−</button>
               <span style="font-size:0.85rem;font-weight:700;min-width:20px;text-align:center">${qty}</span>
@@ -37173,7 +37672,7 @@ function portalRenderBp(brand){
             <span class="portal-bp-pts ${ptsClass}">${ptsLabel}</span>
           </div>
           ${item.selected ? `
-          <div style="padding:0.2rem 1rem 0.85rem 2.8rem">
+          <div class="pv2-bpnote" style="padding:0.2rem 1rem 0.85rem 2.8rem">
             <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);margin-bottom:0.35rem">Notas / Especificaciones</div>
             <textarea
               placeholder="Ej: 90×60 cm, impresión en vinil mate, para pared exterior…"
@@ -37195,14 +37694,15 @@ function portalRenderBp(brand){
           + Agregar entregable
         </button>` : ''}
       </div>
+      </div>
     </div>`).join('');
 
   return `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem;flex-wrap:wrap;gap:0.5rem">
+    <div class="pv2-bp-top" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem;flex-wrap:wrap;gap:0.5rem">
       <div class="portal-section-title" style="margin-bottom:0">⭐ Branding Points</div>
       <button id="portal-bp-collapse-btn" onclick="toggleAllPortalBpCats()" style="background:none;border:1px solid var(--border);border-radius:99px;padding:0.2rem 0.7rem;font-size:0.68rem;font-weight:600;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all 0.15s">⊟ Colapsar</button>
     </div>
-    <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1rem;flex-wrap:wrap">
+    <div class="pv2-bp-totales" style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1rem;flex-wrap:wrap">
       <div style="text-align:center"><div style="font-size:1.8rem;font-weight:800">${total}</div><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Total</div></div>
       <div style="text-align:center"><div style="font-size:1.8rem;font-weight:800;color:var(--fuego)">${used}</div><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Usados</div></div>
       <div style="text-align:center"><div style="font-size:1.8rem;font-weight:800;color:var(--agua)">${left}</div><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Restantes</div></div>
@@ -37215,7 +37715,7 @@ function portalRenderBp(brand){
     ${catsHTML}
     ${_portalExtrasHTML()}
     ${_portalExcesoBpHTML(used, total, brand)}
-    <div style="margin-top:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+    <div class="pv2-bp-save" style="margin-top:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
       <div style="font-size:0.72rem;color:var(--text3);padding:0.6rem 0.8rem;background:rgba(245,197,66,0.06);border-radius:8px;flex:1">
         💡 Los entregables con <strong>?</strong> puntos serán valorados por el equipo.
       </div>
@@ -37249,8 +37749,8 @@ function _portalExtrasHTML(){
     </div>`;
   const grid = PORTAL_EXTRAS.map(card).join('');
   return `
-    <div style="margin-bottom:1rem;margin-top:1.5rem">
-      <div style="font-size:0.78rem;font-weight:700;color:var(--text2);padding:0.5rem 1rem;background:var(--bg-card2);border-radius:var(--r-sm);margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center">
+    <div class="pv2-bpcat pv2-extras" style="margin-bottom:1rem;margin-top:1.5rem">
+      <div class="pv2-bpcat-h" style="font-size:0.78rem;font-weight:700;color:var(--text2);padding:0.5rem 1rem;background:var(--bg-card2);border-radius:var(--r-sm);margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center">
         <span>✨ Extras</span>
         <span style="font-size:0.66rem;color:var(--text3);font-weight:500">Servicios que se cotizan aparte</span>
       </div>
@@ -37318,7 +37818,7 @@ function _portalExcesoBpHTML(used, total, brand){
     </div>`;
   }
   return `
-    <div style="margin-top:1rem">
+    <div class="pv2-exceso" style="margin-top:1rem">
       ${aviso}
       <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:12px;padding:0.8rem 1rem">
         <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:0.6rem">Precio de branding points adicionales</div>
@@ -37441,6 +37941,7 @@ function _portalRefreshBp(brand){
   const wrap = document.getElementById('portal-bp-wrap');
   if(!wrap) return;
   if(wrap) wrap.innerHTML = portalRenderBp(brand);
+  try{ const rs=document.getElementById('pv2-bp-resumen'); if(rs) rs.innerHTML=_pv2BpResumen(brand); const bb=document.getElementById('pv2-bpbar'); if(bb) bb.outerHTML=_pv2BpBar(brand); if((window._portalLang||'es')==='en') _portalApplyLang(); }catch(e){}
   // Auto-expand textareas that already have content
   setTimeout(()=>{
     document.querySelectorAll('#portal-bp-wrap textarea').forEach(ta=>{
