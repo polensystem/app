@@ -5384,7 +5384,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 572;
+const APP_VERSION = 573;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -28457,34 +28457,66 @@ async function generarCronogramaDesdeTemplate(brandId){
 }
 
 // Agrega las actividades de Naming a una marca que no las tiene.
-// Se insertan en el stage "aire", tras "Búsqueda de insights" si existe, o al inicio.
+// v573: se insertan en "aire" tras "Búsqueda de insights" (o al inicio), una DESPUÉS de otra en días
+// hábiles, y todo lo que viene después se corre esos mismos días. Se GUARDA en la tabla del cronograma
+// (polen_crono), que es la que leen la vista interna al recargar y el portal del cliente.
 async function agregarNamingACrono(brandId){
   const brand = (appData.brands||[]).find(b=>b.id===brandId);
   if(!brand || !brand.cronograma) return;
-  const yaTiene = ['aire','agua','tierra','fuego'].some(s=>(brand.cronograma[s]||[]).some(a=>a&&a.isNaming));
+  const stages = ['aire','agua','tierra','fuego'];
+  const yaTiene = stages.some(s=>(brand.cronograma[s]||[]).some(a=>a&&a.isNaming));
   if(yaTiene){ showStatus('Esta marca ya incluye Naming'); return; }
-  const ok = await confirmModal('¿Agregar el proceso de Naming (Propuestas, Feedback y Disponibilidad legal) al cronograma? Las fechas siguientes se recalcularán.', 'Agregar Naming', 'background:var(--agua);color:#fff;border:none');
-  if(!ok) return;
 
-  const naming = [
-    { id:uid(), name:'Propuestas de Naming', days:2, isHito:true,  isNaming:true, status:'pendiente', startDate:'', endDate:'' },
-    { id:uid(), name:'Feedback Naming',       days:2, isHito:false, isNaming:true, status:'pendiente', startDate:'', endDate:'' },
-    { id:uid(), name:'Disponibilidad legal',  days:3, isHito:false, isNaming:true, status:'pendiente', startDate:'', endDate:'' },
+  // Mismas actividades y duraciones que el template vigente (si existen ahí), si no las de siempre
+  const tpl = appData.template || defaultTemplate();
+  const tplNaming = stages.flatMap(s=>((tpl.cronograma||{})[s]||[]).filter(a=>a&&a.isNaming));
+  const base = tplNaming.length ? tplNaming : [
+    { name:'Propuestas de Naming', days:2, isHito:true },
+    { name:'Feedback Naming',       days:2, isHito:false },
+    { name:'Disponibilidad legal',  days:3, isHito:false },
   ];
+  const naming = base.map(a=>({ id:uid(), name:a.name, days:Math.max(1, Number(a.days)||1), isHito:!!a.isHito, isNaming:true, status:'pendiente', startDate:'', endDate:'' }));
+  const diasNaming = naming.reduce((s,a)=>s+a.days, 0);
+
   const aire = brand.cronograma.aire || (brand.cronograma.aire = []);
-  // Insertar tras "Búsqueda de insights…" si existe; si no, al inicio
   let idx = aire.findIndex(a=>/insights|caminos creativos/i.test(a.name||''));
   idx = idx>=0 ? idx+1 : 0;
-  // Heredar la fecha de la actividad anterior (para que aparezcan en orden y no "sin ubicar").
-  // El usuario ajusta las fechas con las flechas del cronograma si lo necesita.
-  const fechaBase = (aire[idx-1] && aire[idx-1].startDate) || (aire[idx] && aire[idx].startDate) || '';
-  naming.forEach(a=>{ a.startDate = fechaBase; a.endDate = fechaBase; });
-  aire.splice(idx, 0, ...naming);
+  const anterior = aire[idx-1];
+  const despuesDe = anterior ? '«'+anterior.name+'»' : 'el inicio de Aire';
 
+  const ok = await confirmModal('Se agregarán '+naming.length+' actividades de Naming ('+diasNaming+' días hábiles) después de '+despuesDe+', una tras otra.\n\nTodo lo que viene después se correrá '+diasNaming+' días hábiles.', 'Agregar Naming', 'background:var(--agua);color:#fff');
+  if(!ok) return;
+
+  // Fechas: empieza el día hábil siguiente al fin de la actividad anterior (o donde empezaba la siguiente)
+  let inicio = '';
+  if(anterior && anterior.endDate) inicio = addWorkdaysStr(anterior.endDate, 1);
+  else if(aire[idx] && aire[idx].startDate) inicio = aire[idx].startDate;
+  if(inicio){
+    let cur = inicio;
+    naming.forEach(a=>{ a.startDate = cur; a.endDate = addWorkdaysStr(cur, a.days-1); cur = addWorkdaysStr(a.endDate, 1); });
+    // Correr todo lo que empieza en o después del inicio del naming
+    stages.forEach(st=>(brand.cronograma[st]||[]).forEach(a=>{
+      if(!a || !a.startDate || a.startDate < inicio) return;
+      a.startDate = shiftWorkdays(a.startDate, diasNaming);
+      if(a.endDate) a.endDate = shiftWorkdays(a.endDate, diasNaming);
+      if(a.revDateOverride) a.revDateOverride = shiftWorkdays(a.revDateOverride, diasNaming);
+    }));
+  }
+  aire.splice(idx, 0, ...naming);
+  brand.includeNaming = true;
+
+  // Guardar TODO el cronograma en la tabla (nuevas actividades, nuevo orden y fechas corridas)
+  if(window.CronoDB){
+    const rows = [];
+    stages.forEach(st=>(brand.cronograma[st]||[]).forEach((a,i)=>{ if(a) rows.push(CronoDB.actToRow(brand.id, st, a, i)); }));
+    const okSave = await CronoDB.saveActsBatch(rows);
+    if(!okSave){ showStatus('❌ No se pudo guardar el Naming en el cronograma — recarga e intenta de nuevo', true); return; }
+  }
   markBrandChange(brand.id); markLocalChange('brands');
   try{ await upsert(); }catch(e){}
+  try{ ensureCobrosData(); }catch(e){}
   renderBrandCrono(brand);
-  showStatus('Naming agregado — ajusta las fechas si lo necesitas ✓');
+  showStatus('Naming agregado ✓ ('+diasNaming+' días hábiles; lo siguiente se corrió)');
 }
 
 function renderBrandCrono(brand){
