@@ -10,6 +10,78 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1080 1080%22%3E%3Crect fill=%22%23d1f970%22 x=%2214.9%22 y=%2214.9%22 width=%221050.2%22 height=%221050.2%22 rx=%22254.89%22 ry=%22254.89%22/%3E%3Cg%3E%3Cg%3E%3Cpath fill=%22%23363832%22 d=%22M229.61,337.81l-144.99-.89-2.41,393.86,72.25.44.67-103.47,72.72.52c80.14.49,145.73-64.26,146.22-144.34.48-80.07-64.31-145.63-144.44-146.12ZM228.11,551.6l-72.54-.44.89-145.08,72.54.44c40.06.25,72.34,32.93,72.09,72.98-.25,40.06-32.93,72.34-72.98,72.09Z%22/%3E%3Cpath fill=%22%23363832%22 d=%22M539.39,395.05c-79.98-.49-145.43,64.14-145.92,144.06-.49,79.93,64.18,145.35,144.15,145.84,79.97.49,145.43-64.14,145.92-144.06.49-79.93-64.18-145.35-144.15-145.84Z%22/%3E%3C/g%3E%3Cpath fill=%22%231fa447%22 d=%22M690.66,608.81h59.21c2.11,65.02,49.69,84.05,102.03,84.05s85.11-20.62,85.11-61.32c0-31.19-16.92-47.05-100.97-64.49-89.34-17.44-133.74-45.99-133.74-114.71,0-61.85,56.03-102.56,134.8-102.56,105.2,0,150.13,54.45,152.25,125.82h-58.15c-3.17-49.69-30.66-75.59-94.1-75.59-44.41,0-74.01,19.56-74.01,51.28s11.63,48.11,95.16,64.49c111.54,22.2,139.56,57.09,139.56,114.19,0,70.31-60.27,113.13-146.96,113.13s-157.53-42.29-160.18-134.27Z%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1080 1080%22%3E%3Crect fill=%22%23d1f970%22 x=%2214.9%22 y=%2214.9%22 width=%221050.2%22 height=%221050.2%22 rx=%22254.89%22 ry=%22254.89%22/%3E%3Cg%3E%3Cg%3E%3Cpath fill=%22%23363832%22 d=%22M229.61,337.81l-144.99-.89-2.41,393.86,72.25.44.67-103.47,72.72.52c80.14.49,145.73-64.26,146.22-144.34.48-80.07-64.31-145.63-144.44-146.12ZM228.11,551.6l-72.54-.44.89-145.08,72.54.44c40.06.25,72.34,32.93,72.09,72.98-.25,40.06-32.93,72.34-72.98,72.09Z%22/%3E%3Cpath fill=%22%23363832%22 d=%22M539.39,395.05c-79.98-.49-145.43,64.14-145.92,144.06-.49,79.93,64.18,145.35,144.15,145.84,79.97.49,145.43-64.14,145.92-144.06.49-79.93-64.18-145.35-144.15-145.84Z%22/%3E%3C/g%3E%3Cpath fill=%22%231fa447%22 d=%22M690.66,608.81h59.21c2.11,65.02,49.69,84.05,102.03,84.05s85.11-20.62,85.11-61.32c0-31.19-16.92-47.05-100.97-64.49-89.34-17.44-133.74-45.99-133.74-114.71,0-61.85,56.03-102.56,134.8-102.56,105.2,0,150.13,54.45,152.25,125.82h-58.15c-3.17-49.69-30.66-75.59-94.1-75.59-44.41,0-74.01,19.56-74.01,51.28s11.63,48.11,95.16,64.49c111.54,22.2,139.56,57.09,139.56,114.19,0,70.31-60.27,113.13-146.96,113.13s-157.53-42.29-160.18-134.27Z%22/%3E%3C/g%3E%3C/svg%3E">
 <meta name="theme-color" content="#39ff14">
+<script>
+/* ═══ v569 · Errores recientes + tiempos de carga aprendidos (va primero, antes que todo) ═══ */
+(function(){
+  // 1) Los últimos 8 errores de JavaScript que vio la app (se adjuntan al "Reportar error")
+  var recientes = [];
+  function guardar(msg){
+    try{
+      recientes.push({ at:new Date().toISOString(), msg:String(msg||'error').slice(0,400), ruta:(location.pathname||'')+(location.search||'')+(location.hash||'') });
+      if(recientes.length > 8) recientes.shift();
+    }catch(e){}
+  }
+  window.addEventListener('error', function(e){ guardar(e && (e.message || (e.error && e.error.message)) || 'error'); });
+  window.addEventListener('unhandledrejection', function(e){ var r = e && e.reason; guardar((r && r.message) || r || 'promesa rechazada'); });
+  window._polenErroresRecientes = function(){ return recientes.slice(); };
+
+  // 2) Indicador de carga que avanza con el tiempo real y aprende cuánto tarda cada tarea
+  var TKEY = 'polen-tiempos-carga';
+  var tiempos = {};
+  try{ tiempos = JSON.parse(localStorage.getItem(TKEY) || '{}') || {}; }catch(e){ tiempos = {}; }
+  function bucket(size){ return Math.max(0, Math.round(Math.log2(Math.max(1, (size || 0) / 4000)))); }
+  function estimar(action, size, fallback){            // segundos esperados
+    var exact = tiempos[action + ':' + bucket(size)];
+    if(exact && exact.n) return exact.avg * 1.08;
+    var all = Object.keys(tiempos).filter(function(k){ return k.indexOf(action + ':') === 0; }).map(function(k){ return tiempos[k].avg; });
+    if(all.length) return (all.reduce(function(a,b){ return a+b; }, 0) / all.length) * 1.15;
+    return fallback;                                    // primera vez: estimación inicial por tipo de tarea
+  }
+  function aprender(action, size, secs){               // llamar SOLO cuando la tarea terminó bien
+    if(!action || !(secs > 1)) return;
+    var k = action + ':' + bucket(size);
+    var o = tiempos[k] || { avg: secs, n: 0 };
+    o.avg = o.n ? o.avg * 0.6 + secs * 0.4 : secs;      // las últimas veces pesan más
+    o.n = Math.min(20, o.n + 1);
+    tiempos[k] = o;
+    try{ localStorage.setItem(TKEY, JSON.stringify(tiempos)); }catch(e){}
+  }
+  function porcentaje(start, est){                      // parejo hasta 90 %, luego sube muy lento hasta 98 %
+    var t = (Date.now() - start) / 1000, e = Math.max(4, est);
+    if(t <= e) return 90 * (t / e);
+    return 90 + 8 * (1 - Math.exp(-(t - e) / (e * 0.7)));
+  }
+  var activas = {}, seq = 0;
+  function iniciar(action, size, fallback){
+    var id = ++seq;
+    activas[id] = { action: action, size: size || 0, start: Date.now(), est: estimar(action, size || 0, fallback || 15) };
+    return id;
+  }
+  function terminar(id, ok){
+    var t = activas[id]; if(!t) return;
+    delete activas[id];
+    if(ok) aprender(t.action, t.size, (Date.now() - t.start) / 1000);
+  }
+  function pctDe(id){ var t = activas[id]; return t ? porcentaje(t.start, t.est) : null; }
+  function pct(){                                       // varias a la vez: la más atrasada
+    var m = null;
+    Object.keys(activas).forEach(function(k){ var p = porcentaje(activas[k].start, activas[k].est); m = (m === null) ? p : Math.min(m, p); });
+    return m;
+  }
+  window.PolenCarga = { estimar: estimar, aprender: aprender, porcentaje: porcentaje, iniciar: iniciar, terminar: terminar, pct: pct, pctDe: pctDe };
+
+  // 3) Saber si justo hubo un aviso de error (para no "aprender" tiempos de tareas que fallaron)
+  window.addEventListener('load', function(){
+    try{
+      var o = window.showStatus;
+      if(typeof o === 'function' && !o._polenWrap){
+        var w = function(msg, err){ if(err) window._polenUltimoError = Date.now(); return o.apply(this, arguments); };
+        w._polenWrap = true; window.showStatus = w;
+      }
+    }catch(e){}
+  });
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -2693,6 +2765,66 @@ dialog.snake-dialog::backdrop{background:rgba(232,236,232,.42);backdrop-filter:b
  .pv2-lk-hints{grid-template-columns:1fr}
 }
 </style>
+<style>
+/* ═══ v569 · Reportar error + Buzón ═══ */
+.btn-reportar{display:inline-flex;align-items:center;gap:6px}
+.btn-reportar svg{flex:none}
+@media (max-width:900px){.btn-reportar .rep-lbl{display:none}}
+.rep-ov{position:fixed;inset:0;z-index:10080;background:rgba(20,22,28,.32);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px}
+.rep-win{max-height:92vh;overflow:auto;background:rgba(255,255,255,.92);backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,.9);border-radius:22px;box-shadow:0 24px 60px -20px rgba(0,0,0,.35);padding:20px 22px;font-family:var(--font);color:#1C1F23}
+.rep-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.rep-ico{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:#1C1F23;color:#fff;flex:none}
+.rep-ico svg{width:18px;height:18px}
+.rep-t{font-weight:650;font-size:17px;letter-spacing:-.01em}
+.rep-st{font-size:12.5px;color:#6B7280}
+.rep-x{margin-left:auto;align-self:flex-start;border:none;background:none;font-size:15px;color:#6B7280;cursor:pointer;padding:4px 6px;border-radius:8px}
+.rep-x:hover{background:rgba(0,0,0,.05)}
+.rep-l{display:block;font-size:12px;font-weight:650;color:#4B5058;margin:12px 0 5px}
+.rep-opc{font-weight:400;color:#8A8F98}
+.rep-in{width:100%;box-sizing:border-box;padding:9px 11px;border-radius:11px;border:1px solid rgba(0,0,0,.1);background:#fff;color:#1C1F23;font:inherit;font-size:13.5px;outline:none;resize:vertical}
+.rep-in:focus{border-color:#1C1F23;box-shadow:0 0 0 3px rgba(28,31,35,.08)}
+.rep-sel{width:auto;min-width:190px}
+.rep-mini{font-size:12px;color:#6B7280;margin-top:5px;line-height:1.45}
+.rep-pills{display:flex;flex-wrap:wrap;gap:6px}
+.rep-pill{border:1px solid rgba(0,0,0,.1);background:#fff;color:#4B5058;border-radius:999px;padding:6px 12px;font:inherit;font-size:12.5px;cursor:pointer;transition:background .2s,color .2s}
+.rep-pill.on{background:#1C1F23;color:#fff;border-color:#1C1F23}
+.rep-drop{position:relative;border:1.5px dashed rgba(0,0,0,.15);border-radius:12px;padding:14px;text-align:center;font-size:12.5px;color:#6B7280;cursor:pointer;background:rgba(255,255,255,.6)}
+.rep-drop:hover,.rep-drop:focus{border-color:#1C1F23;outline:none}
+.rep-drop img{max-width:100%;max-height:180px;border-radius:8px;display:block;margin:0 auto}
+.rep-quitar{position:absolute;top:8px;right:8px;border:none;background:rgba(28,31,35,.8);color:#fff;border-radius:999px;padding:4px 10px;font:inherit;font-size:11.5px;cursor:pointer}
+.rep-nota{font-size:11.5px;color:#8A8F98;margin-top:12px}
+.rep-err{font-size:12.5px;color:#E5484D;min-height:1em;margin-top:8px}
+.rep-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+.rep-b1{border:none;background:#1C1F23;color:#fff;border-radius:999px;padding:9px 18px;font:inherit;font-size:13px;font-weight:650;cursor:pointer}
+.rep-b1:disabled{opacity:.6;cursor:default}
+.rep-b2{border:1px solid rgba(0,0,0,.12);background:#fff;color:#4B5058;border-radius:999px;padding:9px 16px;font:inherit;font-size:13px;cursor:pointer}
+.rep-menu{position:fixed;z-index:10075;min-width:230px;background:rgba(255,255,255,.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(0,0,0,.07);border-radius:14px;box-shadow:0 16px 40px -14px rgba(0,0,0,.3);padding:6px;font-family:var(--font)}
+.rep-menu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:none;background:none;padding:9px 10px;border-radius:9px;font:inherit;font-size:13px;color:#1C1F23;cursor:pointer}
+.rep-menu button:hover{background:rgba(0,0,0,.05)}
+.rep-mi{display:grid;place-items:center;color:#4B5058}
+.rep-badge{margin-left:auto;background:#E5484D;color:#fff;border-radius:999px;font-size:11px;font-weight:650;padding:2px 8px}
+.rep-filtros{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:4px 0 12px}
+.rep-lista{display:flex;flex-direction:column;gap:8px}
+.rep-vacio{padding:30px 10px;text-align:center;color:#8A8F98;font-size:13px}
+.rep-card{border:1px solid rgba(0,0,0,.07);border-radius:14px;background:#fff;overflow:hidden}
+.rep-card.ab{box-shadow:0 8px 24px -14px rgba(0,0,0,.25)}
+.rep-card-h{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:center;width:100%;text-align:left;border:none;background:none;padding:11px 14px;cursor:pointer;font:inherit;color:#1C1F23}
+.rep-card-h:hover{background:rgba(0,0,0,.02)}
+.rep-est{grid-row:span 2;align-self:start;font-size:11px;font-weight:650;color:var(--c);background:color-mix(in srgb,var(--c) 12%,#fff);border:1px solid color-mix(in srgb,var(--c) 30%,#fff);border-radius:999px;padding:3px 9px;white-space:nowrap}
+.rep-card-d{font-size:13.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rep-card.ab .rep-card-d{white-space:normal}
+.rep-card-m{font-size:11.5px;color:#8A8F98}
+.rep-det{padding:2px 14px 14px;border-top:1px solid rgba(0,0,0,.05)}
+.rep-dl{margin-top:10px;font-size:13px;line-height:1.5}
+.rep-dl b{display:block;font-size:11.5px;color:#6B7280;font-weight:650;margin-bottom:2px}
+.rep-cap img{max-width:100%;max-height:320px;border-radius:10px;border:1px solid rgba(0,0,0,.08);display:block}
+.rep-tec{margin-top:10px;font-size:12px}
+.rep-tec summary{cursor:pointer;color:#6B7280}
+.rep-pre{white-space:pre-wrap;word-break:break-word;font-size:11px;background:#F4F5F7;border-radius:8px;padding:8px;margin:6px 0 0;max-height:180px;overflow:auto}
+.rep-adm{margin-top:12px;padding-top:12px;border-top:1px dashed rgba(0,0,0,.1)}
+.rep-resp{margin-top:12px;font-size:13px;background:#F1F7F2;border:1px solid #D7EBDB;border-radius:10px;padding:10px 12px}
+.rep-resp b{display:block;font-size:11.5px;color:#2E9E5B;margin-bottom:3px}
+</style>
 </head>
 <body>
 <div class="ambient" aria-hidden="true"><span class="amb a1"></span><span class="amb a2"></span><span class="amb a3"></span></div>
@@ -2829,7 +2961,7 @@ dialog.snake-dialog::backdrop{background:rgba(232,236,232,.42);backdrop-filter:b
     <div style="display:flex;align-items:center;gap:0.5rem">
       <div id="sidebar-user-name" style="flex:1;min-width:0;font-size:0.74rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       <button onclick="_abrirColorPlataforma(event)" title="Tu color de plataforma" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:conic-gradient(#D5D9DF,#CDEBC0,#7B61FF,#2E86DE,#E04FC0,#F7DC1F,#F2641A,#3FBFAF,#D5D9DF);cursor:pointer;flex-shrink:0"></button>
-      <button onclick="_menuCuenta()" title="Mi cuenta" style="width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card);color:var(--text3);cursor:pointer;font-size:0.8rem">⚙</button>
+      <button onclick="_menuCuenta(event)" title="Mi cuenta" style="width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card);color:var(--text3);cursor:pointer;font-size:0.8rem">⚙</button>
       <button onclick="logout()" title="Cerrar sesión" style="width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card);color:var(--text3);cursor:pointer;font-size:0.8rem">⏻</button>
     </div>
   </div>
@@ -2854,6 +2986,7 @@ dialog.snake-dialog::backdrop{background:rgba(232,236,232,.42);backdrop-filter:b
         <button class="theme-btn" id="btn-dark" onclick="setTheme('dark')">🌙<span class="theme-btn-label"> Dark</span></button>
         <button class="theme-btn active" id="btn-light" onclick="setTheme('light')">☀️<span class="theme-btn-label"> Light</span></button>
       </div>
+      <button class="btn-reload btn-reportar" id="btn-reportar-error" onclick="_reportarError()" title="Reportar error"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7.5a4 4 0 0 1 8 0"/><rect x="7" y="7.5" width="10" height="12" rx="5"/><path d="M12 11v8.5M3.5 13H7M17 13h3.5M4.5 8.5 7 10M19.5 8.5 17 10M4.5 18.5 7 16.5M19.5 18.5 17 16.5"/></svg><span class="rep-lbl">Reportar error</span></button>
       <button class="btn-reload" id="btn-reload" onclick="reloadData()">↻ Recargar</button>
       <span id="conn-dot" title="Conectado a Supabase"></span>
       <button class="btn-add" id="btn-nueva-marca" onclick="openModal()">+ Nueva marca</button>
@@ -5180,7 +5313,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 568;
+const APP_VERSION = 569;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -24324,7 +24457,7 @@ async function _canteraProcesarCVs(files, convId){
 
   if(!directo){
     // UN CV desde la base → leer, GUARDAR de una (no se pierde), y abrir la ficha ya guardada para ajustar
-    _canteraBarraProgreso('Leyendo el CV con IA…', null);
+    _canteraBarraProgreso('Leyendo el CV con IA…', null, (lista[0]&&lista[0].size)||0);
     try{
       const file = lista[0];
       const path = await _canteraSubirPDF(file);
@@ -24437,7 +24570,7 @@ function _canteraAvisoPesados(lista){
 }
 
 // Overlay con barra de progreso (0..1). Si pct es null, muestra barra indeterminada.
-function _canteraBarraProgreso(txt, pct){
+function _canteraBarraProgreso(txt, pct, size){
   let o = document.getElementById('cantera-prog');
   if(!o){
     o = document.createElement('div');
@@ -24445,16 +24578,35 @@ function _canteraBarraProgreso(txt, pct){
     o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:10000;display:flex;align-items:center;justify-content:center';
     document.body.appendChild(o);
   }
-  const p = (pct==null) ? null : Math.max(0,Math.min(1,pct));
+  // v569: sin porcentaje real (esperando a la IA, guardando…) → avanza con el tiempo que suele tardar esa tarea.
+  const clave = 'cantera:' + String(txt||'').replace(/[0-9]+/g,'#').replace(/[…\.]+$/,'').trim().toLowerCase();
+  const tarea = window._canteraTarea;
+  if(pct==null && window.PolenCarga){
+    if(!tarea || tarea.clave!==clave){
+      if(tarea) PolenCarga.terminar(tarea.id, true);
+      window._canteraTarea = { clave, id: PolenCarga.iniciar(clave, size||0, /IA|portafolio|links/i.test(txt) ? 25 : 8) };
+    }
+  } else if(tarea && window.PolenCarga){ PolenCarga.terminar(tarea.id, true); window._canteraTarea = null; }
+  const timed = (pct==null && window._canteraTarea && window.PolenCarga);
+  const p = timed ? PolenCarga.pctDe(window._canteraTarea.id)/100 : (pct==null ? null : Math.max(0,Math.min(1,pct)));
   const pctTxt = p==null ? '' : Math.round(p*100)+'%';
   o.innerHTML = `<div style="background:var(--bg);border-radius:14px;padding:1.5rem 2rem;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,0.2);min-width:280px">
     <div style="font-size:0.9rem;color:var(--text);font-weight:700;margin-bottom:0.8rem">${escapeHtml(txt)}</div>
     <div style="height:8px;background:var(--bg-card2);border-radius:99px;overflow:hidden;margin-bottom:0.4rem">
-      <div style="height:100%;background:var(--agua);border-radius:99px;transition:width 0.3s;${p==null?'width:40%;animation:canteraIndet 1.2s ease-in-out infinite':'width:'+(p*100)+'%'}"></div>
+      <div class="cantera-prog-bar" style="height:100%;background:var(--agua);border-radius:99px;transition:width 0.3s linear;${p==null?'width:40%;animation:canteraIndet 1.2s ease-in-out infinite':'width:'+(p*100)+'%'}"></div>
     </div>
-    <div style="font-size:0.72rem;color:var(--text3)">${pctTxt||'Procesando…'}</div>
+    <div class="cantera-prog-pct" style="font-size:0.72rem;color:var(--text3)">${pctTxt||'Procesando…'}</div>
   </div>
   <style>@keyframes canteraIndet{0%{margin-left:-40%}100%{margin-left:100%}}</style>`;
+  clearInterval(o._iv);
+  if(timed){
+    o._iv = setInterval(()=>{
+      const t = window._canteraTarea; if(!o.isConnected || !t){ clearInterval(o._iv); return; }
+      const q = PolenCarga.pctDe(t.id); if(q==null) return;
+      const bar = o.querySelector('.cantera-prog-bar'), lbl = o.querySelector('.cantera-prog-pct');
+      if(bar) bar.style.width = q+'%'; if(lbl) lbl.textContent = Math.round(q)+'%';
+    }, 300);
+  }
 }
 // Overlay de progreso simple (sin barra)
 function _canteraOverlayProgreso(txt){
@@ -24471,7 +24623,12 @@ function _canteraOverlayProgreso(txt){
     <div style="font-size:0.68rem;color:var(--text3);margin-top:0.3rem">La IA puede tardar unos segundos</div>
   </div>`;
 }
-function _canteraCerrarProgreso(){ const o=document.getElementById('cantera-prog'); if(o) o.remove(); }
+function _canteraCerrarProgreso(){
+  const o=document.getElementById('cantera-prog'); if(o){ clearInterval(o._iv); o.remove(); }
+  // v569: aprender cuánto tardó, solo si no salió un aviso de error justo después
+  const t = window._canteraTarea; window._canteraTarea = null;
+  if(t && window.PolenCarga){ const cerrado = Date.now(); setTimeout(()=>{ PolenCarga.terminar(t.id, !(window._polenUltimoError && window._polenUltimoError >= cerrado-50)); }, 800); }
+}
 
 // Abrir ficha para un candidato NUEVO (prellenado por IA, aún no guardado)
 function _canteraAbrirFichaNueva(ficha){
@@ -43561,8 +43718,15 @@ window.diagnosePolen = function(){
   function updateRing(root,pct){ (root||document).querySelectorAll('.ring').forEach(el=>{ const arc=el.querySelector('.ring-arc'); const c=+arc.getAttribute('stroke-dasharray'); arc.setAttribute('stroke-dashoffset', c*(1-pct/100)); el.setAttribute('aria-valuenow',Math.round(pct)); el.querySelector('.ring-num').innerHTML=`${Math.round(pct)}<small>%</small>`; }); }
   const t0=Date.now();
   function lista(){ const ls=document.getElementById('loading-screen'); return !ls || ls.style.display==='none' || ls.classList.contains('hide'); }
-  // La carga no avisa cuánto le falta: el anillo avanza rápido al inicio y se frena cerca del final, hasta que termina.
-  window.plProgreso=function(){ if(lista()) return 100; const t=Date.now()-t0; return Math.min(96, 96*(1-Math.exp(-t/2600))); };
+  // v569: el anillo avanza parejo con el tiempo real y aprende cuánto tarda la carga en este dispositivo.
+  const _estCarga=(window.PolenCarga?PolenCarga.estimar('carga_inicial',0,6):6); let _aprendida=false;
+  window.plProgreso=function(){
+    if(lista()){
+      if(!_aprendida){ _aprendida=true; const s=(Date.now()-t0)/1000; if(s<45 && window.PolenCarga) PolenCarga.aprender('carga_inicial',0,s); }
+      return 100;
+    }
+    return window.PolenCarga ? PolenCarga.porcentaje(t0,_estCarga) : Math.min(96, 96*(1-Math.exp(-(Date.now()-t0)/2600)));
+  };
   const slot=document.getElementById('pl-ring'); if(slot) slot.innerHTML=ring(0);
   const iv=setInterval(()=>{ const ls=document.getElementById('loading-screen'); updateRing(ls, plProgreso()); if(lista()){ updateRing(ls,100); clearInterval(iv); } },200);
 
@@ -43613,6 +43777,292 @@ window.diagnosePolen = function(){
     d.addEventListener('cancel',e=>{ e.preventDefault(); close(); });
     reset(); draw();
     message('<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><span style="font-size:26px;font-weight:250">Snake</span><span style="font-size:13px;opacity:.75;max-width:240px">'+(document.body.classList.contains('portal-mode')?'Mientras tu portal carga.':'Mientras Polen System carga.')+' Come los puntos lima.</span><button class="sk-btn" data-sk="play">Jugar</button></div>');
+  };
+})();
+</script>
+<script>
+/* ═══ v569 · Reportar error + Buzón de errores ═══
+   Tabla: polen_error_reports (RLS). Capturas: bucket privado "polen-errores", carpeta errores/<cuenta>/.
+   Requiere la sesión segura (Supabase Auth) que se activa al entrar con usuario y contraseña. */
+(function(){
+  const SECCIONES = [
+    ['dashboard','Dashboard'],['brand','Proyecto / marca'],['portal','Portal del cliente'],['equipo','Equipo · Tripulación'],
+    ['reportes','Reportes'],['crm','CRM'],['cobranzas','Cobranzas'],['contactos','Contactos'],['testimonios','Testimonios'],
+    ['metas','Metas'],['trayectoria','Trayectoria'],['finanzas','Data · finanzas'],['cantera','Reclutamiento'],
+    ['template','Template base'],['feriados','Feriados'],['archivo','Archivo · papelera'],['backup','Backup'],['roles','Roles'],
+    ['sugerencias','Sugerencias'],['login','Inicio de sesión · contraseña'],['general','General (toda la app)'],['otro','Otro']
+  ];
+  const NOMBRE_SECCION = Object.fromEntries(SECCIONES);
+  const GRAVEDAD = { bloquea:['No me deja trabajar','#E5484D'], molesta:['Molesta, pero sigo','#E8A33A'], detalle:['Es un detalle','#6B7280'] };
+  const ESTADO = { nuevo:['Nuevo','#3B82F6'], revisando:['Revisando','#E8A33A'], resuelto:['Resuelto','#2E9E5B'], descartado:['Descartado','#8A8F98'] };
+  const esc = (s)=> (typeof escapeHtml==='function') ? escapeHtml(String(s==null?'':s)) : String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const BUG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7.5a4 4 0 0 1 8 0"/><rect x="7" y="7.5" width="10" height="12" rx="5"/><path d="M12 11v8.5M3.5 13H7M17 13h3.5M4.5 8.5 7 10M19.5 8.5 17 10M4.5 18.5 7 16.5M19.5 18.5 17 16.5"/></svg>';
+  window._polenIconoBug = BUG;
+
+  function seccionActual(){
+    try{
+      if(document.body.classList.contains('portal-mode')) return 'portal';
+      const t = (document.getElementById('header-title')||{}).textContent||'';
+      if(/reportes/i.test(t)) return 'reportes';
+      const p = (typeof currentPage!=='undefined') ? currentPage : 'general';
+      return NOMBRE_SECCION[p] ? p : 'general';
+    }catch(e){ return 'general'; }
+  }
+  function marcaActual(){
+    try{
+      if(typeof currentPage!=='undefined' && currentPage==='brand' && typeof currentBrandId!=='undefined' && currentBrandId){
+        const b = (appData.brands||[]).find(x=>x.id===currentBrandId);
+        return { id: currentBrandId, nombre: b ? b.name : '' };
+      }
+    }catch(e){}
+    return null;
+  }
+  function nombreMiembro(id){
+    try{ const m = (appData.members||[]).find(x=>x.id===id); return m ? (m.apodo||m.nombre||id) : (id||'—'); }catch(e){ return id||'—'; }
+  }
+  function haceCuanto(iso){
+    const s = Math.max(0, (Date.now() - new Date(iso).getTime())/1000);
+    if(s < 60) return 'hace un momento';
+    if(s < 3600) return 'hace ' + Math.round(s/60) + ' min';
+    if(s < 86400) return 'hace ' + Math.round(s/3600) + ' h';
+    const d = Math.round(s/86400); return 'hace ' + d + (d===1?' día':' días');
+  }
+  async function sesionSegura(){
+    try{ const { data } = await sb.auth.getSession(); return (data && data.session) || null; }catch(e){ return null; }
+  }
+  const SIN_SESION = 'Para usar esto, cierra sesión y vuelve a entrar una vez con tu usuario y contraseña (así se activa tu cuenta segura).';
+  function esAdmin(){ try{ return typeof _tieneRol==='function' && _tieneRol('admin'); }catch(e){ return false; } }
+
+  // ── Ventana base ──
+  function ventana(html, ancho){
+    const ov = document.createElement('div');
+    ov.className = 'rep-ov';
+    ov.innerHTML = '<div class="rep-win" style="width:min('+(ancho||520)+'px,95vw)">'+html+'</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e=>{ if(e.target===ov) cerrar(); });
+    const onKey = e=>{ if(e.key==='Escape') cerrar(); };
+    document.addEventListener('keydown', onKey);
+    function cerrar(){ document.removeEventListener('keydown', onKey); ov.remove(); }
+    ov._cerrar = cerrar;
+    return ov;
+  }
+
+  // ═══ 1) Formulario "Reportar error" ═══
+  window._reportarError = function(){
+    if(document.querySelector('.rep-ov[data-rep="form"]')) return;
+    const sec = seccionActual();
+    const marca = marcaActual();
+    const ov = ventana(`
+      <div class="rep-head"><span class="rep-ico">${BUG}</span><div><div class="rep-t">Reportar error</div><div class="rep-st">Cuéntanos qué pasó y lo revisamos.</div></div><button class="rep-x" data-x aria-label="Cerrar">✕</button></div>
+      <label class="rep-l">¿Dónde pasó?</label>
+      <select class="rep-in" id="rep-sec">${SECCIONES.map(([k,v])=>`<option value="${k}"${k===sec?' selected':''}>${esc(v)}</option>`).join('')}</select>
+      ${marca && marca.nombre ? `<div class="rep-mini">Proyecto abierto: <b>${esc(marca.nombre)}</b></div>` : ''}
+      <label class="rep-l">¿Qué pasó? <span style="color:#E5484D">*</span></label>
+      <textarea class="rep-in" id="rep-desc" rows="3" placeholder="Ej.: Al guardar el cronograma de una marca, la fecha de Tierra vuelve a la anterior."></textarea>
+      <label class="rep-l">¿Qué esperabas que pasara? <span class="rep-opc">(opcional)</span></label>
+      <textarea class="rep-in" id="rep-esp" rows="2" placeholder="Ej.: Que se quede guardada la fecha nueva."></textarea>
+      <label class="rep-l">¿Qué tan grave es?</label>
+      <div class="rep-pills" id="rep-grav">${Object.entries(GRAVEDAD).map(([k,[v]])=>`<button type="button" class="rep-pill${k==='molesta'?' on':''}" data-g="${k}">${esc(v)}</button>`).join('')}</div>
+      <label class="rep-l">Captura de pantalla <span class="rep-opc">(opcional)</span></label>
+      <div class="rep-drop" id="rep-drop" tabindex="0">
+        <input type="file" id="rep-file" accept="image/*" hidden>
+        <span id="rep-drop-txt">Adjunta una imagen o pégala con <b>${/Mac|iPhone|iPad/.test(navigator.platform)?'⌘':'Ctrl'} V</b></span>
+        <img id="rep-prev" alt="" hidden>
+        <button type="button" class="rep-quitar" id="rep-quitar" hidden>Quitar</button>
+      </div>
+      <div class="rep-nota">También se envía la pantalla donde estás y el navegador, para encontrar el error más rápido.</div>
+      <div class="rep-err" id="rep-err"></div>
+      <div class="rep-acts"><button class="rep-b2" data-x>Cancelar</button><button class="rep-b1" id="rep-enviar">Enviar reporte</button></div>`, 520);
+    ov.dataset.rep = 'form';
+    const $ = s=>ov.querySelector(s);
+    ov.querySelectorAll('[data-x]').forEach(b=>b.onclick=ov._cerrar);
+    setTimeout(()=>{ try{ $('#rep-desc').focus(); }catch(e){} }, 60);
+    $('#rep-desc').addEventListener('input', ()=>{ $('#rep-err').textContent=''; });
+    let grav = 'molesta', archivo = null;
+    $('#rep-grav').onclick = e=>{ const b=e.target.closest('[data-g]'); if(!b) return; grav=b.dataset.g; ov.querySelectorAll('.rep-pill').forEach(x=>x.classList.toggle('on', x===b)); };
+    function ponerArchivo(f){
+      if(!f || !/^image\//.test(f.type)) return;
+      if(f.size > 10*1024*1024){ $('#rep-err').textContent='La imagen pesa más de 10 MB.'; return; }
+      archivo = f; $('#rep-err').textContent='';
+      const url = URL.createObjectURL(f); const im=$('#rep-prev'); im.src=url; im.hidden=false; $('#rep-quitar').hidden=false; $('#rep-drop-txt').hidden=true;
+    }
+    $('#rep-drop').onclick = e=>{ if(e.target.id==='rep-quitar') return; $('#rep-file').click(); };
+    $('#rep-file').onchange = e=>ponerArchivo(e.target.files && e.target.files[0]);
+    $('#rep-quitar').onclick = e=>{ e.stopPropagation(); archivo=null; $('#rep-prev').hidden=true; $('#rep-quitar').hidden=true; $('#rep-drop-txt').hidden=false; $('#rep-file').value=''; };
+    $('#rep-drop').ondragover = e=>{ e.preventDefault(); };
+    $('#rep-drop').ondrop = e=>{ e.preventDefault(); ponerArchivo(e.dataTransfer.files && e.dataTransfer.files[0]); };
+    const onPaste = e=>{ if(!ov.isConnected){ document.removeEventListener('paste', onPaste); return; }
+      const it=[...((e.clipboardData&&e.clipboardData.items)||[])].find(i=>i.type && i.type.indexOf('image/')===0);
+      if(it){ e.preventDefault(); ponerArchivo(it.getAsFile()); } };
+    document.addEventListener('paste', onPaste);
+
+    $('#rep-enviar').onclick = async ()=>{
+      const desc = $('#rep-desc').value.trim(), err = $('#rep-err'), btn = $('#rep-enviar');
+      err.textContent = '';
+      if(!desc){ err.textContent = 'Cuéntanos qué pasó (es lo único obligatorio).'; $('#rep-desc').focus(); return; }
+      btn.disabled = true; btn.textContent = 'Enviando…';
+      try{
+        const ses = await sesionSegura();
+        if(!ses){ throw new Error(SIN_SESION); }
+        let captura_path = null;
+        if(archivo){
+          const ext = ((archivo.type.split('/')[1]||'png').replace('jpeg','jpg')).slice(0,5);
+          const path = 'errores/' + ses.user.id + '/' + Date.now() + '.' + ext;
+          const up = await sb.storage.from('polen-errores').upload(path, archivo, { contentType: archivo.type, upsert:false });
+          if(up.error) throw new Error('No se pudo subir la captura: ' + up.error.message);
+          captura_path = path;
+        }
+        const m = marcaActual();
+        const fila = {
+          user_id: ses.user.id,
+          seccion: $('#rep-sec').value,
+          gravedad: grav,
+          descripcion: desc.slice(0, 4000),
+          esperado: $('#rep-esp').value.trim().slice(0, 2000) || null,
+          ruta: (typeof currentPage!=='undefined' ? currentPage : '') + (m && m.nombre ? ' · ' + m.nombre : '') + ' · ' + location.pathname + location.search,
+          registro_id: m ? m.id : null,
+          navegador: navigator.userAgent + ' · ventana ' + window.innerWidth + '×' + window.innerHeight + ' · Polen System v' + (typeof APP_VERSION!=='undefined' ? APP_VERSION : '?'),
+          errores: (window._polenErroresRecientes ? window._polenErroresRecientes() : []),
+          captura_path
+        };
+        const { error } = await sb.from('polen_error_reports').insert(fila);
+        if(error) throw new Error(/row-level|permission|policy/i.test(error.message) ? SIN_SESION : error.message);
+        ov._cerrar();
+        showStatus('¡Gracias! El reporte llegó al buzón de errores.');
+      }catch(e){
+        btn.disabled = false; btn.textContent = 'Enviar reporte';
+        err.textContent = e.message || 'No se pudo enviar. Intenta de nuevo.';
+      }
+    };
+  };
+
+  // ═══ 2) Menú de la cuenta (⚙) ═══
+  window._menuCuenta = async function(ev){
+    const s = (typeof _sesion==='function') ? _sesion() : null;
+    if(!s){ return; }
+    document.querySelectorAll('.rep-menu').forEach(x=>x.remove());
+    const admin = esAdmin();
+    const menu = document.createElement('div');
+    menu.className = 'rep-menu';
+    menu.innerHTML = `
+      ${s.master ? '' : '<button data-a="pass">Cambiar mi contraseña</button>'}
+      <button data-a="buzon"><span class="rep-mi">${BUG}</span>${admin ? 'Buzón de errores' : 'Mis reportes de error'}<span class="rep-badge" id="rep-badge-menu" hidden></span></button>
+      <button data-a="reportar">Reportar un error</button>`;
+    document.body.appendChild(menu);
+    const btn = ev && (ev.currentTarget || ev.target);
+    const r = btn && btn.getBoundingClientRect ? btn.getBoundingClientRect() : { left: 20, top: window.innerHeight - 60 };
+    menu.style.left = Math.max(8, Math.min(window.innerWidth - 250, r.left)) + 'px';
+    menu.style.bottom = Math.max(8, window.innerHeight - r.top + 8) + 'px';
+    const fuera = e=>{ if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('mousedown', fuera, true); } };
+    setTimeout(()=>document.addEventListener('mousedown', fuera, true), 0);
+    menu.onclick = e=>{
+      const b = e.target.closest('[data-a]'); if(!b) return;
+      menu.remove(); document.removeEventListener('mousedown', fuera, true);
+      if(b.dataset.a==='pass'){ if(typeof _authCambiarMiPass==='function') _authCambiarMiPass(false); }
+      else if(b.dataset.a==='buzon') _abrirBuzonErrores();
+      else _reportarError();
+    };
+    if(admin){
+      try{
+        if(!(await sesionSegura())) return;
+        const { count } = await sb.from('polen_error_reports').select('id', { count:'exact', head:true }).eq('estado','nuevo');
+        const bd = menu.querySelector('#rep-badge-menu');
+        if(bd && count){ bd.textContent = count + (count===1 ? ' nuevo' : ' nuevos'); bd.hidden = false; }
+      }catch(e){}
+    }
+  };
+
+  // ═══ 3) Buzón ═══
+  window._abrirBuzonErrores = async function(){
+    const admin = esAdmin();
+    const ov = ventana(`
+      <div class="rep-head"><span class="rep-ico">${BUG}</span><div><div class="rep-t">${admin ? 'Buzón de errores' : 'Mis reportes de error'}</div><div class="rep-st">${admin ? 'Todos los reportes del equipo.' : 'Lo que reportaste, en qué va y la respuesta.'}</div></div><button class="rep-x" data-x aria-label="Cerrar">✕</button></div>
+      <div class="rep-filtros">
+        <div class="rep-pills" id="bz-est">${[['abiertos','Abiertos'],['nuevo','Nuevos'],['revisando','Revisando'],['resuelto','Resueltos'],['descartado','Descartados'],['todos','Todos']].map(([k,v],i)=>`<button type="button" class="rep-pill${i===0?' on':''}" data-e="${k}">${v}</button>`).join('')}</div>
+        <select class="rep-in rep-sel" id="bz-sec"><option value="">Todas las secciones</option>${SECCIONES.map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('')}</select>
+      </div>
+      <div id="bz-lista" class="rep-lista"><div class="rep-vacio">Cargando…</div></div>`, 760);
+    ov.querySelectorAll('[data-x]').forEach(b=>b.onclick=ov._cerrar);
+    const lista = ov.querySelector('#bz-lista');
+    let filas = [], fEst = 'abiertos', fSec = '', abiertos = new Set();
+    if(!(await sesionSegura())){ lista.innerHTML = `<div class="rep-vacio">${esc(SIN_SESION)}</div>`; return; }
+    async function cargar(){
+      const { data, error } = await sb.from('polen_error_reports').select('*').order('created_at', { ascending:false }).limit(500);
+      if(error){ lista.innerHTML = `<div class="rep-vacio">No se pudo cargar: ${esc(error.message)}</div>`; return; }
+      filas = data || []; pintar();
+    }
+    function pintar(){
+      const vis = filas.filter(r=> (fEst==='todos' || (fEst==='abiertos' ? (r.estado==='nuevo'||r.estado==='revisando') : r.estado===fEst)) && (!fSec || r.seccion===fSec));
+      if(!vis.length){ lista.innerHTML = `<div class="rep-vacio">${filas.length ? 'No hay reportes con este filtro.' : (admin ? 'Todavía no hay reportes.' : 'No has enviado reportes todavía.')}</div>`; return; }
+      lista.innerHTML = vis.map(r=>{
+        const [eTxt, eCol] = ESTADO[r.estado] || [r.estado,'#888'];
+        const [gTxt, gCol] = GRAVEDAD[r.gravedad] || [r.gravedad,'#888'];
+        const ab = abiertos.has(r.id);
+        return `<div class="rep-card${ab?' ab':''}" data-id="${r.id}">
+          <button class="rep-card-h" data-t="${r.id}">
+            <span class="rep-est" style="--c:${eCol}">${esc(eTxt)}</span>
+            <span class="rep-card-d">${esc(r.descripcion)}</span>
+            <span class="rep-card-m">${esc(NOMBRE_SECCION[r.seccion]||r.seccion)} · <span style="color:${gCol}">${esc(gTxt)}</span> · ${haceCuanto(r.created_at)}${admin ? ' · ' + esc(nombreMiembro(r.member_id)) : ''}</span>
+          </button>
+          ${ab ? detalle(r) : ''}
+        </div>`;
+      }).join('');
+      vis.forEach(r=>{ if(abiertos.has(r.id) && r.captura_path) cargarCaptura(r); });
+    }
+    function detalle(r){
+      const errs = Array.isArray(r.errores) ? r.errores : [];
+      return `<div class="rep-det">
+        <div class="rep-dl"><b>Qué pasó</b><div>${esc(r.descripcion).replace(/\n/g,'<br>')}</div></div>
+        ${r.esperado ? `<div class="rep-dl"><b>Qué esperaba</b><div>${esc(r.esperado).replace(/\n/g,'<br>')}</div></div>` : ''}
+        ${r.captura_path ? `<div class="rep-dl"><b>Captura</b><a class="rep-cap" id="cap-${r.id}" target="_blank" rel="noopener"><span class="rep-mini">Cargando captura…</span></a></div>` : ''}
+        ${r.registro_id ? `<div class="rep-dl"><b>Proyecto</b><div><a href="#" data-marca="${esc(r.registro_id)}">Abrir el proyecto</a></div></div>` : ''}
+        <details class="rep-tec"><summary>Detalles técnicos</summary>
+          <div class="rep-mini"><b>Pantalla:</b> ${esc(r.ruta||'—')}</div>
+          <div class="rep-mini"><b>Navegador:</b> ${esc(r.navegador||'—')}</div>
+          <div class="rep-mini"><b>Errores recientes (${errs.length}):</b></div>
+          ${errs.length ? `<pre class="rep-pre">${esc(errs.map(x=>(x.at||'').slice(11,19)+'  '+x.msg).join('\n'))}</pre>` : '<div class="rep-mini">Ninguno.</div>'}
+        </details>
+        ${admin ? `<div class="rep-adm">
+            <label class="rep-l" style="margin-top:0">Estado</label>
+            <div class="rep-pills" data-estados="${r.id}">${Object.entries(ESTADO).map(([k,[v]])=>`<button type="button" class="rep-pill${r.estado===k?' on':''}" data-s="${k}">${v}</button>`).join('')}</div>
+            <label class="rep-l">Respuesta para ${esc(nombreMiembro(r.member_id))}</label>
+            <textarea class="rep-in" rows="2" id="resp-${r.id}" placeholder="Ej.: Ya quedó arreglado, recarga la página.">${esc(r.respuesta||'')}</textarea>
+            <div class="rep-acts" style="margin-top:8px"><button class="rep-b1" data-guardar="${r.id}">Guardar</button></div>
+          </div>`
+          : (r.respuesta ? `<div class="rep-resp"><b>Respuesta del equipo</b><div>${esc(r.respuesta).replace(/\n/g,'<br>')}</div></div>` : '<div class="rep-mini">Aún sin respuesta.</div>')}
+      </div>`;
+    }
+    async function cargarCaptura(r){
+      try{
+        const a = ov.querySelector('#cap-'+r.id); if(!a || a.dataset.ok) return;
+        const { data, error } = await sb.storage.from('polen-errores').createSignedUrl(r.captura_path, 3600);
+        if(error || !data) { a.innerHTML = '<span class="rep-mini">No se pudo cargar la captura.</span>'; return; }
+        a.href = data.signedUrl; a.dataset.ok = '1'; a.innerHTML = `<img src="${data.signedUrl}" alt="Captura del reporte">`;
+      }catch(e){}
+    }
+    ov.querySelector('#bz-est').onclick = e=>{ const b=e.target.closest('[data-e]'); if(!b) return; fEst=b.dataset.e; ov.querySelectorAll('#bz-est .rep-pill').forEach(x=>x.classList.toggle('on',x===b)); pintar(); };
+    ov.querySelector('#bz-sec').onchange = e=>{ fSec = e.target.value; pintar(); };
+    lista.onclick = async e=>{
+      const t = e.target.closest('[data-t]');
+      if(t){ const id=t.dataset.t; abiertos.has(id) ? abiertos.delete(id) : abiertos.add(id); pintar(); return; }
+      const mk = e.target.closest('[data-marca]');
+      if(mk){ e.preventDefault(); ov._cerrar(); try{ goTo('brand', mk.dataset.marca); }catch(_){} return; }
+      const sb2 = e.target.closest('[data-s]');
+      if(sb2){ const cont = sb2.closest('[data-estados]'); cont.querySelectorAll('.rep-pill').forEach(x=>x.classList.toggle('on',x===sb2)); return; }
+      const g = e.target.closest('[data-guardar]');
+      if(g){
+        const id = g.dataset.guardar;
+        const on = ov.querySelector('[data-estados="'+id+'"] .rep-pill.on');
+        const estado = on ? on.dataset.s : null;
+        const respuesta = (ov.querySelector('#resp-'+id).value||'').trim() || null;
+        g.disabled = true; g.textContent = 'Guardando…';
+        const { data, error } = await sb.from('polen_error_reports').update({ estado, respuesta }).eq('id', id).select().single();
+        if(error){ g.disabled=false; g.textContent='Guardar'; showStatus('No se pudo guardar: '+error.message, true); return; }
+        const i = filas.findIndex(x=>x.id===id); if(i>=0) filas[i] = data;
+        showStatus('✓ Reporte actualizado'); pintar();
+      }
+    };
+    cargar();
   };
 })();
 </script>
