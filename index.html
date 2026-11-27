@@ -5170,14 +5170,21 @@ async function _fetchSeguro(input, init){
       const auth = h.get('Authorization') || '';
       if(auth && auth !== 'Bearer '+SB_KEY){
         h.set('Authorization', 'Bearer '+SB_KEY);
-        if(!_sesionDescartada){ _sesionDescartada = true; setTimeout(()=>{ try{ sb.auth.signOut({ scope:'local' }); }catch(e){} }, 0); console.warn('[sesión segura] vencida: se descarta y se sigue sin ella'); }
+        if(!_sesionDescartada){ _sesionDescartada = true; setTimeout(()=>{ try{ sbAuth.auth.signOut({ scope:'local' }); }catch(e){} }, 0); console.warn('[sesión segura] vencida: se descarta y se sigue sin ella'); }
         return _fetchOriginal(input, Object.assign({}, init, { headers: h }));
       }
     }
   }catch(e){}
   return res;
 }
-const sb=createClient(SB_URL,SB_KEY,{ global:{ fetch:_fetchSeguro } });
+// v574: DOS clientes separados.
+//  • sb      → TODA la carga de datos. Sin sesión (como antes del 26-nov): nunca espera a renovar
+//              ninguna sesión, así la app no se queda trabada en la pantalla de carga.
+//  • sbAuth  → solo la sesión segura y lo que la necesita (reportar error, amigo secreto, recuperar
+//              contraseña). Si falla o tarda, la app sigue funcionando.
+const sbAuth=createClient(SB_URL,SB_KEY,{ global:{ fetch:_fetchSeguro } });
+const sb=createClient(SB_URL,SB_KEY,{ auth:{ persistSession:false, autoRefreshToken:false, detectSessionInUrl:false, storageKey:'polen-datos-sin-sesion' } });
+window.sbAuth = sbAuth;
 window.sb = sb; // Para diagnóstico
 // 🔐 "Olvidé mi contraseña": al abrir el enlace del correo, Supabase avisa con PASSWORD_RECOVERY
 (function(){
@@ -5187,7 +5194,7 @@ window.sb = sb; // Para diagnóstico
     try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
   }
   try{
-    sb.auth.onAuthStateChange((ev, session)=>{
+    sbAuth.auth.onAuthStateChange((ev, session)=>{
       if(ev!=='PASSWORD_RECOVERY' || !session) return;
       const tok = session.access_token;
       const ir = ()=>{ if(typeof _nuevaPassRecuperacion==='function' && document.body) _nuevaPassRecuperacion(tok); else setTimeout(ir,200); };
@@ -5384,7 +5391,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 573;
+const APP_VERSION = 574;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -19226,9 +19233,9 @@ async function setCumpleField(memberId, field, value){
 let _asDatos = null, _asCargando = false, _asCargadoEn = 0;
 async function _asCargar(){
   try{
-    const { data: s } = await sb.auth.getSession();
+    const { data: s } = await Promise.race([ sbAuth.auth.getSession(), new Promise(r=>setTimeout(()=>r({ data:null }), 8000)) ]);
     if(!s || !s.session){ _asDatos = { sinSesion:true }; return; }
-    const { data, error } = await sb.from('polen_amigo_secreto').select('*');
+    const { data, error } = await sbAuth.from('polen_amigo_secreto').select('*');
     _asDatos = error ? { error: error.message } : { filas: data || [] };
   }catch(e){ _asDatos = { error: e.message || 'error' }; }
   _asCargadoEn = Date.now();
@@ -19305,7 +19312,7 @@ async function _asGuardar(){
   if(!yo){ showStatus('Inicia sesión para guardar tu deseo', true); return; }
   btn.disabled = true; btn.textContent = 'Guardando…';
   try{
-    const { data, error } = await sb.from('polen_amigo_secreto').upsert({ member_id: yo, deseo, link: link || null }, { onConflict: 'member_id' }).select().single();
+    const { data, error } = await sbAuth.from('polen_amigo_secreto').upsert({ member_id: yo, deseo, link: link || null }, { onConflict: 'member_id' }).select().single();
     if(error) throw new Error(/row-level|policy|permission/i.test(error.message) ? 'Cierra sesión y vuelve a entrar una vez para poder guardar.' : error.message);
     if(_asDatos && _asDatos.filas){ _asDatos.filas = _asDatos.filas.filter(f=>f.member_id!==yo).concat([data]); }
     if(document.activeElement) document.activeElement.blur();
@@ -35805,7 +35812,7 @@ function logout(){ try{ sessionStorage.removeItem(LOGIN_KEY); }catch(e){}
   // Cierra también la sesión segura de Supabase (si hay). Si tarda, recarga igual.
   let hecho=false; const ir=()=>{ if(!hecho){ hecho=true; location.reload(); } };
   setTimeout(ir, 1500);
-  try{ sb.auth.signOut().then(ir, ir); }catch(e){ ir(); } }
+  try{ sbAuth.auth.signOut().then(ir, ir); }catch(e){ ir(); } }
 // 🔐 Sesión segura (Supabase Auth). Misma contraseña de siempre con un prefijo fijo
 // (la función `auth` usa la misma regla). Se activa en segundo plano al entrar:
 // si falla, el sistema sigue funcionando igual que antes.
@@ -35813,13 +35820,13 @@ function authPass(p){ return 'polen·'+String(p||''); }
 async function _activarSesionSegura(email, pass){
   if(!email || !pass) return false;
   try{
-    let { error } = await sb.auth.signInWithPassword({ email, password: authPass(pass) });
+    let { error } = await sbAuth.auth.signInWithPassword({ email, password: authPass(pass) });
     if(error && /invalid|credentials/i.test(error.message||'')){
       // La cuenta segura tiene otra contraseña guardada: re-sincronizar una vez y reintentar
       try{
         const u = (typeof _sesion==='function' && _sesion()) ? _sesion().usuario : email;
         await authAPI('resync_auth', { usuario: u, pass });
-        ({ error } = await sb.auth.signInWithPassword({ email, password: authPass(pass) }));
+        ({ error } = await sbAuth.auth.signInWithPassword({ email, password: authPass(pass) }));
       }catch(e){}
     }
     if(error){ console.warn('[sesión segura] no se activó:', error.message); return false; }
@@ -35937,7 +35944,7 @@ function _nuevaPassRecuperacion(accessToken){
   const $ = (id)=>ov.querySelector('#'+id);
   setTimeout(()=>$('_np-new').focus(), 50);
   $('_np-ver').onchange = (e)=>{ ['_np-new','_np-rep'].forEach(id=>{ $(id).type = e.target.checked ? 'text' : 'password'; }); };
-  $('_np-cancel').onclick = ()=>{ ov.remove(); try{ sb.auth.signOut(); }catch(e){} };
+  $('_np-cancel').onclick = ()=>{ ov.remove(); try{ sbAuth.auth.signOut(); }catch(e){} };
   const guardar = async ()=>{
     const nueva = $('_np-new').value, rep = $('_np-rep').value, err = $('_np-err'), btn = $('_np-ok');
     err.textContent = '';
@@ -44059,7 +44066,7 @@ window.diagnosePolen = function(){
     const d = Math.round(s/86400); return 'hace ' + d + (d===1?' día':' días');
   }
   async function sesionSegura(){
-    try{ const { data } = await sb.auth.getSession(); return (data && data.session) || null; }catch(e){ return null; }
+    try{ const { data } = await Promise.race([ sbAuth.auth.getSession(), new Promise(r=>setTimeout(()=>r({ data:null }), 8000)) ]); return (data && data.session) || null; }catch(e){ return null; }
   }
   const SIN_SESION = 'Para usar esto, cierra sesión y vuelve a entrar una vez con tu usuario y contraseña (así se activa tu cuenta segura).';
   function esAdmin(){ try{ return typeof _tieneRol==='function' && _tieneRol('admin'); }catch(e){ return false; } }
@@ -44139,7 +44146,7 @@ window.diagnosePolen = function(){
         if(archivo){
           const ext = ((archivo.type.split('/')[1]||'png').replace('jpeg','jpg')).slice(0,5);
           const path = 'errores/' + ses.user.id + '/' + Date.now() + '.' + ext;
-          const up = await sb.storage.from('polen-errores').upload(path, archivo, { contentType: archivo.type, upsert:false });
+          const up = await sbAuth.storage.from('polen-errores').upload(path, archivo, { contentType: archivo.type, upsert:false });
           if(up.error) throw new Error('No se pudo subir la captura: ' + up.error.message);
           captura_path = path;
         }
@@ -44156,7 +44163,7 @@ window.diagnosePolen = function(){
           errores: (window._polenErroresRecientes ? window._polenErroresRecientes() : []),
           captura_path
         };
-        const { error } = await sb.from('polen_error_reports').insert(fila);
+        const { error } = await sbAuth.from('polen_error_reports').insert(fila);
         if(error) throw new Error(/row-level|permission|policy/i.test(error.message) ? SIN_SESION : error.message);
         ov._cerrar();
         showStatus('¡Gracias! El reporte llegó al buzón de errores.');
@@ -44196,7 +44203,7 @@ window.diagnosePolen = function(){
     if(admin){
       try{
         if(!(await sesionSegura())) return;
-        const { count } = await sb.from('polen_error_reports').select('id', { count:'exact', head:true }).eq('estado','nuevo');
+        const { count } = await sbAuth.from('polen_error_reports').select('id', { count:'exact', head:true }).eq('estado','nuevo');
         const bd = menu.querySelector('#rep-badge-menu');
         if(bd && count){ bd.textContent = count + (count===1 ? ' nuevo' : ' nuevos'); bd.hidden = false; }
       }catch(e){}
@@ -44218,7 +44225,7 @@ window.diagnosePolen = function(){
     let filas = [], fEst = 'abiertos', fSec = '', abiertos = new Set();
     if(!(await sesionSegura())){ lista.innerHTML = `<div class="rep-vacio">${esc(SIN_SESION)}</div>`; return; }
     async function cargar(){
-      const { data, error } = await sb.from('polen_error_reports').select('*').order('created_at', { ascending:false }).limit(500);
+      const { data, error } = await sbAuth.from('polen_error_reports').select('*').order('created_at', { ascending:false }).limit(500);
       if(error){ lista.innerHTML = `<div class="rep-vacio">No se pudo cargar: ${esc(error.message)}</div>`; return; }
       filas = data || []; pintar();
     }
@@ -44266,7 +44273,7 @@ window.diagnosePolen = function(){
     async function cargarCaptura(r){
       try{
         const a = ov.querySelector('#cap-'+r.id); if(!a || a.dataset.ok) return;
-        const { data, error } = await sb.storage.from('polen-errores').createSignedUrl(r.captura_path, 3600);
+        const { data, error } = await sbAuth.storage.from('polen-errores').createSignedUrl(r.captura_path, 3600);
         if(error || !data) { a.innerHTML = '<span class="rep-mini">No se pudo cargar la captura.</span>'; return; }
         a.href = data.signedUrl; a.dataset.ok = '1'; a.innerHTML = `<img src="${data.signedUrl}" alt="Captura del reporte">`;
       }catch(e){}
@@ -44287,7 +44294,7 @@ window.diagnosePolen = function(){
         const estado = on ? on.dataset.s : null;
         const respuesta = (ov.querySelector('#resp-'+id).value||'').trim() || null;
         g.disabled = true; g.textContent = 'Guardando…';
-        const { data, error } = await sb.from('polen_error_reports').update({ estado, respuesta }).eq('id', id).select().single();
+        const { data, error } = await sbAuth.from('polen_error_reports').update({ estado, respuesta }).eq('id', id).select().single();
         if(error){ g.disabled=false; g.textContent='Guardar'; showStatus('No se pudo guardar: '+error.message, true); return; }
         const i = filas.findIndex(x=>x.id===id); if(i>=0) filas[i] = data;
         showStatus('✓ Reporte actualizado'); pintar();
