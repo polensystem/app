@@ -5313,7 +5313,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 569;
+const APP_VERSION = 570;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -35987,11 +35987,13 @@ async function boot(){
     const logoWrap = document.getElementById('portal-loading-logo');
     if(logoWrap) logoWrap.style.display = 'flex';
 
+    // v570: el registro permanente de links (en la base) dice a qué marca pertenece el link, aunque sea viejo
+    const _resP = (async()=>{ try{ const r = await sb.rpc('polen_portal_resolver', { p_slug: portalParam }); return (r && r.data) || null; }catch(e){ return null; } })();
     await Promise.race([loadData(), new Promise(res=>setTimeout(res,10000))]);
 
     // Resolver slug → brandId real (incluye demos, que son portales de venta)
     // 🔒 v556: las marcas REALES van primero; un demo con el mismo nombre/slug nunca le gana a la marca real
-    const allBrands = [...(appData.brands||[]).filter(b=>b && b.isDemo!==true), ...(appData.demos||[]), ...(appData.brands||[]).filter(b=>b && b.isDemo===true && !(appData.demos||[]).some(d=>d&&d.id===b.id))];
+    let allBrands = [...(appData.brands||[]).filter(b=>b && b.isDemo!==true), ...(appData.demos||[]), ...(appData.brands||[]).filter(b=>b && b.isDemo===true && !(appData.demos||[]).some(d=>d&&d.id===b.id))];
     let resolvedId = portalParam;
     const _pp = String(portalParam).toUpperCase();
     const bySlug = allBrands.find(b=>b.portalSlug===portalParam) || allBrands.find(b=>b.portalSlug && String(b.portalSlug).toUpperCase()===_pp)
@@ -36022,6 +36024,25 @@ async function boot(){
       }
       }
     }
+
+    // v570: lo que diga el registro permanente manda (links viejos de marcas renombradas)
+    const _res = await _resP;
+    if(_res && _res.brand_id) resolvedId = _res.brand_id;
+    // Si con internet lento la información no alcanzó a cargar, esperar y reintentar (en vez de "marca no encontrada")
+    const _armarLista = ()=>[...(appData.brands||[]).filter(b=>b && b.isDemo!==true), ...(appData.demos||[]), ...(appData.brands||[]).filter(b=>b && b.isDemo===true && !(appData.demos||[]).some(d=>d&&d.id===b.id))];
+    for(let _i=0; _i<3 && !allBrands.some(b=>b.id===resolvedId); _i++){
+      if(loadingSub) loadingSub.textContent = 'Cargando… un momento más';
+      await Promise.race([loadData(), new Promise(res=>setTimeout(res,15000))]);
+      allBrands = _armarLista();
+    }
+    // Redirigir: si llegó con un link viejo, la barra del navegador pasa al link actual
+    try{
+      const _actual = (_res && _res.slug_actual) || ((allBrands.find(b=>b.id===resolvedId)||{}).portalSlug) || null;
+      if(_actual && String(_actual).toUpperCase() !== String(portalParam).toUpperCase()){
+        const u = new URL(location.href); u.searchParams.set('portal', _actual);
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
+      }
+    }catch(e){}
 
     // 🎨 Reemplazar el placeholder con el logo/inicial real de la marca
     try {
