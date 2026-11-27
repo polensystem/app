@@ -5157,7 +5157,27 @@ const {createClient}=supabase;
 const SB_URL='https://abfgnaavzqvfhmyyfvpn.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFiZmduYWF2enF2ZmhteXlmdnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzkwMjUsImV4cCI6MjA5MDExNTAyNX0.ZD-zSW1hCMdhj_IhuLuOTuB3GdzdYkex00je_l30nrA';
 const REC_ID='polen-team-data';
-const sb=createClient(SB_URL,SB_KEY);
+// v572: si la sesión segura venció o ya no sirve (401), la descartamos en silencio y repetimos la
+// petición como antes (sin sesión). Así la app nunca se queda trabada cargando por una sesión vieja.
+const _fetchOriginal = window.fetch.bind(window);
+let _sesionDescartada = false;
+async function _fetchSeguro(input, init){
+  const res = await _fetchOriginal(input, init);
+  try{
+    const url = typeof input==='string' ? input : (input && input.url) || '';
+    if(res.status===401 && /\/(rest|storage)\/v1\//.test(url) && init && init.headers){
+      const h = new Headers(init.headers);
+      const auth = h.get('Authorization') || '';
+      if(auth && auth !== 'Bearer '+SB_KEY){
+        h.set('Authorization', 'Bearer '+SB_KEY);
+        if(!_sesionDescartada){ _sesionDescartada = true; setTimeout(()=>{ try{ sb.auth.signOut({ scope:'local' }); }catch(e){} }, 0); console.warn('[sesión segura] vencida: se descarta y se sigue sin ella'); }
+        return _fetchOriginal(input, Object.assign({}, init, { headers: h }));
+      }
+    }
+  }catch(e){}
+  return res;
+}
+const sb=createClient(SB_URL,SB_KEY,{ global:{ fetch:_fetchSeguro } });
 window.sb = sb; // Para diagnóstico
 // 🔐 "Olvidé mi contraseña": al abrir el enlace del correo, Supabase avisa con PASSWORD_RECOVERY
 (function(){
@@ -5364,7 +5384,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 571;
+const APP_VERSION = 572;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -35761,8 +35781,17 @@ function authPass(p){ return 'polen·'+String(p||''); }
 async function _activarSesionSegura(email, pass){
   if(!email || !pass) return false;
   try{
-    const { error } = await sb.auth.signInWithPassword({ email, password: authPass(pass) });
+    let { error } = await sb.auth.signInWithPassword({ email, password: authPass(pass) });
+    if(error && /invalid|credentials/i.test(error.message||'')){
+      // La cuenta segura tiene otra contraseña guardada: re-sincronizar una vez y reintentar
+      try{
+        const u = (typeof _sesion==='function' && _sesion()) ? _sesion().usuario : email;
+        await authAPI('resync_auth', { usuario: u, pass });
+        ({ error } = await sb.auth.signInWithPassword({ email, password: authPass(pass) }));
+      }catch(e){}
+    }
     if(error){ console.warn('[sesión segura] no se activó:', error.message); return false; }
+    _sesionDescartada = false;
     return true;
   }catch(e){ console.warn('[sesión segura] error', e); return false; }
 }
