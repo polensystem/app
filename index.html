@@ -2882,6 +2882,161 @@ dialog.snake-dialog::backdrop{background:rgba(232,236,232,.42);backdrop-filter:b
         </div>
       </div>
 
+      <!-- ── ACCESOS FIJOS: Polen Labs + Big Papa (v567) ── -->
+      <style>
+/* ── Franja de accesos: mitad y mitad ── */
+.pz-accesos{--ink:#1C1F23;--ink2:#4B5058;--ink3:#6B7280;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:760px){.pz-accesos{grid-template-columns:1fr}}
+
+.pz-acc{--c1:#000;--c2:#000;--c3:#000;--glow:rgba(0,0,0,.2);
+  position:relative;display:flex;align-items:center;gap:16px;text-decoration:none;color:var(--ink);
+  height:128px;padding:0 22px 0 26px;border-radius:22px;overflow:hidden;isolation:isolate;cursor:pointer;
+  background:rgba(255,255,255,.62);
+  backdrop-filter:blur(22px) saturate(1.5);-webkit-backdrop-filter:blur(22px) saturate(1.5);
+  box-shadow:0 1px 0 rgba(255,255,255,.95) inset,0 -1px 0 rgba(0,0,0,.03) inset,0 14px 34px -20px var(--glow),0 1px 4px rgba(0,0,0,.04);
+  transform:perspective(1000px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) translateY(var(--ty,0px));
+  transition:transform .6s cubic-bezier(.2,.8,.2,1),box-shadow .6s}
+.pz-acc:hover{--ty:-2px;box-shadow:0 1px 0 rgba(255,255,255,.95) inset,0 -1px 0 rgba(0,0,0,.03) inset,0 22px 44px -20px var(--glow),0 1px 4px rgba(0,0,0,.04)}
+.pz-labs{--c1:#9FE39A;--c2:#F3DE78;--c3:#EFA3DD;--glow:rgba(190,80,160,.45)}
+.pz-acc.pz-papa{--c1:#6FB2FF;--c2:#7FE0EE;--c3:#A493FF;--glow:rgba(40,90,210,.55);
+  background:#0F1422;color:#F3F6FF;
+  box-shadow:0 1px 0 rgba(255,255,255,.14) inset,0 14px 34px -18px var(--glow),0 1px 4px rgba(0,0,0,.08)}
+.pz-acc.pz-papa:hover{box-shadow:0 1px 0 rgba(255,255,255,.14) inset,0 22px 44px -18px var(--glow),0 1px 4px rgba(0,0,0,.08)}
+.pz-acc.pz-papa .pz-luz{opacity:.85;filter:blur(30px) saturate(1.25)}
+.pz-acc.pz-papa::before{background:linear-gradient(90deg,#0F1422 0%,rgba(15,20,34,.85) 38%,rgba(15,20,34,.15) 72%,rgba(15,20,34,0) 100%)}
+.pz-acc.pz-papa .pz-borde{background:linear-gradient(150deg,rgba(255,255,255,.35),rgba(255,255,255,.06) 35%,rgba(255,255,255,.04) 60%,rgba(190,215,255,.7))}
+.pz-acc.pz-papa::after{background:linear-gradient(110deg,transparent 35%,rgba(200,225,255,.28) 48%,transparent 60%)}
+.pz-acc.pz-papa .pz-sub{color:#A9B6D3}
+.pz-acc.pz-papa .pz-ir{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3);color:#fff;box-shadow:0 4px 14px -6px rgba(0,0,0,.5)}
+.pz-acc.pz-papa:hover .pz-ir{background:#fff;color:#0F1422}
+.pz-acc.pz-papa .pz-cubo .pz-f{border-color:rgba(255,255,255,.75);background:linear-gradient(145deg,rgba(255,255,255,.35),color-mix(in srgb,var(--c1) 30%,rgba(255,255,255,.06)) 55%,color-mix(in srgb,var(--c3) 35%,rgba(255,255,255,.05)));box-shadow:inset 0 0 14px rgba(190,215,255,.45)}
+
+/* resplandor interior: mismo tratamiento en los dos (luz dentro del vidrio) */
+.pz-luz{position:absolute;z-index:-1;right:-6%;top:-60%;width:62%;height:220%;filter:blur(30px) saturate(1.15);opacity:.95;transition:opacity .6s, transform .8s}
+.pz-luz i{position:absolute;border-radius:50%;animation:pz-deriva 16s ease-in-out infinite alternate}
+.pz-luz .pz-l1{width:62%;height:46%;left:4%;top:24%;background:var(--c1)}
+.pz-luz .pz-l2{width:54%;height:40%;left:34%;top:40%;background:var(--c2);animation-delay:-5s}
+.pz-luz .pz-l3{width:58%;height:44%;left:40%;top:16%;background:var(--c3);animation-delay:-10s}
+@keyframes pz-deriva{0%{transform:translate(0,0) scale(1)}50%{transform:translate(-8%,6%) scale(1.07)}100%{transform:translate(6%,-5%) scale(.95)}}
+.pz-acc:hover .pz-luz{transform:translateX(-3%) scale(1.04)}
+/* velo blanco a la izquierda para que el texto respire */
+.pz-acc::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(255,255,255,.75) 0%,rgba(255,255,255,.35) 42%,rgba(255,255,255,0) 70%)}
+/* borde de cristal */
+.pz-borde{position:absolute;inset:0;border-radius:inherit;pointer-events:none;padding:1px;z-index:3;
+  background:linear-gradient(150deg,rgba(255,255,255,1),rgba(255,255,255,.2) 35%,rgba(255,255,255,.08) 65%,rgba(255,255,255,.85));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+/* reflejo que cruza al pasar el mouse */
+.pz-acc::after{content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+  background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.6) 48%,transparent 60%);
+  transform:translateX(-110%);transition:transform 1.2s cubic-bezier(.2,.8,.2,1)}
+.pz-acc:hover::after{transform:translateX(110%)}
+
+.pz-txt{position:relative;z-index:2;flex:1;min-width:0}
+.kicker{font-size:11px;font-weight:650;letter-spacing:.06em;color:var(--ink3);display:flex;align-items:center;gap:7px}
+.kicker .mk{width:16px;height:16px;border-radius:5px;background:var(--ink);display:grid;place-items:center;flex:none}
+.pz-h{font-weight:650;font-size:23px;letter-spacing:-.02em;line-height:1.1;margin:0 0 5px;white-space:nowrap}
+.pz-sub{font-size:12.5px;color:var(--ink2);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* objeto de vidrio (mismo material en los dos) */
+.pz-obj{position:relative;z-index:2;width:100px;height:100px;flex:none;perspective:600px}
+/* Labs: esfera de vidrio */
+.pz-esfera{position:absolute;inset:10px;border-radius:50%;
+  background:
+    radial-gradient(circle at 34% 28%,rgba(255,255,255,.95) 0 7%,rgba(255,255,255,0) 20%),
+    radial-gradient(circle at 70% 75%,color-mix(in srgb,var(--c3) 85%,transparent),transparent 58%),
+    radial-gradient(circle at 28% 72%,color-mix(in srgb,var(--c1) 85%,transparent),transparent 60%),
+    radial-gradient(circle at 66% 30%,color-mix(in srgb,var(--c2) 80%,transparent),transparent 60%),
+    rgba(255,255,255,.25);
+  box-shadow:inset -8px -10px 20px rgba(120,60,120,.14),inset 6px 8px 16px rgba(255,255,255,.95),0 16px 26px -14px var(--glow);
+  border:1px solid rgba(255,255,255,.8);
+  animation:pz-respira 7s ease-in-out infinite}
+.pz-esfera::after{content:"";position:absolute;left:18%;right:18%;bottom:8%;height:18%;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.7),transparent)}
+@keyframes pz-respira{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+/* Big Papa: cubo de vidrio con capas de datos (el NAS como cubo de información) */
+.pz-cubo{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;transform-style:preserve-3d;
+  transform:rotateX(-24deg) rotateY(38deg);animation:pz-gira 22s linear infinite}
+@keyframes pz-gira{to{transform:rotateX(-24deg) rotateY(398deg)}}
+.pz-cubo .pz-f{position:absolute;inset:0;border-radius:8px;border:1px solid rgba(255,255,255,.95);
+  background:linear-gradient(145deg,rgba(255,255,255,.55),color-mix(in srgb,var(--c1) 35%,rgba(255,255,255,.12)) 55%,color-mix(in srgb,var(--c3) 40%,rgba(255,255,255,.1)));
+  box-shadow:inset 0 0 14px rgba(255,255,255,.6)}
+.pz-cubo .pz-f:nth-child(1){transform:translateZ(26px)}
+.pz-cubo .pz-f:nth-child(2){transform:rotateY(180deg) translateZ(26px)}
+.pz-cubo .pz-f:nth-child(3){transform:rotateY(90deg) translateZ(26px)}
+.pz-cubo .pz-f:nth-child(4){transform:rotateY(-90deg) translateZ(26px)}
+.pz-cubo .pz-f:nth-child(5){transform:rotateX(90deg) translateZ(26px)}
+.pz-cubo .pz-f:nth-child(6){transform:rotateX(-90deg) translateZ(26px)}
+/* capas internas (discos/datos) */
+.pz-cubo .pz-capa{position:absolute;left:8px;right:8px;height:6px;border-radius:3px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--c1) 90%,#fff),color-mix(in srgb,var(--c3) 90%,#fff));
+  box-shadow:0 0 10px color-mix(in srgb,var(--c1) 80%,transparent);opacity:.9}
+.pz-cubo .pz-capa.pz-k1{top:14px}.pz-cubo .pz-capa.pz-k2{top:23px}.pz-cubo .pz-capa.pz-k3{top:32px}
+.pz-sombra{position:absolute;left:50%;bottom:2px;width:64px;height:12px;margin-left:-32px;border-radius:50%;background:radial-gradient(closest-side,var(--glow),transparent);filter:blur(3px)}
+
+/* botón circular */
+.pz-ir{position:relative;z-index:2;width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;
+  background:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.95);box-shadow:0 4px 12px -6px rgba(0,0,0,.25);color:var(--ink);
+  transition:background .3s,transform .4s}
+.pz-ir svg{width:15px;height:15px}
+.pz-acc:hover .pz-ir{background:var(--ink);color:#fff;transform:rotate(-8deg) scale(1.04)}
+
+.pz-tags{display:flex;flex-wrap:nowrap;gap:5px;margin-top:10px;overflow:hidden}
+.pz-tags span{flex:none;font-size:10.5px;line-height:1;padding:5px 9px;border-radius:999px;color:var(--ink2);background:rgba(255,255,255,.7);border:1px solid rgba(0,0,0,.06)}
+@media (max-width:1000px) and (min-width:761px){.pz-h{font-size:20px}}
+.pz-acc{min-width:0}
+@media (max-width:1500px){.pz-obj{width:78px;height:78px}.pz-tags{gap:4px}.pz-tags span{padding:5px 8px}}
+@media (max-width:1180px) and (min-width:761px){.pz-obj{display:none}}
+@media (max-width:520px){.pz-obj{display:none}.pz-h{font-size:20px}.pz-sub{white-space:normal}}
+@media (prefers-reduced-motion:reduce){.pz-accesos *,.pz-accesos *::before,.pz-accesos *::after{animation:none!important;transition:none!important}}
+
+      </style>
+      <div id="pz-accesos-wrap" style="margin:14px 0;width:100%">
+<div class="pz-accesos">
+    <a class="pz-acc pz-labs" href="https://polenlab.com" target="_blank" rel="noopener">
+      <div class="pz-luz" aria-hidden="true"><i class="pz-l1"></i><i class="pz-l2"></i><i class="pz-l3"></i></div>
+      <div class="pz-txt">
+        <div class="pz-h">Crea con Polen Labs</div>
+        <p class="pz-sub">Tu laboratorio creativo con IA.</p>
+        <div class="pz-tags"><span>Logos</span><span>Naming</span><span>Presentaciones</span><span>Brand book</span><span>Video</span></div>
+      </div>
+      <div class="pz-obj" aria-hidden="true"><div class="pz-esfera"></div><div class="pz-sombra"></div></div>
+      <span class="pz-ir" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 11L11 5M6 5h5v5"/></svg></span>
+      <span class="pz-borde"></span>
+    </a>
+
+    <a class="pz-acc pz-papa" href="#" onclick="return _pzAbrirBigPapa(event)">
+      <div class="pz-luz" aria-hidden="true"><i class="pz-l1"></i><i class="pz-l2"></i><i class="pz-l3"></i></div>
+      <div class="pz-txt">
+        <div class="pz-h">Ir a Big Papa</div>
+        <p class="pz-sub">Toda la data de Polen. Accede con tu usuario.</p>
+      </div>
+      <div class="pz-obj" aria-hidden="true">
+        <div class="pz-cubo"><span class="pz-f"></span><span class="pz-f"></span><span class="pz-f"></span><span class="pz-f"></span><span class="pz-f"></span><span class="pz-f"></span><span class="pz-capa pz-k1"></span><span class="pz-capa pz-k2"></span><span class="pz-capa pz-k3"></span></div>
+        <div class="pz-sombra"></div>
+      </div>
+      <span class="pz-ir" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 11L11 5M6 5h5v5"/></svg></span>
+      <span class="pz-borde"></span>
+    </a>
+  </div>
+
+        </div>
+      <script>
+// Dirección de Big Papa (NAS Synology). Mientras esté vacía, el botón avisa "próximamente".
+const BIGPAPA_URL = '';
+function _pzAbrirBigPapa(e){
+  if(e) e.preventDefault();
+  if(BIGPAPA_URL){ window.open(BIGPAPA_URL, '_blank', 'noopener'); }
+  else { try{ showStatus('Big Papa estará disponible aquí muy pronto'); }catch(_){ } }
+  return false;
+}
+(function(){ try{
+document.querySelectorAll('.pz-acc').forEach(el=>{
+  el.addEventListener('mousemove',e=>{const r=el.getBoundingClientRect();const x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;
+    el.style.setProperty('--ry',(x*4)+'deg');el.style.setProperty('--rx',(-y*6)+'deg');});
+  el.addEventListener('mouseleave',()=>{el.style.setProperty('--ry','0deg');el.style.setProperty('--rx','0deg');});
+});
+}catch(_){} })();
+      </script>
+
       <div id="dash-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;align-items:stretch">
         <!-- Marcas activas (dark card) -->
         <div style="background:#1a1a2e;border-radius:16px;padding:1.3rem 1.5rem;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 4px 20px rgba(0,0,0,0.25)">
@@ -5025,7 +5180,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 566;
+const APP_VERSION = 567;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
