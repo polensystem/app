@@ -2849,11 +2849,23 @@ dialog.snake-dialog::backdrop{background:rgba(232,236,232,.42);backdrop-filter:b
 .as-ok{font-size:.68rem;color:#2E9E5B}
 .as-lista{display:flex;gap:10px;overflow-x:auto;padding:3px 3px 6px;align-items:stretch;scroll-snap-type:x proximity;-webkit-mask:linear-gradient(90deg,#000 92%,transparent);mask:linear-gradient(90deg,#000 92%,transparent)}
 .as-lista::-webkit-scrollbar{height:6px}.as-lista::-webkit-scrollbar-thumb{background:rgba(0,0,0,.12);border-radius:9px}
-.as-w{flex:0 0 186px;scroll-snap-align:start;background:rgba(255,255,255,.78);border:1px solid var(--border);border-radius:16px;padding:11px 12px;display:flex;flex-direction:column;gap:7px}
+.as-w{flex:0 0 228px;cursor:pointer;transition:transform .2s,box-shadow .2s;scroll-snap-align:start;background:rgba(255,255,255,.78);border:1px solid var(--border);border-radius:16px;padding:11px 12px;display:flex;flex-direction:column;gap:7px}
 .as-w-top{display:flex;align-items:center;gap:8px}
 .as-w-n{font-size:.76rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .as-w-t{font-size:.6rem;color:var(--text3)}
-.as-w-d{font-size:.76rem;line-height:1.4;color:var(--text2);display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+.as-w:hover{transform:translateY(-2px);box-shadow:0 10px 24px -14px rgba(0,0,0,.3)}
+.as-w.vacio{cursor:default}.as-w.vacio:hover{transform:none;box-shadow:none}
+.as-w-mas{font-size:.66rem;font-weight:700;color:var(--text);margin-top:auto;padding-top:2px}
+.as-ov{position:fixed;inset:0;z-index:10060;background:rgba(20,22,28,.3);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px}
+.as-win{width:min(440px,94vw);max-height:85vh;overflow:auto;background:rgba(255,255,255,.95);border:1px solid #fff;border-radius:22px;box-shadow:0 24px 60px -20px rgba(0,0,0,.35);padding:20px 22px;position:relative;isolation:isolate;font-family:var(--font)}
+.as-win::before{content:"";position:absolute;z-index:-1;inset:-30% -30% 50% 30%;filter:blur(40px);opacity:.5;background:radial-gradient(40% 50% at 40% 50%,#C9B8FF,transparent 70%),radial-gradient(40% 50% at 75% 40%,#FFC6E3,transparent 70%)}
+.as-win-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.as-win-n{font-weight:700;font-size:1rem;color:var(--text)}.as-win-t{font-size:.7rem;color:var(--text3)}
+.as-win-x{margin-left:auto;align-self:flex-start;border:none;background:none;font-size:15px;color:var(--text3);cursor:pointer}
+.as-win-k{font-size:.66rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.as-win-d{font-size:.9rem;line-height:1.55;color:var(--text);white-space:pre-wrap;word-break:break-word}
+.as-win-l{display:inline-block;margin-top:14px;font-size:.78rem;font-weight:700;color:var(--bg);background:var(--text);border-radius:999px;padding:8px 14px;text-decoration:none}
+.as-w-d{font-size:.76rem;line-height:1.4;color:var(--text2);display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
 .as-w-link{margin-top:auto;font-size:.66rem;color:#6b55e0;text-decoration:none;font-weight:700}
 .as-w.vacio{background:rgba(255,255,255,.4);border-style:dashed}
 .as-w.vacio .as-w-d{color:#a0a5ad;font-style:italic}
@@ -5391,7 +5403,7 @@ window.appData = appData; // Para diagnóstico
 // Sube APP_VERSION en CADA despliegue. En cuanto UNA persona abre la versión nueva,
 // su número se propaga por el servidor y los demás dispositivos viejos lo detectan.
 // ════════════════════════════════════════════════════════════════════════
-const APP_VERSION = 574;
+const APP_VERSION = 575;
 function _showUpdateBanner(){
   if(document.getElementById('polen-update-banner')) return;
   const bar = document.createElement('div');
@@ -19296,12 +19308,40 @@ function renderAmigoSecreto(){
   lista.innerHTML = orden.map(m=>{
     const f = porId[m.id]; const d = f && (f.deseo||'').trim();
     const nombre = escapeHtml(m.apodo||m.nombre||'');
-    const link = d && f.link && /^https?:\/\//i.test(f.link) ? `<a class="as-w-link" href="${escapeHtml(f.link)}" target="_blank" rel="noopener">Ver ejemplo ↗</a>` : '';
-    return `<div class="as-w${d?'':' vacio'}${m.id===yo?' yo':''}" title="${d?escapeHtml(f.deseo):''}">
+    return `<div class="as-w${d?'':' vacio'}${m.id===yo?' yo':''}" data-mid="${escapeHtml(m.id)}">
       <div class="as-w-top">${_paAvatarHTML(m, 30)}<div style="min-width:0"><div class="as-w-n">${nombre}${m.id===yo?' · tú':''}</div><div class="as-w-t">${d?_asHace(f.updated_at):'Aún no escribe'}</div></div></div>
-      <div class="as-w-d">${d?escapeHtml(f.deseo).replace(/\n/g,'<br>'):'Todavía no dice qué quiere…'}</div>${link}
+      <div class="as-w-d">${d?escapeHtml(f.deseo).replace(/\n/g,'<br>'):'Todavía no dice qué quiere…'}</div>
+      <div class="as-w-mas" hidden>Ver todo →</div>
     </div>`;
   }).join('');
+  // "Ver todo" solo cuando el texto no entra (o hay link, que se ve en la ventana)
+  lista.querySelectorAll('.as-w:not(.vacio)').forEach(w=>{
+    const dd = w.querySelector('.as-w-d'), mas = w.querySelector('.as-w-mas');
+    const f = porId[w.dataset.mid] || {};
+    const corta = dd.scrollHeight > dd.clientHeight + 2;
+    if(corta) mas.hidden = false;
+    else if(f.link){ mas.hidden = false; mas.textContent = 'Ver link →'; }
+  });
+  lista.onclick = ev=>{
+    const w = ev.target.closest('.as-w'); if(!w || w.classList.contains('vacio')) return;
+    const m = miembros.find(x=>x.id===w.dataset.mid); const f = porId[w.dataset.mid];
+    if(m && f) _asVerDeseo(m, f);
+  };
+}
+function _asVerDeseo(m, f){
+  document.querySelectorAll('.as-ov').forEach(x=>x.remove());
+  const link = f.link && /^https?:\/\//i.test(f.link) ? `<a class="as-win-l" href="${escapeHtml(f.link)}" target="_blank" rel="noopener">Ver ejemplo ↗</a>` : '';
+  const ov = document.createElement('div'); ov.className = 'as-ov';
+  ov.innerHTML = `<div class="as-win" role="dialog" aria-label="Deseo de ${escapeHtml(m.apodo||m.nombre||'')}">
+    <div class="as-win-top">${_paAvatarHTML(m, 40)}<div><div class="as-win-n">${escapeHtml(m.apodo||m.nombre||'')}</div><div class="as-win-t">${_asHace(f.updated_at)}</div></div><button class="as-win-x" aria-label="Cerrar">✕</button></div>
+    <div class="as-win-k">Le gustaría recibir</div>
+    <div class="as-win-d">${escapeHtml(f.deseo||'')}</div>${link}
+  </div>`;
+  document.body.appendChild(ov);
+  const cerrar = ()=>{ ov.remove(); document.removeEventListener('keydown', esc); };
+  const esc = e=>{ if(e.key==='Escape') cerrar(); };
+  document.addEventListener('keydown', esc);
+  ov.onclick = e=>{ if(e.target===ov || e.target.closest('.as-win-x')) cerrar(); };
 }
 async function _asGuardar(){
   const btn = document.getElementById('as-guardar');
